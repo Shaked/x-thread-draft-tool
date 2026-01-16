@@ -16,9 +16,25 @@ export default function DraftEditor({ user }) {
   const [saving, setSaving] = useState(false)
   const [synced, setSynced] = useState(true)
   const [isEditMode, setIsEditMode] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const saveTimeoutRef = useRef(null)
   const lastSavedRef = useRef(null)
+
+  // Collapse sidebar by default on smaller screens
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024 && !sidebarCollapsed) {
+        setSidebarCollapsed(true)
+      }
+    }
+
+    // Check on mount
+    handleResize()
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   useEffect(() => {
     loadDraft()
@@ -291,7 +307,7 @@ export default function DraftEditor({ user }) {
         </div>
       </header>
 
-      <div className="editor-content">
+      <div className={`editor-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <div className="main-panel">
           <ThreadComposer
             posts={draft.posts}
@@ -318,7 +334,15 @@ export default function DraftEditor({ user }) {
           )}
         </div>
 
-        <div className="side-panel">
+        <button
+          className="sidebar-toggle"
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          title={sidebarCollapsed ? 'Show export panel' : 'Hide export panel'}
+        >
+          {sidebarCollapsed ? '◀' : '▶'}
+        </button>
+
+        <div className={`side-panel ${sidebarCollapsed ? 'collapsed' : ''}`}>
           <ExportOptions draft={draft} />
         </div>
       </div>

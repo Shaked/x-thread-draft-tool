@@ -847,6 +847,12 @@ body {
   min-height: 100px;
   font-family: inherit;
   line-height: 1.5;
+  text-align: left;
+}
+
+.post-textarea.rtl {
+  text-align: right;
+  direction: rtl;
 }
 
 .post-textarea:focus {
@@ -1267,6 +1273,12 @@ body {
   padding: 20px;
   max-width: 1400px;
   margin: 0 auto;
+  position: relative;
+  transition: grid-template-columns 0.3s ease;
+}
+
+.editor-content.sidebar-collapsed {
+  grid-template-columns: 1fr 0px;
 }
 
 .main-panel {
@@ -1277,6 +1289,45 @@ body {
   position: sticky;
   top: 80px;
   height: fit-content;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.side-panel.collapsed {
+  opacity: 0;
+  visibility: hidden;
+  width: 0;
+  padding: 0;
+}
+
+.sidebar-toggle {
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: #1d9bf0;
+  border: 1px solid #1d9bf0;
+  color: #fff;
+  width: 32px;
+  height: 48px;
+  border-radius: 8px 0 0 8px;
+  cursor: pointer;
+  font-size: 16px;
+  z-index: 100;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.sidebar-toggle:hover {
+  background-color: #1a8cd8;
+  right: 22px;
+}
+
+.editor-content.sidebar-collapsed .sidebar-toggle {
+  right: 10px;
 }
 
 .editor-hint {
@@ -1393,10 +1444,41 @@ body {
 
   .editor-content {
     grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .editor-content.sidebar-collapsed {
+    grid-template-columns: 1fr;
   }
 
   .side-panel {
     position: static;
+    order: -1; /* Move to top on mobile */
+    margin-bottom: 20px;
+  }
+
+  .side-panel.collapsed {
+    display: none;
+  }
+
+  .sidebar-toggle {
+    position: fixed;
+    top: auto;
+    bottom: 20px;
+    right: 20px;
+    transform: none;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    font-size: 20px;
+  }
+
+  .sidebar-toggle:hover {
+    right: 20px;
+  }
+
+  .editor-content.sidebar-collapsed .sidebar-toggle {
+    right: 20px;
   }
 
   .image-preview-grid {

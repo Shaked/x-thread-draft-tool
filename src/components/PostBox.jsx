@@ -20,6 +20,14 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   const charCount = text.length
   const isOverLimit = charCount > MAX_CHARS
 
+  // Detect RTL text (Hebrew, Arabic, etc.)
+  const detectRTL = (text) => {
+    const rtlRegex = /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/
+    return rtlRegex.test(text)
+  }
+
+  const isRTL = detectRTL(text)
+
   const handleTextChange = (e) => {
     if (readOnly) return
     const newText = e.target.value
@@ -222,7 +230,8 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           onChange={handleTextChange}
           onPaste={handlePaste}
           placeholder={index === 0 ? "Start your thread..." : "Continue your thread..."}
-          className={`post-textarea ${isOverLimit ? 'over-limit' : ''}`}
+          className={`post-textarea ${isOverLimit ? 'over-limit' : ''} ${isRTL ? 'rtl' : ''}`}
+          dir={isRTL ? 'rtl' : 'ltr'}
           rows={4}
           readOnly={readOnly}
         />
