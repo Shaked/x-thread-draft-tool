@@ -29,7 +29,12 @@ export default function ExportOptions({ draft }) {
 
       if (post.images && post.images.length > 0) {
         post.images.forEach((img, imgIndex) => {
-          markdown += `![Image ${imgIndex + 1}](${img})\n`
+          const imageUrl = typeof img === 'string' ? img : img.url
+          const sourceUrl = typeof img === 'object' ? img.sourceUrl : null
+          markdown += `![Image ${imgIndex + 1}](${imageUrl})\n`
+          if (sourceUrl) {
+            markdown += `<!-- Source: ${sourceUrl} -->\n`
+          }
         })
         markdown += '\n'
       }

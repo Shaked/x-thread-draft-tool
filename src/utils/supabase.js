@@ -64,6 +64,7 @@ export const deleteImage = async (imageUrl) => {
 export const deleteAllDraftImages = async (posts) => {
   const imageUrls = posts
     .flatMap(post => post.images || [])
+    .map(img => typeof img === 'string' ? img : img.url)
     .filter(Boolean)
 
   const deletePromises = imageUrls.map(url => deleteImage(url).catch(err => {
@@ -71,4 +72,73 @@ export const deleteAllDraftImages = async (posts) => {
   }))
 
   await Promise.all(deletePromises)
+}
+
+// Helper function to upload image from URL
+export const uploadImageFromUrl = async (imageUrl, userId, draftId) => {
+  try {
+    console.log('[uploadImageFromUrl] Fetching:', imageUrl)
+
+    const response = await fetch(imageUrl, {
+      mode: 'cors',
+      headers: {
+        'Accept': 'image/*'
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    const blob = await response.blob()
+    console.log('[uploadImageFromUrl] Blob received:', blob.type, blob.size)
+
+    // Validate it's actually an image
+    if (!blob.type.startsWith('image/')) {
+      throw new Error(`Invalid content type: ${blob.type}. Expected image/*`)
+    }
+
+    // Validate size (5MB limit)
+    if (blob.size > 5 * 1024 * 1024) {
+      throw new Error('Image size exceeds 5MB limit')
+    }
+
+    const filename = imageUrl.split('/').pop()?.split('?')[0] || 'image.jpg'
+    const file = new File([blob], filename, { type: blob.type })
+
+    console.log('[uploadImageFromUrl] Uploading to storage...')
+    const url = await uploadImage(file, userId, draftId)
+    console.log('[uploadImageFromUrl] Upload complete:', url)
+
+    return {
+      url,
+      sourceUrl: imageUrl,
+      uploadMethod: 'url'
+    }
+  } catch (error) {
+    console.error('[uploadImageFromUrl] Error:', error)
+    // Provide more specific error messages
+    if (error.message.includes('CORS')) {
+      throw new Error('CORS error: Image host blocks cross-origin requests')
+    }
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      throw new Error('Network error: Unable to reach image URL')
+    }
+    throw new Error(`Cannot fetch image: ${error.message}`)
+  }
+}
+
+// Helper function to normalize images (backward compatibility)
+export const normalizeImages = (images) => {
+  if (!Array.isArray(images)) return []
+
+  return images.map(img => {
+    if (typeof img === 'string') {
+      return {
+        url: img,
+        uploadMethod: 'file'
+      }
+    }
+    return img
+  })
 }

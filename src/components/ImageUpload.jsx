@@ -1,15 +1,16 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, forwardRef, useImperativeHandle } from 'react'
 import { useParams } from 'react-router-dom'
-import { supabase, uploadImage } from '../utils/supabase'
+import { supabase, uploadImage, uploadImageFromUrl } from '../utils/supabase'
 
 const MAX_IMAGES = 4
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const MAX_IMAGE_WIDTH = 1920
 
-export default function ImageUpload({ images = [], onChange, postId }) {
+const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
   const [uploading, setUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const [error, setError] = useState(null)
+  const [urlLoading, setUrlLoading] = useState(false)
   const fileInputRef = useRef(null)
   const { id: draftId } = useParams()
 
@@ -56,7 +57,7 @@ export default function ImageUpload({ images = [], onChange, postId }) {
     })
   }
 
-  const handleFiles = async (files) => {
+  const handleFiles = async (files, uploadMethod = 'file') => {
     setError(null)
 
     const fileArray = Array.from(files)
@@ -92,11 +93,14 @@ export default function ImageUpload({ images = [], onChange, postId }) {
         const compressedFile = await compressImage(file)
         // Upload to Supabase
         const url = await uploadImage(compressedFile, user.id, draftId || 'temp')
-        return url
+        return {
+          url,
+          uploadMethod
+        }
       })
 
-      const urls = await Promise.all(uploadPromises)
-      onChange([...images, ...urls])
+      const imageObjects = await Promise.all(uploadPromises)
+      onChange([...images, ...imageObjects])
     } catch (err) {
       console.error('Upload error:', err)
       setError(err.message || 'Failed to upload images')
@@ -104,6 +108,57 @@ export default function ImageUpload({ images = [], onChange, postId }) {
       setUploading(false)
     }
   }
+
+  const handleImageFromUrl = async (imageUrl) => {
+    setError(null)
+    const remainingSlots = MAX_IMAGES - images.length
+
+    if (remainingSlots <= 0) {
+      const errorMsg = 'Maximum 4 images reached'
+      setError(errorMsg)
+      console.warn(errorMsg)
+      return null
+    }
+
+    setUrlLoading(true)
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('You must be logged in to upload images')
+      }
+
+      console.log(`Fetching image from URL: ${imageUrl}`)
+      const imageObject = await uploadImageFromUrl(imageUrl, user.id, draftId || 'temp')
+      console.log('Image uploaded successfully:', imageObject)
+
+      const newImages = [...images, imageObject]
+      console.log('[ImageUpload] Calling onChange with new images array:', newImages)
+      onChange(newImages)
+
+      // Clear error after 3 seconds on success
+      setTimeout(() => setError(null), 3000)
+
+      return imageObject
+    } catch (err) {
+      console.error('URL upload error:', err)
+      const errorMsg = err.message || 'Failed to fetch image from URL'
+      setError(`${errorMsg} - URL: ${imageUrl.substring(0, 50)}...`)
+
+      // Auto-clear error after 5 seconds
+      setTimeout(() => setError(null), 5000)
+
+      return null
+    } finally {
+      setUrlLoading(false)
+    }
+  }
+
+  // Expose methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    addFiles: (files) => handleFiles(files, 'clipboard'),
+    addImageFromUrl: (url) => handleImageFromUrl(url)
+  }))
 
   const handleDrag = (e) => {
     e.preventDefault()
@@ -164,12 +219,14 @@ export default function ImageUpload({ images = [], onChange, postId }) {
           style={{ display: 'none' }}
         />
 
-        {uploading ? (
-          <div className="upload-status">Uploading...</div>
+        {uploading || urlLoading ? (
+          <div className="upload-status">
+            {uploading ? 'Uploading...' : 'Fetching image...'}
+          </div>
         ) : (
           <div className="upload-prompt">
             <span className="upload-icon">📷</span>
-            <span>Drag images here or click to upload ({images.length}/{MAX_IMAGES})</span>
+            <span>Drag, paste, or click to upload ({images.length}/{MAX_IMAGES})</span>
           </div>
         )}
       </div>
@@ -181,4 +238,8 @@ export default function ImageUpload({ images = [], onChange, postId }) {
       )}
     </div>
   )
-}
+})
+
+ImageUpload.displayName = 'ImageUpload'
+
+export default ImageUpload

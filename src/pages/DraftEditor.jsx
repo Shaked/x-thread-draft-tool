@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { supabase, isOwner, deleteAllDraftImages } from '../utils/supabase'
+import { supabase, isOwner, deleteAllDraftImages, normalizeImages } from '../utils/supabase'
 import { set as idbSet, get as idbGet } from 'idb-keyval'
 import ThreadComposer from '../components/ThreadComposer'
 import ShareButton from '../components/ShareButton'
@@ -41,7 +41,15 @@ export default function DraftEditor({ user }) {
         if (!user) {
           const localDraft = await idbGet(`draft-${id}`)
           if (localDraft) {
-            setDraft(localDraft)
+            // Normalize images for backward compatibility
+            const normalizedDraft = {
+              ...localDraft,
+              posts: localDraft.posts?.map(post => ({
+                ...post,
+                images: normalizeImages(post.images || [])
+              })) || []
+            }
+            setDraft(normalizedDraft)
             setIsEditMode(false)
             setLoading(false)
             return
@@ -50,9 +58,18 @@ export default function DraftEditor({ user }) {
         throw fetchError
       }
 
-      setDraft(data)
+      // Normalize images for backward compatibility
+      const normalizedData = {
+        ...data,
+        posts: data.posts?.map(post => ({
+          ...post,
+          images: normalizeImages(post.images || [])
+        })) || []
+      }
+
+      setDraft(normalizedData)
       setIsEditMode(user && isOwner(data, user.id))
-      lastSavedRef.current = JSON.stringify(data)
+      lastSavedRef.current = JSON.stringify(normalizedData)
 
       // Save to IndexedDB for offline access
       await idbSet(`draft-${id}`, data)

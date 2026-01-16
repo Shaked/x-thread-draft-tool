@@ -1,13 +1,18 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import EmojiPicker from './EmojiPicker'
 import ImageUpload from './ImageUpload'
 import TweetEmbed from './TweetEmbed'
 
 const MAX_CHARS = 280
+// More flexible regex that handles query params and matches common image patterns
+const IMAGE_URL_REGEX = /https?:\/\/[^\s]+?\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?[^\s]*)?/gi
 
 export default function PostBox({ post, index, totalPosts, onChange, onRemove, readOnly = false }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [detectingUrls, setDetectingUrls] = useState(false)
   const textareaRef = useRef(null)
+  const imageUploadRef = useRef(null)
+  const urlDetectionTimeoutRef = useRef(null)
 
   const text = post?.text || ''
   const images = post?.images || []
@@ -17,11 +22,104 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
 
   const handleTextChange = (e) => {
     if (readOnly) return
+    const newText = e.target.value
     onChange({
       ...post,
-      text: e.target.value
+      text: newText
     })
+
+    // Debounce URL detection
+    if (urlDetectionTimeoutRef.current) {
+      clearTimeout(urlDetectionTimeoutRef.current)
+    }
+
+    urlDetectionTimeoutRef.current = setTimeout(() => {
+      detectAndConvertImageUrls(newText)
+    }, 500)
   }
+
+  const detectAndConvertImageUrls = async (text) => {
+    if (readOnly || !imageUploadRef.current) {
+      console.log('[detectAndConvertImageUrls] Skipped - readOnly or no imageUploadRef')
+      return
+    }
+
+    console.log('[detectAndConvertImageUrls] Checking text:', text)
+    const matches = [...text.matchAll(IMAGE_URL_REGEX)]
+    console.log('[detectAndConvertImageUrls] Regex matches:', matches.length, matches.map(m => m[0]))
+
+    if (matches.length === 0) return
+
+    const imageUrls = matches.map(match => match[0])
+    const remainingSlots = 4 - images.length
+
+    if (remainingSlots <= 0) {
+      console.log('[detectAndConvertImageUrls] No remaining image slots, skipping URL detection')
+      return
+    }
+
+    const urlsToConvert = imageUrls.slice(0, remainingSlots)
+    if (urlsToConvert.length === 0) return
+
+    console.log(`[detectAndConvertImageUrls] Converting ${urlsToConvert.length} URL(s):`, urlsToConvert)
+    setDetectingUrls(true)
+
+    try {
+      const convertedUrls = []
+      for (const url of urlsToConvert) {
+        console.log(`Attempting to fetch: ${url}`)
+        const result = await imageUploadRef.current.addImageFromUrl(url)
+        if (result) {
+          console.log(`Successfully converted: ${url}`)
+          convertedUrls.push(url)
+        } else {
+          console.warn(`Failed to convert: ${url}`)
+        }
+      }
+
+      // Remove successfully converted URLs from text
+      if (convertedUrls.length > 0) {
+        let updatedText = text
+        for (const url of convertedUrls) {
+          updatedText = updatedText.replace(url, '').replace(/\s+/g, ' ').trim()
+        }
+        onChange({
+          ...post,
+          text: updatedText
+        })
+        console.log(`Removed ${convertedUrls.length} URL(s) from text`)
+      }
+    } catch (error) {
+      console.error('Error during URL detection:', error)
+    } finally {
+      setDetectingUrls(false)
+    }
+  }
+
+  const handlePaste = async (e) => {
+    if (readOnly || !imageUploadRef.current) return
+
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault()
+        const file = item.getAsFile()
+        if (file) {
+          await imageUploadRef.current.addFiles([file])
+        }
+      }
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (urlDetectionTimeoutRef.current) {
+        clearTimeout(urlDetectionTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const handleEmojiSelect = (emoji) => {
     if (readOnly) return
@@ -46,19 +144,21 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
 
   const handleImagesChange = (newImages) => {
     if (readOnly) return
-    onChange({
+    console.log('[PostBox handleImagesChange] Received new images:', newImages)
+    console.log('[PostBox handleImagesChange] Current post:', post)
+    const updatedPost = {
       ...post,
-      images: newImages,
-      embeddedTweet: null // Clear embedded tweet if images are added
-    })
+      images: newImages
+    }
+    console.log('[PostBox handleImagesChange] Updated post:', updatedPost)
+    onChange(updatedPost)
   }
 
   const handleEmbedTweetChange = (url) => {
     if (readOnly) return
     onChange({
       ...post,
-      embeddedTweet: url,
-      images: [] // Clear images if tweet is embedded
+      embeddedTweet: url
     })
   }
 
@@ -70,19 +170,49 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
     })
   }
 
+  const handleCopyText = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      // Could add a toast notification here if you want
+      const button = document.activeElement
+      if (button && button.classList.contains('copy-post-btn')) {
+        const originalText = button.innerHTML
+        button.innerHTML = '✓ Copied'
+        button.classList.add('copied')
+        setTimeout(() => {
+          button.innerHTML = originalText
+          button.classList.remove('copied')
+        }, 2000)
+      }
+    } catch (err) {
+      console.error('Failed to copy text:', err)
+      alert('Failed to copy to clipboard')
+    }
+  }
+
   return (
     <div className="post-box">
       <div className="post-header">
         <span className="post-number">{index + 1}/{totalPosts}</span>
-        {!readOnly && onRemove && totalPosts > 1 && (
+        <div className="post-header-actions">
           <button
-            className="remove-post-btn"
-            onClick={onRemove}
-            title="Remove post"
+            className="copy-post-btn"
+            onClick={handleCopyText}
+            title="Copy post text"
+            disabled={!text}
           >
-            ×
+            📋 Copy
           </button>
-        )}
+          {!readOnly && onRemove && totalPosts > 1 && (
+            <button
+              className="remove-post-btn"
+              onClick={onRemove}
+              title="Remove post"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="post-content">
@@ -90,6 +220,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           ref={textareaRef}
           value={text}
           onChange={handleTextChange}
+          onPaste={handlePaste}
           placeholder={index === 0 ? "Start your thread..." : "Continue your thread..."}
           className={`post-textarea ${isOverLimit ? 'over-limit' : ''}`}
           rows={4}
@@ -122,15 +253,22 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           </div>
         </div>
 
-        {!readOnly && !embeddedTweet && (
+        {!readOnly && (
           <ImageUpload
+            ref={imageUploadRef}
             images={images}
             onChange={handleImagesChange}
             postId={post.id}
           />
         )}
 
-        {!readOnly && !images.length && (
+        {detectingUrls && (
+          <div className="url-detection-status">
+            Detecting and converting image URLs...
+          </div>
+        )}
+
+        {!readOnly && (
           <div className="embed-input">
             <input
               type="text"
@@ -158,19 +296,50 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
 
         {images.length > 0 && (
           <div className="image-preview-grid">
-            {images.map((url, idx) => (
-              <div key={idx} className="image-preview-item">
-                <img src={url} alt={`Preview ${idx + 1}`} />
-                {!readOnly && (
-                  <button
-                    className="remove-image-btn"
-                    onClick={() => handleImagesChange(images.filter((_, i) => i !== idx))}
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            ))}
+            {(() => {
+              console.log('[PostBox render] Rendering images:', images)
+              return images.map((img, idx) => {
+                console.log(`[PostBox render] Image ${idx}:`, img, typeof img)
+                const imageUrl = typeof img === 'string' ? img : img.url
+                const sourceUrl = typeof img === 'object' ? img.sourceUrl : null
+                const uploadMethod = typeof img === 'object' ? img.uploadMethod : 'file'
+
+                console.log(`[PostBox render] Image ${idx} - url: ${imageUrl}, sourceUrl: ${sourceUrl}, method: ${uploadMethod}`)
+
+                const methodIcon = {
+                  'file': '📁',
+                  'clipboard': '📋',
+                  'url': '🔗'
+                }[uploadMethod] || '📁'
+
+                return (
+                <div key={idx} className="image-preview-item" title={sourceUrl || 'Uploaded image'}>
+                  <img src={imageUrl} alt={`Preview ${idx + 1}`} />
+                  <span className="upload-method-badge">{methodIcon}</span>
+                  {sourceUrl && (
+                    <a
+                      href={sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="source-url-link"
+                      title={`Source: ${sourceUrl}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      🔗
+                    </a>
+                  )}
+                  {!readOnly && (
+                    <button
+                      className="remove-image-btn"
+                      onClick={() => handleImagesChange(images.filter((_, i) => i !== idx))}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                )
+              })
+            })()}
           </div>
         )}
       </div>
