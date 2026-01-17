@@ -20,24 +20,89 @@ export default function DraftEditor({ user }) {
 
   const saveTimeoutRef = useRef(null)
   const lastSavedRef = useRef(null)
-  const scrollPositionRef = useRef(0)
 
-  // Save scroll position before updates
+  // Save scroll position and focused element to sessionStorage
   useEffect(() => {
-    const saveScrollPosition = () => {
-      scrollPositionRef.current = window.scrollY
+    const saveState = () => {
+      try {
+        sessionStorage.setItem(`draft-${id}-scroll`, window.scrollY.toString())
+
+        // Save focused post index if any textarea is focused
+        const activeElement = document.activeElement
+        if (activeElement && activeElement.classList.contains('post-textarea')) {
+          const postBox = activeElement.closest('.post-box')
+          if (postBox) {
+            const postIndex = Array.from(document.querySelectorAll('.post-box')).indexOf(postBox)
+            sessionStorage.setItem(`draft-${id}-focused`, postIndex.toString())
+          }
+        }
+      } catch (e) {
+        console.error('Failed to save state:', e)
+      }
     }
 
-    window.addEventListener('scroll', saveScrollPosition, { passive: true })
-    return () => window.removeEventListener('scroll', saveScrollPosition)
-  }, [])
+    // Save on scroll
+    window.addEventListener('scroll', saveState, { passive: true })
 
-  // Restore scroll position after renders
-  useEffect(() => {
-    if (scrollPositionRef.current > 0) {
-      window.scrollTo(0, scrollPositionRef.current)
+    // Save on focus changes
+    document.addEventListener('focusin', saveState, { passive: true })
+
+    // Save before unload/visibility change
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        saveState()
+      }
     }
-  })
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('beforeunload', saveState)
+
+    // Save periodically (every 2 seconds)
+    const interval = setInterval(saveState, 2000)
+
+    return () => {
+      window.removeEventListener('scroll', saveState)
+      document.removeEventListener('focusin', saveState)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('beforeunload', saveState)
+      clearInterval(interval)
+    }
+  }, [id])
+
+  // Restore scroll position and focus after draft loads
+  useEffect(() => {
+    if (!draft || loading) return
+
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      try {
+        // Restore scroll position
+        const savedScroll = sessionStorage.getItem(`draft-${id}-scroll`)
+        if (savedScroll) {
+          const scrollPos = parseInt(savedScroll, 10)
+          window.scrollTo(0, scrollPos)
+        }
+
+        // Restore focused textarea
+        const savedFocus = sessionStorage.getItem(`draft-${id}-focused`)
+        if (savedFocus) {
+          const focusIndex = parseInt(savedFocus, 10)
+          const postBoxes = document.querySelectorAll('.post-box')
+          if (postBoxes[focusIndex]) {
+            const textarea = postBoxes[focusIndex].querySelector('.post-textarea')
+            if (textarea) {
+              textarea.focus()
+              // Move cursor to end
+              textarea.selectionStart = textarea.selectionEnd = textarea.value.length
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to restore state:', e)
+      }
+    }, 100)
+
+    return () => clearTimeout(timer)
+  }, [draft, loading, id])
 
   // Collapse sidebar by default on smaller screens
   useEffect(() => {
