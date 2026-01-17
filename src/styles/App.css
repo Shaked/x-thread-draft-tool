@@ -1313,9 +1313,9 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  width: 100%;
+  width: 100vw;
   box-sizing: border-box;
-  margin: 0;
+  margin: 0 -20px;
   left: 0;
   right: 0;
 }
@@ -1587,6 +1587,7 @@ body {
     align-items: stretch;
     gap: 12px;
     padding: 12px 15px;
+    margin: 0 -15px;
   }
 
   .header-left {

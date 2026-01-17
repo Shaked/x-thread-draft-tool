@@ -134,6 +134,62 @@ export default function DraftEditor({ user }) {
     }
   }, [draft, loading, id])
 
+  // Restore scroll position when app becomes visible again (iOS app switching)
+  useEffect(() => {
+    if (!draft || loading) return
+
+    const restoreScrollOnVisible = (event) => {
+      // For visibilitychange, only restore when becoming visible
+      // For pageshow and focus, always restore
+      if (event.type === 'visibilitychange' && document.visibilityState !== 'visible') {
+        return
+      }
+
+      try {
+        const savedScroll = sessionStorage.getItem(`draft-${id}-scroll`)
+        if (savedScroll) {
+          const scrollPos = parseInt(savedScroll, 10)
+          console.log(`[${event.type}] Restoring scroll to:`, scrollPos)
+
+          // Immediate restoration
+          window.scrollTo({ top: scrollPos, behavior: 'instant' })
+
+          // Multiple attempts to ensure it sticks (especially important for iOS)
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: scrollPos, behavior: 'instant' })
+          })
+
+          setTimeout(() => {
+            window.scrollTo({ top: scrollPos, behavior: 'instant' })
+            console.log(`[${event.type}] Delayed scroll to:`, scrollPos)
+          }, 50)
+
+          setTimeout(() => {
+            window.scrollTo({ top: scrollPos, behavior: 'instant' })
+            console.log(`[${event.type}] Final scroll to:`, scrollPos)
+          }, 200)
+        }
+      } catch (e) {
+        console.error('Failed to restore scroll on visibility change:', e)
+      }
+    }
+
+    // Listen for page visibility changes (iOS app switching)
+    document.addEventListener('visibilitychange', restoreScrollOnVisible)
+
+    // Also listen for pageshow event (iOS back-forward cache)
+    window.addEventListener('pageshow', restoreScrollOnVisible)
+
+    // Listen for focus event (when app comes to foreground)
+    window.addEventListener('focus', restoreScrollOnVisible)
+
+    return () => {
+      document.removeEventListener('visibilitychange', restoreScrollOnVisible)
+      window.removeEventListener('pageshow', restoreScrollOnVisible)
+      window.removeEventListener('focus', restoreScrollOnVisible)
+    }
+  }, [draft, loading, id])
+
   // Collapse sidebar by default on smaller screens
   useEffect(() => {
     const handleResize = () => {

@@ -17,6 +17,7 @@ export default function TweetEmbed({ url }) {
     }
 
     const tweetId = tweetIdMatch[1]
+    let isMounted = true
 
     // Load Twitter widget script if not already loaded
     if (!window.twttr) {
@@ -24,11 +25,15 @@ export default function TweetEmbed({ url }) {
       script.src = 'https://platform.twitter.com/widgets.js'
       script.async = true
       script.onload = () => {
-        renderTweet(tweetId)
+        if (isMounted) {
+          renderTweet(tweetId)
+        }
       }
       script.onerror = () => {
-        setError('Failed to load Twitter widget')
-        setLoading(false)
+        if (isMounted) {
+          setError('Failed to load Twitter widget')
+          setLoading(false)
+        }
       }
       document.body.appendChild(script)
     } else {
@@ -36,7 +41,7 @@ export default function TweetEmbed({ url }) {
     }
 
     function renderTweet(id) {
-      if (containerRef.current) {
+      if (containerRef.current && isMounted) {
         containerRef.current.innerHTML = ''
 
         window.twttr.widgets.createTweet(
@@ -49,18 +54,30 @@ export default function TweetEmbed({ url }) {
             align: 'center'
           }
         ).then((el) => {
-          if (el) {
-            setLoading(false)
-            setError(null)
-          } else {
-            setError('Tweet not found or unable to load')
-            setLoading(false)
+          if (isMounted) {
+            if (el) {
+              setLoading(false)
+              setError(null)
+            } else {
+              setError('Tweet not found or unable to load')
+              setLoading(false)
+            }
           }
         }).catch((err) => {
-          console.error('Error embedding tweet:', err)
-          setError('Failed to embed tweet')
-          setLoading(false)
+          if (isMounted) {
+            console.error('Error embedding tweet:', err)
+            setError('Failed to embed tweet')
+            setLoading(false)
+          }
         })
+      }
+    }
+
+    // Cleanup function
+    return () => {
+      isMounted = false
+      if (containerRef.current) {
+        containerRef.current.innerHTML = ''
       }
     }
   }, [url])
