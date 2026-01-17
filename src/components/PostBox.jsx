@@ -37,6 +37,9 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
       text: newText
     })
 
+    // Auto-resize textarea
+    autoResizeTextarea()
+
     // Debounce URL detection
     if (urlDetectionTimeoutRef.current) {
       clearTimeout(urlDetectionTimeoutRef.current)
@@ -46,6 +49,19 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
       detectAndConvertImageUrls(newText)
     }, 500)
   }
+
+  const autoResizeTextarea = () => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = Math.max(textarea.scrollHeight, 120) + 'px'
+    }
+  }
+
+  // Auto-resize on mount and when text changes
+  useEffect(() => {
+    autoResizeTextarea()
+  }, [text])
 
   const detectAndConvertImageUrls = async (text) => {
     if (readOnly || !imageUploadRef.current) {
@@ -259,8 +275,9 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           placeholder={index === 0 ? "Start your thread..." : "Continue your thread..."}
           className={`post-textarea ${isOverLimit ? 'over-limit' : ''} ${isRTL ? 'rtl' : ''}`}
           dir={isRTL ? 'rtl' : 'ltr'}
-          rows={4}
+          rows={6}
           readOnly={readOnly}
+          style={{ overflow: 'hidden' }}
         />
 
         <div className="post-footer">

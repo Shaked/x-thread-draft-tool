@@ -13,6 +13,7 @@ body {
   background-color: #000;
   color: #fff;
   line-height: 1.5;
+  overflow-x: hidden;
 }
 
 .app {
@@ -899,11 +900,12 @@ body {
   border: none;
   color: #fff;
   font-size: 16px;
-  resize: vertical;
-  min-height: 100px;
+  resize: none;
+  min-height: 120px;
   font-family: inherit;
-  line-height: 1.5;
+  line-height: 1.6;
   text-align: left;
+  transition: height 0.1s ease;
 }
 
 .post-textarea.rtl {
@@ -1308,6 +1310,8 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .header-left {
@@ -1355,11 +1359,13 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .sync-status {
   font-size: 13px;
   font-weight: 600;
+  transition: opacity 0.3s ease;
 }
 
 .sync-status.syncing {
@@ -1368,6 +1374,13 @@ body {
 
 .sync-status.synced {
   color: #00ba7c;
+}
+
+/* Hide sync status on mobile to prevent flickering */
+@media (max-width: 768px) {
+  .sync-status {
+    display: none;
+  }
 }
 
 .publish-btn {
@@ -1567,6 +1580,7 @@ body {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
+    padding: 12px 15px;
   }
 
   .header-left {
@@ -1577,11 +1591,17 @@ body {
 
   .draft-title-input {
     max-width: none;
+    width: 100%;
   }
 
   .header-right {
     flex-wrap: wrap;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .header-right > * {
+    flex-shrink: 0;
   }
 
   .editor-content {

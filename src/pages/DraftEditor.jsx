@@ -20,6 +20,24 @@ export default function DraftEditor({ user }) {
 
   const saveTimeoutRef = useRef(null)
   const lastSavedRef = useRef(null)
+  const scrollPositionRef = useRef(0)
+
+  // Save scroll position before updates
+  useEffect(() => {
+    const saveScrollPosition = () => {
+      scrollPositionRef.current = window.scrollY
+    }
+
+    window.addEventListener('scroll', saveScrollPosition, { passive: true })
+    return () => window.removeEventListener('scroll', saveScrollPosition)
+  }, [])
+
+  // Restore scroll position after renders
+  useEffect(() => {
+    if (scrollPositionRef.current > 0) {
+      window.scrollTo(0, scrollPositionRef.current)
+    }
+  })
 
   // Collapse sidebar by default on smaller screens
   useEffect(() => {
