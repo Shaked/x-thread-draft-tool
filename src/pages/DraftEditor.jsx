@@ -20,168 +20,35 @@ export default function DraftEditor({ user }) {
 
   const saveTimeoutRef = useRef(null)
   const lastSavedRef = useRef(null)
+  const scrollPosRef = useRef(0)
+  const focusedElementRef = useRef(null)
 
-  // Disable browser's automatic scroll restoration
+  // Prevent scroll position changes on visibility change
   useEffect(() => {
-    if ('scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual'
-    }
-  }, [])
+    if (!draft || loading) return
 
-  // Save scroll position and focused element to sessionStorage
-  useEffect(() => {
-    const saveState = () => {
-      try {
-        const scrollPos = window.scrollY
-        sessionStorage.setItem(`draft-${id}-scroll`, scrollPos.toString())
-
-        // Save focused post index and cursor position if any textarea is focused
-        const activeElement = document.activeElement
-        if (activeElement && activeElement.classList.contains('post-textarea')) {
-          const postBox = activeElement.closest('.post-box')
-          if (postBox) {
-            const postIndex = Array.from(document.querySelectorAll('.post-box')).indexOf(postBox)
-            const cursorPos = activeElement.selectionStart
-            sessionStorage.setItem(`draft-${id}-focused`, postIndex.toString())
-            sessionStorage.setItem(`draft-${id}-cursor`, cursorPos.toString())
-          }
-        } else {
-          // Clear focus data if nothing is focused
-          sessionStorage.removeItem(`draft-${id}-focused`)
-          sessionStorage.removeItem(`draft-${id}-cursor`)
-        }
-      } catch (e) {
-        console.error('Failed to save state:', e)
-      }
-    }
-
-    // Save on scroll
-    window.addEventListener('scroll', saveState, { passive: true })
-
-    // Save on focus changes and selections
-    document.addEventListener('focusin', saveState, { passive: true })
-    document.addEventListener('selectionchange', saveState, { passive: true })
-
-    // Save before unload/visibility change
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        saveState()
+        // Save current state to refs (in memory, faster than sessionStorage)
+        scrollPosRef.current = window.scrollY
+        focusedElementRef.current = document.activeElement
+      } else if (document.visibilityState === 'visible') {
+        // Restore immediately and synchronously
+        window.scrollTo(0, scrollPosRef.current)
+
+        // Restore focus if it was a textarea
+        if (focusedElementRef.current && focusedElementRef.current.classList?.contains('post-textarea')) {
+          const elem = focusedElementRef.current
+          const cursorPos = elem.selectionStart
+          elem.focus()
+          elem.setSelectionRange(cursorPos, cursorPos)
+        }
       }
     }
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('beforeunload', saveState)
-
-    // Save periodically (every 500ms for more frequent updates)
-    const interval = setInterval(saveState, 500)
-
-    return () => {
-      window.removeEventListener('scroll', saveState)
-      document.removeEventListener('focusin', saveState)
-      document.removeEventListener('selectionchange', saveState)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('beforeunload', saveState)
-      clearInterval(interval)
-    }
-  }, [id])
-
-  // Restore scroll position and focus after draft loads
-  useEffect(() => {
-    if (!draft || loading) return
-
-    const restoreState = () => {
-      try {
-        // Restore focused textarea first
-        const savedFocus = sessionStorage.getItem(`draft-${id}-focused`)
-        const savedCursor = sessionStorage.getItem(`draft-${id}-cursor`)
-
-        if (savedFocus) {
-          const focusIndex = parseInt(savedFocus, 10)
-          const postBoxes = document.querySelectorAll('.post-box')
-          if (postBoxes[focusIndex]) {
-            const textarea = postBoxes[focusIndex].querySelector('.post-textarea')
-            if (textarea) {
-              textarea.focus({ preventScroll: true })
-              // Restore exact cursor position
-              if (savedCursor) {
-                const cursorPos = parseInt(savedCursor, 10)
-                textarea.selectionStart = textarea.selectionEnd = cursorPos
-              }
-            }
-          }
-        }
-
-        // Restore scroll position (do this after focus to prevent interference)
-        const savedScroll = sessionStorage.getItem(`draft-${id}-scroll`)
-        if (savedScroll) {
-          const scrollPos = parseInt(savedScroll, 10)
-          window.scrollTo({ top: scrollPos, behavior: 'auto' })
-        }
-      } catch (e) {
-        console.error('Failed to restore state:', e)
-      }
-    }
-
-    // Restore immediately on mount
-    requestAnimationFrame(restoreState)
-  }, [draft, loading, id])
-
-  // Restore state when app becomes visible again (iOS app switching)
-  useEffect(() => {
-    if (!draft || loading) return
-
-    const restoreStateOnVisible = (event) => {
-      // For visibilitychange, only restore when becoming visible
-      if (event.type === 'visibilitychange' && document.visibilityState !== 'visible') {
-        return
-      }
-
-      try {
-        // Restore focused textarea and cursor position first
-        const savedFocus = sessionStorage.getItem(`draft-${id}-focused`)
-        const savedCursor = sessionStorage.getItem(`draft-${id}-cursor`)
-
-        if (savedFocus) {
-          const focusIndex = parseInt(savedFocus, 10)
-          const postBoxes = document.querySelectorAll('.post-box')
-          if (postBoxes[focusIndex]) {
-            const textarea = postBoxes[focusIndex].querySelector('.post-textarea')
-            if (textarea) {
-              textarea.focus({ preventScroll: true })
-              // Restore exact cursor position
-              if (savedCursor) {
-                const cursorPos = parseInt(savedCursor, 10)
-                textarea.selectionStart = textarea.selectionEnd = cursorPos
-              }
-            }
-          }
-        }
-
-        // Restore scroll position instantly
-        const savedScroll = sessionStorage.getItem(`draft-${id}-scroll`)
-        if (savedScroll) {
-          const scrollPos = parseInt(savedScroll, 10)
-          window.scrollTo({ top: scrollPos, behavior: 'auto' })
-        }
-      } catch (e) {
-        console.error('Failed to restore state on visibility change:', e)
-      }
-    }
-
-    // Listen for page visibility changes (iOS app switching)
-    document.addEventListener('visibilitychange', restoreStateOnVisible)
-
-    // Also listen for pageshow event (iOS back-forward cache)
-    window.addEventListener('pageshow', restoreStateOnVisible)
-
-    // Listen for focus event (when app comes to foreground)
-    window.addEventListener('focus', restoreStateOnVisible)
-
-    return () => {
-      document.removeEventListener('visibilitychange', restoreStateOnVisible)
-      window.removeEventListener('pageshow', restoreStateOnVisible)
-      window.removeEventListener('focus', restoreStateOnVisible)
-    }
-  }, [draft, loading, id])
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [draft, loading])
 
   // Collapse sidebar by default on smaller screens
   useEffect(() => {
