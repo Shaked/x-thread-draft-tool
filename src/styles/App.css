@@ -9,6 +9,14 @@ html {
   scroll-behavior: auto !important;
   /* Prevent iOS Safari from interfering with scroll position */
   -webkit-overflow-scrolling: touch;
+  /* Lock height to prevent layout shifts during restoration */
+  height: 100%;
+}
+
+html.restoring-scroll {
+  /* Temporarily disable momentum scrolling during restoration */
+  -webkit-overflow-scrolling: auto;
+  overflow: hidden;
 }
 
 body {

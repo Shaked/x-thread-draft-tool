@@ -24,15 +24,21 @@ export default function DraftEditor({ user }) {
   const focusedPostIndexRef = useRef(null)
   const cursorPosRef = useRef(null)
 
-  // Aggressively prevent ANY scroll position changes
+  // Nuclear option: Continuously save and aggressively restore scroll position
   useEffect(() => {
     if (!draft || loading) return
 
-    // Save scroll state
-    const saveScrollState = () => {
-      scrollPosRef.current = window.scrollY
+    const STORAGE_KEY = `scroll-pos-${id}`
+    let isRestoring = false
+    let saveInterval = null
 
-      // Save focused textarea index and cursor position
+    // Continuous scroll position saving (for mobile reliability)
+    const continuousSave = () => {
+      const scrollY = window.scrollY
+      scrollPosRef.current = scrollY
+      sessionStorage.setItem(STORAGE_KEY, scrollY.toString())
+
+      // Also save focus state
       const activeElement = document.activeElement
       if (activeElement && activeElement.classList?.contains('post-textarea')) {
         const postBox = activeElement.closest('.post-box')
@@ -48,24 +54,69 @@ export default function DraftEditor({ user }) {
       }
     }
 
-    // Restore scroll state (multiple attempts to override browser behavior)
+    // Start continuous saving every 100ms
+    saveInterval = setInterval(continuousSave, 100)
+
+    // Aggressive restoration with scroll locking
     const restoreScrollState = () => {
-      if (scrollPosRef.current !== null && scrollPosRef.current !== undefined) {
-        // Immediate restoration
-        window.scrollTo(0, scrollPosRef.current)
+      isRestoring = true
 
-        // Use requestAnimationFrame to restore after any browser reflows
-        requestAnimationFrame(() => {
-          window.scrollTo(0, scrollPosRef.current)
+      // CSS-based scroll lock
+      document.documentElement.classList.add('restoring-scroll')
 
-          // Double-check after a short delay
-          setTimeout(() => {
-            window.scrollTo(0, scrollPosRef.current)
-          }, 10)
-        })
+      // Get saved position from ref or sessionStorage
+      let targetY = scrollPosRef.current
+      if (targetY === null || targetY === undefined) {
+        const stored = sessionStorage.getItem(STORAGE_KEY)
+        targetY = stored ? parseInt(stored, 10) : 0
       }
 
-      // Restore focus and cursor position
+      // Prevent any scrolling during restoration
+      const preventScroll = (e) => {
+        if (isRestoring) {
+          e.preventDefault()
+          e.stopPropagation()
+        }
+      }
+
+      // Lock scroll events temporarily
+      window.addEventListener('scroll', preventScroll, { passive: false, capture: true })
+      document.addEventListener('touchmove', preventScroll, { passive: false, capture: true })
+      document.addEventListener('wheel', preventScroll, { passive: false, capture: true })
+
+      // Multi-phase restoration for mobile browsers
+      const restore = () => {
+        window.scrollTo({ top: targetY, left: 0, behavior: 'instant' })
+      }
+
+      // Phase 1: Immediate (synchronous)
+      restore()
+
+      // Phase 2: After next frame
+      requestAnimationFrame(() => {
+        restore()
+
+        // Phase 3: After paint
+        requestAnimationFrame(() => {
+          restore()
+
+          // Phase 4-7: Progressive delays for mobile
+          setTimeout(restore, 10)
+          setTimeout(restore, 50)
+          setTimeout(restore, 100)
+          setTimeout(() => {
+            restore()
+            // Unlock scroll after final restoration
+            isRestoring = false
+            document.documentElement.classList.remove('restoring-scroll')
+            window.removeEventListener('scroll', preventScroll, { capture: true })
+            document.removeEventListener('touchmove', preventScroll, { capture: true })
+            document.removeEventListener('wheel', preventScroll, { capture: true })
+          }, 200)
+        })
+      })
+
+      // Restore focus
       if (focusedPostIndexRef.current !== null) {
         setTimeout(() => {
           const postBoxes = document.querySelectorAll('.post-box')
@@ -79,55 +130,41 @@ export default function DraftEditor({ user }) {
               }
             }
           }
-        }, 0)
+        }, 250)
       }
     }
 
-    // Handle visibility change (app switching)
+    // Handle all visibility events
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        saveScrollState()
-      } else if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible') {
         restoreScrollState()
       }
     }
 
-    // Handle page show/hide (for bfcache)
-    const handlePageShow = (e) => {
-      // If page is restored from bfcache, restore scroll
-      if (e.persisted || performance.getEntriesByType('navigation')[0]?.type === 'back_forward') {
-        restoreScrollState()
-      }
-    }
-
-    const handlePageHide = () => {
-      saveScrollState()
-    }
-
-    // Handle focus/blur as additional safeguards
-    const handleBlur = () => {
-      saveScrollState()
+    const handlePageShow = () => {
+      restoreScrollState()
     }
 
     const handleFocus = () => {
       restoreScrollState()
     }
 
-    // Add all event listeners
+    // Initial save
+    continuousSave()
+
+    // Add event listeners
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('pageshow', handlePageShow)
-    window.addEventListener('pagehide', handlePageHide)
-    window.addEventListener('blur', handleBlur)
     window.addEventListener('focus', handleFocus)
 
+    // Cleanup
     return () => {
+      if (saveInterval) clearInterval(saveInterval)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('pageshow', handlePageShow)
-      window.removeEventListener('pagehide', handlePageHide)
-      window.removeEventListener('blur', handleBlur)
       window.removeEventListener('focus', handleFocus)
     }
-  }, [draft, loading])
+  }, [draft, loading, id])
 
   // Collapse sidebar by default on smaller screens
   useEffect(() => {
