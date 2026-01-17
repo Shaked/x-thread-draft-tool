@@ -21,7 +21,8 @@ export default function DraftEditor({ user }) {
   const saveTimeoutRef = useRef(null)
   const lastSavedRef = useRef(null)
   const scrollPosRef = useRef(0)
-  const focusedElementRef = useRef(null)
+  const focusedPostIndexRef = useRef(null)
+  const cursorPosRef = useRef(null)
 
   // Prevent scroll position changes on visibility change
   useEffect(() => {
@@ -31,17 +32,43 @@ export default function DraftEditor({ user }) {
       if (document.visibilityState === 'hidden') {
         // Save current state to refs (in memory, faster than sessionStorage)
         scrollPosRef.current = window.scrollY
-        focusedElementRef.current = document.activeElement
-      } else if (document.visibilityState === 'visible') {
-        // Restore immediately and synchronously
-        window.scrollTo(0, scrollPosRef.current)
 
-        // Restore focus if it was a textarea
-        if (focusedElementRef.current && focusedElementRef.current.classList?.contains('post-textarea')) {
-          const elem = focusedElementRef.current
-          const cursorPos = elem.selectionStart
-          elem.focus()
-          elem.setSelectionRange(cursorPos, cursorPos)
+        // Save focused textarea index and cursor position
+        const activeElement = document.activeElement
+        if (activeElement && activeElement.classList?.contains('post-textarea')) {
+          const postBox = activeElement.closest('.post-box')
+          if (postBox) {
+            const postBoxes = document.querySelectorAll('.post-box')
+            const postIndex = Array.from(postBoxes).indexOf(postBox)
+            focusedPostIndexRef.current = postIndex
+            cursorPosRef.current = activeElement.selectionStart
+          }
+        } else {
+          focusedPostIndexRef.current = null
+          cursorPosRef.current = null
+        }
+      } else if (document.visibilityState === 'visible') {
+        // Restore scroll position immediately
+        if (scrollPosRef.current) {
+          window.scrollTo(0, scrollPosRef.current)
+        }
+
+        // Restore focus and cursor position
+        if (focusedPostIndexRef.current !== null) {
+          // Use setTimeout to ensure DOM is ready
+          setTimeout(() => {
+            const postBoxes = document.querySelectorAll('.post-box')
+            const postBox = postBoxes[focusedPostIndexRef.current]
+            if (postBox) {
+              const textarea = postBox.querySelector('.post-textarea')
+              if (textarea) {
+                textarea.focus()
+                if (cursorPosRef.current !== null) {
+                  textarea.setSelectionRange(cursorPosRef.current, cursorPosRef.current)
+                }
+              }
+            }
+          }, 0)
         }
       }
     }
