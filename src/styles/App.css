@@ -4,6 +4,13 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Disable smooth scrolling to ensure instant scroll restoration */
+  scroll-behavior: auto !important;
+  /* Prevent iOS Safari from interfering with scroll position */
+  -webkit-overflow-scrolling: touch;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',

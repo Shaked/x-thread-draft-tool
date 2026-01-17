@@ -24,57 +24,109 @@ export default function DraftEditor({ user }) {
   const focusedPostIndexRef = useRef(null)
   const cursorPosRef = useRef(null)
 
-  // Prevent scroll position changes on visibility change
+  // Aggressively prevent ANY scroll position changes
   useEffect(() => {
     if (!draft || loading) return
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        // Save current state to refs (in memory, faster than sessionStorage)
-        scrollPosRef.current = window.scrollY
+    // Save scroll state
+    const saveScrollState = () => {
+      scrollPosRef.current = window.scrollY
 
-        // Save focused textarea index and cursor position
-        const activeElement = document.activeElement
-        if (activeElement && activeElement.classList?.contains('post-textarea')) {
-          const postBox = activeElement.closest('.post-box')
-          if (postBox) {
-            const postBoxes = document.querySelectorAll('.post-box')
-            const postIndex = Array.from(postBoxes).indexOf(postBox)
-            focusedPostIndexRef.current = postIndex
-            cursorPosRef.current = activeElement.selectionStart
-          }
-        } else {
-          focusedPostIndexRef.current = null
-          cursorPosRef.current = null
+      // Save focused textarea index and cursor position
+      const activeElement = document.activeElement
+      if (activeElement && activeElement.classList?.contains('post-textarea')) {
+        const postBox = activeElement.closest('.post-box')
+        if (postBox) {
+          const postBoxes = document.querySelectorAll('.post-box')
+          const postIndex = Array.from(postBoxes).indexOf(postBox)
+          focusedPostIndexRef.current = postIndex
+          cursorPosRef.current = activeElement.selectionStart
         }
-      } else if (document.visibilityState === 'visible') {
-        // Restore scroll position immediately
-        if (scrollPosRef.current) {
-          window.scrollTo(0, scrollPosRef.current)
-        }
-
-        // Restore focus and cursor position
-        if (focusedPostIndexRef.current !== null) {
-          // Use setTimeout to ensure DOM is ready
-          setTimeout(() => {
-            const postBoxes = document.querySelectorAll('.post-box')
-            const postBox = postBoxes[focusedPostIndexRef.current]
-            if (postBox) {
-              const textarea = postBox.querySelector('.post-textarea')
-              if (textarea) {
-                textarea.focus()
-                if (cursorPosRef.current !== null) {
-                  textarea.setSelectionRange(cursorPosRef.current, cursorPosRef.current)
-                }
-              }
-            }
-          }, 0)
-        }
+      } else {
+        focusedPostIndexRef.current = null
+        cursorPosRef.current = null
       }
     }
 
+    // Restore scroll state (multiple attempts to override browser behavior)
+    const restoreScrollState = () => {
+      if (scrollPosRef.current !== null && scrollPosRef.current !== undefined) {
+        // Immediate restoration
+        window.scrollTo(0, scrollPosRef.current)
+
+        // Use requestAnimationFrame to restore after any browser reflows
+        requestAnimationFrame(() => {
+          window.scrollTo(0, scrollPosRef.current)
+
+          // Double-check after a short delay
+          setTimeout(() => {
+            window.scrollTo(0, scrollPosRef.current)
+          }, 10)
+        })
+      }
+
+      // Restore focus and cursor position
+      if (focusedPostIndexRef.current !== null) {
+        setTimeout(() => {
+          const postBoxes = document.querySelectorAll('.post-box')
+          const postBox = postBoxes[focusedPostIndexRef.current]
+          if (postBox) {
+            const textarea = postBox.querySelector('.post-textarea')
+            if (textarea) {
+              textarea.focus()
+              if (cursorPosRef.current !== null) {
+                textarea.setSelectionRange(cursorPosRef.current, cursorPosRef.current)
+              }
+            }
+          }
+        }, 0)
+      }
+    }
+
+    // Handle visibility change (app switching)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        saveScrollState()
+      } else if (document.visibilityState === 'visible') {
+        restoreScrollState()
+      }
+    }
+
+    // Handle page show/hide (for bfcache)
+    const handlePageShow = (e) => {
+      // If page is restored from bfcache, restore scroll
+      if (e.persisted || performance.getEntriesByType('navigation')[0]?.type === 'back_forward') {
+        restoreScrollState()
+      }
+    }
+
+    const handlePageHide = () => {
+      saveScrollState()
+    }
+
+    // Handle focus/blur as additional safeguards
+    const handleBlur = () => {
+      saveScrollState()
+    }
+
+    const handleFocus = () => {
+      restoreScrollState()
+    }
+
+    // Add all event listeners
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('pageshow', handlePageShow)
+    window.addEventListener('pagehide', handlePageHide)
+    window.addEventListener('blur', handleBlur)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('pageshow', handlePageShow)
+      window.removeEventListener('pagehide', handlePageHide)
+      window.removeEventListener('blur', handleBlur)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [draft, loading])
 
   // Collapse sidebar by default on smaller screens
