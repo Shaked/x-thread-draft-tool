@@ -21,23 +21,34 @@ export default function DraftEditor({ user }) {
   const saveTimeoutRef = useRef(null)
   const lastSavedRef = useRef(null)
 
+  // Disable browser's automatic scroll restoration
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual'
+    }
+  }, [])
+
   // Save scroll position and focused element to sessionStorage
   useEffect(() => {
     const saveState = () => {
       try {
         const scrollPos = window.scrollY
         sessionStorage.setItem(`draft-${id}-scroll`, scrollPos.toString())
-        console.log('[Save] Saved scroll position:', scrollPos)
 
-        // Save focused post index if any textarea is focused
+        // Save focused post index and cursor position if any textarea is focused
         const activeElement = document.activeElement
         if (activeElement && activeElement.classList.contains('post-textarea')) {
           const postBox = activeElement.closest('.post-box')
           if (postBox) {
             const postIndex = Array.from(document.querySelectorAll('.post-box')).indexOf(postBox)
+            const cursorPos = activeElement.selectionStart
             sessionStorage.setItem(`draft-${id}-focused`, postIndex.toString())
-            console.log('[Save] Saved focused post index:', postIndex)
+            sessionStorage.setItem(`draft-${id}-cursor`, cursorPos.toString())
           }
+        } else {
+          // Clear focus data if nothing is focused
+          sessionStorage.removeItem(`draft-${id}-focused`)
+          sessionStorage.removeItem(`draft-${id}-cursor`)
         }
       } catch (e) {
         console.error('Failed to save state:', e)
@@ -47,8 +58,9 @@ export default function DraftEditor({ user }) {
     // Save on scroll
     window.addEventListener('scroll', saveState, { passive: true })
 
-    // Save on focus changes
+    // Save on focus changes and selections
     document.addEventListener('focusin', saveState, { passive: true })
+    document.addEventListener('selectionchange', saveState, { passive: true })
 
     // Save before unload/visibility change
     const handleVisibilityChange = () => {
@@ -59,12 +71,13 @@ export default function DraftEditor({ user }) {
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('beforeunload', saveState)
 
-    // Save periodically (every 2 seconds)
-    const interval = setInterval(saveState, 2000)
+    // Save periodically (every 500ms for more frequent updates)
+    const interval = setInterval(saveState, 500)
 
     return () => {
       window.removeEventListener('scroll', saveState)
       document.removeEventListener('focusin', saveState)
+      document.removeEventListener('selectionchange', saveState)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('beforeunload', saveState)
       clearInterval(interval)
@@ -77,116 +90,96 @@ export default function DraftEditor({ user }) {
 
     const restoreState = () => {
       try {
-        // Restore scroll position
+        // Restore focused textarea first
+        const savedFocus = sessionStorage.getItem(`draft-${id}-focused`)
+        const savedCursor = sessionStorage.getItem(`draft-${id}-cursor`)
+
+        if (savedFocus) {
+          const focusIndex = parseInt(savedFocus, 10)
+          const postBoxes = document.querySelectorAll('.post-box')
+          if (postBoxes[focusIndex]) {
+            const textarea = postBoxes[focusIndex].querySelector('.post-textarea')
+            if (textarea) {
+              textarea.focus({ preventScroll: true })
+              // Restore exact cursor position
+              if (savedCursor) {
+                const cursorPos = parseInt(savedCursor, 10)
+                textarea.selectionStart = textarea.selectionEnd = cursorPos
+              }
+            }
+          }
+        }
+
+        // Restore scroll position (do this after focus to prevent interference)
         const savedScroll = sessionStorage.getItem(`draft-${id}-scroll`)
         if (savedScroll) {
           const scrollPos = parseInt(savedScroll, 10)
-          console.log('[Restore] Attempting to restore scroll to:', scrollPos)
-          window.scrollTo({ top: scrollPos, behavior: 'instant' })
-
-          // Force another scroll after a small delay (in case content hasn't fully rendered)
-          setTimeout(() => {
-            window.scrollTo({ top: scrollPos, behavior: 'instant' })
-            console.log('[Restore] Second attempt scroll to:', scrollPos)
-          }, 100)
-
-          setTimeout(() => {
-            window.scrollTo({ top: scrollPos, behavior: 'instant' })
-            console.log('[Restore] Third attempt scroll to:', scrollPos)
-          }, 300)
-        }
-
-        // Restore focused textarea
-        const savedFocus = sessionStorage.getItem(`draft-${id}-focused`)
-        if (savedFocus) {
-          setTimeout(() => {
-            const focusIndex = parseInt(savedFocus, 10)
-            const postBoxes = document.querySelectorAll('.post-box')
-            console.log('[Restore] Found', postBoxes.length, 'post boxes, trying to focus index', focusIndex)
-            if (postBoxes[focusIndex]) {
-              const textarea = postBoxes[focusIndex].querySelector('.post-textarea')
-              if (textarea) {
-                textarea.focus()
-                // Move cursor to end
-                textarea.selectionStart = textarea.selectionEnd = textarea.value.length
-                console.log('[Restore] Focused textarea at index', focusIndex)
-
-                // Scroll to focused element
-                textarea.scrollIntoView({ behavior: 'smooth', block: 'center' })
-              }
-            }
-          }, 400)
+          window.scrollTo({ top: scrollPos, behavior: 'auto' })
         }
       } catch (e) {
         console.error('Failed to restore state:', e)
       }
     }
 
-    // Try restoration multiple times with increasing delays
-    const timer1 = setTimeout(restoreState, 50)
-    const timer2 = setTimeout(restoreState, 200)
-    const timer3 = setTimeout(restoreState, 500)
-
-    return () => {
-      clearTimeout(timer1)
-      clearTimeout(timer2)
-      clearTimeout(timer3)
-    }
+    // Restore immediately on mount
+    requestAnimationFrame(restoreState)
   }, [draft, loading, id])
 
-  // Restore scroll position when app becomes visible again (iOS app switching)
+  // Restore state when app becomes visible again (iOS app switching)
   useEffect(() => {
     if (!draft || loading) return
 
-    const restoreScrollOnVisible = (event) => {
+    const restoreStateOnVisible = (event) => {
       // For visibilitychange, only restore when becoming visible
-      // For pageshow and focus, always restore
       if (event.type === 'visibilitychange' && document.visibilityState !== 'visible') {
         return
       }
 
       try {
+        // Restore focused textarea and cursor position first
+        const savedFocus = sessionStorage.getItem(`draft-${id}-focused`)
+        const savedCursor = sessionStorage.getItem(`draft-${id}-cursor`)
+
+        if (savedFocus) {
+          const focusIndex = parseInt(savedFocus, 10)
+          const postBoxes = document.querySelectorAll('.post-box')
+          if (postBoxes[focusIndex]) {
+            const textarea = postBoxes[focusIndex].querySelector('.post-textarea')
+            if (textarea) {
+              textarea.focus({ preventScroll: true })
+              // Restore exact cursor position
+              if (savedCursor) {
+                const cursorPos = parseInt(savedCursor, 10)
+                textarea.selectionStart = textarea.selectionEnd = cursorPos
+              }
+            }
+          }
+        }
+
+        // Restore scroll position instantly
         const savedScroll = sessionStorage.getItem(`draft-${id}-scroll`)
         if (savedScroll) {
           const scrollPos = parseInt(savedScroll, 10)
-          console.log(`[${event.type}] Restoring scroll to:`, scrollPos)
-
-          // Immediate restoration
-          window.scrollTo({ top: scrollPos, behavior: 'instant' })
-
-          // Multiple attempts to ensure it sticks (especially important for iOS)
-          requestAnimationFrame(() => {
-            window.scrollTo({ top: scrollPos, behavior: 'instant' })
-          })
-
-          setTimeout(() => {
-            window.scrollTo({ top: scrollPos, behavior: 'instant' })
-            console.log(`[${event.type}] Delayed scroll to:`, scrollPos)
-          }, 50)
-
-          setTimeout(() => {
-            window.scrollTo({ top: scrollPos, behavior: 'instant' })
-            console.log(`[${event.type}] Final scroll to:`, scrollPos)
-          }, 200)
+          window.scrollTo({ top: scrollPos, behavior: 'auto' })
         }
       } catch (e) {
-        console.error('Failed to restore scroll on visibility change:', e)
+        console.error('Failed to restore state on visibility change:', e)
       }
     }
 
     // Listen for page visibility changes (iOS app switching)
-    document.addEventListener('visibilitychange', restoreScrollOnVisible)
+    document.addEventListener('visibilitychange', restoreStateOnVisible)
 
     // Also listen for pageshow event (iOS back-forward cache)
-    window.addEventListener('pageshow', restoreScrollOnVisible)
+    window.addEventListener('pageshow', restoreStateOnVisible)
 
     // Listen for focus event (when app comes to foreground)
-    window.addEventListener('focus', restoreScrollOnVisible)
+    window.addEventListener('focus', restoreStateOnVisible)
 
     return () => {
-      document.removeEventListener('visibilitychange', restoreScrollOnVisible)
-      window.removeEventListener('pageshow', restoreScrollOnVisible)
-      window.removeEventListener('focus', restoreScrollOnVisible)
+      document.removeEventListener('visibilitychange', restoreStateOnVisible)
+      window.removeEventListener('pageshow', restoreStateOnVisible)
+      window.removeEventListener('focus', restoreStateOnVisible)
     }
   }, [draft, loading, id])
 
