@@ -10,6 +10,7 @@ const IMAGE_URL_REGEX = /https?:\/\/[^\s]+?\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?[
 export default function PostBox({ post, index, totalPosts, onChange, onRemove, readOnly = false }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [detectingUrls, setDetectingUrls] = useState(false)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const textareaRef = useRef(null)
   const imageUploadRef = useRef(null)
   const urlDetectionTimeoutRef = useRef(null)
@@ -178,6 +179,32 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
     })
   }
 
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % images.length)
+  }
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
+  }
+
+  const removeCurrentImage = () => {
+    const newImages = images.filter((_, i) => i !== currentImageIndex)
+    handleImagesChange(newImages)
+    // Adjust index if needed
+    if (currentImageIndex >= newImages.length && newImages.length > 0) {
+      setCurrentImageIndex(newImages.length - 1)
+    } else if (newImages.length === 0) {
+      setCurrentImageIndex(0)
+    }
+  }
+
+  // Reset carousel index when images change
+  useEffect(() => {
+    if (currentImageIndex >= images.length && images.length > 0) {
+      setCurrentImageIndex(images.length - 1)
+    }
+  }, [images.length, currentImageIndex])
+
   const handleCopyText = async () => {
     try {
       await navigator.clipboard.writeText(text)
@@ -303,28 +330,31 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           </div>
         )}
 
-        {images.length > 0 && (
-          <div className="image-preview-grid">
-            {(() => {
-              console.log('[PostBox render] Rendering images:', images)
-              return images.map((img, idx) => {
-                console.log(`[PostBox render] Image ${idx}:`, img, typeof img)
-                const imageUrl = typeof img === 'string' ? img : img.url
-                const sourceUrl = typeof img === 'object' ? img.sourceUrl : null
-                const uploadMethod = typeof img === 'object' ? img.uploadMethod : 'file'
+        {images.length > 0 && (() => {
+          console.log('[PostBox render] Rendering images:', images)
+          const img = images[currentImageIndex]
+          console.log(`[PostBox render] Current image ${currentImageIndex}:`, img, typeof img)
 
-                console.log(`[PostBox render] Image ${idx} - url: ${imageUrl}, sourceUrl: ${sourceUrl}, method: ${uploadMethod}`)
+          const imageUrl = typeof img === 'string' ? img : img.url
+          const sourceUrl = typeof img === 'object' ? img.sourceUrl : null
+          const uploadMethod = typeof img === 'object' ? img.uploadMethod : 'file'
 
-                const methodIcon = {
-                  'file': '📁',
-                  'clipboard': '📋',
-                  'url': '🔗'
-                }[uploadMethod] || '📁'
+          console.log(`[PostBox render] Image ${currentImageIndex} - url: ${imageUrl}, sourceUrl: ${sourceUrl}, method: ${uploadMethod}`)
 
-                return (
-                <div key={idx} className="image-preview-item" title={sourceUrl || 'Uploaded image'}>
-                  <img src={imageUrl} alt={`Preview ${idx + 1}`} />
+          const methodIcon = {
+            'file': '📁',
+            'clipboard': '📋',
+            'url': '🔗'
+          }[uploadMethod] || '📁'
+
+          return (
+            <div className="image-carousel">
+              <div className="image-carousel-container">
+                <img src={imageUrl} alt={`Preview ${currentImageIndex + 1}`} className="carousel-image" />
+
+                <div className="carousel-overlay">
                   <span className="upload-method-badge">{methodIcon}</span>
+
                   {sourceUrl && (
                     <a
                       href={sourceUrl}
@@ -337,20 +367,48 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
                       🔗
                     </a>
                   )}
+
                   {!readOnly && (
                     <button
                       className="remove-image-btn"
-                      onClick={() => handleImagesChange(images.filter((_, i) => i !== idx))}
+                      onClick={removeCurrentImage}
+                      title="Remove image"
                     >
                       ×
                     </button>
                   )}
                 </div>
-                )
-              })
-            })()}
-          </div>
-        )}
+
+                {images.length > 1 && (
+                  <>
+                    <button className="carousel-nav carousel-prev" onClick={prevImage} title="Previous image">
+                      ‹
+                    </button>
+                    <button className="carousel-nav carousel-next" onClick={nextImage} title="Next image">
+                      ›
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {images.length > 1 && (
+                <div className="carousel-indicators">
+                  {images.map((_, idx) => (
+                    <button
+                      key={idx}
+                      className={`carousel-indicator ${idx === currentImageIndex ? 'active' : ''}`}
+                      onClick={() => setCurrentImageIndex(idx)}
+                      title={`Image ${idx + 1}`}
+                    />
+                  ))}
+                  <span className="carousel-counter">
+                    {currentImageIndex + 1} / {images.length}
+                  </span>
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
     </div>
   )
