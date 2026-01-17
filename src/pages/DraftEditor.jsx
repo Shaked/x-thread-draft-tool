@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase, isOwner, deleteAllDraftImages, normalizeImages } from '../utils/supabase'
 import { set as idbSet, get as idbGet } from 'idb-keyval'
@@ -24,6 +24,25 @@ export default function DraftEditor({ user }) {
   const focusedPostIndexRef = useRef(null)
   const cursorPosRef = useRef(null)
 
+  // ULTRA-EARLY scroll restoration (runs before browser paint)
+  useLayoutEffect(() => {
+    if (!id) return
+
+    const STORAGE_KEY = `scroll-pos-${id}`
+    const storedPosition = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY)
+
+    if (storedPosition) {
+      const targetY = parseInt(storedPosition, 10)
+      console.log('[SCROLL LAYOUT] Restoring IMMEDIATELY to:', targetY)
+      scrollPosRef.current = targetY
+
+      // Restore before any paint
+      window.scrollTo({ top: targetY, left: 0, behavior: 'instant' })
+      document.documentElement.scrollTop = targetY
+      document.body.scrollTop = targetY
+    }
+  }, [id])
+
   // Nuclear option: Continuously save and aggressively restore scroll position
   useEffect(() => {
     if (!draft || loading) return
@@ -36,7 +55,9 @@ export default function DraftEditor({ user }) {
     const continuousSave = () => {
       const scrollY = window.scrollY
       scrollPosRef.current = scrollY
+      // Save to BOTH sessionStorage and localStorage for maximum persistence
       sessionStorage.setItem(STORAGE_KEY, scrollY.toString())
+      localStorage.setItem(STORAGE_KEY, scrollY.toString())
 
       // Also save focus state
       const activeElement = document.activeElement
@@ -67,9 +88,11 @@ export default function DraftEditor({ user }) {
       // Get saved position from ref or sessionStorage
       let targetY = scrollPosRef.current
       if (targetY === null || targetY === undefined) {
-        const stored = sessionStorage.getItem(STORAGE_KEY)
+        const stored = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY)
         targetY = stored ? parseInt(stored, 10) : 0
       }
+
+      console.log('[SCROLL RESTORE EVENT] Restoring to:', targetY)
 
       // Prevent any scrolling during restoration
       const preventScroll = (e) => {
@@ -136,17 +159,42 @@ export default function DraftEditor({ user }) {
 
     // Handle all visibility events
     const handleVisibilityChange = () => {
+      console.log('[SCROLL EVENT] visibilitychange -', document.visibilityState)
       if (document.visibilityState === 'visible') {
         restoreScrollState()
       }
     }
 
-    const handlePageShow = () => {
+    const handlePageShow = (e) => {
+      console.log('[SCROLL EVENT] pageshow - persisted:', e?.persisted)
       restoreScrollState()
     }
 
     const handleFocus = () => {
+      console.log('[SCROLL EVENT] focus')
       restoreScrollState()
+    }
+
+    const handleResume = () => {
+      console.log('[SCROLL EVENT] resume')
+      restoreScrollState()
+    }
+
+    // IMMEDIATELY restore scroll on mount (in case page was reloaded)
+    const storedPosition = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY)
+    if (storedPosition) {
+      const targetY = parseInt(storedPosition, 10)
+      console.log('[SCROLL INIT] Restoring on mount to:', targetY)
+      scrollPosRef.current = targetY
+      // Restore immediately - before any rendering happens
+      window.scrollTo({ top: targetY, left: 0, behavior: 'instant' })
+      // And again after a tiny delay to override browser
+      setTimeout(() => {
+        window.scrollTo({ top: targetY, left: 0, behavior: 'instant' })
+      }, 0)
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: targetY, left: 0, behavior: 'instant' })
+      })
     }
 
     // Initial save
@@ -156,6 +204,7 @@ export default function DraftEditor({ user }) {
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('pageshow', handlePageShow)
     window.addEventListener('focus', handleFocus)
+    document.addEventListener('resume', handleResume)
 
     // Cleanup
     return () => {
@@ -163,6 +212,7 @@ export default function DraftEditor({ user }) {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('pageshow', handlePageShow)
       window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('resume', handleResume)
     }
   }, [draft, loading, id])
 
