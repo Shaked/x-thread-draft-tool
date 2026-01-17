@@ -25,7 +25,9 @@ export default function DraftEditor({ user }) {
   useEffect(() => {
     const saveState = () => {
       try {
-        sessionStorage.setItem(`draft-${id}-scroll`, window.scrollY.toString())
+        const scrollPos = window.scrollY
+        sessionStorage.setItem(`draft-${id}-scroll`, scrollPos.toString())
+        console.log('[Save] Saved scroll position:', scrollPos)
 
         // Save focused post index if any textarea is focused
         const activeElement = document.activeElement
@@ -34,6 +36,7 @@ export default function DraftEditor({ user }) {
           if (postBox) {
             const postIndex = Array.from(document.querySelectorAll('.post-box')).indexOf(postBox)
             sessionStorage.setItem(`draft-${id}-focused`, postIndex.toString())
+            console.log('[Save] Saved focused post index:', postIndex)
           }
         }
       } catch (e) {
@@ -72,36 +75,63 @@ export default function DraftEditor({ user }) {
   useEffect(() => {
     if (!draft || loading) return
 
-    // Small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
+    const restoreState = () => {
       try {
         // Restore scroll position
         const savedScroll = sessionStorage.getItem(`draft-${id}-scroll`)
         if (savedScroll) {
           const scrollPos = parseInt(savedScroll, 10)
-          window.scrollTo(0, scrollPos)
+          console.log('[Restore] Attempting to restore scroll to:', scrollPos)
+          window.scrollTo({ top: scrollPos, behavior: 'instant' })
+
+          // Force another scroll after a small delay (in case content hasn't fully rendered)
+          setTimeout(() => {
+            window.scrollTo({ top: scrollPos, behavior: 'instant' })
+            console.log('[Restore] Second attempt scroll to:', scrollPos)
+          }, 100)
+
+          setTimeout(() => {
+            window.scrollTo({ top: scrollPos, behavior: 'instant' })
+            console.log('[Restore] Third attempt scroll to:', scrollPos)
+          }, 300)
         }
 
         // Restore focused textarea
         const savedFocus = sessionStorage.getItem(`draft-${id}-focused`)
         if (savedFocus) {
-          const focusIndex = parseInt(savedFocus, 10)
-          const postBoxes = document.querySelectorAll('.post-box')
-          if (postBoxes[focusIndex]) {
-            const textarea = postBoxes[focusIndex].querySelector('.post-textarea')
-            if (textarea) {
-              textarea.focus()
-              // Move cursor to end
-              textarea.selectionStart = textarea.selectionEnd = textarea.value.length
+          setTimeout(() => {
+            const focusIndex = parseInt(savedFocus, 10)
+            const postBoxes = document.querySelectorAll('.post-box')
+            console.log('[Restore] Found', postBoxes.length, 'post boxes, trying to focus index', focusIndex)
+            if (postBoxes[focusIndex]) {
+              const textarea = postBoxes[focusIndex].querySelector('.post-textarea')
+              if (textarea) {
+                textarea.focus()
+                // Move cursor to end
+                textarea.selectionStart = textarea.selectionEnd = textarea.value.length
+                console.log('[Restore] Focused textarea at index', focusIndex)
+
+                // Scroll to focused element
+                textarea.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }
             }
-          }
+          }, 400)
         }
       } catch (e) {
         console.error('Failed to restore state:', e)
       }
-    }, 100)
+    }
 
-    return () => clearTimeout(timer)
+    // Try restoration multiple times with increasing delays
+    const timer1 = setTimeout(restoreState, 50)
+    const timer2 = setTimeout(restoreState, 200)
+    const timer3 = setTimeout(restoreState, 500)
+
+    return () => {
+      clearTimeout(timer1)
+      clearTimeout(timer2)
+      clearTimeout(timer3)
+    }
   }, [draft, loading, id])
 
   // Collapse sidebar by default on smaller screens

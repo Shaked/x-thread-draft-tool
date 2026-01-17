@@ -1298,6 +1298,9 @@ body {
 /* Draft Editor Page */
 .draft-editor {
   min-height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 .editor-header {
@@ -1310,8 +1313,11 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  max-width: 100%;
+  width: 100%;
   box-sizing: border-box;
+  margin: 0;
+  left: 0;
+  right: 0;
 }
 
 .header-left {
