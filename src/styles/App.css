@@ -5,18 +5,7 @@
 }
 
 html {
-  /* Disable smooth scrolling to ensure instant scroll restoration */
-  scroll-behavior: auto !important;
-  /* Prevent iOS Safari from interfering with scroll position */
-  -webkit-overflow-scrolling: touch;
-  /* Lock height to prevent layout shifts during restoration */
   height: 100%;
-}
-
-html.restoring-scroll {
-  /* Temporarily disable momentum scrolling during restoration */
-  -webkit-overflow-scrolling: auto;
-  overflow: hidden;
 }
 
 body {
@@ -935,29 +924,46 @@ body {
   color: #f4212e;
 }
 
-.post-footer {
+.post-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #333;
 }
 
-.post-controls {
+.toolbar-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
   position: relative;
 }
 
-.emoji-btn {
-  background-color: transparent;
-  border: none;
-  font-size: 20px;
+.toolbar-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 10px;
   cursor: pointer;
-  padding: 5px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  font-size: 18px;
+  line-height: 1;
+  transition: background-color 0.2s, border-color 0.2s;
 }
 
-.emoji-btn:hover {
+.toolbar-btn:hover {
   background-color: #1a1d21;
+  border-color: #333;
+}
+
+.toolbar-btn.active {
+  background-color: #1d9bf020;
+  border-color: #1d9bf0;
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .char-counter {
@@ -1069,34 +1075,6 @@ body {
 
 .carousel-overlay > * {
   pointer-events: auto;
-}
-
-.upload-method-badge {
-  position: absolute;
-  bottom: 5px;
-  left: 5px;
-  background-color: #000c;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 12px;
-  backdrop-filter: blur(4px);
-}
-
-.source-url-link {
-  position: absolute;
-  bottom: 5px;
-  right: 35px;
-  background-color: #000c;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 14px;
-  text-decoration: none;
-  backdrop-filter: blur(4px);
-  transition: background-color 0.2s;
-}
-
-.source-url-link:hover {
-  background-color: #1d9bf0;
 }
 
 .url-detection-status {

@@ -157,7 +157,8 @@ const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({
     addFiles: (files) => handleFiles(files, 'clipboard'),
-    addImageFromUrl: (url) => handleImageFromUrl(url)
+    addImageFromUrl: (url) => handleImageFromUrl(url),
+    triggerFileSelect: () => handleClick()
   }))
 
   const handleDrag = (e) => {

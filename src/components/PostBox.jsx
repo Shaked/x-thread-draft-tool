@@ -4,11 +4,11 @@ import ImageUpload from './ImageUpload'
 import TweetEmbed from './TweetEmbed'
 
 const MAX_CHARS = 280
-// More flexible regex that handles query params and matches common image patterns
 const IMAGE_URL_REGEX = /https?:\/\/[^\s]+?\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?[^\s]*)?/gi
 
 export default function PostBox({ post, index, totalPosts, onChange, onRemove, readOnly = false }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showEmbedInput, setShowEmbedInput] = useState(false)
   const [detectingUrls, setDetectingUrls] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const textareaRef = useRef(null)
@@ -21,7 +21,6 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   const charCount = text.length
   const isOverLimit = charCount > MAX_CHARS
 
-  // Detect RTL text (Hebrew, Arabic, etc.)
   const detectRTL = (text) => {
     const rtlRegex = /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/
     return rtlRegex.test(text)
@@ -32,19 +31,13 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   const handleTextChange = (e) => {
     if (readOnly) return
     const newText = e.target.value
-    onChange({
-      ...post,
-      text: newText
-    })
+    onChange({ ...post, text: newText })
 
-    // Auto-resize textarea
     autoResizeTextarea()
 
-    // Debounce URL detection
     if (urlDetectionTimeoutRef.current) {
       clearTimeout(urlDetectionTimeoutRef.current)
     }
-
     urlDetectionTimeoutRef.current = setTimeout(() => {
       detectAndConvertImageUrls(newText)
     }, 500)
@@ -58,61 +51,40 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
     }
   }
 
-  // Auto-resize on mount and when text changes
   useEffect(() => {
     autoResizeTextarea()
   }, [text])
 
   const detectAndConvertImageUrls = async (text) => {
-    if (readOnly || !imageUploadRef.current) {
-      console.log('[detectAndConvertImageUrls] Skipped - readOnly or no imageUploadRef')
-      return
-    }
+    if (readOnly || !imageUploadRef.current) return
 
-    console.log('[detectAndConvertImageUrls] Checking text:', text)
     const matches = [...text.matchAll(IMAGE_URL_REGEX)]
-    console.log('[detectAndConvertImageUrls] Regex matches:', matches.length, matches.map(m => m[0]))
-
     if (matches.length === 0) return
 
     const imageUrls = matches.map(match => match[0])
     const remainingSlots = 4 - images.length
-
-    if (remainingSlots <= 0) {
-      console.log('[detectAndConvertImageUrls] No remaining image slots, skipping URL detection')
-      return
-    }
+    if (remainingSlots <= 0) return
 
     const urlsToConvert = imageUrls.slice(0, remainingSlots)
     if (urlsToConvert.length === 0) return
 
-    console.log(`[detectAndConvertImageUrls] Converting ${urlsToConvert.length} URL(s):`, urlsToConvert)
     setDetectingUrls(true)
 
     try {
       const convertedUrls = []
       for (const url of urlsToConvert) {
-        console.log(`Attempting to fetch: ${url}`)
         const result = await imageUploadRef.current.addImageFromUrl(url)
         if (result) {
-          console.log(`Successfully converted: ${url}`)
           convertedUrls.push(url)
-        } else {
-          console.warn(`Failed to convert: ${url}`)
         }
       }
 
-      // Remove successfully converted URLs from text
       if (convertedUrls.length > 0) {
         let updatedText = text
         for (const url of convertedUrls) {
           updatedText = updatedText.replace(url, '').replace(/\s+/g, ' ').trim()
         }
-        onChange({
-          ...post,
-          text: updatedText
-        })
-        console.log(`Removed ${convertedUrls.length} URL(s) from text`)
+        onChange({ ...post, text: updatedText })
       }
     } catch (error) {
       console.error('Error during URL detection:', error)
@@ -153,12 +125,8 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
     const end = textarea.selectionEnd
     const newText = text.substring(0, start) + emoji.native + text.substring(end)
 
-    onChange({
-      ...post,
-      text: newText
-    })
+    onChange({ ...post, text: newText })
 
-    // Set cursor position after emoji
     setTimeout(() => {
       textarea.selectionStart = textarea.selectionEnd = start + emoji.native.length
       textarea.focus()
@@ -169,30 +137,18 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
 
   const handleImagesChange = (newImages) => {
     if (readOnly) return
-    console.log('[PostBox handleImagesChange] Received new images:', newImages)
-    console.log('[PostBox handleImagesChange] Current post:', post)
-    const updatedPost = {
-      ...post,
-      images: newImages
-    }
-    console.log('[PostBox handleImagesChange] Updated post:', updatedPost)
-    onChange(updatedPost)
+    onChange({ ...post, images: newImages })
   }
 
   const handleEmbedTweetChange = (url) => {
     if (readOnly) return
-    onChange({
-      ...post,
-      embeddedTweet: url
-    })
+    onChange({ ...post, embeddedTweet: url })
   }
 
   const handleRemoveEmbed = () => {
     if (readOnly) return
-    onChange({
-      ...post,
-      embeddedTweet: null
-    })
+    onChange({ ...post, embeddedTweet: null })
+    setShowEmbedInput(false)
   }
 
   const nextImage = () => {
@@ -206,7 +162,6 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   const removeCurrentImage = () => {
     const newImages = images.filter((_, i) => i !== currentImageIndex)
     handleImagesChange(newImages)
-    // Adjust index if needed
     if (currentImageIndex >= newImages.length && newImages.length > 0) {
       setCurrentImageIndex(newImages.length - 1)
     } else if (newImages.length === 0) {
@@ -214,7 +169,6 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
     }
   }
 
-  // Reset carousel index when images change
   useEffect(() => {
     if (currentImageIndex >= images.length && images.length > 0) {
       setCurrentImageIndex(images.length - 1)
@@ -224,20 +178,18 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   const handleCopyText = async () => {
     try {
       await navigator.clipboard.writeText(text)
-      // Could add a toast notification here if you want
       const button = document.activeElement
       if (button && button.classList.contains('copy-post-btn')) {
-        const originalText = button.innerHTML
-        button.innerHTML = '✓ Copied'
+        const originalText = button.textContent
+        button.textContent = '\u2713 Copied'
         button.classList.add('copied')
         setTimeout(() => {
-          button.innerHTML = originalText
+          button.textContent = originalText
           button.classList.remove('copied')
         }, 2000)
       }
     } catch (err) {
       console.error('Failed to copy text:', err)
-      alert('Failed to copy to clipboard')
     }
   }
 
@@ -252,7 +204,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
             title="Copy post text"
             disabled={!text}
           >
-            📋 Copy
+            Copy
           </button>
           {!readOnly && onRemove && totalPosts > 1 && (
             <button
@@ -280,40 +232,46 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           style={{ overflow: 'hidden' }}
         />
 
-        <div className="post-footer">
-          <div className="post-controls">
-            {!readOnly && (
-              <>
-                <button
-                  className="emoji-btn"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  title="Add emoji"
-                >
-                  😀
-                </button>
-                {showEmojiPicker && (
-                  <EmojiPicker
-                    onSelect={handleEmojiSelect}
-                    onClose={() => setShowEmojiPicker(false)}
-                  />
-                )}
-              </>
-            )}
-          </div>
+        <div className="post-toolbar">
+          {!readOnly && (
+            <div className="toolbar-actions">
+              <button
+                className="toolbar-btn"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                title="Add emoji"
+              >
+                😀
+              </button>
+              {showEmojiPicker && (
+                <EmojiPicker
+                  onSelect={handleEmojiSelect}
+                  onClose={() => setShowEmojiPicker(false)}
+                />
+              )}
+
+              <button
+                className="toolbar-btn"
+                onClick={() => imageUploadRef.current?.triggerFileSelect()}
+                title="Add image"
+                disabled={images.length >= 4}
+              >
+                📷
+              </button>
+
+              <button
+                className={`toolbar-btn ${showEmbedInput || embeddedTweet ? 'active' : ''}`}
+                onClick={() => setShowEmbedInput(!showEmbedInput)}
+                title="Embed tweet"
+              >
+                🔗
+              </button>
+            </div>
+          )}
 
           <div className={`char-counter ${isOverLimit ? 'over-limit' : ''}`}>
             {charCount}/{MAX_CHARS}
           </div>
         </div>
-
-        {!readOnly && (
-          <ImageUpload
-            ref={imageUploadRef}
-            images={images}
-            onChange={handleImagesChange}
-            postId={post.id}
-          />
-        )}
 
         {detectingUrls && (
           <div className="url-detection-status">
@@ -321,7 +279,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           </div>
         )}
 
-        {!readOnly && (
+        {!readOnly && showEmbedInput && (
           <div className="embed-input">
             <input
               type="text"
@@ -329,6 +287,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
               value={embeddedTweet || ''}
               onChange={(e) => handleEmbedTweetChange(e.target.value)}
               className="embed-url-input"
+              autoFocus
             />
           </div>
         )}
@@ -347,22 +306,18 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           </div>
         )}
 
+        {!readOnly && (
+          <ImageUpload
+            ref={imageUploadRef}
+            images={images}
+            onChange={handleImagesChange}
+            postId={post.id}
+          />
+        )}
+
         {images.length > 0 && (() => {
-          console.log('[PostBox render] Rendering images:', images)
           const img = images[currentImageIndex]
-          console.log(`[PostBox render] Current image ${currentImageIndex}:`, img, typeof img)
-
           const imageUrl = typeof img === 'string' ? img : img.url
-          const sourceUrl = typeof img === 'object' ? img.sourceUrl : null
-          const uploadMethod = typeof img === 'object' ? img.uploadMethod : 'file'
-
-          console.log(`[PostBox render] Image ${currentImageIndex} - url: ${imageUrl}, sourceUrl: ${sourceUrl}, method: ${uploadMethod}`)
-
-          const methodIcon = {
-            'file': '📁',
-            'clipboard': '📋',
-            'url': '🔗'
-          }[uploadMethod] || '📁'
 
           return (
             <div className="image-carousel">
@@ -370,21 +325,6 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
                 <img src={imageUrl} alt={`Preview ${currentImageIndex + 1}`} className="carousel-image" />
 
                 <div className="carousel-overlay">
-                  <span className="upload-method-badge">{methodIcon}</span>
-
-                  {sourceUrl && (
-                    <a
-                      href={sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="source-url-link"
-                      title={`Source: ${sourceUrl}`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      🔗
-                    </a>
-                  )}
-
                   {!readOnly && (
                     <button
                       className="remove-image-btn"

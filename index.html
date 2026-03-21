@@ -10,68 +10,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      // Disable browser's automatic scroll restoration
-      if ('scrollRestoration' in history) {
-        history.scrollRestoration = 'manual';
-      }
-
-      // IMMEDIATE scroll restoration - runs before React even loads
-      (function() {
-        // Get the draft ID from the URL
-        const pathMatch = window.location.pathname.match(/\/draft\/([^\/]+)/);
-        if (pathMatch) {
-          const draftId = pathMatch[1];
-          const storageKey = 'scroll-pos-' + draftId;
-
-          // Try to get saved scroll position
-          const savedScroll = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
-
-          if (savedScroll) {
-            const targetY = parseInt(savedScroll, 10);
-            console.log('[INSTANT RESTORE] Restoring to:', targetY, 'for draft:', draftId);
-
-            // Restore immediately
-            window.scrollTo({ top: targetY, left: 0, behavior: 'instant' });
-            document.documentElement.scrollTop = targetY;
-            document.body.scrollTop = targetY;
-
-            // Keep trying during page load
-            const restore = function() {
-              window.scrollTo({ top: targetY, left: 0, behavior: 'instant' });
-              document.documentElement.scrollTop = targetY;
-              document.body.scrollTop = targetY;
-            };
-
-            // Restore multiple times during load
-            setTimeout(restore, 0);
-            setTimeout(restore, 10);
-            setTimeout(restore, 50);
-            setTimeout(restore, 100);
-            setTimeout(restore, 200);
-            setTimeout(restore, 500);
-
-            if (document.readyState === 'loading') {
-              document.addEventListener('DOMContentLoaded', restore);
-            }
-
-            window.addEventListener('load', restore);
-          }
-        }
-
-        // Continuously save scroll position
-        setInterval(function() {
-          const pathMatch = window.location.pathname.match(/\/draft\/([^\/]+)/);
-          if (pathMatch) {
-            const draftId = pathMatch[1];
-            const storageKey = 'scroll-pos-' + draftId;
-            const scrollY = window.scrollY;
-            sessionStorage.setItem(storageKey, scrollY.toString());
-            localStorage.setItem(storageKey, scrollY.toString());
-          }
-        }, 100);
-      })();
-    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
