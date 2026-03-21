@@ -836,6 +836,29 @@ body {
   margin-bottom: 10px;
 }
 
+.drag-handle {
+  background: none;
+  border: none;
+  color: #71767a;
+  font-size: 20px;
+  cursor: grab;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: color 0.2s, background-color 0.2s;
+  touch-action: none;
+  line-height: 1;
+  user-select: none;
+}
+
+.drag-handle:hover {
+  color: #fff;
+  background-color: #1a1d21;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
 .post-number {
   font-size: 13px;
   color: #71767a;

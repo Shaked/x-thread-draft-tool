@@ -6,7 +6,7 @@ import TweetEmbed from './TweetEmbed'
 const MAX_CHARS = 280
 const IMAGE_URL_REGEX = /https?:\/\/[^\s]+?\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?[^\s]*)?/gi
 
-export default function PostBox({ post, index, totalPosts, onChange, onRemove, readOnly = false }) {
+export default function PostBox({ post, index, totalPosts, onChange, onRemove, readOnly = false, dragHandleProps }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showEmbedInput, setShowEmbedInput] = useState(false)
   const [detectingUrls, setDetectingUrls] = useState(false)
@@ -196,6 +196,15 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   return (
     <div className="post-box">
       <div className="post-header">
+        {dragHandleProps && (
+          <button
+            className="drag-handle"
+            title="Drag to reorder"
+            {...dragHandleProps}
+          >
+            ⠿
+          </button>
+        )}
         <span className="post-number">{index + 1}/{totalPosts}</span>
         <div className="post-header-actions">
           <button
