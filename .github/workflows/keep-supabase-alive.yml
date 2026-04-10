@@ -21,10 +21,13 @@ jobs:
             echo "::error::Missing SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY secret"
             exit 1
           fi
+          # Only the apikey header is needed for an unauthenticated ping.
+          # New sb_publishable_... keys are opaque tokens, NOT JWTs, so
+          # passing them via "Authorization: Bearer" causes PostgREST to
+          # reject the request with 401.
           status=$(curl -s -o /dev/null -w "%{http_code}" \
             "${SUPABASE_URL}/rest/v1/" \
-            -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}")
+            -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}")
           echo "Response status: $status"
           if [ "$status" -ge 400 ]; then
             echo "::error::Supabase ping failed with status $status"
