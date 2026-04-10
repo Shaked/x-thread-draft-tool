@@ -25,10 +25,16 @@ jobs:
           # New sb_publishable_... keys are opaque tokens, NOT JWTs, so
           # passing them via "Authorization: Bearer" causes PostgREST to
           # reject the request with 401.
-          status=$(curl -s -o /dev/null -w "%{http_code}" \
+          # Capture both the status and the response body so any auth
+          # failure surfaces the actual PostgREST error message.
+          response=$(mktemp)
+          status=$(curl -sS -o "$response" -w "%{http_code}" \
             "${SUPABASE_URL}/rest/v1/" \
             -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}")
           echo "Response status: $status"
+          echo "Response body:"
+          cat "$response"
+          echo
           if [ "$status" -ge 400 ]; then
             echo "::error::Supabase ping failed with status $status"
             exit 1
