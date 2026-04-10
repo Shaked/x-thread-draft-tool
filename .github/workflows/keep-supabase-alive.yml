@@ -10,27 +10,27 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      # Use the new publishable key (sb_publishable_...) from
+      # Use the new secret key (sb_secret_...) from
       # Supabase Dashboard → Settings → API Keys → "Publishable and secret API keys".
-      # Legacy anon JWT keys are deprecated and may be rotated/invalidated.
-      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      # The /rest/v1/ root is privileged under the new API key system and
+      # only accepts secret keys; publishable keys are rejected with
+      # "Secret API key required". GitHub Actions is a server-side context,
+      # which is exactly what secret keys are designed for.
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
     steps:
       - name: Ping Supabase REST API
         run: |
-          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_PUBLISHABLE_KEY}" ]; then
-            echo "::error::Missing SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY secret"
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_SECRET_KEY}" ]; then
+            echo "::error::Missing SUPABASE_URL or SUPABASE_SECRET_KEY secret"
             exit 1
           fi
-          # Only the apikey header is needed for an unauthenticated ping.
-          # New sb_publishable_... keys are opaque tokens, NOT JWTs, so
-          # passing them via "Authorization: Bearer" causes PostgREST to
-          # reject the request with 401.
           # Capture both the status and the response body so any auth
           # failure surfaces the actual PostgREST error message.
           response=$(mktemp)
           status=$(curl -sS -o "$response" -w "%{http_code}" \
             "${SUPABASE_URL}/rest/v1/" \
-            -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}")
+            -H "apikey: ${SUPABASE_SECRET_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SECRET_KEY}")
           echo "Response status: $status"
           echo "Response body:"
           cat "$response"
