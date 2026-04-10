@@ -21,15 +21,15 @@ jobs:
             echo "::error::Missing SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY secret"
             exit 1
           fi
-          # Only the apikey header is needed for an unauthenticated ping.
-          # New sb_publishable_... keys are opaque tokens, NOT JWTs, so
-          # passing them via "Authorization: Bearer" causes PostgREST to
-          # reject the request with 401.
-          # Capture both the status and the response body so any auth
-          # failure surfaces the actual PostgREST error message.
+          # Hit an actual table instead of the /rest/v1/ root. With the
+          # new API key system, /rest/v1/ is privileged and only accepts
+          # secret keys ("Secret API key required"). A lightweight query
+          # against a public table works with the publishable key, is
+          # subject to normal RLS, and counts as real database activity,
+          # which is what actually keeps the project from auto-pausing.
           response=$(mktemp)
           status=$(curl -sS -o "$response" -w "%{http_code}" \
-            "${SUPABASE_URL}/rest/v1/" \
+            "${SUPABASE_URL}/rest/v1/drafts?select=id&limit=1" \
             -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}")
           echo "Response status: $status"
           echo "Response body:"
