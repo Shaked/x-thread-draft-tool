@@ -4,6 +4,7 @@ import { supabase, isOwner, deleteAllDraftImages, normalizeImages } from '../uti
 import { set as idbSet, get as idbGet } from 'idb-keyval'
 import ThreadComposer from '../components/ThreadComposer'
 import ShareButton from '../components/ShareButton'
+import AgentLinkButton from '../components/AgentLinkButton'
 import ExportOptions from '../components/ExportOptions'
 
 export default function DraftEditor({ user }) {
@@ -270,38 +271,42 @@ export default function DraftEditor({ user }) {
   return (
     <div className="draft-editor">
       <header className="editor-header">
-        <div className="header-left">
-          <Link to="/" className="back-link">
-            ← Back
-          </Link>
-          {isEditMode ? (
-            <input
-              type="text"
-              value={draft.title}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              className="draft-title-input"
-              placeholder="Untitled Draft"
-            />
-          ) : (
-            <h1 className="draft-title-display">{draft.title}</h1>
-          )}
-        </div>
+        <Link to="/" className="back-link" aria-label="Back" title="Back">
+          <span className="back-arrow">←</span>
+          <span className="back-text">Back</span>
+        </Link>
 
-        <div className="header-right">
+        {isEditMode ? (
+          <input
+            type="text"
+            value={draft.title}
+            onChange={(e) => handleTitleChange(e.target.value)}
+            className="draft-title-input"
+            placeholder="Untitled Draft"
+          />
+        ) : (
+          <h1 className="draft-title-display">{draft.title}</h1>
+        )}
+
+        <div className="header-actions">
           {!synced && <span className="sync-status syncing">Syncing...</span>}
           {synced && !saving && <span className="sync-status synced">✓ Saved</span>}
 
           <ShareButton draftId={id} />
 
+          {isEditMode && <AgentLinkButton draftId={id} />}
+
           {isEditMode && !draft.is_published && (
-            <button className="publish-btn" onClick={handlePublish} disabled={saving}>
-              📤 Publish
+            <button className="publish-btn icon-btn" onClick={handlePublish} disabled={saving} title="Publish" aria-label="Publish">
+              <span className="btn-icon">📤</span>
+              <span className="btn-text">Publish</span>
             </button>
           )}
 
           {user && (
-            <button className="logout-btn" onClick={handleLogout}>
-              Logout
+            <button className="logout-btn icon-btn" onClick={handleLogout} title="Logout" aria-label="Logout">
+              <span className="btn-icon">⏻</span>
+              <span className="btn-text">Logout</span>
             </button>
           )}
         </div>

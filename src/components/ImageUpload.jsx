@@ -4,7 +4,7 @@ import { supabase, uploadImage, uploadImageFromUrl } from '../utils/supabase'
 
 const MAX_IMAGES = 4
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-const MAX_IMAGE_WIDTH = 1920
+const MAX_IMAGE_WIDTH = 1600
 
 const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
   const [uploading, setUploading] = useState(false)
@@ -18,42 +18,55 @@ const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
 
   const compressImage = (file) => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = (e) => {
-        const img = new Image()
-        img.src = e.target.result
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          let width = img.width
-          let height = img.height
+      const objectUrl = URL.createObjectURL(file)
+      const img = new Image()
 
-          // Resize if larger than MAX_IMAGE_WIDTH
-          if (width > MAX_IMAGE_WIDTH) {
-            height = (height * MAX_IMAGE_WIDTH) / width
-            width = MAX_IMAGE_WIDTH
-          }
-
-          canvas.width = width
-          canvas.height = height
-
-          const ctx = canvas.getContext('2d')
-          ctx.drawImage(img, 0, 0, width, height)
-
-          canvas.toBlob(
-            (blob) => {
-              resolve(new File([blob], file.name, {
-                type: file.type,
-                lastModified: Date.now()
-              }))
-            },
-            file.type,
-            0.9 // quality
-          )
-        }
-        img.onerror = reject
+      const cleanup = () => {
+        URL.revokeObjectURL(objectUrl)
+        img.onload = null
+        img.onerror = null
+        img.src = ''
       }
-      reader.onerror = reject
+
+      img.onload = () => {
+        let width = img.width
+        let height = img.height
+
+        if (width > MAX_IMAGE_WIDTH) {
+          height = (height * MAX_IMAGE_WIDTH) / width
+          width = MAX_IMAGE_WIDTH
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, width, height)
+
+        canvas.toBlob(
+          (blob) => {
+            // Release the decoded bitmap and canvas backing store ASAP.
+            canvas.width = 0
+            canvas.height = 0
+            cleanup()
+            if (!blob) {
+              reject(new Error('Compression failed'))
+              return
+            }
+            resolve(new File([blob], file.name, {
+              type: file.type,
+              lastModified: Date.now()
+            }))
+          },
+          file.type,
+          0.9
+        )
+      }
+      img.onerror = (err) => {
+        cleanup()
+        reject(err)
+      }
+      img.src = objectUrl
     })
   }
 

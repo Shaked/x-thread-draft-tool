@@ -1,0 +1,105 @@
+name: Deploy Supabase migrations and functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - '.github/workflows/supabase-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-deploy
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Block destructive migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reject any migration that contains a destructive statement.
+      # Catches DROP TABLE, DROP COLUMN, TRUNCATE, ALTER ... DROP, and bare DELETE.
+      # Keep this list conservative: it's better to surface a false positive
+      # and have a human flip an "intentional" override than to silently apply
+      # a data-loss migration.
+      - name: Lint migrations
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(supabase/migrations/*.sql)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No migrations found, nothing to lint."
+            exit 0
+          fi
+
+          patterns=(
+            'drop[[:space:]]+table'
+            'drop[[:space:]]+schema'
+            'drop[[:space:]]+database'
+            'drop[[:space:]]+column'
+            'drop[[:space:]]+role'
+            'drop[[:space:]]+policy'
+            'truncate[[:space:]]'
+            'alter[[:space:]]+table[[:space:]]+[^;]*drop[[:space:]]'
+            'delete[[:space:]]+from'
+          )
+
+          fail=0
+          for f in "${files[@]}"; do
+            for p in "${patterns[@]}"; do
+              if grep -inE "$p" "$f" >/dev/null; then
+                echo "::error file=$f::Destructive pattern matched: $p"
+                grep -inE "$p" "$f" || true
+                fail=1
+              fi
+            done
+          done
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Migration lint failed. Destructive operations are blocked by policy."
+            exit 1
+          fi
+
+  deploy:
+    name: Apply migrations and deploy functions
+    needs: guard
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate secrets
+        run: |
+          missing=0
+          for v in SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_ID SUPABASE_DB_PASSWORD; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Missing secret: $v"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ]
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Push migrations
+        run: |
+          # Only applies migrations not yet recorded in supabase_migrations.schema_migrations.
+          supabase db push --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Deploy share function
+        run: |
+          # verify_jwt=false so anonymous agents can fetch /share/:token.md.
+          supabase functions deploy share --no-verify-jwt --project-ref "$SUPABASE_PROJECT_ID"

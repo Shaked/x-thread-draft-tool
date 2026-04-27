@@ -33,11 +33,13 @@ export default function ShareButton({ draftId }) {
   return (
     <div className="share-button-container">
       <button
-        className="share-btn"
+        className="share-btn icon-btn"
         onClick={handleCopy}
         title="Copy shareable link"
+        aria-label="Copy shareable link"
       >
-        {copied ? '✓ Copied!' : '🔗 Share'}
+        <span className="btn-icon">{copied ? '✓' : '🔗'}</span>
+        <span className="btn-text">{copied ? 'Copied!' : 'Share'}</span>
       </button>
       {copied && (
         <div className="share-tooltip">

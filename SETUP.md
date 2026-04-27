@@ -65,6 +65,25 @@ This guide will help you deploy your own instance of the X Thread Draft Tool usi
 6. Click "Deploy"
 7. Wait for deployment (~2 minutes)
 
+## Step 6.5: Configure GitHub Actions secrets (optional, recommended)
+
+The repo ships two workflows that talk to your Supabase project:
+
+- `keep-supabase-alive.yml` — runs daily and calls a `keepalive()` RPC so the project doesn't get auto-paused after a week of inactivity. Hitting `/rest/v1/` does **not** count as activity (it's a cached OpenAPI response, no SQL is executed); the RPC runs `select now();` so PostgREST issues a real query.
+- `supabase-deploy.yml` — on push to `main`, pushes new SQL migrations from `supabase/migrations/` and deploys the `share` edge function. Includes a lint that blocks `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, `DELETE FROM`, and `ALTER ... DROP` so it can't accidentally destroy data.
+
+In your GitHub repo settings → Secrets and variables → Actions, add:
+
+| Secret | Where to find it |
+| --- | --- |
+| `SUPABASE_URL` | Supabase Dashboard → Settings → API → Project URL |
+| `SUPABASE_SECRET_KEY` | Supabase Dashboard → Settings → API Keys → secret key (starts with `sb_secret_…`) |
+| `SUPABASE_ACCESS_TOKEN` | https://supabase.com/dashboard/account/tokens (generate one) |
+| `SUPABASE_PROJECT_ID` | Project ref shown in Settings → General → Reference ID |
+| `SUPABASE_DB_PASSWORD` | The database password you set when creating the project |
+
+After secrets are set, run **Actions → Deploy Supabase migrations and functions → Run workflow** once to apply the initial migration and deploy the `share` edge function. From then on, pushes to `main` that touch `supabase/**` deploy automatically.
+
 ## Step 7: Update GitHub OAuth Callback
 
 1. Go back to your GitHub OAuth App settings

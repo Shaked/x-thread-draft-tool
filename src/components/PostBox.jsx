@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
-import EmojiPicker from './EmojiPicker'
+import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import ImageUpload from './ImageUpload'
-import TweetEmbed from './TweetEmbed'
+
+const EmojiPicker = lazy(() => import('./EmojiPicker'))
+const TweetEmbed = lazy(() => import('./TweetEmbed'))
 
 const MAX_CHARS = 280
 const IMAGE_URL_REGEX = /https?:\/\/[^\s]+?\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?[^\s]*)?/gi
@@ -11,9 +12,11 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   const [showEmbedInput, setShowEmbedInput] = useState(false)
   const [detectingUrls, setDetectingUrls] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [embedVisible, setEmbedVisible] = useState(false)
   const textareaRef = useRef(null)
   const imageUploadRef = useRef(null)
   const urlDetectionTimeoutRef = useRef(null)
+  const embedContainerRef = useRef(null)
 
   const text = post?.text || ''
   const images = post?.images || []
@@ -117,6 +120,29 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (!embeddedTweet || embedVisible) return
+    const node = embedContainerRef.current
+    if (!node) return
+
+    if (typeof IntersectionObserver === 'undefined') {
+      setEmbedVisible(true)
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setEmbedVisible(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [embeddedTweet, embedVisible])
 
   const handleEmojiSelect = (emoji) => {
     if (readOnly) return
@@ -252,10 +278,12 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
                 😀
               </button>
               {showEmojiPicker && (
-                <EmojiPicker
-                  onSelect={handleEmojiSelect}
-                  onClose={() => setShowEmojiPicker(false)}
-                />
+                <Suspense fallback={<div className="emoji-picker-loading">Loading…</div>}>
+                  <EmojiPicker
+                    onSelect={handleEmojiSelect}
+                    onClose={() => setShowEmojiPicker(false)}
+                  />
+                </Suspense>
               )}
 
               <button
@@ -302,8 +330,14 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
         )}
 
         {embeddedTweet && (
-          <div className="embedded-tweet-container">
-            <TweetEmbed url={embeddedTweet} />
+          <div className="embedded-tweet-container" ref={embedContainerRef}>
+            {embedVisible ? (
+              <Suspense fallback={<div className="tweet-embed-loading">Loading tweet…</div>}>
+                <TweetEmbed url={embeddedTweet} />
+              </Suspense>
+            ) : (
+              <div className="tweet-embed-loading">Tweet will load when visible…</div>
+            )}
             {!readOnly && (
               <button
                 className="remove-embed-btn"
@@ -331,7 +365,13 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           return (
             <div className="image-carousel">
               <div className="image-carousel-container">
-                <img src={imageUrl} alt={`Preview ${currentImageIndex + 1}`} className="carousel-image" />
+                <img
+                  src={imageUrl}
+                  alt={`Preview ${currentImageIndex + 1}`}
+                  className="carousel-image"
+                  loading="lazy"
+                  decoding="async"
+                />
 
                 <div className="carousel-overlay">
                   {!readOnly && (
