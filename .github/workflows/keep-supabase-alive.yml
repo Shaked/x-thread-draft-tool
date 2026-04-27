@@ -2,40 +2,39 @@ name: Keep Supabase alive
 
 on:
   schedule:
-    - cron: '0 8 */3 * *' # Every 3 days at 8am UTC
+    - cron: '17 8 * * *' # Daily at 08:17 UTC
   workflow_dispatch:
 
+# Hitting /rest/v1/ returns PostgREST's cached OpenAPI schema and does NOT
+# execute SQL — Supabase doesn't count that as activity, so the project
+# still gets paused. We instead invoke an RPC that runs a trivial query.
 jobs:
   ping:
     runs-on: ubuntu-latest
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      # Use the new secret key (sb_secret_...) from
-      # Supabase Dashboard → Settings → API Keys → "Publishable and secret API keys".
-      # The /rest/v1/ root is privileged under the new API key system and
-      # only accepts secret keys; publishable keys are rejected with
-      # "Secret API key required". GitHub Actions is a server-side context,
-      # which is exactly what secret keys are designed for.
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
     steps:
-      - name: Ping Supabase REST API
+      - name: Run keepalive query
         run: |
+          set -euo pipefail
           if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_SECRET_KEY}" ]; then
             echo "::error::Missing SUPABASE_URL or SUPABASE_SECRET_KEY secret"
             exit 1
           fi
-          # Capture both the status and the response body so any auth
-          # failure surfaces the actual PostgREST error message.
+
           response=$(mktemp)
-          status=$(curl -sS -o "$response" -w "%{http_code}" \
-            "${SUPABASE_URL}/rest/v1/" \
+          status=$(curl -sS -o "$response" -w "%{http_code}" -X POST \
+            "${SUPABASE_URL}/rest/v1/rpc/keepalive" \
             -H "apikey: ${SUPABASE_SECRET_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_SECRET_KEY}")
+            -H "Authorization: Bearer ${SUPABASE_SECRET_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
           echo "Response status: $status"
           echo "Response body:"
           cat "$response"
           echo
           if [ "$status" -ge 400 ]; then
-            echo "::error::Supabase ping failed with status $status"
+            echo "::error::Keepalive RPC failed with status $status"
             exit 1
           fi
