@@ -21,14 +21,36 @@ language sql immutable parallel safe as $$
   end;
 $$;
 
+-- Type-safe JSONB extractors. The metrics_events table is anon-insertable
+-- (necessary for the client-side beacon), so payloads can contain anything.
+-- A naive cast like (payload->>'flag')::boolean throws on garbage input,
+-- which would make metrics_summary fail and brick the /metrics endpoint
+-- after a single malformed (or malicious) row. These helpers return a
+-- default for any value whose JSONB type doesn't match.
+create or replace function public.metrics_jb_bool(j jsonb, k text)
+returns boolean
+language sql immutable parallel safe as $$
+  select case when jsonb_typeof(j->k) = 'boolean'
+              then (j->>k)::boolean
+              else false end;
+$$;
+
+create or replace function public.metrics_jb_num(j jsonb, k text)
+returns numeric
+language sql immutable parallel safe as $$
+  select case when jsonb_typeof(j->k) = 'number'
+              then (j->>k)::numeric
+              else null end;
+$$;
+
 -- Daily volume + eviction rate by UA family.
 create or replace view public.metrics_pageviews_daily as
 select
   date_trunc('day', created_at) as day,
   public.metrics_ua_family(user_agent) as ua_family,
   count(*) as pageviews,
-  count(*) filter (where (payload->>'likelyEvicted')::boolean) as evictions,
-  count(*) filter (where (payload->>'bfcacheRestored')::boolean) as bfcache_restores,
+  count(*) filter (where metrics_jb_bool(payload, 'likelyEvicted')) as evictions,
+  count(*) filter (where metrics_jb_bool(payload, 'bfcacheRestored')) as bfcache_restores,
   count(distinct session_id) as sessions
 from public.metrics_events
 where event_type = 'pageview'
@@ -56,7 +78,7 @@ with evicted_views as (
   select session_id, created_at as evicted_at
   from public.metrics_events
   where event_type = 'pageview'
-    and (payload->>'likelyEvicted')::boolean
+    and metrics_jb_bool(payload, 'likelyEvicted')
 ), pre_snap as (
   select
     e.session_id,
@@ -75,10 +97,10 @@ with evicted_views as (
 select
   session_id,
   evicted_at,
-  (snapshot->>'usedJSHeapSize')::bigint as used_js_heap_size,
-  (snapshot->>'domNodes')::int as dom_nodes,
-  (snapshot->>'storageUsage')::bigint as storage_usage,
-  (snapshot->>'deviceMemory')::numeric as device_memory_gb
+  metrics_jb_num(snapshot, 'usedJSHeapSize')::bigint as used_js_heap_size,
+  metrics_jb_num(snapshot, 'domNodes')::int as dom_nodes,
+  metrics_jb_num(snapshot, 'storageUsage')::bigint as storage_usage,
+  metrics_jb_num(snapshot, 'deviceMemory') as device_memory_gb
 from pre_snap
 where rn = 1;
 
@@ -121,9 +143,9 @@ begin
   ), by_ua as (
     select ua_family, jsonb_build_object(
       'pageviews', count(*),
-      'evictions', count(*) filter (where (payload->>'likelyEvicted')::boolean),
+      'evictions', count(*) filter (where metrics_jb_bool(payload, 'likelyEvicted')),
       'eviction_rate', round(
-        (count(*) filter (where (payload->>'likelyEvicted')::boolean))::numeric
+        (count(*) filter (where metrics_jb_bool(payload, 'likelyEvicted')))::numeric
         / nullif(count(*), 0) * 100, 2
       )
     ) as family_counts
@@ -131,8 +153,8 @@ begin
   ), totals as (
     select
       count(*) as pageviews,
-      count(*) filter (where (payload->>'likelyEvicted')::boolean) as evictions,
-      count(*) filter (where (payload->>'bfcacheRestored')::boolean) as bfcache_restores,
+      count(*) filter (where metrics_jb_bool(payload, 'likelyEvicted')) as evictions,
+      count(*) filter (where metrics_jb_bool(payload, 'bfcacheRestored')) as bfcache_restores,
       count(distinct session_id) as sessions
     from cur
   )
@@ -146,7 +168,7 @@ begin
 
   select jsonb_build_object(
     'pageviews', count(*),
-    'evictions', count(*) filter (where (payload->>'likelyEvicted')::boolean)
+    'evictions', count(*) filter (where metrics_jb_bool(payload, 'likelyEvicted'))
   ) into v_volume_prev
   from metrics_events
   where event_type = 'pageview'
