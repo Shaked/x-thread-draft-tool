@@ -1,0 +1,29 @@
+{
+  "files": {
+    "dist/assets/EmojiPicker-SW4tStMP.js": {
+      "raw": 475048,
+      "gzip": 108575,
+      "brotli": 81543
+    },
+    "dist/assets/TweetEmbed-Dl7sigwg.js": {
+      "raw": 1266,
+      "gzip": 701,
+      "brotli": 564
+    },
+    "dist/assets/index-CHAo-_yV.css": {
+      "raw": 21004,
+      "gzip": 4165,
+      "brotli": 3647
+    },
+    "dist/assets/index-lXQzWC-X.js": {
+      "raw": 422541,
+      "gzip": 126141,
+      "brotli": 109185
+    }
+  },
+  "totals": {
+    "raw": 919859,
+    "gzip": 239582,
+    "brotli": 194939
+  }
+}

@@ -20,6 +20,15 @@ function textResponse(body: string, status = 200) {
   })
 }
 
+function logTiming(t0: number, status: number, bytes: number) {
+  console.log(JSON.stringify({
+    evt: 'share',
+    ms: Math.round(performance.now() - t0),
+    bytes,
+    status
+  }))
+}
+
 function extractToken(url: URL): string | null {
   // Path is /share/<token> (trailing .md stripped by Vercel rewrite,
   // but tolerate it here too in case the function is hit directly).
@@ -54,14 +63,20 @@ function renderMarkdown(title: string, posts: Array<Record<string, unknown>>): s
 }
 
 Deno.serve(async (req) => {
+  const t0 = performance.now()
+
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    return textResponse('Method not allowed', 405)
+    const body = 'Method not allowed'
+    logTiming(t0, 405, body.length)
+    return textResponse(body, 405)
   }
 
   const url = new URL(req.url)
   const token = extractToken(url)
   if (!token) {
-    return textResponse('Invalid token', 400)
+    const body = 'Invalid token'
+    logTiming(t0, 400, body.length)
+    return textResponse(body, 400)
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -71,14 +86,19 @@ Deno.serve(async (req) => {
   const { data, error } = await supabase.rpc('consume_share_token', { p_token: token })
   if (error) {
     console.error('consume_share_token error:', error)
-    return textResponse('Server error', 500)
+    const body = 'Server error'
+    logTiming(t0, 500, body.length)
+    return textResponse(body, 500)
   }
 
   const row = Array.isArray(data) ? data[0] : data
   if (!row) {
-    return textResponse('Link expired or invalid', 410)
+    const body = 'Link expired or invalid'
+    logTiming(t0, 410, body.length)
+    return textResponse(body, 410)
   }
 
   const md = renderMarkdown(row.title as string, (row.posts as Array<Record<string, unknown>>) || [])
+  logTiming(t0, 200, md.length)
   return textResponse(md, 200)
 })
