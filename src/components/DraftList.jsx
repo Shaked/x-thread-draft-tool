@@ -74,6 +74,37 @@ export default function DraftList({ user }) {
     }
   }
 
+  const duplicateDraft = async (draft) => {
+    try {
+      const sourcePosts = Array.isArray(draft.posts) ? draft.posts : []
+      const duplicatedPosts = sourcePosts.map((post) => ({
+        ...post,
+        id: crypto.randomUUID()
+      }))
+
+      const { data, error } = await supabase
+        .from('drafts')
+        .insert([
+          {
+            user_id: user.id,
+            title: `${draft.title || 'Untitled'} (copy)`,
+            posts: duplicatedPosts.length
+              ? duplicatedPosts
+              : [{ id: crypto.randomUUID(), text: '', images: [], embeddedTweet: null }]
+          }
+        ])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      navigate(`/draft/${data.id}`)
+    } catch (err) {
+      console.error('Error duplicating draft:', err)
+      alert('Failed to duplicate draft: ' + err.message)
+    }
+  }
+
   const deleteDraft = async (id) => {
     if (!confirm('Are you sure you want to delete this draft?')) return
 
@@ -165,6 +196,16 @@ export default function DraftList({ user }) {
                 </div>
               </div>
               <div className="draft-actions">
+                <button
+                  className="duplicate-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    duplicateDraft(draft)
+                  }}
+                  title="Duplicate"
+                >
+                  📋
+                </button>
                 <button
                   className="delete-btn"
                   onClick={(e) => {
