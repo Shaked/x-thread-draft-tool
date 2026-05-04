@@ -9,6 +9,7 @@ export default defineConfig({
       // Avoid automatic reloads when the tab regains focus and a new SW is available.
       // With `prompt`, updates are downloaded but only applied after an explicit refresh.
       registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'X Thread Draft Tool',
