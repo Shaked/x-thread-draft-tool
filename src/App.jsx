@@ -4,6 +4,7 @@ import { supabase } from './utils/supabase'
 import LoginPage from './components/LoginPage'
 import DraftList from './components/DraftList'
 import DraftEditor from './pages/DraftEditor'
+import XThreadPreviewPage from './pages/XThreadPreviewPage'
 import './styles/App.css'
 
 function App() {
@@ -55,6 +56,10 @@ function App() {
           <Route
             path="/draft/:id"
             element={<DraftEditor user={user} />}
+          />
+          <Route
+            path="/x-thread-preview/:token"
+            element={<XThreadPreviewPage />}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

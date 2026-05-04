@@ -19,8 +19,8 @@ export default function XThreadLinkButton({ draftId }) {
       const token = typeof data === 'string' ? data : data?.token
       if (!token) throw new Error('No token returned')
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL.replace(/\/$/, '')
-      const url = `${supabaseUrl}/functions/v1/share/${token}.html`
+      const appOrigin = window.location.origin.replace(/\/$/, '')
+      const url = `${appOrigin}/x-thread-preview/${token}`
       await navigator.clipboard.writeText(url)
 
       setCopied(true)
