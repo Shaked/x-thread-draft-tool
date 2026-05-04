@@ -34,17 +34,46 @@ function App() {
   const deployedAtRaw = import.meta.env.VITE_DEPLOYED_AT
   const deployCommitRaw = import.meta.env.VITE_DEPLOY_COMMIT_SHA
   const deployCommit = deployCommitRaw ? deployCommitRaw.slice(0, 12) : 'unknown'
-  const deployedAt = (() => {
-    if (!deployedAtRaw) return 'unknown'
+  const { deployedAt, deployedAgo } = (() => {
+    if (!deployedAtRaw) return { deployedAt: 'unknown', deployedAgo: '' }
 
     const deployedDate = new Date(deployedAtRaw)
 
-    if (Number.isNaN(deployedDate.getTime())) return 'unknown'
+    if (Number.isNaN(deployedDate.getTime())) return { deployedAt: 'unknown', deployedAgo: '' }
 
-    return deployedDate.toLocaleString(undefined, {
+    const deployedAtFormatted = deployedDate.toLocaleString(undefined, {
       dateStyle: 'medium',
       timeStyle: 'medium'
     })
+
+    const now = new Date()
+    const diffMs = now.getTime() - deployedDate.getTime()
+    const diffSeconds = Math.floor(diffMs / 1000)
+
+    const intervals = [
+      { label: 'year', seconds: 60 * 60 * 24 * 365 },
+      { label: 'month', seconds: 60 * 60 * 24 * 30 },
+      { label: 'day', seconds: 60 * 60 * 24 },
+      { label: 'hour', seconds: 60 * 60 },
+      { label: 'minute', seconds: 60 },
+      { label: 'second', seconds: 1 }
+    ]
+
+    for (const interval of intervals) {
+      const value = Math.floor(diffSeconds / interval.seconds)
+      if (value >= 1) {
+        const suffix = value === 1 ? '' : 's'
+        return {
+          deployedAt: deployedAtFormatted,
+          deployedAgo: ` (${value} ${interval.label}${suffix} ago)`
+        }
+      }
+    }
+
+    return {
+      deployedAt: deployedAtFormatted,
+      deployedAgo: ' (just now)'
+    }
   })()
 
   if (loading) {
@@ -59,7 +88,7 @@ function App() {
     <BrowserRouter>
       <div className="app">
         <div className="deployment-meta">
-          <span><strong>Last deployed:</strong> {deployedAt}</span>
+          <span><strong>Last deployed:</strong> {deployedAt}{deployedAgo}</span>
           <span><strong>Version:</strong> {deployCommit}</span>
         </div>
         <Routes>
