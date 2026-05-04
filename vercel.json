@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "VITE_DEPLOYED_AT=\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" VITE_DEPLOY_COMMIT_SHA=\"${VERCEL_GIT_COMMIT_SHA:-unknown}\" npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [

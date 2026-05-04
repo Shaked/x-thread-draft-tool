@@ -31,6 +31,17 @@ function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  const deployedAtRaw = import.meta.env.VITE_DEPLOYED_AT
+  const deployCommitRaw = import.meta.env.VITE_DEPLOY_COMMIT_SHA
+  const deployCommit = deployCommitRaw ? deployCommitRaw.slice(0, 12) : 'unknown'
+  const deployedAt = deployedAtRaw
+    ? new Date(deployedAtRaw).toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'medium',
+        timeZoneName: 'short'
+      })
+    : 'unknown'
+
   if (loading) {
     return (
       <div className="app loading-screen">
@@ -42,6 +53,10 @@ function App() {
   return (
     <BrowserRouter>
       <div className="app">
+        <div className="deployment-meta">
+          <span><strong>Last deployed:</strong> {deployedAt}</span>
+          <span><strong>Version:</strong> {deployCommit}</span>
+        </div>
         <Routes>
           <Route
             path="/"
