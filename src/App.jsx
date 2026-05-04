@@ -34,13 +34,18 @@ function App() {
   const deployedAtRaw = import.meta.env.VITE_DEPLOYED_AT
   const deployCommitRaw = import.meta.env.VITE_DEPLOY_COMMIT_SHA
   const deployCommit = deployCommitRaw ? deployCommitRaw.slice(0, 12) : 'unknown'
-  const deployedAt = deployedAtRaw
-    ? new Date(deployedAtRaw).toLocaleString(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'medium',
-        timeZoneName: 'short'
-      })
-    : 'unknown'
+  const deployedAt = (() => {
+    if (!deployedAtRaw) return 'unknown'
+
+    const deployedDate = new Date(deployedAtRaw)
+
+    if (Number.isNaN(deployedDate.getTime())) return 'unknown'
+
+    return deployedDate.toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'medium'
+    })
+  })()
 
   if (loading) {
     return (
