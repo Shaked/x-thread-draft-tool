@@ -25,9 +25,6 @@ function rel(pathAbs) {
 const featureFiles = listMdFiles(featuresDir).filter((f) => f !== 'index.md');
 const skillFiles = listMdFiles(skillsDir);
 
-const now = new Date();
-const ts = now.toISOString().replace('T', ' ').replace('Z', ' UTC');
-
 const featureLines = featureFiles.map((f) => {
   const abs = join(featuresDir, f);
   const title = titleFor(abs);
@@ -42,23 +39,53 @@ const skillLines = skillFiles.map((f) => {
   return `- ${title}: [\`${path}\`](./${path})`;
 });
 
-const block = [
-  '<!-- AUTO-INDEX:START -->',
-  `_Last refreshed: ${ts}_`,
-  '',
+const start = '<!-- AUTO-INDEX:START -->';
+const end = '<!-- AUTO-INDEX:END -->';
+
+const current = readFileSync(claudePath, 'utf8');
+if (!current.includes(start) || !current.includes(end)) {
+  throw new Error('claude.md missing AUTO-INDEX markers');
+}
+
+const blockBodyLines = [
   '## Feature Index (auto-generated, use directly)',
   ...featureLines,
   '',
   '## Auto Skill Map (use directly)',
-  ...skillLines,
-  '<!-- AUTO-INDEX:END -->'
+  ...skillLines
+];
+const blockBody = blockBodyLines.join('\n');
+
+// Re-use the existing timestamp when nothing in the indexed content has
+// changed. This avoids dirtying claude.md on every pre-commit run, which
+// would leave the working tree dirty immediately after commit.
+const blockRegex = new RegExp(`${start}[\\s\\S]*?${end}`);
+const existingMatch = current.match(blockRegex);
+const existingTs = existingMatch
+  ? (existingMatch[0].match(/_Last refreshed: ([^_]+)_/) || [])[1]
+  : null;
+const existingBody = existingMatch
+  ? existingMatch[0]
+      .replace(start, '')
+      .replace(end, '')
+      .replace(/_Last refreshed: [^_]+_\n?/, '')
+      .replace(/^\s+|\s+$/g, '')
+  : null;
+
+const ts =
+  existingTs && existingBody === blockBody
+    ? existingTs
+    : new Date().toISOString().replace('T', ' ').replace('Z', ' UTC');
+
+const block = [
+  start,
+  `_Last refreshed: ${ts}_`,
+  '',
+  ...blockBodyLines,
+  end
 ].join('\n');
 
-const current = readFileSync(claudePath, 'utf8');
-const start = '<!-- AUTO-INDEX:START -->';
-const end = '<!-- AUTO-INDEX:END -->';
-if (!current.includes(start) || !current.includes(end)) {
-  throw new Error('claude.md missing AUTO-INDEX markers');
+const updated = current.replace(blockRegex, block);
+if (updated !== current) {
+  writeFileSync(claudePath, updated);
 }
-const updated = current.replace(new RegExp(`${start}[\\s\\S]*?${end}`), block);
-writeFileSync(claudePath, updated);
