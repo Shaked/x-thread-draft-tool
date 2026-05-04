@@ -41,6 +41,13 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         runtimeCaching: [
           {
+            // The one-time share endpoint returns full HTML and should always be fetched live.
+            // Caching this request via NetworkFirst can throw Workbox "no-response" errors
+            // on mobile browsers when the request/response shape is atypical for cache replay.
+            urlPattern: /^https:\/\/.*\.supabase\.co\/functions\/v1\/share\//i,
+            handler: 'NetworkOnly'
+          },
+          {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
             handler: 'NetworkFirst',
             options: {
