@@ -19,6 +19,10 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return textResponse('', 204)
+  }
+
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return textResponse('Method not allowed', 405)
   }
