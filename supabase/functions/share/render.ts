@@ -33,6 +33,9 @@ export function response(body: string, contentType: string, status = 200): Respo
   headers.set('Content-Disposition', 'inline')
   headers.set('Cache-Control', 'no-store')
   headers.set('X-Robots-Tag', 'noindex')
+  headers.set('Access-Control-Allow-Origin', '*')
+  headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
+  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, x-client-info')
   return new Response(body, { status, headers })
 }
 
