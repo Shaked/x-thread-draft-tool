@@ -39,7 +39,7 @@ describe('XThreadLinkButton', () => {
     expect(screen.getByRole('button', { name: /x thread/i })).toBeInTheDocument()
   })
 
-  it('creates a token, copies the .html link, and shows the copied tooltip', async () => {
+  it('creates a token, copies the html-render link, and shows the copied tooltip', async () => {
     rpcMock.mockResolvedValue({ data: TOKEN, error: null })
     const user = userEvent.setup()
     const writeText = setupClipboard()
@@ -50,7 +50,7 @@ describe('XThreadLinkButton', () => {
     await waitFor(() => expect(rpcMock).toHaveBeenCalledTimes(1))
     expect(rpcMock).toHaveBeenCalledWith('create_share_token', { p_draft_id: 'draft-1' })
 
-    const expectedUrl = `${SUPABASE_URL}/functions/v1/share/${TOKEN}.html`
+    const expectedUrl = `${window.location.origin}/x-thread-preview/${TOKEN}`
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expectedUrl))
 
     expect(await screen.findByText(/one-time x-thread link copied/i)).toBeInTheDocument()
@@ -67,7 +67,7 @@ describe('XThreadLinkButton', () => {
 
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(
-        `${SUPABASE_URL}/functions/v1/share/${TOKEN}.html`
+        `${window.location.origin}/x-thread-preview/${TOKEN}`
       )
     )
   })

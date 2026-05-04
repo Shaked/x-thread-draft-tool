@@ -133,6 +133,20 @@ The app uses three main tables in Supabase:
 
 Each draft has a unique URL (`/draft/:id`) that can be shared. Anyone with the link can view the draft, but only the owner can edit it.
 
+
+### One-time X-thread preview links
+
+The **X Thread** button generates a one-time-use share token and copies a URL like:
+
+`https://<your-app-domain>/x-thread-preview/<token>`
+
+Why this shape: some edge gateway/CDN paths force `.html` URLs to `text/plain` regardless of response headers. The app route fetches the one-time HTML payload from Supabase and writes it into the document, avoiding Edge Function `text/html` rewrite behavior on direct navigation.
+
+Behavior:
+- First successful open consumes the token and renders the styled HTML thread preview.
+- Any later open returns an expired/invalid response (`410 Gone`).
+- `?format=md` can still be used for markdown output when needed.
+
 ### Published Feature
 
 Mark a draft as "published" to:

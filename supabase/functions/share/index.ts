@@ -24,6 +24,16 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url)
+
+  // Some gateways force `.html` responses to text/plain. Redirect .html paths
+  // to the extensionless `?format=html` URL before consuming the one-time token.
+  const lastSegment = url.pathname.split('/').filter(Boolean).pop() || ''
+  if (lastSegment.endsWith('.html') && url.searchParams.get('format') !== 'html') {
+    const redirectUrl = new URL(url.toString())
+    redirectUrl.pathname = redirectUrl.pathname.slice(0, -5)
+    redirectUrl.searchParams.set('format', 'html')
+    return Response.redirect(redirectUrl.toString(), 307)
+  }
   const { token, format } = extractTokenAndFormat(url)
   if (!token) {
     return format === 'html' ? htmlResponse('<h1>Invalid token</h1>', 400) : textResponse('Invalid token', 400)
