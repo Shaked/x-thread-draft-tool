@@ -5,6 +5,7 @@ import { set as idbSet, get as idbGet } from 'idb-keyval'
 import ThreadComposer from '../components/ThreadComposer'
 import ShareButton from '../components/ShareButton'
 import AgentLinkButton from '../components/AgentLinkButton'
+import XThreadLinkButton from '../components/XThreadLinkButton'
 import ExportOptions from '../components/ExportOptions'
 
 export default function DraftEditor({ user }) {
@@ -295,6 +296,8 @@ export default function DraftEditor({ user }) {
           <ShareButton draftId={id} />
 
           {isEditMode && <AgentLinkButton draftId={id} />}
+
+          {isEditMode && <XThreadLinkButton draftId={id} />}
 
           {isEditMode && !draft.is_published && (
             <button className="publish-btn icon-btn" onClick={handlePublish} disabled={saving} title="Publish" aria-label="Publish">

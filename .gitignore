@@ -26,3 +26,9 @@ dist-ssr
 # Cloudflare
 .dev.vars
 .wrangler
+
+# Test artifacts
+coverage
+playwright-report
+test-results
+.playwright
