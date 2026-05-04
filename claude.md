@@ -10,7 +10,7 @@ agent-specific instruction file is added later (`GEMINI.md`, etc.) it must
 also defer to this file.
 
 <!-- AUTO-INDEX:START -->
-_Last refreshed: 2026-05-04 20:42:06.530 UTC_
+_Last refreshed: 2026-05-04 20:42:41.474 UTC_
 
 ## Feature Index (auto-generated, use directly)
 - Draft Management: [`docs/features/draft-management.md`](./docs/features/draft-management.md)
