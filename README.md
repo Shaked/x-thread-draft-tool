@@ -196,6 +196,14 @@ Unless you have thousands of users, you'll stay within free limits.
 
 Contributions are welcome! Please open an issue or PR.
 
+### Documentation update policy
+
+When a task changes behavior, contributors should update:
+- `docs/plans/current.md`
+- `docs/features/supported.md`
+- `README.md` (if user-facing behavior/setup changed)
+- a new timestamped changelog file under `docs/changelogs/` (`YYYYMMDD-HHMMSS-<slug>.md`)
+
 ## License
 
 MIT

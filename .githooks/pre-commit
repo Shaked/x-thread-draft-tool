@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -e
+
+echo "Running pre-commit checks (lint + unit tests)..."
+npm run precommit:checks
