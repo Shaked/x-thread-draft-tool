@@ -20,7 +20,7 @@ export default function XThreadLinkButton({ draftId }) {
       if (!token) throw new Error('No token returned')
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL.replace(/\/$/, '')
-      const url = `${supabaseUrl}/functions/v1/share/${token}?format=html`
+      const url = `${supabaseUrl}/functions/v1/share/${token}.html`
       await navigator.clipboard.writeText(url)
 
       setCopied(true)
