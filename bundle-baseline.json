@@ -1,0 +1,29 @@
+{
+  "files": {
+    "dist/assets/EmojiPicker-DLG-BOzc.js": {
+      "raw": 475048,
+      "gzip": 108574,
+      "brotli": 81565
+    },
+    "dist/assets/TweetEmbed-To8bhQ8u.js": {
+      "raw": 1266,
+      "gzip": 703,
+      "brotli": 570
+    },
+    "dist/assets/index-Bhbqrx_l.css": {
+      "raw": 21088,
+      "gzip": 4183,
+      "brotli": 3659
+    },
+    "dist/assets/index-D5fJI4eZ.js": {
+      "raw": 424290,
+      "gzip": 126308,
+      "brotli": 109201
+    }
+  },
+  "totals": {
+    "raw": 921692,
+    "gzip": 239768,
+    "brotli": 194995
+  }
+}
