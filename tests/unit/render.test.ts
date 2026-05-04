@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   extractTokenAndFormat,
   htmlEscape,
+  htmlResponse,
   imageUrl,
   isRTL,
   linkify,
@@ -10,6 +11,7 @@ import {
   renderImages,
   renderMarkdown,
   renderText,
+  textResponse,
   tweetIdFrom,
   type Payload,
   type Post
@@ -28,7 +30,22 @@ describe('extractTokenAndFormat', () => {
     expect(extractTokenAndFormat(u)).toEqual({ token: VALID_TOKEN, format: 'html' })
   })
 
-  it('defaults to md when no extension is given', () => {
+  it('treats ?format=html as html even on extensionless paths', () => {
+    const u = new URL(`https://x.test/functions/v1/share/${VALID_TOKEN}?format=html`)
+    expect(extractTokenAndFormat(u)).toEqual({ token: VALID_TOKEN, format: 'html' })
+  })
+
+  it('lets ?format=html override a .md extension', () => {
+    const u = new URL(`https://x.test/functions/v1/share/${VALID_TOKEN}.md?format=html`)
+    expect(extractTokenAndFormat(u)).toEqual({ token: VALID_TOKEN, format: 'html' })
+  })
+
+  it('lets ?format=md override a .html extension', () => {
+    const u = new URL(`https://x.test/functions/v1/share/${VALID_TOKEN}.html?format=md`)
+    expect(extractTokenAndFormat(u)).toEqual({ token: VALID_TOKEN, format: 'md' })
+  })
+
+  it('defaults to md when no extension and no query param is given', () => {
     const u = new URL(`https://x.test/functions/v1/share/${VALID_TOKEN}`)
     expect(extractTokenAndFormat(u)).toEqual({ token: VALID_TOKEN, format: 'md' })
   })
@@ -41,6 +58,22 @@ describe('extractTokenAndFormat', () => {
   it('returns null token for empty path', () => {
     const u = new URL('https://x.test/functions/v1/share/')
     expect(extractTokenAndFormat(u).token).toBeNull()
+  })
+})
+
+describe('response builders', () => {
+  it('htmlResponse sets Content-Type, Content-Disposition: inline and noindex', () => {
+    const res = htmlResponse('<html></html>')
+    expect(res.headers.get('Content-Type')).toBe('text/html; charset=utf-8')
+    expect(res.headers.get('Content-Disposition')).toBe('inline')
+    expect(res.headers.get('Cache-Control')).toBe('no-store')
+    expect(res.headers.get('X-Robots-Tag')).toBe('noindex')
+  })
+
+  it('textResponse sets text/markdown content type', () => {
+    const res = textResponse('# md')
+    expect(res.headers.get('Content-Type')).toBe('text/markdown; charset=utf-8')
+    expect(res.headers.get('Content-Disposition')).toBe('inline')
   })
 })
 

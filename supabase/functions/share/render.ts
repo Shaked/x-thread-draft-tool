@@ -24,14 +24,16 @@ export type Payload = {
 }
 
 export function response(body: string, contentType: string, status = 200): Response {
-  return new Response(body, {
-    status,
-    headers: {
-      'Content-Type': `${contentType}; charset=utf-8`,
-      'Cache-Control': 'no-store',
-      'X-Robots-Tag': 'noindex'
-    }
-  })
+  // Build headers via the Headers constructor (rather than a plain object) so
+  // Content-Type is preserved verbatim by every edge-runtime/gateway combo.
+  // Content-Disposition: inline is set explicitly so the browser never
+  // interprets a `.html` URL as a downloadable attachment.
+  const headers = new Headers()
+  headers.set('Content-Type', `${contentType}; charset=utf-8`)
+  headers.set('Content-Disposition', 'inline')
+  headers.set('Cache-Control', 'no-store')
+  headers.set('X-Robots-Tag', 'noindex')
+  return new Response(body, { status, headers })
 }
 
 export function textResponse(body: string, status = 200): Response {
@@ -43,9 +45,17 @@ export function htmlResponse(body: string, status = 200): Response {
 }
 
 export function extractTokenAndFormat(url: URL): { token: string | null; format: Format } {
+  // Format selection, in order of precedence:
+  //   1. ?format=html|md  query parameter
+  //   2. .html / .md      path extension
+  //   3. default          markdown
+  // The query-param form exists because some CDN/gateway combos override
+  // Content-Type for `.html` URLs; using a query param sidesteps that.
+  const queryFormat = url.searchParams.get('format')
   const parts = url.pathname.split('/').filter(Boolean)
   let last = parts[parts.length - 1] || ''
   let format: Format = 'md'
+
   if (last.endsWith('.html')) {
     format = 'html'
     last = last.slice(0, -5)
@@ -53,6 +63,10 @@ export function extractTokenAndFormat(url: URL): { token: string | null; format:
     format = 'md'
     last = last.slice(0, -3)
   }
+
+  if (queryFormat === 'html') format = 'html'
+  else if (queryFormat === 'md') format = 'md'
+
   return { token: UUID_RE.test(last) ? last : null, format }
 }
 
