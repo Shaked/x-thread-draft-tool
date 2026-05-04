@@ -789,7 +789,8 @@ body {
   gap: 8px;
 }
 
-.delete-btn {
+.delete-btn,
+.duplicate-btn {
   padding: 8px 12px;
   background-color: transparent;
   border: 1px solid #333;
@@ -802,6 +803,11 @@ body {
 .delete-btn:hover {
   background-color: #f4212e20;
   border-color: #f4212e;
+}
+
+.duplicate-btn:hover {
+  background-color: #1d9bf020;
+  border-color: #1d9bf0;
 }
 
 .empty-state {
