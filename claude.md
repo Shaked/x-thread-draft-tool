@@ -2,8 +2,15 @@
 
 This file is the primary, actionable map for what to use.
 
+**Applies to every agent** working in this repo — Claude / Claude Code,
+Codex / ChatGPT, Gemini, Cursor, and any future tool. The root
+[`AGENTS.md`](./AGENTS.md) is a thin pointer back to this file so agents that
+look for `AGENTS.md` (e.g. Codex/GPT) follow the same rules. If another
+agent-specific instruction file is added later (`GEMINI.md`, etc.) it must
+also defer to this file.
+
 <!-- AUTO-INDEX:START -->
-_Last refreshed: 2026-05-04 08:42:11.824 UTC_
+_Last refreshed: 2026-05-04 20:42:06.530 UTC_
 
 ## Feature Index (auto-generated, use directly)
 - Draft Management: [`docs/features/draft-management.md`](./docs/features/draft-management.md)

@@ -2,8 +2,29 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../utils/supabase'
 
+const ACTIVE_TAB_STORAGE_KEY = 'xtdt:draftList:activeTab'
+
+function readPersistedTab() {
+  if (typeof window === 'undefined') return 'drafts'
+  try {
+    const value = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY)
+    return value === 'published' ? 'published' : 'drafts'
+  } catch {
+    return 'drafts'
+  }
+}
+
 export default function DraftList({ user }) {
-  const [activeTab, setActiveTab] = useState('drafts') // 'drafts' or 'published'
+  const [activeTab, setActiveTab] = useState(readPersistedTab)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab)
+    } catch {
+      // ignore quota / private mode
+    }
+  }, [activeTab])
   const [drafts, setDrafts] = useState([])
   const [published, setPublished] = useState([])
   const [loading, setLoading] = useState(true)

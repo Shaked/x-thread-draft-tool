@@ -5,6 +5,7 @@ import LoginPage from './components/LoginPage'
 import DraftList from './components/DraftList'
 import DraftEditor from './pages/DraftEditor'
 import XThreadPreviewPage from './pages/XThreadPreviewPage'
+import ScrollRestoration from './components/ScrollRestoration'
 import './styles/App.css'
 
 function App() {
@@ -86,6 +87,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ScrollRestoration />
       <div className="app">
         <div className="deployment-meta">
           <span><strong>Last deployed:</strong> {deployedAt}{deployedAgo}</span>
