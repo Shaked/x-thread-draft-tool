@@ -32,3 +32,6 @@ coverage
 playwright-report
 test-results
 .playwright
+
+# Written by scripts/migrate-from-supabase.mjs (image copy map); never commit it.
+url-map.json
