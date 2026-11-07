@@ -56,13 +56,17 @@ export async function verifyCiToken(token, env = process.env) {
   if (!ALLOWED_EVENTS.has(claims.event_name)) return reject('event not allowed')
   if (claims.runner_environment !== undefined && claims.runner_environment !== 'github-hosted') return reject('runner not github-hosted')
 
-  const expectedWorkflow = `${REPO}/${CI_WORKFLOW_PATH}@${claims.ref}`
+  // deployment_status runs have no ref: GitHub pins workflow_ref to the commit sha instead.
+  const ref = typeof claims.ref === 'string' ? claims.ref : ''
+  const pinned = ref || claims.sha || ''
+  const expectedWorkflow = `${REPO}/${CI_WORKFLOW_PATH}@${pinned}`
+  if (!pinned) return reject('no ref or commit sha in token')
   if (claims.workflow_ref !== expectedWorkflow) return reject(`workflow_ref mismatch (got ${claims.workflow_ref})`)
   if (claims.job_workflow_ref !== expectedWorkflow) return reject(`job_workflow_ref mismatch (got ${claims.job_workflow_ref})`)
 
-  const isMain = claims.ref === 'refs/heads/main'
-  const isBranch =
-    vercelEnv === 'preview' && env.CI_OIDC_ALLOW_BRANCHES === '1' && /^refs\/heads\/[\w./-]+$/.test(claims.ref)
+  const isMain = ref === 'refs/heads/main'
+  const branchAllowed = vercelEnv === 'preview' && env.CI_OIDC_ALLOW_BRANCHES === '1'
+  const isBranch = branchAllowed && (ref === '' ? claims.event_name === 'deployment_status' : /^refs\/heads\/[\w./-]+$/.test(ref))
   if (!isMain && !isBranch) {
     return reject(`branch ref not allowed (vercelEnv=${vercelEnv} allowBranchesSet=${env.CI_OIDC_ALLOW_BRANCHES === '1'})`)
   }

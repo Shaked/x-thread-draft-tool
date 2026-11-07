@@ -108,6 +108,15 @@ describe('verifyCiToken: environment and flags', () => {
     expect(await verifyCiToken(token, { ...ENV, CI_OIDC_ALLOW_BRANCHES: '1' })).not.toBeNull()
   })
 
+  it('accepts a deployment_status token pinned to a commit sha (no ref) only with CI_OIDC_ALLOW_BRANCHES=1 in preview', async () => {
+    const sha = 'c98599bcf0fe4b155ed50878986b8da480d8ff7b'
+    const pinned = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATH}@${sha}`
+    const token = await mint({ ref: '', sha, workflow_ref: pinned, job_workflow_ref: pinned, event_name: 'deployment_status' })
+    expect(await verifyCiToken(token, { ...ENV })).toBeNull()
+    expect(await verifyCiToken(token, { ...ENV, CI_OIDC_ALLOW_BRANCHES: '1' })).not.toBeNull()
+    expect(await verifyCiToken(token, { ...ENV, VERCEL_ENV: 'production', CI_OIDC_ALLOW_BRANCHES: '1' })).toBeNull()
+  })
+
   it('never accepts a branch ref in production', async () => {
     const branchRef = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATH}@refs/heads/claude/some-branch`
     const token = await mint({ ref: 'refs/heads/claude/some-branch', workflow_ref: branchRef, job_workflow_ref: branchRef }, { aud: ciAudience('production') })
