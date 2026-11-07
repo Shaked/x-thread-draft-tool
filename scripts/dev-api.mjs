@@ -32,6 +32,7 @@ const dataDir = dataDirIndex === -1 ? null : args[dataDirIndex + 1]
 const port = Number(process.env.PORT || 8787)
 const base = `http://127.0.0.1:${port}`
 const BLOB_DIR = path.resolve('.dev-blob')
+const PUBLIC_DIR = path.resolve('public')
 const BLOB_PREFIX = `${base}/dev-blob/`
 
 process.env.PUBLIC_APP_URL = base
@@ -132,6 +133,18 @@ const server = http.createServer(async (req, res) => {
       if (!data) return sendText(res, 404, 'Not found')
       res.writeHead(200, { 'content-type': mimeFor(file), 'cache-control': 'no-store' })
       return res.end(data)
+    }
+
+    // Static files from public/ (like Vercel and Vite serve them), e.g. /llms.txt
+    if (req.method === 'GET' && !url.pathname.startsWith('/api/') && url.pathname !== '/') {
+      const file = path.join(PUBLIC_DIR, path.normalize(url.pathname))
+      if (file.startsWith(PUBLIC_DIR + path.sep)) {
+        const data = await readFile(file).catch(() => null)
+        if (data) {
+          res.writeHead(200, { 'content-type': file.endsWith('.txt') ? 'text/plain; charset=utf-8' : mimeFor(file) })
+          return res.end(data)
+        }
+      }
     }
 
     const request = await toWebRequest(req)
