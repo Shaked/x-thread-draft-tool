@@ -15,7 +15,7 @@ export async function setupTestDb() {
   const pg = new PGlite()
   setQueryImpl(async (text, params = []) => {
     const result = await pg.query(text, params)
-    return { rows: result.rows }
+    return { rows: result.rows, rowCount: result.affectedRows ?? result.rows.length }
   })
   await applyMigrations((text, params) =>
     params === undefined
