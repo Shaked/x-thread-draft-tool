@@ -85,13 +85,17 @@ acceptance line is met; paste the acceptance results into the PR description.
 
 ## Task 0 — Clear the audit findings
 
-Status: Not started. Three PRs (0.1, 0.2, 0.3), in order.
+Status: Not started. Four PRs, in order: 0.1, 0.3a, 0.2, 0.3b.
 
 ### 0.1 Test tooling major upgrade (fixes all 3 critical)
 **Why:** `vitest`, `@vitest/ui`, `tinypool` critical findings.
 **Files:** `package.json`, `package-lock.json`, `vitest.config.js`, `tests/**` only if the upgrade breaks an API they use.
 **Steps:**
 1. `npm install -D vitest@latest @vitest/ui@latest jsdom@latest`
+   **Deviation (pending Shaked's approval):** `@latest` fails with ERESOLVE because vitest 5 needs
+   vite ≥ 6 and this repo is on vite 5 (upgraded in Task 0.3a). 0.1 therefore pins `vitest` and
+   `@vitest/ui` to 3.2.7, `jsdom` to ^29.1.1 (jsdom 31 needs Node 22.22+; CI runs Node 20), and adds
+   `"overrides": { "tinypool": "^2.2.0" }` (outside vitest 3's `^1.1.1` range). Task 0.3a removes the override.
 2. `npx vitest run`. Fix config deprecations named in the output (read the vitest migration
    guide for each major between 2 and the installed version).
 3. Do not change test assertions to make them pass. A behavior change in a test means stop and ask.
@@ -116,24 +120,38 @@ Status: Not started. Three PRs (0.1, 0.2, 0.3), in order.
   upload in the UI on the PR's preview (ask him; record the answer in the PR).
 **Stop if:** the override needs `@vercel/oidc` 4.x and `@vercel/blob` calls fail.
 
-### 0.3 Build tooling and router majors
-**Why:** remaining high findings (`vite`, `rollup`, `postcss`, transitive) and the react-router open redirect.
-**Files:** `package.json`, `package-lock.json`, `vite.config.js`, `src/App.jsx` and any file importing `react-router-dom`.
+### 0.3a Build tooling and vitest 4 (vite 8 stack)
+**Why:** `vite` 5 blocks vitest ≥ 4.1.11 (critical fix) and `vite-plugin-pwa` 0.17 only accepts vite ≤ 5. Removes the tinypool override from 0.1.
+**Files:** `package.json`, `package-lock.json`, `vite.config.js`.
 **Steps:**
-1. `npm install -D vite@latest @vitejs/plugin-react@latest vite-plugin-pwa@latest`
-2. `npm run build`. Fix `vite.config.js` per the vite and vite-plugin-pwa migration guides.
+1. Pin exactly: `vite` 8.3.6, `@vitejs/plugin-react` 6.2.1, `vite-plugin-pwa` 2.0.0, `vitest` 4.1.12,
+   `@vitest/ui` 4.1.12. vitest 5 needs Node 22.12+ and CI runs Node 20, so 4.1.12 is the ceiling.
+   Remove `overrides.tinypool`. Regenerate the lockfile with `npx -y npm@11 install` (npm 10 can crash
+   on fresh resolution).
+2. `npm run build`. Fix `vite.config.js` per the vite 8 and vite-plugin-pwa 2 migration guides.
    Keep the PWA manifest values and `registerType` behavior identical.
-3. `npm install react-router-dom@latest`. React Router 7 keeps the `react-router-dom` import
-   path; follow its v6 → v7 upgrade guide (future flags first, then the version bump).
-4. `npm audit fix` (no `--force`), then `npm audit`.
+3. `npm ls vite vitest vite-plugin-pwa` shows one `vite` (8.3.6).
+**Tests:** unit and API tests pass unchanged. Fix config only, never assertions.
 **Acceptance:**
-- `npm audit --audit-level=moderate` exits 0 (or only lists findings with no fix available;
-  list those in the PR).
-- `npm run build` passes; `dist/sw.js` exists.
-- `npm run test:unit` passes. E2E passes in CI.
+- `npm audit --audit-level=critical` exits 0. Paste the high list; the zod/`@vercel/blob` chain stays for 0.2.
+- `npm run build` passes; `dist/sw.js` exists; diff the manifest and `sw.js` directives against main.
+- `npm run test:unit` passes under Node 20 (152 or more). E2E passes in CI.
+- `npm ls tinypool` shows no override.
 - On the preview: login page loads, a draft opens, and the PWA update behavior from
-  `docs/changelogs/20261107-170524-pwa-immediate-update.md` still holds.
+  `docs/changelogs/20261107-170524-pwa-immediate-update.md` still holds (Shaked checks it and records the answer in the PR).
 **Stop if:** vite-plugin-pwa 2.x changes service-worker behavior that changelog relies on.
+
+### 0.3b React Router major
+**Why:** the react-router open redirect (moderate).
+**Files:** `package.json`, `package-lock.json`, `src/App.jsx` and any file importing `react-router-dom`.
+**Steps:**
+1. `npm install react-router-dom@latest`. React Router 7 keeps the `react-router-dom` import path;
+   follow its v6 → v7 upgrade guide (future flags first, then the version bump).
+2. `npm audit --audit-level=moderate`. List any finding that has no fix.
+**Acceptance:**
+- `npm run build` and `npm run test:unit` pass; E2E passes in CI.
+- On the preview: login page loads and a draft opens (Shaked).
+**Stop if:** a route changes behavior that the E2E tests do not cover.
 
 ---
 
@@ -706,7 +724,7 @@ update api_tokens
 ---
 
 ## Order of work
-1. Task 0 (0.1 → 0.2 → 0.3) and Task 1.1. Task 1.2 after Supabase is deleted.
+1. Task 0 (0.1 → 0.3a → 0.2 → 0.3b) and Task 1.1. Task 1.2 after Supabase is deleted.
 2. Task 2, then Task 3 (3.1 → 3.5).
 3. Task 4.
 4. Task 5 (5.1 report → 5.2).
