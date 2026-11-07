@@ -76,12 +76,13 @@ browser to "Desktop site".
 0.1 **Merge the plan PR** (it contains this plan and `supabase-backup.yml`). Workflows can only be
     started manually once they are on `main`.
 0.2 **Supabase awake:** Supabase dashboard → project. If paused, tap **Restore** and wait.
-0.3 **Supabase connection string:** Supabase → **Connect** → **Session pooler** (IPv4; the
-    "Direct" string is IPv6-only and fails from GitHub Actions). Put the DB password in place of
-    `[YOUR-PASSWORD]` (reset it under Database settings if you don't have it).
+0.3 **Supabase secrets:** nothing to create. The repo already has `SUPABASE_ACCESS_TOKEN`,
+    `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD` and `SUPABASE_URL`; the workflows use
+    `scripts/supabase-db-url.sh` to look up the Session pooler (IPv4) connection string from them.
+    If the backup fails with a password error, reset the DB password in Supabase → Database
+    settings and update `SUPABASE_DB_PASSWORD`.
 0.4 **Backup passphrase:** 1Password → new 64-char password → save as "xt backup passphrase".
-0.5 **GitHub secrets** (repo → Settings → Secrets and variables → Actions): add
-    `SUPABASE_DB_URL` (0.3) and `BACKUP_PASSPHRASE` (0.4). `SUPABASE_URL` already exists.
+0.5 **GitHub secret** (repo → Settings → Secrets and variables → Actions): add `BACKUP_PASSPHRASE`.
 0.6 **Run the backup:** GitHub app → repo → Actions → **Supabase backup (pre-migration)** →
     Run workflow on `main`. When it is green, the run summary shows the `drafts` columns and row
     counts, and an encrypted `supabase-backup` artifact (kept 90 days) is attached.
@@ -410,7 +411,9 @@ Keep `buildCommand`, `outputDirectory`, `framework`. Rewrites **in this order**:
 ### Task 3.2 — `.github/workflows/data-migrate.yml` (Haiku writes)
 
 - `workflow_dispatch` with a boolean input `apply` (default `false` = dry run).
-- Env from secrets: `SUPABASE_DB_URL`, `DATABASE_URL_UNPOOLED`, `BLOB_READ_WRITE_TOKEN`.
+- Env from secrets: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD`,
+  `DATABASE_URL_UNPOOLED`, `BLOB_READ_WRITE_TOKEN`. Resolve `SUPABASE_DB_URL` exactly like the
+  "Resolve database URL" step in `supabase-backup.yml` (`scripts/supabase-db-url.sh` + `::add-mask::`).
 - Steps: checkout → setup-node 20 → `npm ci` → `npm run db:migrate` →
   `node scripts/migrate-from-supabase.mjs`, adding `--apply` when the input is true.
 - The script also writes its report to `$GITHUB_STEP_SUMMARY`: counts and draft ids only,
@@ -433,9 +436,9 @@ After the PR is merged: GitHub app → Actions → **Data migrate** → Run work
    open a draft link in a private tab (read-only view); turn on airplane mode, edit, turn it off → change is saved.
 2. Merge the PR, run Task 3.3 (Data migrate) against production, repeat the step-1 smoke test on production
    with a real migrated draft.
-3. Remove `VITE_SUPABASE_*` from Vercel env and `SUPABASE_*` GitHub secrets.
+3. Remove `VITE_SUPABASE_*` from Vercel env.
 4. Keep the Supabase project untouched for 14 days as a fallback, then delete it, and delete
-   `.github/workflows/supabase-backup.yml` and the `SUPABASE_*` / `BACKUP_PASSPHRASE` secrets.
+   `.github/workflows/supabase-backup.yml`, `scripts/supabase-db-url.sh` and the `SUPABASE_*` / `BACKUP_PASSPHRASE` secrets.
 
 Rollback: revert the merge commit on `main` (Vercel redeploys the Supabase version). Data written
 to Neon after cutover would need to be re-entered, so decide within the first day.

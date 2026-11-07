@@ -4,10 +4,11 @@ name: Supabase backup (pre-migration)
 # Produces an encrypted artifact (DB dump + auth users + storage images) and
 # writes the drafts table schema and row counts to the job summary.
 #
-# Required repo secrets:
-#   SUPABASE_DB_URL      - Session pooler connection string (IPv4), from
-#                          Supabase -> Connect -> Session pooler
-#   SUPABASE_URL         - https://<ref>.supabase.co (already used by keep-alive)
+# Required repo secrets (all already exist except BACKUP_PASSPHRASE):
+#   SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD
+#                        - used to look up the Session pooler (IPv4) DB URL.
+#                          Alternatively set SUPABASE_DB_URL to override.
+#   SUPABASE_URL         - https://<ref>.supabase.co
 #   BACKUP_PASSPHRASE    - long random passphrase (store it in 1Password)
 #
 # Decrypt later with:
@@ -24,16 +25,29 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
     steps:
       - name: Validate secrets
         run: |
           missing=0
-          for v in SUPABASE_DB_URL SUPABASE_URL BACKUP_PASSPHRASE; do
+          for v in SUPABASE_URL BACKUP_PASSPHRASE; do
             if [ -z "${!v:-}" ]; then echo "::error::Missing secret: $v"; missing=1; fi
           done
           [ "$missing" -eq 0 ]
+
+      - uses: actions/checkout@v4
+
+      - name: Resolve database URL
+        run: |
+          set -euo pipefail
+          url=$(scripts/supabase-db-url.sh)
+          echo "::add-mask::$url"
+          echo "SUPABASE_DB_URL=$url" >> "$GITHUB_ENV"
+          echo "Pooler host: $(printf '%s' "$url" | sed -E 's#.*@([^:/]+).*#\1#')"
 
       - name: Install PostgreSQL 17 client
         run: |
