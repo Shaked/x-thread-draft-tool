@@ -86,7 +86,8 @@ browser to "Desktop site".
 0.6 **Run the backup:** GitHub app → repo → Actions → **Supabase backup (pre-migration)** →
     Run workflow on `main`. When it is green, the run summary shows the `drafts` columns and row
     counts, and an encrypted `supabase-backup` artifact (kept 90 days) is attached.
-    Haiku reads the `drafts` columns from this run summary for Task 1.2.
+    The same output is printed in the log of the "Write summary" step (readable in the GitHub
+    app). Haiku reads the `drafts` columns from there for Task 1.2.
 0.7 **Neon + Blob:** Vercel → project → **Storage** → Create **Neon** (Free) → connect to
     Production, Preview and Development. Then Create **Blob** → connect. Check that Settings →
     Environment Variables lists `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `BLOB_READ_WRITE_TOKEN`.
