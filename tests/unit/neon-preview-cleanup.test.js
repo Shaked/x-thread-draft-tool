@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { selectCandidates, run, STABLE_PREVIEW, MAX_DELETES } from '../../scripts/neon-preview-cleanup.mjs';
+import { selectCandidates, run, makeNeonClient, STABLE_PREVIEW, MAX_DELETES } from '../../scripts/neon-preview-cleanup.mjs';
 
 const NOW = Date.parse('2026-11-08T12:00:00Z');
 const OLD = '2026-10-01T00:00:00Z';
@@ -150,5 +150,44 @@ describe('run: confirmation and deletes', () => {
     const c = client(neonBranches);
     await run({ argv: ['--dry-run', '--github=x'], env: { NEON_API_KEY: 'SECRET-KEY-123' }, client: c, readJson, now: NOW, log: (l) => lines.push(l) });
     expect(lines.join('\n')).not.toContain('SECRET-KEY-123');
+  });
+});
+
+describe('selectCandidates: duplicate merged heads', () => {
+  it('uses the most recent merge for a branch, so an old PR cannot bypass the grace period', () => {
+    const neonBranches = [DEFAULT, { id: 'd', name: 'preview/claude/reused', created_at: OLD }];
+    const mergedPrs = [
+      { head: 'claude/reused', merged_at: '2026-11-08T11:00:00Z' }, // one hour ago: inside grace
+      { head: 'claude/reused', merged_at: '2026-10-01T00:00:00Z' }, // old
+    ];
+    const { candidates } = selectCandidates(base({ neonBranches, mergedPrs, graceHours: 24 }));
+    expect(candidates).toEqual([]);
+  });
+});
+
+describe('makeNeonClient: pagination', () => {
+  it('collects every page until pagination.next is empty', async () => {
+    const pages = [
+      { branches: [DEFAULT], pagination: { next: 'c2' } },
+      { branches: [{ id: 'x', name: 'preview/claude/x' }], pagination: { next: 'c3' } },
+      { branches: [{ id: 'y', name: 'preview/claude/y' }] },
+    ];
+    const seen = [];
+    const fetchImpl = vi.fn(async (url) => {
+      seen.push(url);
+      return { ok: true, status: 200, json: async () => pages[seen.length - 1] };
+    });
+    const client = makeNeonClient({ apiKey: 'k', projectId: 'p', base: 'https://example.test/api', fetchImpl });
+    const all = await client.listBranches();
+    expect(all.map((b) => b.id)).toEqual(['br-default', 'x', 'y']);
+    expect(seen[1]).toContain('cursor=c2');
+    expect(seen[2]).toContain('cursor=c3');
+  });
+
+  it('never includes the API key in an error message', async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: false, status: 403, json: async () => ({}) }));
+    const client = makeNeonClient({ apiKey: 'SECRET-KEY-999', projectId: 'p', base: 'https://example.test/api', fetchImpl });
+    await expect(client.listBranches()).rejects.toThrow(/HTTP 403/);
+    await client.listBranches().catch((e) => expect(String(e)).not.toContain('SECRET-KEY-999'));
   });
 });

@@ -28,7 +28,15 @@ export function selectCandidates({
   const parentIds = new Set(neonBranches.map((b) => b.parent_id).filter(Boolean));
   const open = new Set(openPrHeads);
   const git = new Set(gitBranches);
-  const merged = new Map(mergedPrs.map((p) => [p.head, p]));
+  // A git branch can have several merged PRs. Keep the most recent merge so an old PR cannot
+  // bypass the grace period of a newer one.
+  const merged = new Map();
+  for (const p of mergedPrs) {
+    const prev = merged.get(p.head);
+    if (!prev || new Date(p.merged_at).getTime() > new Date(prev.merged_at).getTime()) {
+      merged.set(p.head, p);
+    }
+  }
   const candidates = [];
   const skipped = [];
 
@@ -79,9 +87,18 @@ export function makeNeonClient({ apiKey, projectId, base = 'https://console.neon
     return res.status === 204 ? null : res.json();
   }
   return {
+    // Follows pagination.next until exhausted, so the default branch and every stale branch are seen.
     async listBranches() {
-      const body = await request('GET', '/branches');
-      return body.branches;
+      const all = [];
+      let cursor = null;
+      for (let page = 0; page < 100; page += 1) {
+        const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+        const body = await request('GET', `/branches${query}`);
+        all.push(...body.branches);
+        cursor = body.pagination?.next ?? null;
+        if (!cursor) return all;
+      }
+      throw new Error('branch pagination did not finish within 100 pages; aborting');
     },
     async deleteBranch(id) {
       return request('DELETE', `/branches/${id}`);
