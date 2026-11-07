@@ -12,6 +12,8 @@ import { expect, test } from '@playwright/test'
 
 const BASE = process.env.XT_BASE_URL ?? 'http://localhost:5173'
 const TOKEN = process.env.XT_CI_TOKEN
+// Vercel Deployment Protection bypass for automation. Sent to this origin only, never to third parties.
+const BYPASS = process.env.XT_VERCEL_BYPASS
 
 // A 1x1 PNG, so the test needs no fixture file.
 const PNG = Buffer.from(
@@ -27,12 +29,17 @@ test.describe('image upload', () => {
   test('creates a draft and uploads an image', async ({ page, context }) => {
     const origin = new URL(BASE).origin
 
-    // Send the CI token on same-origin API calls only.
-    await context.route(`${origin}/api/**`, (route) =>
-      route.continue({
-        headers: { ...route.request().headers(), authorization: `Bearer ${TOKEN}` }
-      })
-    )
+    // Same-origin requests only: the Vercel bypass header on every request (so the preview's
+    // deployment protection lets the browser in), and the CI token on API calls.
+    await context.route(`${origin}/**`, (route) => {
+      const extra: Record<string, string> = {}
+      if (BYPASS) {
+        extra['x-vercel-protection-bypass'] = BYPASS
+        extra['x-vercel-set-bypass-cookie'] = 'true'
+      }
+      if (new URL(route.request().url()).pathname.startsWith('/api/')) extra.authorization = `Bearer ${TOKEN}`
+      return route.continue({ headers: { ...route.request().headers(), ...extra } })
+    })
 
     // Diagnostics: log each API request as it is sent, fails or answers (paths only, never headers).
     page.on('request', (r) => { if (r.url().includes('/api/')) console.log(`request ${r.method()} ${new URL(r.url()).pathname}`) })
