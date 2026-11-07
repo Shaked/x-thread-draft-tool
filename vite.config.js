@@ -51,7 +51,7 @@ export default defineConfig({
         ],
         // Without this, the service worker serves index.html for /api/auth/login and breaks sign-in
         // in an installed PWA.
-        navigateFallbackDenylist: [/^\/api\//]
+        navigateFallbackDenylist: [/^\/api\//, /^\/llms\.txt$/]
       }
     })
   ],

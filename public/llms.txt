@@ -1,0 +1,61 @@
+# X Thread Draft Tool
+
+> Compose and manage X/Twitter thread drafts. Everything the web UI does is available to agents
+> through a JSON API, with the same permissions as the signed-in GitHub user.
+
+## Auth
+
+- Agents use a personal API token: `Authorization: Bearer xt_...`
+- Get a token in two ways:
+  - Web UI: /settings/tokens (sign in with GitHub first; the token is shown once).
+  - Device flow (no browser needed for the agent): `POST /api/auth/device/start`, show the
+    user `user_code` and `verification_uri`, then `POST /api/auth/device/poll` every `interval`
+    seconds until it returns 201 with `token`.
+- A token acts as the GitHub user who created it. It can read and change only that user's drafts.
+- Tokens expire after 90 days by default (max 365). Revoke with `DELETE /api/tokens/{id}`.
+- An invalid, expired or revoked token returns 401. It never falls back to a cookie.
+
+## Quickstart
+
+Set `BASE=https://x-thread-draft-tool-preview.vercel.app` and `TOKEN=xt_...`.
+
+```
+# Who am I?
+curl -s $BASE/api/auth/me -H "Authorization: Bearer $TOKEN"
+
+# Split long text into thread-sized posts (no auth needed)
+curl -s $BASE/api/threads/split -H 'content-type: application/json' \
+  -d '{"text":"Long text ...","max_chars":280}'
+
+# Create a draft
+curl -s $BASE/api/drafts -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"title":"My thread","posts":[{"id":"p1","text":"First post","images":[],"embeddedTweet":null}]}'
+
+# Update posts (replace the draft id with the one returned above)
+curl -s -X PATCH $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"posts":[{"id":"p1","text":"Edited","images":[]}]}'
+
+# Export as text
+curl -s "$BASE/api/drafts/DRAFT_ID/export?format=text"
+
+# Create a one-time share link, then read it once (second read returns 410)
+curl -s -X POST $BASE/api/drafts/DRAFT_ID/share-tokens -H "Authorization: Bearer $TOKEN"
+curl -s $BASE/api/share/SHARE_TOKEN.md
+
+# Publish (deletes the draft's images) and delete
+curl -s -X POST $BASE/api/drafts/DRAFT_ID/publish -H "Authorization: Bearer $TOKEN"
+curl -s -X DELETE $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN"
+```
+
+## Reference
+
+- [OpenAPI 3.1 spec](/api/openapi.json): every endpoint, schema and error code.
+- [Agent guide in the repo](https://github.com/Shaked/x-thread-draft-tool/blob/main/docs/agents/api.md): auth options, limits, how to test.
+
+## Rules
+
+- Draft shape: `{ title, posts: [{ id, text, images: [{ url }], embeddedTweet }] }`.
+- Max 280 characters per post (use `/api/threads/split`), max 4 images per post, 4 MB per image.
+- `GET /api/drafts/{id}` is public by id. Lists, writes and deletes need a token or session.
+- Share links work exactly once. Image URLs from `/api/images` or `/api/images/from-url` are Vercel Blob URLs.
+- Errors are JSON: `{ "error": "message" }` with an HTTP status.

@@ -6,6 +6,7 @@ import { imageRoutes } from './routes/images.js'
 import { shareRoutes } from './routes/share.js'
 import { tokenRoutes } from './routes/tokens.js'
 import { threadRoutes } from './routes/threads.js'
+import { openapiRoutes } from './routes/openapi.js'
 
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE'])
 
@@ -21,6 +22,7 @@ export const ROUTES = [
   ...shareRoutes,
   ...tokenRoutes,
   ...threadRoutes,
+  ...openapiRoutes,
   { method: 'GET', path: '/health', handler: health }
 ]
 
