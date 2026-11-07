@@ -42,3 +42,13 @@ describe('image URL helpers', () => {
     ])
   })
 })
+
+describe('sourceConfig', () => {
+  it('drops sslmode from the URL and sets an explicit ssl option', async () => {
+    const { sourceConfig } = await import('../../scripts/migrate-from-supabase.mjs')
+    const cfg = sourceConfig('postgresql://u:p@host.example:5432/postgres?sslmode=require')
+    expect(cfg.connectionString).not.toContain('sslmode')
+    expect(cfg.connectionString).toContain('host.example:5432/postgres')
+    expect(cfg.ssl).toEqual({ rejectUnauthorized: false })
+  })
+})
