@@ -134,3 +134,30 @@ describe('router: CI tokens only on CI routes', () => {
     expect(await res.text()).toContain('CI tokens are not accepted on this route')
   })
 })
+
+describe('GET /api/auth/me with a CI token (full path, in-memory database)', () => {
+  let db
+  beforeAll(async () => {
+    const { setupTestDb } = await import('./helpers/db.js')
+    db = await setupTestDb()
+  })
+
+  it('creates the ci-smoke user and returns it on a branch preview', async () => {
+    const branchRef = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATH}@refs/heads/claude/ui-image-upload-test`
+    const token = await mint(
+      { ref: 'refs/heads/claude/ui-image-upload-test', workflow_ref: branchRef, job_workflow_ref: branchRef, event_name: 'deployment_status' },
+      { aud: ciAudience('preview') }
+    )
+    const saved = { ...process.env }
+    Object.assign(process.env, { CI_OIDC_ENABLED: '1', VERCEL_ENV: 'preview', CI_OIDC_REPOSITORY_ID: REPO_ID, CI_OIDC_ALLOW_BRANCHES: '1' })
+    try {
+      const res = await route(new Request('https://app.test/api/auth/me', { headers: { authorization: `Bearer ${token}` } }))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.auth).toBe('ci-oidc')
+      expect(body.user.login).toBe('ci-smoke')
+    } finally {
+      process.env = saved
+    }
+  })
+})
