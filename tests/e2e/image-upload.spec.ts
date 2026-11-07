@@ -38,6 +38,11 @@ test.describe('image upload', () => {
     page.on('request', (r) => { if (r.url().includes('/api/')) console.log(`request ${r.method()} ${new URL(r.url()).pathname}`) })
     page.on('requestfailed', (r) => { if (r.url().includes('/api/')) console.log(`requestfailed ${new URL(r.url()).pathname} ${r.failure()?.errorText}`) })
     page.on('response', (r) => { if (r.url().includes('/api/')) console.log(`response ${new URL(r.url()).pathname} status=${r.status()}`) })
+    // Why the app might not start: uncaught page errors, console errors, and failed or error responses on any origin.
+    page.on('pageerror', (e) => console.log(`pageerror ${e.message.slice(0, 200)}`))
+    page.on('console', (m) => { if (m.type() === 'error') console.log(`console.error ${m.text().slice(0, 200)}`) })
+    page.on('requestfailed', (r) => console.log(`requestfailed-any ${new URL(r.url()).host}${new URL(r.url()).pathname.slice(0, 80)} ${r.failure()?.errorText}`))
+    page.on('response', (r) => { if (r.status() >= 400) console.log(`http-error ${new URL(r.url()).host}${new URL(r.url()).pathname.slice(0, 80)} status=${r.status()}`) })
 
     let draftId: string | null = null
     try {
