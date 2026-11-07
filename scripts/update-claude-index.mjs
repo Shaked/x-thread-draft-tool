@@ -60,5 +60,10 @@ const end = '<!-- AUTO-INDEX:END -->';
 if (!current.includes(start) || !current.includes(end)) {
   throw new Error('claude.md missing AUTO-INDEX markers');
 }
-const updated = current.replace(new RegExp(`${start}[\\s\\S]*?${end}`), block);
-writeFileSync(claudePath, updated);
+const blockPattern = new RegExp(`${start}[\\s\\S]*?${end}`);
+// Keep the old timestamp when nothing else in the index changed, so a refresh leaves the file
+// untouched and commits do not pick up a timestamp-only diff.
+const withoutStamp = (text) => text.replace(/_Last refreshed: [^_]*_/, '');
+if (withoutStamp(current.match(blockPattern)[0]) !== withoutStamp(block)) {
+  writeFileSync(claudePath, current.replace(blockPattern, block));
+}
