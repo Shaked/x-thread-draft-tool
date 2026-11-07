@@ -71,6 +71,17 @@ export function remapPosts(posts, urlMap) {
   )
 }
 
+/**
+ * Source (Supabase) connection config. Matches the backup workflow's `sslmode=require`: the
+ * connection is encrypted but the server certificate is not verified, because Supabase's pooler
+ * chain is not in Node's trust store. Only this one-time read uses it; Neon keeps verification.
+ */
+export function sourceConfig(connectionString) {
+  const url = new URL(connectionString)
+  url.searchParams.delete('sslmode')
+  return { connectionString: url.toString(), ssl: { rejectUnauthorized: false } }
+}
+
 async function copyImage(url, targetUserId, draftId) {
   const response = await fetch(url)
   if (!response.ok) throw new Error(`download failed with HTTP ${response.status}`)
@@ -92,7 +103,7 @@ async function loadUrlMap() {
 }
 
 async function main() {
-  const source = new pg.Client({ connectionString: requireEnv('SUPABASE_DB_URL') })
+  const source = new pg.Client(sourceConfig(requireEnv('SUPABASE_DB_URL')))
   const target = APPLY ? new pg.Client({ connectionString: requireEnv('DATABASE_URL_UNPOOLED') }) : null
   if (APPLY) requireEnv('BLOB_READ_WRITE_TOKEN')
 
