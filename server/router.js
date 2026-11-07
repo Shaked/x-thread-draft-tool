@@ -10,7 +10,7 @@ function health() {
   return json({ ok: true })
 }
 
-const ROUTES = [
+export const ROUTES = [
   ...authRoutes,
   ...draftRoutes,
   ...imageRoutes,
@@ -60,7 +60,11 @@ export async function route(request) {
     const url = new URL(request.url)
     const path = routePath(url)
 
-    if (MUTATING.has(request.method)) checkOrigin(request)
+    // Only cookie-authenticated writes need the Origin check. A bearer token cannot be attached
+    // cross-site without a CORS preflight, and this API sends no CORS allow headers.
+    if (MUTATING.has(request.method) && request.headers.get('authorization') === null) {
+      checkOrigin(request)
+    }
 
     const candidates = TABLE.filter((entry) => entry.regex.test(path))
     if (candidates.length === 0) return error(404, 'Not found')

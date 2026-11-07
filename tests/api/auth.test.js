@@ -120,23 +120,24 @@ describe('GET /api/auth/me and POST /api/auth/logout', () => {
     const res = await route(apiRequest('/api/auth/me', { cookie }))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
-      user: { id: user.id, login: 'bob', name: 'Bob', avatar_url: null }
+      user: { id: user.id, login: 'bob', name: 'Bob', avatar_url: null },
+      auth: 'session'
     })
   })
 
   it('returns user null without a cookie, with a forged cookie, and for a deleted account', async () => {
     const noCookie = await route(apiRequest('/api/auth/me'))
     expect(noCookie.status).toBe(200)
-    expect(await noCookie.json()).toEqual({ user: null })
+    expect(await noCookie.json()).toEqual({ user: null, auth: null })
 
     const forged = await route(apiRequest('/api/auth/me', { cookie: 'xt_session=not.a.jwt' }))
-    expect(await forged.json()).toEqual({ user: null })
+    expect(await forged.json()).toEqual({ user: null, auth: null })
 
     const user = await db.insertUser({ github_id: 8, login: 'gone' })
     const cookie = await db.cookieFor(user)
     await db.pg.query('delete from users where id = $1', [user.id])
     const deleted = await route(apiRequest('/api/auth/me', { cookie }))
-    expect(await deleted.json()).toEqual({ user: null })
+    expect(await deleted.json()).toEqual({ user: null, auth: null })
   })
 
   it('logout clears the session cookie', async () => {

@@ -1,6 +1,6 @@
 import { query } from '../db.js'
 import { HttpError, cookie, json, parseCookies } from '../http.js'
-import { clearSessionCookie, createSession, readSession, sessionCookie } from '../session.js'
+import { authenticate, clearSessionCookie, createSession, sessionCookie } from '../session.js'
 
 const STATE_COOKIE = 'xt_oauth_state'
 const UPSERT_USER = `
@@ -95,12 +95,12 @@ export async function callback({ request, url }) {
   return redirect(`${appOrigin()}/`, [sessionCookie(token), cookie(STATE_COOKIE, '', { maxAge: 0 })])
 }
 
-/** GET /api/auth/me: always 200; `user` is null when signed out. */
+/** GET /api/auth/me: cookie session or bearer token. `user` is null when signed out. */
 export async function me({ request }) {
-  const session = await readSession(request)
-  if (!session) return json({ user: null })
-  const { rows } = await query('select id, login, name, avatar_url from users where id = $1', [session.uid])
-  return json({ user: rows[0] ?? null })
+  const caller = await authenticate(request)
+  if (!caller) return json({ user: null, auth: null })
+  const { rows } = await query('select id, login, name, avatar_url from users where id = $1', [caller.uid])
+  return json({ user: rows[0] ?? null, auth: rows[0] ? caller.via : null })
 }
 
 /** POST /api/auth/logout */
