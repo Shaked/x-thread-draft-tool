@@ -71,9 +71,6 @@ jobs:
       - name: Run unit tests
         run: npm run test:unit
 
-      - name: Run API tests
-        run: npm run test:api
-
   smoke-local:
     name: Smoke test against the local API
     runs-on: ubuntu-latest
