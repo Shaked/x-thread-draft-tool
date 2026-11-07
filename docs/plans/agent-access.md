@@ -1,6 +1,7 @@
 # Plan: Agent-first access (headless API, agent auth, agent testing)
 
-Status: **Ready for execution** (Phase 5 of [vercel-migration.md](./vercel-migration.md))
+Status: **Ready for execution** (Phase 5 of [vercel-migration.md](./vercel-migration.md)).
+Builds on the code already in PR #21 (branch `claude/lucid-sagan-bbciuo`); extend it, do not rewrite it.
 Executor: Haiku (code) + Shaked (tasks marked **[HUMAN]**, all doable from a phone)
 
 ## Goal
@@ -43,7 +44,7 @@ create table if not exists api_tokens (
   user_id uuid not null references users(id) on delete cascade,
   name text not null,
   token_hash text not null unique,
-  token_prefix text not null,          -- first 10 chars, e.g. "xt_AbC12345", for display only
+  token_prefix text not null,          -- first 10 chars, e.g. "xt_AbC1234", for display only
   created_via text not null default 'web', -- 'web' | 'device'
   created_at timestamptz not null default now(),
   last_used_at timestamptz,
@@ -73,6 +74,9 @@ Additive only. The build-time migrator applies it.
 - `requireSessionUser(request)` → like `requireUser` but rejects `via: 'token'` with 403
   (used only by `POST /api/tokens`).
 - `server/router.js`: call `checkOrigin` only when the request has **no** `authorization` header.
+  (A cross-site browser page cannot attach an `Authorization` header without a CORS preflight, and
+  the API sends no CORS allow headers, so this does not weaken CSRF protection.)
+- `server/router.js`: `export const ROUTES` (the existing array) so the OpenAPI parity test can read it.
 - `GET /api/auth/me` also accepts bearer tokens and returns `{ user, auth: 'session' | 'token' }`.
 
 ## Task 5.4 — Token routes `server/routes/tokens.js`
@@ -107,12 +111,15 @@ Add what the UI can do but the API cannot:
 | `POST /api/threads/split` `{ text, max_chars? }` | none | Uses `src/utils/threadSplitter.js` `splitIntoThreads`. → `{ posts: [{ text, chars }] }`. Body ≤ 100 KB. |
 | `POST /api/images/from-url` `{ draftId, url }` | owner of draft | Server-side fetch replacing the browser CORS path: `http(s)` only; resolve the hostname with `dns.lookup(all)` and reject loopback, private, link-local, CGNAT, multicast and IPv6 ULA/link-local addresses; `redirect: 'manual'` (a 3xx is rejected); 10 s timeout; `content-type` must start with `image/`; ≤ 4 MB streamed. Then same Blob `put` as `/api/images`. 201 `{ url, sourceUrl }`. |
 
-Update `src/components/ImageUpload.jsx` to use `/api/images/from-url` (removes the CORS failure mode).
+Known limit: DNS rebinding between the check and the fetch is not prevented (acceptable here;
+note it in a code comment). Update `src/components/ImageUpload.jsx` and `src/utils/images.js`
+`uploadImageFromUrl` to use `/api/images/from-url` (removes the browser CORS failure mode).
 `listDrafts` gains `?limit=` (default 100, max 200) — documented, no cursor yet.
 
 ## Task 5.7 — Discovery: `public/llms.txt` and `/api/openapi.json`
 
-`public/llms.txt` (llmstxt.org format), content outline — keep it under ~150 lines:
+Create the `public/` directory (it does not exist yet; Vite copies it into `dist/`) and
+`public/llms.txt` (llmstxt.org format). Content outline — keep it under ~150 lines:
 ```
 # X Thread Draft Tool
 > Compose and manage X/Twitter thread drafts. Fully usable by agents through a JSON API.
@@ -137,8 +144,9 @@ Update `src/components/ImageUpload.jsx` to use `/api/images/from-url` (removes t
   `cache-control: public, max-age=300`). Security scheme: `bearerAuth` (http bearer) + `cookieAuth`.
 - `tests/api/openapi.test.js`: every router entry (method + path, `:id` → `{id}`) exists in
   `paths`, and every `paths` operation exists in the router. Dev-only routes are excluded.
-- `vercel.json`: ensure `/llms.txt` is served as a static file (filesystem wins over rewrites;
-  add a test-free manual check in the smoke script instead).
+- `/llms.txt` is served as a static file (Vercel serves real files before applying rewrites; the
+  smoke script verifies it). In `vite.config.js` add `/^\/llms\.txt$/` to
+  `navigateFallbackDenylist` so the service worker never answers it with `index.html`.
 
 ## Task 5.8 — Web UI: `/settings/tokens`
 
@@ -156,14 +164,16 @@ last used, expires), Revoke button with confirm. Must work on a phone screen.
   `http://127.0.0.1:8787/dev-blob/...` (add `setBlobImpl()` to `server/blob.js`).
 - Mocks GitHub only for device flow when `--fake-github` is passed (auto-approves).
 - Adds dev-only `POST /api/dev/token { login }` → creates/upserts a user with a fake negative
-  `github_id` and returns `{ token }`. Implemented inside `scripts/dev-api.mjs` only.
+  `github_id` and returns `{ token }`. `scripts/dev-api.mjs` answers `/api/dev/*` **itself, before**
+  delegating every other request to `route()`; nothing under `server/` knows about it.
 - Refuses to start if `process.env.VERCEL` is set. Sets `PUBLIC_APP_URL` and a random `SESSION_SECRET`.
 - `vite.config.js` `server.proxy`: `/api` → `http://127.0.0.1:8787` so `npm run dev` + `npm run dev:api` gives a working full app locally.
 - `.gitignore`: `.dev-db/`, `.dev-blob/`, `.xt-token`.
 
 ## Task 5.10 — Smoke test + agent login scripts
 
-`scripts/smoke.mjs` (no dependencies beyond Node 20):
+`scripts/smoke.mjs` (no dependencies beyond Node 20). It creates temporary drafts titled
+`[smoke] <timestamp>` in the token owner's account and always deletes them:
 - Env/flags: `XT_BASE_URL` (required), `XT_TOKEN` (optional — omit when a proxy injects the
   `Authorization` header), `VERCEL_AUTOMATION_BYPASS_SECRET` (optional → header `x-vercel-protection-bypass`).
 - Steps, each printed as `PASS`/`FAIL <reason>`: health → `/llms.txt` is text containing
@@ -236,9 +246,31 @@ Levels 1 and 2 must always be run by the executor before pushing; never ask a hu
    `npm run smoke` is run **without** `XT_TOKEN`. If the host is blocked by the network policy,
    the agent proposes adding exactly those hosts to the environment.
 
-Note: each Git branch's Preview deployments use their own Neon branch copied from production.
-A token created on production works on previews created after it; a token created on a preview
-only exists in that branch's database.
+**Network reality (verified 2026-11-07):** Claude Code cloud sessions cannot reach `*.vercel.app`
+by default — the session proxy refuses the connection. An agent that needs level 3 must first propose
+an environment network change for exactly `x-thread-draft-tool-preview.vercel.app` and
+`x-thread-draft-tool.vercel.app` (wildcards are not allowed, so per-deployment URLs such as
+`x-thread-draft-tool-<hash>-….vercel.app` stay unreachable from cloud sessions — always use the two
+stable domains). GitHub Actions has no such restriction, so `smoke-deployed.yml` can use per-deployment URLs.
+
+**Databases behind previews:** the Neon integration gives Preview deployments their own database
+branch copied from production. Until the data migration runs, production is empty, so the preview
+starts with no users: sign in on the preview domain first, then create the token there. After
+cutover, create the agents' token on production; previews branched later contain it.
+If a new preview answers 401 to a token that worked before, the integration made a fresh branch for
+that deployment — create a new token on that preview (web page or `npm run agent:login`).
+
+## Executor order of work (what to do, start to finish)
+
+1. `git pull --rebase origin claude/lucid-sagan-bbciuo`; `npm ci`; `npm run test:unit` must pass before you change anything.
+2. Tasks 5.1 → 5.13 in order, one commit each. After each: `npm run build && npm run test:unit`.
+   From Task 5.10 on, also run level 2 (local headless smoke) before pushing.
+3. Update the "Execution status" table in `vercel-migration.md` (Phase 5 → done).
+4. Walk both validation checklists (`vercel-migration.md` and below); fix anything unchecked.
+5. Push, then update **PR #21's** description: summary, test results (levels 1 and 2 output
+   summary), and a "Human steps" list (Phase 5 [HUMAN] items, then Task 3.3 and Phase 4).
+6. Stop. Do not merge, do not run the data migration. Level 3 runs only after Shaked finishes the
+   human steps; if asked later, propose the network change and request the credential as described above.
 
 ## Validation checklist (reviewer)
 
@@ -250,3 +282,4 @@ only exists in that branch's database.
 - [ ] SSRF guard covers DNS-resolved private ranges and refuses redirects.
 - [ ] `/llms.txt` and `/api/openapi.json` served on preview; openapi parity test passes.
 - [ ] `npm run test:unit`, `npm run build`, and the `smoke-local` CI job pass.
+- [ ] `vercel-migration.md` execution status table updated; PR #21 description lists the human steps.
