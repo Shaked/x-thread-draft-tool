@@ -1,0 +1,111 @@
+name: Neon preview cleanup
+
+# Scheduled runs are DRY RUN ONLY. Deletes happen only from a manual dispatch with dry_run=false,
+# an exact confirm_count, and approval of the neon-cleanup environment by a required reviewer.
+# Production (the default branch) and the stable preview are never selected; see the script.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run only (no deletes)'
+        type: boolean
+        default: true
+      confirm_count:
+        description: 'Exact number of candidates printed by the plan job (required to delete)'
+        type: string
+        default: ''
+      grace_hours:
+        description: 'Hours after a PR merges before its preview branch is eligible'
+        type: string
+        default: '24'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: neon-cleanup
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan (dry run)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      - name: Collect GitHub state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$REPO/pulls?state=open&per_page=100" -q '.[].head.ref' \
+            | jq -R -s 'split("\n") | map(select(length > 0))' > open-heads.json
+          gh api --paginate "repos/$REPO/pulls?state=closed&per_page=100" \
+            -q '.[] | select(.merged_at != null) | {head: .head.ref, merged_at: .merged_at}' \
+            | jq -s '.' > merged-prs.json
+          gh api --paginate "repos/$REPO/branches?per_page=100" -q '.[].name' \
+            | jq -R -s 'split("\n") | map(select(length > 0))' > git-branches.json
+          jq -n --slurpfile o open-heads.json --slurpfile m merged-prs.json --slurpfile g git-branches.json \
+            '{openPrHeads: $o[0], mergedPrs: $m[0], gitBranches: $g[0]}' > github.json
+          echo "open PR heads: $(jq length open-heads.json), merged PRs: $(jq length merged-prs.json), git branches: $(jq length git-branches.json)"
+
+      - name: Plan (dry run)
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          GRACE_HOURS: ${{ inputs.grace_hours || '24' }}
+        run: node scripts/neon-preview-cleanup.mjs --dry-run --github=github.json --grace-hours="$GRACE_HOURS"
+
+  apply:
+    name: Apply (deletes)
+    needs: plan
+    if: github.event_name == 'workflow_dispatch' && inputs.dry_run == false
+    runs-on: ubuntu-latest
+    environment: neon-cleanup
+    steps:
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      - name: Collect GitHub state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$REPO/pulls?state=open&per_page=100" -q '.[].head.ref' \
+            | jq -R -s 'split("\n") | map(select(length > 0))' > open-heads.json
+          gh api --paginate "repos/$REPO/pulls?state=closed&per_page=100" \
+            -q '.[] | select(.merged_at != null) | {head: .head.ref, merged_at: .merged_at}' \
+            | jq -s '.' > merged-prs.json
+          gh api --paginate "repos/$REPO/branches?per_page=100" -q '.[].name' \
+            | jq -R -s 'split("\n") | map(select(length > 0))' > git-branches.json
+          jq -n --slurpfile o open-heads.json --slurpfile m merged-prs.json --slurpfile g git-branches.json \
+            '{openPrHeads: $o[0], mergedPrs: $m[0], gitBranches: $g[0]}' > github.json
+
+      - name: Delete confirmed candidates
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          CONFIRM_COUNT: ${{ inputs.confirm_count }}
+          GRACE_HOURS: ${{ inputs.grace_hours || '24' }}
+        run: node scripts/neon-preview-cleanup.mjs --apply --confirm-count="$CONFIRM_COUNT" --github=github.json --grace-hours="$GRACE_HOURS"
