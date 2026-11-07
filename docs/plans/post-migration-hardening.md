@@ -163,7 +163,7 @@ Status: **In PR #24** (green). Production deployments run the full test with
 Task 7.1 replaces both tokens with OIDC and restores the full test on previews.
 
 ### 1.1 Run the API tests once
-Status: Not started.
+Status: In PR #28.
 **Files:** `.github/workflows/tests.yml`.
 **Steps:** delete the `Run API tests` step (`- name: Run API tests` and `run: npm run test:api`).
 **Acceptance:** the `Unit tests (vitest)` job log shows `Test Files  14 passed` once and no second vitest run.
