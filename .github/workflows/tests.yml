@@ -28,8 +28,51 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Reject any migration that contains a destructive statement (same patterns as the
+      # former Supabase deploy guard). Destructive changes need a deliberate, reviewed rewrite.
+      - name: Lint database migrations
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(db/migrations/*.sql)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No migrations found, nothing to lint."
+            exit 0
+          fi
+
+          patterns=(
+            'drop[[:space:]]+table'
+            'drop[[:space:]]+schema'
+            'drop[[:space:]]+database'
+            'drop[[:space:]]+column'
+            'drop[[:space:]]+role'
+            'drop[[:space:]]+policy'
+            'truncate[[:space:]]'
+            'alter[[:space:]]+table[[:space:]]+[^;]*drop[[:space:]]'
+            'delete[[:space:]]+from'
+          )
+
+          fail=0
+          for f in "${files[@]}"; do
+            for p in "${patterns[@]}"; do
+              if grep -inE "$p" "$f" >/dev/null; then
+                echo "::error file=$f::Destructive pattern matched: $p"
+                grep -inE "$p" "$f" || true
+                fail=1
+              fi
+            done
+          done
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Migration lint failed. Destructive operations are blocked by policy."
+            exit 1
+          fi
+
       - name: Run unit tests
         run: npm run test:unit
+
+      - name: Run API tests
+        run: npm run test:api
 
   e2e:
     name: E2E tests (playwright)
