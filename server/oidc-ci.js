@@ -47,18 +47,25 @@ export async function verifyCiToken(token, env = process.env) {
     return null
   }
 
-  if (claims.repository_id !== repoId) return null
-  if (!ALLOWED_EVENTS.has(claims.event_name)) return null
-  if (claims.runner_environment !== undefined && claims.runner_environment !== 'github-hosted') return null
+  // Each refusal names its check in the log. Values are not logged, only whether they matched.
+  const reject = (reason) => {
+    console.warn(`[oidc-ci] refused: ${reason} (ref=${claims.ref} event=${claims.event_name})`)
+    return null
+  }
+  if (claims.repository_id !== repoId) return reject('repository id does not match the configured id')
+  if (!ALLOWED_EVENTS.has(claims.event_name)) return reject('event not allowed')
+  if (claims.runner_environment !== undefined && claims.runner_environment !== 'github-hosted') return reject('runner not github-hosted')
 
   const expectedWorkflow = `${REPO}/${CI_WORKFLOW_PATH}@${claims.ref}`
-  if (claims.workflow_ref !== expectedWorkflow) return null
-  if (claims.job_workflow_ref !== expectedWorkflow) return null
+  if (claims.workflow_ref !== expectedWorkflow) return reject(`workflow_ref mismatch (got ${claims.workflow_ref})`)
+  if (claims.job_workflow_ref !== expectedWorkflow) return reject(`job_workflow_ref mismatch (got ${claims.job_workflow_ref})`)
 
   const isMain = claims.ref === 'refs/heads/main'
   const isBranch =
     vercelEnv === 'preview' && env.CI_OIDC_ALLOW_BRANCHES === '1' && /^refs\/heads\/[\w./-]+$/.test(claims.ref)
-  if (!isMain && !isBranch) return null
+  if (!isMain && !isBranch) {
+    return reject(`branch ref not allowed (vercelEnv=${vercelEnv} allowBranchesSet=${env.CI_OIDC_ALLOW_BRANCHES === '1'})`)
+  }
 
   return claims
 }
