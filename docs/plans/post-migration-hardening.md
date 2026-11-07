@@ -85,14 +85,14 @@ acceptance line is met; paste the acceptance results into the PR description.
 
 ## Task 0 — Clear the audit findings
 
-Status: Not started. Four PRs, in order: 0.1, 0.3a, 0.2, 0.3b.
+Status: 0.1 In PR #26. Four PRs, in order: 0.1, 0.3a, 0.2, 0.3b.
 
 ### 0.1 Test tooling major upgrade (fixes all 3 critical)
 **Why:** `vitest`, `@vitest/ui`, `tinypool` critical findings.
 **Files:** `package.json`, `package-lock.json`, `vitest.config.js`, `tests/**` only if the upgrade breaks an API they use.
 **Steps:**
 1. `npm install -D vitest@latest @vitest/ui@latest jsdom@latest`
-   **Deviation (pending Shaked's approval):** `@latest` fails with ERESOLVE because vitest 5 needs
+   **Deviation (approved by Shaked, 2026-11-07):** `@latest` fails with ERESOLVE because vitest 5 needs
    vite ≥ 6 and this repo is on vite 5 (upgraded in Task 0.3a). 0.1 therefore pins `vitest` and
    `@vitest/ui` to 3.2.7, `jsdom` to ^29.1.1 (jsdom 31 needs Node 22.22+; CI runs Node 20), and adds
    `"overrides": { "tinypool": "^2.2.0" }` (outside vitest 3's `^1.1.1` range). Task 0.3a removes the override.
