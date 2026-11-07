@@ -1,0 +1,109 @@
+name: Supabase backup (pre-migration)
+
+# Manual, phone-friendly backup of the Supabase project before migrating off it.
+# Produces an encrypted artifact (DB dump + auth users + storage images) and
+# writes the drafts table schema and row counts to the job summary.
+#
+# Required repo secrets (all already exist except BACKUP_PASSPHRASE):
+#   SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD
+#                        - used to look up the Session pooler (IPv4) DB URL.
+#                          Alternatively set SUPABASE_DB_URL to override.
+#   SUPABASE_URL         - https://<ref>.supabase.co
+#   BACKUP_PASSPHRASE    - long random passphrase (store it in 1Password)
+#
+# Decrypt later with:
+#   gpg --batch --passphrase "$BACKUP_PASSPHRASE" -d supabase-backup.tar.gz.gpg | tar xz
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Validate secrets
+        run: |
+          missing=0
+          for v in SUPABASE_URL BACKUP_PASSPHRASE; do
+            if [ -z "${!v:-}" ]; then echo "::error::Missing secret: $v"; missing=1; fi
+          done
+          [ "$missing" -eq 0 ]
+
+      - uses: actions/checkout@v4
+
+      - name: Resolve database URL
+        run: |
+          set -euo pipefail
+          url=$(scripts/supabase-db-url.sh)
+          echo "::add-mask::$url"
+          echo "SUPABASE_DB_URL=$url" >> "$GITHUB_ENV"
+          echo "Pooler host: $(printf '%s' "$url" | sed -E 's#.*@([^:/]+).*#\1#')"
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Dump database
+        run: |
+          set -euo pipefail
+          mkdir -p backup/images
+          pg_dump "$SUPABASE_DB_URL" --schema=public --no-owner --no-privileges -f backup/public.sql
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "\copy (select id, raw_user_meta_data, email, created_at from auth.users) to 'backup/auth_users.csv' csv header"
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -At -c "select name from storage.objects where bucket_id = 'draft-images'" > backup/image_paths.txt
+
+      - name: Download storage images
+        run: |
+          set -uo pipefail
+          base="${SUPABASE_URL%/}/storage/v1/object/public/draft-images"
+          ok=0; fail=0
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            mkdir -p "backup/images/$(dirname "$path")"
+            if curl -fsS -o "backup/images/$path" "$base/$path"; then ok=$((ok+1)); else fail=$((fail+1)); echo "failed: $path"; fi
+          done < backup/image_paths.txt
+          echo "IMAGES_OK=$ok" >> "$GITHUB_ENV"
+          echo "IMAGES_FAILED=$fail" >> "$GITHUB_ENV"
+
+      - name: Write summary (schema + counts, no user data)
+        run: |
+          set -euo pipefail
+          {
+            echo "## drafts columns"
+            echo '```'
+            psql "$SUPABASE_DB_URL" -c "\d public.drafts"
+            echo '```'
+            echo "## Row counts"
+            echo '```'
+            psql "$SUPABASE_DB_URL" -At -c "select 'users', count(*) from auth.users union all select 'drafts', count(*) from public.drafts union all select 'share_tokens', count(*) from public.share_tokens"
+            echo '```'
+            echo "Images downloaded: ${IMAGES_OK}, failed: ${IMAGES_FAILED}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Encrypt
+        run: |
+          set -euo pipefail
+          tar czf supabase-backup.tar.gz backup
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+            --symmetric --cipher-algo AES256 -o supabase-backup.tar.gz.gpg supabase-backup.tar.gz
+          rm -rf backup supabase-backup.tar.gz
+
+      - name: Upload encrypted backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup
+          path: supabase-backup.tar.gz.gpg
+          retention-days: 90
