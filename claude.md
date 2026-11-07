@@ -14,6 +14,7 @@ _Last refreshed: 2026-11-07 18:08:08.396 UTC_
 - Thread Composition: [`docs/features/thread-composition.md`](./docs/features/thread-composition.md)
 
 ## Auto Skill Map (use directly)
+- Skill: Agent Branch, PR and CI Workflow: [`.claude/skills/agent-pr-workflow.md`](./.claude/skills/agent-pr-workflow.md)
 - Skill: Build and Test Workflow: [`.claude/skills/build-and-test.md`](./.claude/skills/build-and-test.md)
 - Skill: Deploy and Release Safety: [`.claude/skills/deploy-and-release.md`](./.claude/skills/deploy-and-release.md)
 - Skill: High-Risk Feature Concentration: [`.claude/skills/high-risk-features.md`](./.claude/skills/high-risk-features.md)
@@ -40,4 +41,5 @@ For each meaningful code change, update docs in the same PR/commit set:
 
 ## Workflow rules
 - Run pre-commit checks (`npm run precommit:checks`) before pushing.
+- Branches, commits, PRs and CI reading: follow [`.claude/skills/agent-pr-workflow.md`](./.claude/skills/agent-pr-workflow.md) and use `scripts/agent-pr.sh`.
 - Keep E2E as a GitHub Actions gate unless debugging a specific E2E failure.
