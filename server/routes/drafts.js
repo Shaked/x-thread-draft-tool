@@ -3,6 +3,7 @@ import { HttpError, json, readJson } from '../http.js'
 import { requireUser } from '../session.js'
 import { deleteBlobUrls } from '../blob.js'
 import { imageUrlsFrom, isOwnedBlobUrl } from '../draft-images.js'
+import { exportAsFormattedText, exportAsJSON, exportAsPlainText } from '../../src/utils/exportFormats.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const COLUMNS = 'id, user_id, title, posts, is_published, published_at, created_at, updated_at'
@@ -35,6 +36,44 @@ function notFound() {
   return new HttpError(404, 'Draft not found')
 }
 
+/** POST /api/drafts/:id/duplicate: same copy the editor's Duplicate button makes. */
+export async function duplicateDraft({ request, params }) {
+  const session = await requireUser(request)
+  if (!isUuid(params.id)) throw notFound()
+  const { rows: sourceRows } = await query(
+    `select title, posts from drafts where id = $1 and user_id = $2`,
+    [params.id, session.uid]
+  )
+  if (!sourceRows[0]) throw notFound()
+  const source = sourceRows[0]
+  const posts = Array.isArray(source.posts) ? source.posts.map((post) => ({ ...post, id: crypto.randomUUID() })) : []
+  const { rows } = await query(
+    `insert into drafts (user_id, title, posts) values ($1, $2, $3::jsonb) returning ${COLUMNS}`,
+    [session.uid, `${source.title || 'Untitled'} (copy)`, JSON.stringify(posts.length ? posts : [EMPTY_POST()])]
+  )
+  return json({ draft: rows[0] }, 201)
+}
+
+/** GET /api/drafts/:id/export?format=json|text|formatted (public, like GET by id). */
+export async function exportDraft({ url, params }) {
+  if (!isUuid(params.id)) throw notFound()
+  const format = url.searchParams.get('format') ?? 'json'
+  const { rows } = await query(`select ${COLUMNS} from drafts where id = $1`, [params.id])
+  if (!rows[0]) throw notFound()
+  const draft = rows[0]
+  const posts = Array.isArray(draft.posts) ? draft.posts : []
+  if (format === 'json') {
+    return new Response(exportAsJSON({ title: draft.title, posts }), {
+      headers: { 'content-type': 'application/json; charset=utf-8' }
+    })
+  }
+  if (format === 'text' || format === 'formatted') {
+    const body = format === 'text' ? exportAsPlainText(posts) : exportAsFormattedText(posts)
+    return new Response(body, { headers: { 'content-type': 'text/plain; charset=utf-8' } })
+  }
+  throw new HttpError(400, 'format must be json, text or formatted')
+}
+
 /** Loads a draft owned by `uid`, or throws 404. Used by every owner-only route. */
 async function ownedPosts(id, uid) {
   if (!isUuid(id)) throw notFound()
@@ -55,16 +94,19 @@ async function deletableImageUrls(uid, id, posts) {
   return owned.filter((url) => !stillUsed.has(url))
 }
 
-/** GET /api/drafts?published=true|false */
+/** GET /api/drafts?published=true|false&limit=1..200 (default 100) */
 export async function listDrafts({ request, url }) {
   const session = await requireUser(request)
   const flag = url.searchParams.get('published')
   if (flag !== 'true' && flag !== 'false') throw new HttpError(400, 'published must be true or false')
   const published = flag === 'true'
+  const limitParam = url.searchParams.get('limit') ?? '100'
+  const limit = Number(limitParam)
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new HttpError(400, 'limit must be from 1 to 200')
   const order = published ? 'published_at desc' : 'updated_at desc'
   const { rows } = await query(
-    `select ${COLUMNS} from drafts where user_id = $1 and is_published = $2 order by ${order}`,
-    [session.uid, published]
+    `select ${COLUMNS} from drafts where user_id = $1 and is_published = $2 order by ${order} limit $3`,
+    [session.uid, published, limit]
   )
   return json({ drafts: rows })
 }
@@ -165,6 +207,8 @@ export const draftRoutes = [
   { method: 'GET', path: '/drafts/:id', handler: getDraft },
   { method: 'PATCH', path: '/drafts/:id', handler: updateDraft },
   { method: 'POST', path: '/drafts/:id/publish', handler: publishDraft },
+  { method: 'POST', path: '/drafts/:id/duplicate', handler: duplicateDraft },
+  { method: 'GET', path: '/drafts/:id/export', handler: exportDraft },
   { method: 'DELETE', path: '/drafts/:id', handler: deleteDraft },
   { method: 'POST', path: '/drafts/:id/share-tokens', handler: createShareToken }
 ]

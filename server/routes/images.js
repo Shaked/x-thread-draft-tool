@@ -3,6 +3,7 @@ import { HttpError, json, readJson } from '../http.js'
 import { requireUser } from '../session.js'
 import { deleteBlobUrls, putBlob } from '../blob.js'
 import { isBlobUrl } from '../draft-images.js'
+import { fetchRemoteImage } from '../remote-image.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_BYTES = 4 * 1024 * 1024 // Vercel's request body limit is 4.5 MB
@@ -56,7 +57,23 @@ export async function deleteImage({ request }) {
   return json({ ok: true })
 }
 
+/** POST /api/images/from-url { draftId, url }: the server fetches the image (owner only). */
+export async function uploadImageFromUrl({ request }) {
+  const session = await requireUser(request)
+  const body = await readJson(request, 10_000)
+  const draftId = typeof body?.draftId === 'string' ? body.draftId : ''
+  if (!UUID_RE.test(draftId)) throw new HttpError(404, 'Draft not found')
+  const { rows } = await query('select 1 from drafts where id = $1 and user_id = $2', [draftId, session.uid])
+  if (!rows[0]) throw new HttpError(404, 'Draft not found')
+
+  const { bytes, contentType } = await fetchRemoteImage(body.url)
+  const pathname = `drafts/${session.uid}/${draftId}/${crypto.randomUUID()}.${extensionFor(contentType)}`
+  const blob = await putBlob(pathname, bytes, { contentType })
+  return json({ url: blob.url, sourceUrl: body.url }, 201)
+}
+
 export const imageRoutes = [
   { method: 'POST', path: '/images', handler: uploadImage },
+  { method: 'POST', path: '/images/from-url', handler: uploadImageFromUrl },
   { method: 'DELETE', path: '/images', handler: deleteImage }
 ]

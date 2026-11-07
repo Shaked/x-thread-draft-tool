@@ -92,5 +92,10 @@ export const imagesApi = {
 
   remove(url) {
     return request('/images', { method: 'DELETE', body: { url } })
+  },
+
+  /** The server fetches the image, so the browser's CORS limits do not apply. */
+  fromUrl(draftId, url) {
+    return request('/images/from-url', { method: 'POST', body: { draftId, url } })
   }
 }

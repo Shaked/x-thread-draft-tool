@@ -5,6 +5,7 @@ import { draftRoutes } from './routes/drafts.js'
 import { imageRoutes } from './routes/images.js'
 import { shareRoutes } from './routes/share.js'
 import { tokenRoutes } from './routes/tokens.js'
+import { threadRoutes } from './routes/threads.js'
 
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE'])
 
@@ -19,6 +20,7 @@ export const ROUTES = [
   ...imageRoutes,
   ...shareRoutes,
   ...tokenRoutes,
+  ...threadRoutes,
   { method: 'GET', path: '/health', handler: health }
 ]
 
