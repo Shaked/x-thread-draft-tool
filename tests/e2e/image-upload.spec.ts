@@ -35,7 +35,12 @@ test.describe('image upload', () => {
 
     let draftId: string | null = null
     try {
+      // Diagnostics: report how the app's sign-in call answered (never the token).
+      const meResponse = page.waitForResponse((r) => r.url().includes('/api/auth/me'), { timeout: 20_000 }).catch(() => null)
       await page.goto(BASE)
+      const me = await meResponse
+      if (me) console.log(`auth/me status=${me.status()} body=${(await me.text()).slice(0, 200)}`)
+      else console.log('auth/me: no response seen')
       await page.locator('.new-draft-btn').first().click()
       await expect(page).toHaveURL(/\/draft\//)
       draftId = new URL(page.url()).pathname.split('/').pop() ?? null
