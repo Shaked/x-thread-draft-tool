@@ -61,6 +61,10 @@ Phase 0 is **complete** (2026-11-07). Findings and resulting changes:
    exists, resolve it with `scripts/supabase-db-url.sh`.
 7. **Do not delete** `.github/workflows/supabase-backup.yml` or `scripts/supabase-db-url.sh` in
    Task 2.6 (kept until Supabase is deleted). Do delete `keep-supabase-alive.yml` and `supabase-deploy.yml`.
+9. **Phase 5 — agent-first access** is specified in [agent-access.md](./agent-access.md) and is part
+   of the same PR: API tokens, GitHub device flow, `/llms.txt`, `/api/openapi.json`, API parity
+   endpoints, local headless server, smoke tests. Unit/API tests run in cloud sandboxes without
+   secrets — always run them yourself; never ask a human to.
 8. **Executor deliverable**: work on branch `claude/lucid-sagan-bbciuo`, push, and open **one PR**
    to `main`. Do not merge it. Do not run the data migration.
 
