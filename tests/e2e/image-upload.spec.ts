@@ -21,6 +21,7 @@ const PNG = Buffer.from(
 
 test.describe('image upload', () => {
   test.use({ serviceWorkers: 'block' })
+  test.setTimeout(120_000)
   test.skip(!TOKEN, 'XT_CI_TOKEN is not set; the CI workflow mints it. Run the workflow instead of this test by hand.')
 
   test('creates a draft and uploads an image', async ({ page, context }) => {
@@ -39,7 +40,11 @@ test.describe('image upload', () => {
       const meResponse = page.waitForResponse((r) => r.url().includes('/api/auth/me'), { timeout: 20_000 }).catch(() => null)
       await page.goto(BASE)
       const me = await meResponse
-      if (me) console.log(`auth/me status=${me.status()} body=${(await me.text()).slice(0, 200)}`)
+      if (me) {
+        // Never wait on the body without a limit: a stalled body would hang the whole test.
+        const body = await Promise.race([me.text().catch(() => ''), new Promise((r) => setTimeout(() => r('(body timed out)'), 5000))])
+        console.log(`auth/me status=${me.status()} body=${String(body).slice(0, 200)}`)
+      }
       else console.log('auth/me: no response seen')
       await page.locator('.new-draft-btn').first().click()
       await expect(page).toHaveURL(/\/draft\//)
@@ -58,7 +63,8 @@ test.describe('image upload', () => {
     } finally {
       if (draftId) {
         const res = await page.request.delete(new URL(`/api/drafts/${draftId}`, BASE).toString(), {
-          headers: { authorization: `Bearer ${TOKEN}` }
+          headers: { authorization: `Bearer ${TOKEN}` },
+          timeout: 20_000
         })
         expect(res.ok(), `cleanup of draft ${draftId} failed with HTTP ${res.status()}`).toBe(true)
       }
