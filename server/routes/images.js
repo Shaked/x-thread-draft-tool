@@ -2,7 +2,7 @@ import { query } from '../db.js'
 import { HttpError, json, readJson } from '../http.js'
 import { requireUser } from '../session.js'
 import { deleteBlobUrls, putBlob } from '../blob.js'
-import { isBlobUrl } from '../draft-images.js'
+import { isOwnedBlobUrl } from '../draft-images.js'
 import { fetchRemoteImage } from '../remote-image.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -43,13 +43,8 @@ export async function deleteImage({ request }) {
   const body = await readJson(request, 10_000)
   const target = typeof body?.url === 'string' ? body.url : ''
 
-  let pathname
-  try {
-    pathname = new URL(target).pathname
-  } catch {
-    throw new HttpError(400, 'Invalid image URL')
-  }
-  if (!isBlobUrl(target) || !pathname.startsWith(`/drafts/${session.uid}/`)) {
+  if (!/^https?:\/\//.test(target)) throw new HttpError(400, 'Invalid image URL')
+  if (!isOwnedBlobUrl(target, session.uid)) {
     throw new HttpError(403, 'Not allowed to delete this image')
   }
 

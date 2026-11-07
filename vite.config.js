@@ -57,6 +57,10 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
-    open: true
+    open: true,
+    // With `npm run dev:api` running, the app talks to the local API on the same origin
+    proxy: {
+      '/api': 'http://127.0.0.1:8787'
+    }
   }
 })

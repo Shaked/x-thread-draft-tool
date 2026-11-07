@@ -35,3 +35,8 @@ test-results
 
 # Written by scripts/migrate-from-supabase.mjs (image copy map); never commit it.
 url-map.json
+
+# Local headless API (npm run dev:api)
+.dev-db/
+.dev-blob/
+.xt-token
