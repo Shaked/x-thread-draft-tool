@@ -1,34 +1,26 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { supabase } from './utils/supabase'
+import { authApi } from './utils/api'
 import LoginPage from './components/LoginPage'
 import DraftList from './components/DraftList'
 import DraftEditor from './pages/DraftEditor'
 import XThreadPreviewPage from './pages/XThreadPreviewPage'
+import TokensPage from './pages/TokensPage'
 import './styles/App.css'
 
 function App() {
-  const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-    })
-
-    return () => subscription.unsubscribe()
+    authApi
+      .me()
+      .then((res) => setUser(res.user ?? null))
+      .catch((err) => {
+        console.error('Failed to load session:', err)
+        setUser(null)
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   const deployedAtRaw = import.meta.env.VITE_DEPLOYED_AT
@@ -105,6 +97,10 @@ function App() {
           <Route
             path="/draft/:id"
             element={<DraftEditor user={user} />}
+          />
+          <Route
+            path="/settings/tokens"
+            element={user ? <TokensPage /> : <LoginPage />}
           />
           <Route
             path="/x-thread-preview/:token"

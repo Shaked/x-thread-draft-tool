@@ -12,10 +12,24 @@ import {
   renderMarkdown,
   renderText,
   textResponse,
-  tweetIdFrom,
-  type Payload,
-  type Post
-} from '../../supabase/functions/share/render.ts'
+  tweetIdFrom
+} from '../../server/share/render.js'
+
+type ImageEntry = string | { url?: string }
+type Post = {
+  id?: string
+  text?: string
+  images?: ImageEntry[]
+  embeddedTweet?: string | null
+}
+type Payload = {
+  title: string
+  posts: Post[]
+  author_name: string | null
+  author_handle: string | null
+  author_avatar: string | null
+  created_at: string | null
+}
 
 const VALID_TOKEN = '11111111-2222-3333-4444-555555555555'
 

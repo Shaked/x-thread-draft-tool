@@ -1,149 +1,119 @@
 # Setup Guide
 
-This guide will help you deploy your own instance of the X Thread Draft Tool using Vercel and Supabase.
+This guide deploys your own copy of the X Thread Draft Tool on Vercel, with Neon for the database, Vercel Blob for images, and a GitHub OAuth App for sign-in. The app is free to run on the Hobby, Neon Free and Blob free tiers.
 
 ## Prerequisites
 
 - GitHub account
+- Vercel account (Hobby is fine for personal use)
 - Basic familiarity with Git
 
-## Step 1: Fork Repository
+## Step 1: Fork and clone
 
-1. Fork this repository to your GitHub account
+1. Fork this repository to your GitHub account.
 2. Clone your fork locally:
    ```bash
    git clone https://github.com/YOUR_USERNAME/x-thread-draft-tool
    cd x-thread-draft-tool
    ```
 
-## Step 2: Create Supabase Project
+## Step 2: Create the Vercel project
 
-1. Go to [supabase.com](https://supabase.com)
-2. Click "New Project"
-3. Fill in project details (free tier is sufficient)
-4. Wait for project to be created (~2 minutes)
+1. On [vercel.com](https://vercel.com), click **Add New** → **Project** and import your fork.
+2. Vercel detects Vite. Keep the defaults (the build command and rewrites come from `vercel.json`).
+3. Do not deploy yet. First add the database and storage in Step 3.
 
-## Step 3: Setup Database
+## Step 3: Add Neon and Blob from the Vercel Marketplace
 
-1. In Supabase Dashboard, go to **SQL Editor**
-2. Copy the contents of `supabase/schema.sql` from this repo
-3. Paste into SQL Editor and click **Run**
-4. You should see "Success" message
+1. In your Vercel project, open **Storage**.
+2. Create a **Neon** database (Free plan) and connect it to Production, Preview and Development.
+   This sets `DATABASE_URL` and `DATABASE_URL_UNPOOLED`.
+3. Create a **Blob** store (set it to **public**) and connect it to all environments.
+   This sets `BLOB_READ_WRITE_TOKEN`.
 
-## Step 4: Create Storage Bucket
+## Step 4: Create a GitHub OAuth App
 
-1. In Supabase Dashboard, go to **Storage**
-2. Click "New bucket"
-3. Name: `draft-images`
-4. Make it **Public**
-5. Click "Create bucket"
+Create one OAuth App for production and, if you want previews to sign in, a second one for the preview domain.
 
-## Step 5: Enable GitHub Authentication
+1. GitHub → **Settings** → **Developer settings** → **OAuth Apps** → **New OAuth App**.
+2. Production app:
+   - **Homepage URL**: `https://YOUR-APP.vercel.app`
+   - **Authorization callback URL**: `https://YOUR-APP.vercel.app/api/auth/callback`
+3. Copy the **Client ID** and generate a **Client secret**.
 
-1. Create a GitHub OAuth App:
-   - Go to GitHub Settings → Developer settings → OAuth Apps
-   - Click "New OAuth App"
-   - **Application name**: X Thread Draft Tool
-   - **Homepage URL**: Your app URL (you'll update this later)
-   - **Authorization callback URL**: `https://YOUR_PROJECT.supabase.co/auth/v1/callback`
-   - Copy the **Client ID** and **Client Secret**
+## Step 5: Set environment variables
 
-2. In Supabase Dashboard, go to **Authentication** → **Providers**
-3. Enable **GitHub**
-4. Paste your Client ID and Client Secret
-5. Click "Save"
+In Vercel → **Settings** → **Environment Variables**, add these for **Production** (and **Preview** if you use it):
 
-## Step 6: Deploy to Vercel
-
-1. Go to [vercel.com](https://vercel.com)
-2. Click "Add New" → "Project"
-3. Import your forked repository
-4. Vercel will auto-detect Vite
-5. Add environment variables:
-   - `VITE_SUPABASE_URL`: Found in Supabase Dashboard → Settings → API → Project URL
-   - `VITE_SUPABASE_ANON_KEY`: Found in Supabase Dashboard → Settings → API → Project API keys → anon public
-6. Click "Deploy"
-7. Wait for deployment (~2 minutes)
-
-## Step 6.5: Configure GitHub Actions secrets (optional, recommended)
-
-The repo ships two workflows that talk to your Supabase project:
-
-- `keep-supabase-alive.yml` — runs daily and calls a `keepalive()` RPC so the project doesn't get auto-paused after a week of inactivity. Hitting `/rest/v1/` does **not** count as activity (it's a cached OpenAPI response, no SQL is executed); the RPC runs `select now();` so PostgREST issues a real query.
-- `supabase-deploy.yml` — on push to `main`, pushes new SQL migrations from `supabase/migrations/` and deploys the `share` edge function. Includes a lint that blocks `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, `DELETE FROM`, and `ALTER ... DROP` so it can't accidentally destroy data.
-
-In your GitHub repo settings → Secrets and variables → Actions, add:
-
-| Secret | Where to find it |
+| Name | Value |
 | --- | --- |
-| `SUPABASE_URL` | Supabase Dashboard → Settings → API → Project URL |
-| `SUPABASE_SECRET_KEY` | Supabase Dashboard → Settings → API Keys → secret key (starts with `sb_secret_…`) |
-| `SUPABASE_ACCESS_TOKEN` | https://supabase.com/dashboard/account/tokens (generate one) |
-| `SUPABASE_PROJECT_ID` | Project ref shown in Settings → General → Reference ID |
-| `SUPABASE_DB_PASSWORD` | The database password you set when creating the project |
+| `GITHUB_CLIENT_ID` | OAuth App client ID |
+| `GITHUB_CLIENT_SECRET` | OAuth App client secret |
+| `SESSION_SECRET` | 32+ random bytes, e.g. `openssl rand -base64 48` |
+| `PUBLIC_APP_URL` | `https://YOUR-APP.vercel.app` (no trailing slash) |
 
-After secrets are set, run **Actions → Deploy Supabase migrations and functions → Run workflow** once to apply the initial migration and deploy the `share` edge function. From then on, pushes to `main` that touch `supabase/**` deploy automatically.
+Use a different `SESSION_SECRET` and `PUBLIC_APP_URL` for Preview, where `PUBLIC_APP_URL` is the preview domain.
+Sign-in only works on the origin set in `PUBLIC_APP_URL`, so use the same domain you open in the browser.
 
-## Step 7: Update GitHub OAuth Callback
+## Step 6: Deploy
 
-1. Go back to your GitHub OAuth App settings
-2. Update **Homepage URL** to your Vercel deployment URL (e.g., `https://your-app.vercel.app`)
-3. Save changes
+Trigger a deployment (Vercel → **Deployments** → **Redeploy**, or push to your branch).
 
-## Step 8: Test Your App
+The build runs `scripts/migrate.mjs` before `vite build`. It applies the SQL in `db/migrations/` to the Neon database. Migrations are additive and recorded in `schema_migrations`, so every deploy is safe to repeat.
 
-1. Visit your Vercel deployment URL
-2. Click "Sign in with GitHub"
-3. Authorize the app
-4. Start creating thread drafts!
+## Step 7: Test your app
 
-## Local Development
+1. Open `https://YOUR-APP.vercel.app/api/health`. It should show `{"ok":true}`.
+2. Open the app and click **Sign in with GitHub**.
+3. Create a draft, add an image, publish it, and generate an **X Thread** link.
 
-To run locally:
+## Local development
 
 1. Install dependencies:
    ```bash
    npm install
    ```
-
-2. Create `.env.local` file:
-   ```
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
-
-3. Run development server:
+2. Run the front end:
    ```bash
    npm run dev
    ```
+3. To run the API locally, use `vercel dev` after linking the project, or point a local Neon branch at `DATABASE_URL`. `npm run test:api` needs neither: it runs the API against an in-process Postgres.
 
-4. Open http://localhost:5173
+## GitHub Actions (optional)
+
+| Workflow | What it does |
+| --- | --- |
+| `tests.yml` | Lints `db/migrations` for destructive SQL, then runs unit and API tests, then E2E. |
+| `supabase-backup.yml` | Manual, encrypted backup of the old Supabase project. Only needed during the one-time migration. |
+| `data-migrate.yml` | Manual copy of Supabase data into Neon and Blob. Dry run by default. |
+
+Secrets used by the migration workflows (repo → **Settings** → **Secrets and variables** → **Actions**):
+
+| Secret | Used by |
+| --- | --- |
+| `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD` | Backup and data migration (to find the Supabase database) |
+| `SUPABASE_URL` | Backup (to download images) |
+| `DATABASE_URL_UNPOOLED` | Data migration (production Neon direct connection) |
+| `BLOB_READ_WRITE_TOKEN` | Data migration (uploads images to Blob) |
+| `BACKUP_PASSPHRASE` | Backup encryption |
 
 ## Troubleshooting
 
-### Login doesn't work
-- Check that GitHub OAuth callback URL matches your deployment URL
-- Verify Supabase environment variables are correct
+### Sign-in fails or returns to the home page
+- `PUBLIC_APP_URL` must match the domain in your browser exactly.
+- The OAuth callback URL must be `PUBLIC_APP_URL/api/auth/callback`.
+
+### Save or share actions return 403 "Cross-origin request blocked"
+- Open the app on the domain set in `PUBLIC_APP_URL`; other origins are refused for writes.
 
 ### Images won't upload
-- Ensure `draft-images` bucket is public
-- Check browser console for errors
+- Check that the Blob store is connected and `BLOB_READ_WRITE_TOKEN` is set.
+- Images must be 4 MB or smaller after compression.
 
-### Drafts not saving
-- Verify database schema was applied correctly
-- Check Supabase logs in Dashboard
-
-## Support
-
-If you encounter issues, please:
-1. Check browser console for errors
-2. Review Supabase logs
-3. Open an issue on GitHub
+### Build fails in the migration step
+- Check that `DATABASE_URL_UNPOOLED` is set for the environment. Locally, the build warns and skips migrations when it is missing.
 
 ## Cost
 
-Both Vercel and Supabase offer generous free tiers:
-- **Vercel**: Free for personal projects
-- **Supabase**: 500MB database, 1GB storage, 50K monthly active users - all free
-
-You should be able to run this app entirely for free unless you have thousands of users.
+- **Vercel Hobby**: free, for non-commercial use
+- **Neon Free** and **Vercel Blob free tier**: free within their quotas

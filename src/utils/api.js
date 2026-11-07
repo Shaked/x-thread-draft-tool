@@ -1,81 +1,116 @@
 /**
- * API client for backend communication
+ * Client for the same-origin `/api` function. Every call sends the session cookie.
+ * Errors carry the server's message and the HTTP status (`err.status`).
  */
 
-// In production, if worker is on a different domain, set VITE_API_BASE env var
-// Otherwise, use relative paths (same origin)
-const API_BASE = import.meta.env.DEV
-  ? 'http://localhost:8787'
-  : (import.meta.env.VITE_API_BASE || '');
+async function request(path, { method = 'GET', body, headers = {} } = {}) {
+  const isRaw = body instanceof Blob
+  const init = {
+    method,
+    credentials: 'same-origin',
+    headers: { ...headers }
+  }
 
-/**
- * Make API request with error handling
- */
-async function apiRequest(endpoint, options = {}) {
-  const url = `${API_BASE}${endpoint}`;
+  if (isRaw) {
+    init.headers['content-type'] = body.type || 'application/octet-stream'
+    init.body = body
+  } else if (body !== undefined) {
+    init.headers['content-type'] = 'application/json'
+    init.body = JSON.stringify(body)
+  }
 
-  const response = await fetch(url, {
-    ...options,
-    credentials: 'include', // Include cookies for session
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers
-    }
-  });
+  const response = await fetch(`/api${path}`, init)
+  const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
+    const error = new Error(data.error || `HTTP ${response.status}`)
+    error.status = response.status
+    throw error
   }
 
-  return response.json();
+  return data
 }
 
-/**
- * Auth API
- */
-export const authAPI = {
-  async getCurrentUser() {
-    return apiRequest('/api/auth/me');
+export const authApi = {
+  me() {
+    return request('/auth/me')
   },
 
-  async login() {
-    window.location.href = `${API_BASE}/api/auth/login`;
+  login() {
+    window.location.href = '/api/auth/login'
   },
 
-  async logout() {
-    await apiRequest('/api/auth/logout', { method: 'POST' });
-    window.location.reload();
+  logout() {
+    return request('/auth/logout', { method: 'POST' })
   }
-};
+}
 
-/**
- * Drafts API
- */
-export const draftsAPI = {
-  async listDrafts() {
-    const response = await apiRequest('/api/drafts');
-    return response.drafts || [];
+export const draftsApi = {
+  async list(published) {
+    const data = await request(`/drafts?published=${published ? 'true' : 'false'}`)
+    return data.drafts
   },
 
-  async getDraftByTitle(title) {
-    const encodedTitle = encodeURIComponent(title);
-    const response = await apiRequest(`/api/drafts/${encodedTitle}`);
-    return response.draft;
+  async create({ title, posts }) {
+    const data = await request('/drafts', { method: 'POST', body: { title, posts } })
+    return data.draft
   },
 
-  async saveDraft(title, content) {
-    const response = await apiRequest('/api/drafts', {
+  async get(id) {
+    const data = await request(`/drafts/${encodeURIComponent(id)}`)
+    return data.draft
+  },
+
+  async update(id, patch) {
+    const data = await request(`/drafts/${encodeURIComponent(id)}`, { method: 'PATCH', body: patch })
+    return data.draft
+  },
+
+  async publish(id) {
+    const data = await request(`/drafts/${encodeURIComponent(id)}/publish`, { method: 'POST' })
+    return data.draft
+  },
+
+  remove(id) {
+    return request(`/drafts/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  },
+
+  async createShareToken(id) {
+    const data = await request(`/drafts/${encodeURIComponent(id)}/share-tokens`, { method: 'POST' })
+    return data.token
+  }
+}
+
+export const imagesApi = {
+  async upload(file, draftId) {
+    const data = await request(`/images?draftId=${encodeURIComponent(draftId)}`, {
       method: 'POST',
-      body: JSON.stringify({ title, content })
-    });
-    return response.draft;
+      body: file
+    })
+    return data.url
   },
 
-  async deleteDraft(title) {
-    const encodedTitle = encodeURIComponent(title);
-    await apiRequest(`/api/drafts/${encodedTitle}`, {
-      method: 'DELETE'
-    });
+  remove(url) {
+    return request('/images', { method: 'DELETE', body: { url } })
+  },
+
+  /** The server fetches the image, so the browser's CORS limits do not apply. */
+  fromUrl(draftId, url) {
+    return request('/images/from-url', { method: 'POST', body: { draftId, url } })
   }
-};
+}
+
+export const tokensApi = {
+  list() {
+    return request('/tokens')
+  },
+
+  /** Returns `{ token, id, name, prefix, expires_at }`. The token is shown once. */
+  create({ name, expires_in_days }) {
+    return request('/tokens', { method: 'POST', body: { name, expires_in_days } })
+  },
+
+  revoke(id) {
+    return request(`/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+}

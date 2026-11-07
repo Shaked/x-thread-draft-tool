@@ -1,0 +1,86 @@
+name: Data migrate (Supabase to Neon and Blob)
+
+# Manual, one-time copy of drafts, users, images and unused share tokens from the Supabase
+# project into Neon and Vercel Blob. Run it once with `apply` off (dry run), read the job
+# summary, then run it again with `apply` on. Re-running is safe: existing rows are kept and
+# copied images are recorded in url-map.json so they are never uploaded twice.
+#
+# Required repo secrets:
+#   SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD  - find the Supabase DB
+#   DATABASE_URL_UNPOOLED   - production Neon direct connection (migrations and writes)
+#   BLOB_READ_WRITE_TOKEN   - Blob store token (writes only, with apply on)
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Write to Neon and Blob. Leave off for a dry run.'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Copy Supabase data
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      APPLY: ${{ inputs.apply }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate secrets
+        run: |
+          missing=0
+          for v in SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_ID SUPABASE_DB_PASSWORD DATABASE_URL_UNPOOLED; do
+            if [ -z "${!v:-}" ]; then echo "::error::Missing secret: $v"; missing=1; fi
+          done
+          if [ "$APPLY" = "true" ] && [ -z "${BLOB_READ_WRITE_TOKEN:-}" ]; then
+            echo "::error::Missing secret: BLOB_READ_WRITE_TOKEN (required with apply on)"
+            missing=1
+          fi
+          [ "$missing" -eq 0 ]
+
+      - name: Resolve Supabase database URL
+        run: |
+          set -euo pipefail
+          url=$(scripts/supabase-db-url.sh)
+          echo "::add-mask::$url"
+          echo "SUPABASE_DB_URL=$url" >> "$GITHUB_ENV"
+          echo "Pooler host: $(printf '%s' "$url" | sed -E 's#.*@([^:/]+).*#\1#')"
+
+      - name: Apply Neon schema
+        run: npm run db:migrate
+
+      - name: Copy data (dry run unless apply is on)
+        run: |
+          set -euo pipefail
+          if [ "$APPLY" = "true" ]; then mode=--apply; else mode=--dry-run; fi
+          node scripts/migrate-from-supabase.mjs "$mode"
+
+      - name: Upload image URL map
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: url-map
+          path: url-map.json
+          retention-days: 30
+          if-no-files-found: ignore

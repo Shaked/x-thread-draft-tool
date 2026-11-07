@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '../utils/supabase'
+import { draftsApi } from '../utils/api'
 
 export default function XThreadLinkButton({ draftId }) {
   const [copied, setCopied] = useState(false)
@@ -11,12 +11,7 @@ export default function XThreadLinkButton({ draftId }) {
     setBusy(true)
     setError(null)
     try {
-      const { data, error: rpcError } = await supabase.rpc('create_share_token', {
-        p_draft_id: draftId
-      })
-      if (rpcError) throw rpcError
-
-      const token = typeof data === 'string' ? data : data?.token
+      const token = await draftsApi.createShareToken(draftId)
       if (!token) throw new Error('No token returned')
 
       const appOrigin = window.location.origin.replace(/\/$/, '')

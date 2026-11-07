@@ -118,9 +118,9 @@ https://picsum.photos/202/302.jpg
 ## 🐛 Common Issues
 
 ### Images not uploading
-- Check Supabase credentials in `.env`
+- Check `BLOB_READ_WRITE_TOKEN` and the 4 MB image limit
 - Check browser console for errors
-- Verify Supabase storage bucket exists
+- Verify the Vercel Blob store is connected to the environment
 
 ### CORS errors on URL fetching
 - This is expected for some URLs

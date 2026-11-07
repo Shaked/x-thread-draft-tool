@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../utils/supabase'
+import { draftsApi } from '../utils/api'
 
 export default function DraftList({ user }) {
   const [activeTab, setActiveTab] = useState('drafts') // 'drafts' or 'published'
@@ -21,25 +21,10 @@ export default function DraftList({ user }) {
       setLoading(true)
       setError(null)
 
-      // Load unpublished drafts
-      const { data: draftsData, error: draftsError } = await supabase
-        .from('drafts')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_published', false)
-        .order('updated_at', { ascending: false })
-
-      if (draftsError) throw draftsError
-
-      // Load published drafts
-      const { data: publishedData, error: publishedError } = await supabase
-        .from('drafts')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_published', true)
-        .order('published_at', { ascending: false })
-
-      if (publishedError) throw publishedError
+      const [draftsData, publishedData] = await Promise.all([
+        draftsApi.list(false),
+        draftsApi.list(true)
+      ])
 
       setDrafts(draftsData || [])
       setPublished(publishedData || [])
@@ -53,21 +38,12 @@ export default function DraftList({ user }) {
 
   const createNewDraft = async () => {
     try {
-      const { data, error } = await supabase
-        .from('drafts')
-        .insert([
-          {
-            user_id: user.id,
-            title: `Draft ${new Date().toLocaleDateString()}`,
-            posts: [{ id: crypto.randomUUID(), text: '', images: [], embeddedTweet: null }]
-          }
-        ])
-        .select()
-        .single()
+      const draft = await draftsApi.create({
+        title: `Draft ${new Date().toLocaleDateString()}`,
+        posts: [{ id: crypto.randomUUID(), text: '', images: [], embeddedTweet: null }]
+      })
 
-      if (error) throw error
-
-      navigate(`/draft/${data.id}`)
+      navigate(`/draft/${draft.id}`)
     } catch (err) {
       console.error('Error creating draft:', err)
       alert('Failed to create draft: ' + err.message)
@@ -82,23 +58,14 @@ export default function DraftList({ user }) {
         id: crypto.randomUUID()
       }))
 
-      const { data, error } = await supabase
-        .from('drafts')
-        .insert([
-          {
-            user_id: user.id,
-            title: `${draft.title || 'Untitled'} (copy)`,
-            posts: duplicatedPosts.length
-              ? duplicatedPosts
-              : [{ id: crypto.randomUUID(), text: '', images: [], embeddedTweet: null }]
-          }
-        ])
-        .select()
-        .single()
+      const copy = await draftsApi.create({
+        title: `${draft.title || 'Untitled'} (copy)`,
+        posts: duplicatedPosts.length
+          ? duplicatedPosts
+          : [{ id: crypto.randomUUID(), text: '', images: [], embeddedTweet: null }]
+      })
 
-      if (error) throw error
-
-      navigate(`/draft/${data.id}`)
+      navigate(`/draft/${copy.id}`)
     } catch (err) {
       console.error('Error duplicating draft:', err)
       alert('Failed to duplicate draft: ' + err.message)
@@ -109,12 +76,7 @@ export default function DraftList({ user }) {
     if (!confirm('Are you sure you want to delete this draft?')) return
 
     try {
-      const { error } = await supabase
-        .from('drafts')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
+      await draftsApi.remove(id)
 
       // Refresh lists
       loadDrafts()
@@ -141,6 +103,9 @@ export default function DraftList({ user }) {
         <h1>Your Threads</h1>
         <button className="new-draft-btn" onClick={createNewDraft}>
           + New Draft
+        </button>
+        <button className="tab" onClick={() => navigate('/settings/tokens')}>
+          API tokens
         </button>
       </div>
 

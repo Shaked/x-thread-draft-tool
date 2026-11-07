@@ -2,18 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }))
+const { createShareTokenMock } = vi.hoisted(() => ({ createShareTokenMock: vi.fn() }))
 
-vi.mock('../../src/utils/supabase', () => ({
-  supabase: {
-    rpc: (...args) => rpcMock(...args)
+vi.mock('../../src/utils/api', () => ({
+  draftsApi: {
+    createShareToken: (...args) => createShareTokenMock(...args)
   }
 }))
 
 import XThreadLinkButton from '../../src/components/XThreadLinkButton.jsx'
 
 const TOKEN = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
-const SUPABASE_URL = 'https://project.supabase.co'
 
 function setupClipboard() {
   const writeText = vi.fn().mockResolvedValue(undefined)
@@ -26,8 +25,7 @@ function setupClipboard() {
 
 describe('XThreadLinkButton', () => {
   beforeEach(() => {
-    rpcMock.mockReset()
-    import.meta.env.VITE_SUPABASE_URL = SUPABASE_URL
+    createShareTokenMock.mockReset()
   })
 
   afterEach(() => {
@@ -40,15 +38,15 @@ describe('XThreadLinkButton', () => {
   })
 
   it('creates a token, copies the html-render link, and shows the copied tooltip', async () => {
-    rpcMock.mockResolvedValue({ data: TOKEN, error: null })
+    createShareTokenMock.mockResolvedValue(TOKEN)
     const user = userEvent.setup()
     const writeText = setupClipboard()
 
     render(<XThreadLinkButton draftId="draft-1" />)
     await user.click(screen.getByRole('button', { name: /x thread/i }))
 
-    await waitFor(() => expect(rpcMock).toHaveBeenCalledTimes(1))
-    expect(rpcMock).toHaveBeenCalledWith('create_share_token', { p_draft_id: 'draft-1' })
+    await waitFor(() => expect(createShareTokenMock).toHaveBeenCalledTimes(1))
+    expect(createShareTokenMock).toHaveBeenCalledWith('draft-1')
 
     const expectedUrl = `${window.location.origin}/x-thread-preview/${TOKEN}`
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expectedUrl))
@@ -56,24 +54,8 @@ describe('XThreadLinkButton', () => {
     expect(await screen.findByText(/one-time x-thread link copied/i)).toBeInTheDocument()
   })
 
-  it('strips a trailing slash from the configured Supabase URL', async () => {
-    import.meta.env.VITE_SUPABASE_URL = `${SUPABASE_URL}/`
-    rpcMock.mockResolvedValue({ data: TOKEN, error: null })
-    const user = userEvent.setup()
-    const writeText = setupClipboard()
-
-    render(<XThreadLinkButton draftId="draft-1" />)
-    await user.click(screen.getByRole('button', { name: /x thread/i }))
-
-    await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith(
-        `${window.location.origin}/x-thread-preview/${TOKEN}`
-      )
-    )
-  })
-
-  it('surfaces an error tooltip when the RPC fails', async () => {
-    rpcMock.mockResolvedValue({ data: null, error: { message: 'rpc broke' } })
+  it('surfaces an error tooltip when the API call fails', async () => {
+    createShareTokenMock.mockRejectedValue(new Error('rpc broke'))
     const user = userEvent.setup()
     const writeText = setupClipboard()
 
@@ -85,7 +67,7 @@ describe('XThreadLinkButton', () => {
   })
 
   it('surfaces an error when no token is returned', async () => {
-    rpcMock.mockResolvedValue({ data: null, error: null })
+    createShareTokenMock.mockResolvedValue(null)
     const user = userEvent.setup()
     setupClipboard()
 
@@ -96,10 +78,10 @@ describe('XThreadLinkButton', () => {
   })
 
   it('does not double-fire while the request is in flight', async () => {
-    let resolveRpc
-    rpcMock.mockReturnValue(
+    let resolveToken
+    createShareTokenMock.mockReturnValue(
       new Promise((resolve) => {
-        resolveRpc = resolve
+        resolveToken = resolve
       })
     )
     const user = userEvent.setup()
@@ -111,8 +93,8 @@ describe('XThreadLinkButton', () => {
     await user.click(btn)
     await user.click(btn)
 
-    expect(rpcMock).toHaveBeenCalledTimes(1)
-    resolveRpc({ data: TOKEN, error: null })
+    expect(createShareTokenMock).toHaveBeenCalledTimes(1)
+    resolveToken(TOKEN)
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
   })
 })

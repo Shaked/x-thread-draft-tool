@@ -3,7 +3,7 @@
 This file is the primary, actionable map for what to use.
 
 <!-- AUTO-INDEX:START -->
-_Last refreshed: 2026-11-07 14:19:41.216 UTC_
+_Last refreshed: 2026-11-07 16:22:43.315 UTC_
 
 ## Feature Index (auto-generated, use directly)
 - Draft Management: [`docs/features/draft-management.md`](./docs/features/draft-management.md)
@@ -19,6 +19,10 @@ _Last refreshed: 2026-11-07 14:19:41.216 UTC_
 - Skill: High-Risk Feature Concentration: [`.claude/skills/high-risk-features.md`](./.claude/skills/high-risk-features.md)
 - Skill: JS/TS Quality and Type Safety Direction: [`.claude/skills/js-ts-quality.md`](./.claude/skills/js-ts-quality.md)
 <!-- AUTO-INDEX:END -->
+
+## Using the product as an agent
+- The app has a JSON API (`/api`) with personal API tokens. Read [`docs/agents/api.md`](./docs/agents/api.md) (auth, endpoints, limits, how to test). Discovery: `/llms.txt`, `/api/openapi.json`.
+- Run `npm run test:unit` (includes API tests) and `npm run smoke` against `npm run dev:api` before pushing API changes. Never ask a human to run them.
 
 ## Changelog conflict-avoidance policy
 - Every task/PR must add a new file under `docs/changelogs/`.

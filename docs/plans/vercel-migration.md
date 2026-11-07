@@ -1,6 +1,7 @@
 # Plan: Migrate off Supabase to Vercel + Neon + Vercel Blob
 
-Status: **Ready for execution**
+Status: **Phases 1–2, Tasks 3.1–3.2 and Phase 5 (agent access) done in PR #21. Next: the human
+steps listed in the PR description (Task 3.3 and Phase 4).**
 Executor: Haiku (code tasks) + Shaked (tasks marked **[HUMAN]**, all doable from a phone)
 Validator: Claude Opus (see "Validation checklist" at the end)
 
@@ -28,6 +29,60 @@ offline/IndexedDB behaviour, same "anyone with the link can view, only the owner
 - No UI redesign. No new features. No TypeScript conversion of the app.
 - Do not touch `src/utils/threadSplitter.js`, `exportFormats.js`, `rtlDetector.js`, `localStorage.js`.
 - Do not change the post object shape (`{ id, text, images, embeddedTweet }`).
+
+## Amendments after Phase 0 (these override anything below)
+
+Phase 0 is **complete** (2026-11-07). Findings and resulting changes:
+
+1. **Supabase schema confirmed** (backup run 42383061789): `drafts` has exactly
+   `id, user_id, title, posts, is_published, published_at, created_at, updated_at`.
+   `is_published` is **nullable** in Supabase → the importer must use
+   `coalesce(is_published, false)`. Counts: 7 users, 17 drafts, 23 share tokens, 108 storage objects
+   (most are orphans; only images referenced in `posts` are migrated).
+2. **Neon env vars** use prefix `DATABASE`: the app uses only `DATABASE_URL` (pooled) and
+   `DATABASE_URL_UNPOOLED` (direct). Ignore the other `DATABASE_*` vars Neon created.
+3. **Each Preview deployment gets its own Neon branch** (integration setting). Therefore migrations
+   run **at build time** on Vercel, not from a GitHub workflow:
+   - `vercel.json` `buildCommand` becomes
+     `node scripts/migrate.mjs && VITE_DEPLOYED_AT=... (existing command unchanged)`.
+   - `scripts/migrate.mjs` uses `DATABASE_URL_UNPOOLED`; if it is missing it prints a warning and
+     exits 0 (so `npm run build` in CI and locally still works). On Vercel it is always set.
+   - **Do not create** `.github/workflows/db-migrate.yml` (Task 2.6). Instead add the destructive-SQL
+     lint over `db/migrations/*.sql` as a step in the `unit` job of `.github/workflows/tests.yml`.
+4. **One GitHub OAuth App** serves both environments (two redirect URIs registered). Vercel env:
+   `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (Production + Preview, same values);
+   `SESSION_SECRET` and `PUBLIC_APP_URL` differ per environment:
+   - Production: `https://x-thread-draft-tool.vercel.app`
+   - Preview: `https://x-thread-draft-tool-preview.vercel.app` (custom domain bound to branch
+     `claude/lucid-sagan-bbciuo`). Preview sign-in works only on this domain.
+5. **Blob store** `x-thread-images` is **public**; env var `BLOB_READ_WRITE_TOKEN`.
+6. **GitHub Actions secrets available**: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_ID`,
+   `SUPABASE_DB_PASSWORD`, `SUPABASE_URL`, `DATABASE_URL_UNPOOLED` (production Neon),
+   `BLOB_READ_WRITE_TOKEN`. `data-migrate.yml` (Task 3.2) uses these; no `SUPABASE_DB_URL` secret
+   exists, resolve it with `scripts/supabase-db-url.sh`.
+7. **Do not delete** `.github/workflows/supabase-backup.yml` or `scripts/supabase-db-url.sh` in
+   Task 2.6 (kept until Supabase is deleted). Do delete `keep-supabase-alive.yml` and `supabase-deploy.yml`.
+8. **Phase 5 — agent-first access** is specified in [agent-access.md](./agent-access.md) and is part
+   of the same PR: API tokens, GitHub device flow, `/llms.txt`, `/api/openapi.json`, API parity
+   endpoints, local headless server, smoke tests. Unit/API tests run in cloud sandboxes without
+   secrets — always run them yourself; never ask a human to.
+9. **Executor deliverable**: work on branch `claude/lucid-sagan-bbciuo`, push, and keep **PR #21**
+   (`feat: migrate from Supabase to Vercel + Neon + Blob`) as the single PR — update its description,
+   do not open another. Do not merge it. Do not run the data migration.
+
+## Execution status (keep this table current; update it in the same commit as the work)
+
+| Item | Owner | Status |
+|---|---|---|
+| Phase 0 — backup, Neon, Blob, OAuth app, env vars, secrets | Shaked | done |
+| Phase 1 — backend (Tasks 1.1–1.11) | executor | done |
+| Phase 2 — frontend + Supabase removal + docs (Tasks 2.1–2.7) | executor | done |
+| Tasks 3.1–3.2 — data migration script + workflow | executor | done |
+| Phase 5 — agent-first access (agent-access.md Tasks 5.1–5.13) | executor | done (PR #21) |
+| Final executor pass — both validation checklists, PR #21 description | executor | done (PR #21) |
+| Phase 5 human steps (Device Flow, Deployment Protection, token, secrets) | Shaked | done (verified: deployed smoke test 16/16 on the stable preview domain, run 42394993721) |
+| Phase 4 step 1 — preview testing (human + agent smoke) | Shaked + agents | agent smoke done (16/16). Human UI checks pending: uploads, publish, share links, private tab, airplane-mode edit |
+| Merge PR #21, then Task 3.3 immediately, then Phase 4 steps 2–4 | Shaked | last |
 
 ## Fixed decisions (do not re-decide)
 
@@ -430,12 +485,17 @@ After the PR is merged: GitHub app → Actions → **Data migrate** → Run work
 
 ## Phase 4 — Cutover **[HUMAN]** + verification
 
-1. Open a PR from the branch. On the **Preview** deployment (branch alias):
+0. Before testing: Vercel → Settings → **Deployment Protection** → Vercel Authentication *Disabled*
+   (see agent-access.md). Until production data is migrated, preview databases are copies of the
+   **empty** production Neon database: you start with no drafts and sign in fresh — that is expected.
+1. PR #21 is the PR. On the **Preview** deployment (`https://x-thread-draft-tool-preview.vercel.app`):
    open `<preview>/api/health` in the phone browser → `{"ok":true}` (proves rewrite + function wiring);
    sign in with GitHub; create/edit/duplicate/delete a draft; upload a file image and a URL image;
    publish (images disappear); X Thread link opens once then shows expired; Agent `.md` link works once;
    open a draft link in a private tab (read-only view); turn on airplane mode, edit, turn it off → change is saved.
-2. Merge the PR, run Task 3.3 (Data migrate) against production, repeat the step-1 smoke test on production
+2. Merge the PR and run Task 3.3 (Data migrate) **immediately**: from the merge until the copy
+   finishes (a few minutes), production shows empty draft lists (drafts are still in each device's
+   IndexedDB and in Supabase). Then repeat the step-1 smoke test on production
    with a real migrated draft.
 3. Remove `VITE_SUPABASE_*` from Vercel env.
 4. Keep the Supabase project untouched for 14 days as a fallback, then delete it, and delete
@@ -459,14 +519,14 @@ to Neon after cutover would need to be re-entered, so decide within the first da
 
 ## Validation checklist (for the reviewer)
 
-- [ ] `grep -rni supabase src tests api server vite.config.js package.json vercel.json` → nothing.
-- [ ] Every write query in `server/routes/drafts.js`/`images.js` is filtered by `session.uid`.
-- [ ] `GET /api/drafts/:id` is the only unauthenticated draft read; no list endpoint is public.
-- [ ] Share consume is a single `UPDATE ... RETURNING`; concurrency test exists and passes.
-- [ ] OAuth `state` checked; GitHub token not persisted; cookie `HttpOnly; Secure; SameSite=Lax`.
-- [ ] `navigateFallbackDenylist` includes `/api/`.
-- [ ] `vercel.json` API rewrite precedes the SPA rewrite.
-- [ ] Only one file under `api/`.
-- [ ] `npm run build`, `npm run test:unit`, `npm run test:api`, `npm run test:e2e` pass.
-- [ ] Docs + changelog file updated; `docs:refresh` run.
-- [ ] Migration SQL is additive only; migrator is idempotent (run twice in a test).
+- [ ] `grep -rni supabase src tests api server vite.config.js package.json vercel.json` → nothing. *Partly: the only matches are `tests/api/migrate-from-supabase.test.js` (tests the kept one-time migration helper), and the migration script, which is outside this list.*
+- [x] Every write query in `server/routes/drafts.js`/`images.js`/`tokens.js` is filtered by the caller's user id.
+- [x] `GET /api/drafts/:id` is the only unauthenticated draft read; no list endpoint is public. (Export `GET /api/drafts/:id/export` is also public by id, as agent-access.md specifies.)
+- [x] Share consume is a single `UPDATE ... RETURNING`; concurrency test exists and passes.
+- [x] OAuth `state` checked; GitHub token not persisted; cookie `HttpOnly; Secure; SameSite=Lax`.
+- [x] `navigateFallbackDenylist` includes `/api/` (and `/llms.txt`).
+- [x] `vercel.json` API rewrite precedes the SPA rewrite.
+- [x] Only one file under `api/`.
+- [x] `npm run build`, `npm run test:unit`, `npm run test:api`, `npm run test:e2e` pass (e2e 13/13 with the preinstalled Chromium).
+- [x] Docs + changelog file updated; `docs:refresh` run.
+- [x] Migration SQL is additive only; migrator is idempotent (run twice in a test).

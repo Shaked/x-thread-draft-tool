@@ -1,0 +1,159 @@
+#!/usr/bin/env node
+// Smoke test against a running deployment or the local dev server. Node 20 only, no dependencies.
+//
+//   XT_BASE_URL=http://127.0.0.1:8787 XT_TOKEN=xt_... node scripts/smoke.mjs
+//   XT_BASE_URL=https://x-thread-draft-tool-preview.vercel.app node scripts/smoke.mjs
+//
+// XT_TOKEN is optional: omit it when a proxy injects the Authorization header.
+// VERCEL_AUTOMATION_BYPASS_SECRET is optional (sent as x-vercel-protection-bypass).
+// Creates drafts titled "[smoke] <timestamp>" in the token owner's account and deletes them.
+// Prints PASS/FAIL per step, exits 1 on any failure, and never prints the token.
+
+const base = (process.env.XT_BASE_URL || '').replace(/\/$/, '')
+if (!base) {
+  console.error('FAIL setup: XT_BASE_URL is required')
+  process.exit(1)
+}
+const token = process.env.XT_TOKEN || ''
+const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
+
+function headers(extra = {}) {
+  const out = { ...extra }
+  if (token) out.authorization = `Bearer ${token}`
+  if (bypass) out['x-vercel-protection-bypass'] = bypass
+  return out
+}
+
+// Replace the secret in any text before it reaches the console.
+function redact(text) {
+  let out = String(text)
+  if (token) out = out.split(token).join('[token]')
+  if (bypass) out = out.split(bypass).join('[secret]')
+  return out
+}
+
+async function call(method, path, { body, expect = [200], accept, raw = false } = {}) {
+  const init = { method, headers: headers(accept ? { accept } : {}) }
+  if (body !== undefined) {
+    init.body = JSON.stringify(body)
+    init.headers['content-type'] = 'application/json'
+  }
+  const response = await fetch(`${base}${path}`, init)
+  const text = await response.text()
+  if (!expect.includes(response.status)) {
+    throw new Error(`${method} ${path} returned ${response.status}: ${redact(text).slice(0, 200)}`)
+  }
+  if (raw) return { status: response.status, text, type: response.headers.get('content-type') || '' }
+  return text ? JSON.parse(text) : {}
+}
+
+const results = []
+async function step(name, fn) {
+  try {
+    const value = await fn()
+    console.log(`PASS ${name}`)
+    results.push(true)
+    return value
+  } catch (error) {
+    console.log(`FAIL ${name}: ${redact(error.message)}`)
+    results.push(false)
+    return undefined
+  }
+}
+
+const stamp = new Date().toISOString()
+const created = []
+
+await step('health', async () => {
+  const data = await call('GET', '/api/health')
+  if (data.ok !== true) throw new Error('ok is not true')
+})
+
+await step('llms.txt', async () => {
+  const res = await call('GET', '/llms.txt', { raw: true })
+  if (!res.text.includes('X Thread Draft Tool')) throw new Error('llms.txt does not describe the app')
+})
+
+await step('openapi', async () => {
+  const doc = await call('GET', '/api/openapi.json')
+  if (typeof doc.openapi !== 'string') throw new Error('no openapi version in document')
+})
+
+await step('me (token)', async () => {
+  const data = await call('GET', '/api/auth/me')
+  if (!data.user) throw new Error('not signed in: check the token')
+  if (data.auth !== 'token') throw new Error(`auth is ${data.auth}, expected token`)
+})
+
+await step('split text', async () => {
+  const text = Array.from({ length: 40 }, (_, i) => `Sentence ${i} about smoke testing the API.`).join(' ')
+  const data = await call('POST', '/api/threads/split', { body: { text, max_chars: 280 } })
+  if (!Array.isArray(data.posts) || data.posts.length < 2) throw new Error('expected several posts')
+})
+
+const draft = await step('create draft', async () => {
+  const data = await call('POST', '/api/drafts', {
+    body: {
+      title: `[smoke] ${stamp}`,
+      posts: [{ id: 'smoke-1', text: 'First smoke post', images: [], embeddedTweet: null }]
+    },
+    expect: [201]
+  })
+  created.push(data.draft.id)
+  return data.draft
+})
+
+if (draft) {
+  try {
+    await step('patch posts', async () => {
+      const data = await call('PATCH', `/api/drafts/${draft.id}`, {
+        body: { posts: [{ id: 'smoke-1', text: 'Edited smoke post', images: [] }, { id: 'smoke-2', text: 'Second post', images: [] }] }
+      })
+      if (data.draft.posts.length !== 2) throw new Error('posts were not saved')
+    })
+
+    await step('get draft', async () => {
+      const data = await call('GET', `/api/drafts/${draft.id}`)
+      if (data.draft.posts[0].text !== 'Edited smoke post') throw new Error('edit not visible')
+    })
+
+    const copy = await step('duplicate', async () => {
+      const data = await call('POST', `/api/drafts/${draft.id}/duplicate`, { expect: [201] })
+      created.push(data.draft.id)
+      return data.draft
+    })
+
+    await step('export text', async () => {
+      const res = await call('GET', `/api/drafts/${draft.id}/export?format=text`, { raw: true })
+      if (!res.text.includes('Edited smoke post')) throw new Error('export is missing the post text')
+    })
+
+    const share = await step('create share token', async () => {
+      return (await call('POST', `/api/drafts/${draft.id}/share-tokens`, { expect: [201] })).token
+    })
+
+    if (share) {
+      await step('share link works once (200)', async () => {
+        const res = await call('GET', `/api/share/${share}.md`, { raw: true })
+        if (!res.text.includes('Edited smoke post')) throw new Error('shared markdown is missing the post')
+      })
+      await step('share link is then expired (410)', async () => {
+        await call('GET', `/api/share/${share}.md`, { expect: [410], raw: true })
+      })
+    }
+
+    if (copy) await step('copy is a separate draft', async () => {
+      if (copy.id === draft.id) throw new Error('duplicate returned the same id')
+    })
+  } finally {
+    for (const id of created) {
+      await step(`delete ${id.slice(0, 8)}`, async () => {
+        await call('DELETE', `/api/drafts/${id}`)
+      })
+    }
+  }
+}
+
+const failed = results.filter((ok) => !ok).length
+console.log(`\n${results.length - failed}/${results.length} passed`)
+process.exit(failed ? 1 : 0)

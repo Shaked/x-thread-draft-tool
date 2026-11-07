@@ -10,12 +10,11 @@ export default function XThreadPreviewPage() {
 
     const load = async () => {
       try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '')
-        if (!supabaseUrl) throw new Error('Missing VITE_SUPABASE_URL')
         if (!token) throw new Error('Missing token')
 
-        const res = await fetch(`${supabaseUrl}/functions/v1/share/${token}?format=html`, {
+        const res = await fetch(`/api/share/${encodeURIComponent(token)}?format=html`, {
           method: 'GET',
+          credentials: 'same-origin',
           headers: { Accept: 'text/html' }
         })
 

@@ -1,10 +1,14 @@
 {
-  "buildCommand": "VITE_DEPLOYED_AT=\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" VITE_DEPLOY_COMMIT_SHA=\"${VERCEL_GIT_COMMIT_SHA:-unknown}\" npm run build",
+  "buildCommand": "node scripts/migrate.mjs && VITE_DEPLOYED_AT=\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" VITE_DEPLOY_COMMIT_SHA=\"${VERCEL_GIT_COMMIT_SHA:-unknown}\" npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/api/:path*",
+      "destination": "/api/handler?__path=:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

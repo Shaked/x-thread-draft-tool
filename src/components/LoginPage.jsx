@@ -1,23 +1,16 @@
 import { useState } from 'react'
-import { supabase } from '../utils/supabase'
+import { authApi } from '../utils/api'
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const handleGitHubLogin = async () => {
+  const handleGitHubLogin = () => {
     try {
       setLoading(true)
       setError(null)
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: {
-          redirectTo: window.location.origin
-        }
-      })
-
-      if (error) throw error
+      // Redirects to /api/auth/login, which starts the GitHub OAuth flow.
+      authApi.login()
     } catch (err) {
       console.error('Login error:', err)
       setError(err.message || 'Failed to login')
