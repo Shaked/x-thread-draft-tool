@@ -85,7 +85,7 @@ acceptance line is met; paste the acceptance results into the PR description.
 
 ## Task 0 — Clear the audit findings
 
-Status: Not started. Three PRs (0.1, 0.2, 0.3), in order.
+Status: 0.1 In PR #26. 0.2 and 0.3 not started. Three PRs (0.1, 0.2, 0.3), in order.
 
 ### 0.1 Test tooling major upgrade (fixes all 3 critical)
 **Why:** `vitest`, `@vitest/ui`, `tinypool` critical findings.
