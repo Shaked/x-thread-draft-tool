@@ -80,8 +80,8 @@ Phase 0 is **complete** (2026-11-07). Findings and resulting changes:
 | Tasks 3.1–3.2 — data migration script + workflow | executor | done |
 | Phase 5 — agent-first access (agent-access.md Tasks 5.1–5.13) | executor | done (PR #21) |
 | Final executor pass — both validation checklists, PR #21 description | executor | done (PR #21) |
-| Phase 5 human steps (Device Flow, Deployment Protection, token, secrets) | Shaked | after PR #21 is updated |
-| Phase 4 step 1 — preview testing (human + agent smoke) | Shaked + agents | after Phase 5 human steps |
+| Phase 5 human steps (Device Flow, Deployment Protection, token, secrets) | Shaked | done (verified: deployed smoke test 16/16 on the stable preview domain, run 42394993721) |
+| Phase 4 step 1 — preview testing (human + agent smoke) | Shaked + agents | agent smoke done (16/16). Human UI checks pending: uploads, publish, share links, private tab, airplane-mode edit |
 | Merge PR #21, then Task 3.3 immediately, then Phase 4 steps 2–4 | Shaked | last |
 
 ## Fixed decisions (do not re-decide)
