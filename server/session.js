@@ -63,6 +63,7 @@ export async function authenticate(request) {
     const jwt = header.match(/^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/)
     if (jwt && jwt[1].length <= 4096) {
       const claims = await verifyCiToken(jwt[1])
+      console.log(`[auth] ci-oidc token ${claims ? 'accepted' : 'rejected'}`)
       if (!claims) throw new HttpError(401, 'Invalid or expired API token')
       const row = await upsertGithubUser(CI_USER)
       return { uid: row.id, gh: '-1', login: CI_USER.login, via: 'ci-oidc' }

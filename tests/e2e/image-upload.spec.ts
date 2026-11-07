@@ -34,6 +34,11 @@ test.describe('image upload', () => {
       })
     )
 
+    // Diagnostics: log each API request as it is sent, fails or answers (paths only, never headers).
+    page.on('request', (r) => { if (r.url().includes('/api/')) console.log(`request ${r.method()} ${new URL(r.url()).pathname}`) })
+    page.on('requestfailed', (r) => { if (r.url().includes('/api/')) console.log(`requestfailed ${new URL(r.url()).pathname} ${r.failure()?.errorText}`) })
+    page.on('response', (r) => { if (r.url().includes('/api/')) console.log(`response ${new URL(r.url()).pathname} status=${r.status()}`) })
+
     let draftId: string | null = null
     try {
       // Diagnostics: report how the app's sign-in call answered (never the token).
