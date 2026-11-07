@@ -121,6 +121,7 @@ Status: 0.1 In PR #26. Four PRs, in order: 0.1, 0.3a, 0.2, 0.3b.
 **Stop if:** the override needs `@vercel/oidc` 4.x and `@vercel/blob` calls fail.
 
 ### 0.3a Build tooling and vitest 4 (vite 8 stack)
+Status: In PR #29.
 **Why:** `vite` 5 blocks vitest ≥ 4.1.11 (critical fix) and `vite-plugin-pwa` 0.17 only accepts vite ≤ 5. Removes the tinypool override from 0.1.
 **Files:** `package.json`, `package-lock.json`, `vite.config.js`.
 **Steps:**
