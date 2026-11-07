@@ -132,6 +132,15 @@ without asking Shaked.
   passes; E2E passes in CI.
 
 ### Task 1 — CI cleanup
+- 1.0 Fix the automatic deployed smoke test (red on every deployment since the migration merge,
+  `main` included: 4/6, `401` on the token steps). Cause: it picks the token by matching the
+  canonical production URL, but `deployment_status` passes the per-deployment URL; and each preview
+  deployment gets its own database branch with no smoke-test user (the preview alias is pinned to
+  one deployment). Fix: choose by `github.event.deployment.environment`: Production → full test
+  with `XT_SMOKE_TOKEN_PRODUCTION`; Preview → public steps only (new `XT_SMOKE_PUBLIC=1` mode in
+  `scripts/smoke.mjs`, account steps reported as SKIP); manual runs unchanged.
+  Check: the next preview deployment's smoke run is green with the account steps skipped; the next
+  production deployment runs all steps (asking Shaked before any production run).
 - 1.1 Remove the duplicate `test:api` step from `tests.yml`. Check: API tests still run once (14 files in the log).
 - 1.2 After Supabase retirement (≥ 2026-11-21, Shaked confirms the project is deleted): delete
   `supabase-backup.yml`, `data-migrate.yml`, `scripts/supabase-db-url.sh`,

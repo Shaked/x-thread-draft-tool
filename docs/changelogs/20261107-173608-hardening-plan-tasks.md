@@ -4,3 +4,4 @@
 - Recorded decisions: automated review blocks on high/critical; audit findings are fixed first (Task 0). Agent auth proposed as a remote MCP connector with OAuth on Vercel, pending confirmation.
 - Added section E: light theme by default and a friendlier UI, starting with design tokens.
 - Broke the plan into ordered Tasks 0–7 with acceptance checks. Updated `docs/plans/index.md` and `docs/plans/current.md`.
+- Added Task 1.0: fix the automatic deployed smoke test (token chosen by deployment environment; public-only mode for per-branch previews).
