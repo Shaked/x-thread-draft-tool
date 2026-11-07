@@ -42,29 +42,16 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // Serverless API responses (drafts, auth, one-time share links) are always live.
         runtimeCaching: [
           {
-            // The one-time share endpoint returns full HTML and should always be fetched live.
-            // Caching this request via NetworkFirst can throw Workbox "no-response" errors
-            // on mobile browsers when the request/response shape is atypical for cache replay.
-            urlPattern: /^https:\/\/.*\.supabase\.co\/functions\/v1\/share\//i,
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
             handler: 'NetworkOnly'
-          },
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
           }
-        ]
+        ],
+        // Without this, the service worker serves index.html for /api/auth/login and breaks sign-in
+        // in an installed PWA.
+        navigateFallbackDenylist: [/^\/api\//]
       }
     })
   ],
