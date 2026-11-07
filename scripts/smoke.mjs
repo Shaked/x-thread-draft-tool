@@ -5,6 +5,8 @@
 //   XT_BASE_URL=https://x-thread-draft-tool-preview.vercel.app node scripts/smoke.mjs
 //
 // XT_TOKEN is optional: omit it when a proxy injects the Authorization header.
+// XT_SMOKE_PUBLIC=1 runs only the steps that need no account (for deployments whose database has
+// no smoke-test user, such as per-branch previews); the account steps are reported as SKIP.
 // VERCEL_AUTOMATION_BYPASS_SECRET is optional (sent as x-vercel-protection-bypass).
 // Creates drafts titled "[smoke] <timestamp>" in the token owner's account and deletes them.
 // Prints PASS/FAIL per step, exits 1 on any failure, and never prints the token.
@@ -15,6 +17,7 @@ if (!base) {
   process.exit(1)
 }
 const token = process.env.XT_TOKEN || ''
+const publicOnly = process.env.XT_SMOKE_PUBLIC === '1'
 const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
 
 function headers(extra = {}) {
@@ -79,7 +82,9 @@ await step('openapi', async () => {
   if (typeof doc.openapi !== 'string') throw new Error('no openapi version in document')
 })
 
-await step('me (token)', async () => {
+const accountStep = publicOnly ? async (name) => console.log(`SKIP ${name}: XT_SMOKE_PUBLIC=1`) : step
+
+await accountStep('me (token)', async () => {
   const data = await call('GET', '/api/auth/me')
   if (!data.user) throw new Error('not signed in: check the token')
   if (data.auth !== 'token') throw new Error(`auth is ${data.auth}, expected token`)
@@ -91,7 +96,7 @@ await step('split text', async () => {
   if (!Array.isArray(data.posts) || data.posts.length < 2) throw new Error('expected several posts')
 })
 
-const draft = await step('create draft', async () => {
+const draft = await accountStep('create draft', async () => {
   const data = await call('POST', '/api/drafts', {
     body: {
       title: `[smoke] ${stamp}`,
