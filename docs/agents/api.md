@@ -169,6 +169,9 @@ curl -s $BASE/api/health
 
 `npm run smoke` creates drafts titled `[smoke] <timestamp>` in the token owner's account and
 deletes them, even if a step fails. It prints PASS/FAIL per step and never prints the token.
+Set `XT_SMOKE_PUBLIC=1` to run only the steps that need no account (account steps print SKIP).
+The automatic deployed smoke test uses it for Preview deployments, whose database branch has no
+smoke-test user; Production deployments and manual runs get the full test.
 
 `/api/dev/token` exists only on the local headless server. It is not part of the Vercel function.
 
