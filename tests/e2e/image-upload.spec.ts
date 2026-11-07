@@ -1,12 +1,9 @@
 // UI check: create a draft and upload one image. Rerunnable against any deployment.
 //
-// Run:
-//   XT_BASE_URL=https://<preview-or-prod-url> XT_SESSION=<xt_session cookie value> \
-//     npx playwright test tests/e2e/image-upload.spec.ts
-//
-// XT_SESSION is the value of the xt_session cookie from a signed-in browser (DevTools → Application →
-// Cookies). It is a secret: pass it on the command line or in a shell env var, never commit it.
-// Without XT_SESSION the test is skipped.
+// Run from CI (automatic after preview deployments, or manually): see .github/workflows/ui-image-upload.yml.
+// It needs XT_CI_TOKEN: a GitHub Actions OIDC identity token, minted by the workflow for this deployment's
+// audience. Nothing long-lived is stored: the token lasts about five minutes and is only sent to this origin.
+// Without XT_CI_TOKEN the test is skipped.
 //
 // Teardown: the draft is deleted at the end of the test (even on failure). DELETE /api/drafts/:id also
 // removes the draft's uploaded image blobs.
@@ -14,7 +11,7 @@
 import { expect, test } from '@playwright/test'
 
 const BASE = process.env.XT_BASE_URL ?? 'http://localhost:5173'
-const SESSION = process.env.XT_SESSION
+const TOKEN = process.env.XT_CI_TOKEN
 
 // A 1x1 PNG, so the test needs no fixture file.
 const PNG = Buffer.from(
@@ -23,21 +20,18 @@ const PNG = Buffer.from(
 )
 
 test.describe('image upload', () => {
-  test.skip(!SESSION, 'Set XT_SESSION to a signed-in xt_session cookie value to run this test')
+  test.use({ serviceWorkers: 'block' })
+  test.skip(!TOKEN, 'XT_CI_TOKEN is not set; the CI workflow mints it. Run the workflow instead of this test by hand.')
 
   test('creates a draft and uploads an image', async ({ page, context }) => {
-    const url = new URL(BASE)
-    await context.addCookies([
-      {
-        name: 'xt_session',
-        value: SESSION as string,
-        domain: url.hostname,
-        path: '/',
-        httpOnly: true,
-        secure: url.protocol === 'https:',
-        sameSite: 'Lax'
-      }
-    ])
+    const origin = new URL(BASE).origin
+
+    // Send the CI token on same-origin API calls only.
+    await context.route(`${origin}/api/**`, (route) =>
+      route.continue({
+        headers: { ...route.request().headers(), authorization: `Bearer ${TOKEN}` }
+      })
+    )
 
     let draftId: string | null = null
     try {
@@ -58,7 +52,9 @@ test.describe('image upload', () => {
       await expect(page.locator('.upload-error')).toHaveCount(0)
     } finally {
       if (draftId) {
-        const res = await page.request.delete(new URL(`/api/drafts/${draftId}`, BASE).toString())
+        const res = await page.request.delete(new URL(`/api/drafts/${draftId}`, BASE).toString(), {
+          headers: { authorization: `Bearer ${TOKEN}` }
+        })
         expect(res.ok(), `cleanup of draft ${draftId} failed with HTTP ${res.status()}`).toBe(true)
       }
     }

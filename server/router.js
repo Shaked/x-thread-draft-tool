@@ -80,6 +80,12 @@ export async function route(request) {
     const match = candidates.find((entry) => entry.method === request.method)
     if (!match) return error(405, 'Method not allowed')
 
+    // CI identity tokens (three-part JWT) are accepted only on routes marked ci: true.
+    const bearer = request.headers.get('authorization') ?? ''
+    if (/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(bearer) && !match.ci) {
+      throw new HttpError(401, 'CI tokens are not accepted on this route')
+    }
+
     const values = path.match(match.regex).slice(1)
     const params = Object.fromEntries(match.names.map((name, i) => [name, decodeURIComponent(values[i])]))
     return await match.handler({ request, url, path, params })

@@ -1,18 +1,18 @@
 name: UI image upload test
 
-# Runs tests/e2e/image-upload.spec.ts automatically after every successful PREVIEW deployment,
-# against that deployment's URL. Production is excluded: the test writes a draft (then deletes it),
-# so it never runs against production without a human decision.
-# Also runnable by hand (workflow_dispatch) against any https URL.
-# Needs the repository secret XT_UI_SESSION: the xt_session cookie value of a signed-in user.
-# The run fails (not skips) when the secret is missing.
+# Runs tests/e2e/image-upload.spec.ts automatically after every successful PREVIEW deployment, against
+# that deployment's URL, and on demand (workflow_dispatch). Production is excluded for automatic runs.
+#
+# Authentication: no stored secret. The job asks GitHub for a short-lived OIDC identity token for this
+# deployment's audience; the server (server/oidc-ci.js) accepts it only from this repository and this
+# workflow file. The server must have CI_OIDC_ENABLED=1 and CI_OIDC_REPOSITORY_ID set for the environment.
 
 on:
   deployment_status:
   workflow_dispatch:
     inputs:
       base_url:
-        description: 'Deployment URL to test, for example https://x-thread-draft-tool-git-cl-0b0232-shaked-klein-orbachs-projects.vercel.app'
+        description: 'Deployment URL to test (https://x-thread-draft-tool.vercel.app or a team preview URL)'
         required: true
         type: string
 
@@ -29,6 +29,9 @@ jobs:
        github.event.deployment_status.environment != 'Production')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Check out
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -41,32 +44,52 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Check inputs
+      - name: Choose the deployment and audience
         env:
-          BASE_URL: ${{ github.event_name == 'deployment_status' && github.event.deployment_status.environment_url || inputs.base_url }}
-          XT_SESSION: ${{ secrets.XT_UI_SESSION }}
+          EVENT_NAME: ${{ github.event_name }}
+          DEPLOY_URL: ${{ github.event.deployment_status.environment_url }}
+          INPUT_URL: ${{ inputs.base_url }}
         run: |
           set -euo pipefail
-          if [ -z "$XT_SESSION" ]; then
-            echo "::error::Repository secret XT_UI_SESSION is not set. The test would be skipped, so the run is failed."
+          if [ "$EVENT_NAME" = "deployment_status" ]; then
+            BASE_URL="$DEPLOY_URL"
+          else
+            BASE_URL="$INPUT_URL"
+          fi
+          PROD='https://x-thread-draft-tool.vercel.app'
+          PREVIEW='^https://x-thread-draft-tool-[a-z0-9-]+-shaked-klein-orbachs-projects\.vercel\.app$'
+          if [ "$BASE_URL" = "$PROD" ]; then
+            AUDIENCE='x-thread-draft-tool-ci-production'
+          elif [[ "$BASE_URL" =~ $PREVIEW ]]; then
+            AUDIENCE='x-thread-draft-tool-ci-preview'
+          else
+            echo "::error::base URL is not a known preview or production URL: $BASE_URL"
             exit 1
           fi
-          case "$BASE_URL" in
-            https://*) ;;
-            *) echo "::error::base URL must start with https://"; exit 1 ;;
-          esac
+          echo "BASE_URL=$BASE_URL" >> "$GITHUB_ENV"
+          echo "CI_AUDIENCE=$AUDIENCE" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Mint CI identity token
+        run: |
+          set -euo pipefail
+          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$CI_AUDIENCE" | jq -r '.value')
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "::error::could not obtain a GitHub OIDC token"
+            exit 1
+          fi
+          echo "::add-mask::$TOKEN"
+          echo "XT_CI_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
       - name: Run image upload test
         env:
-          XT_BASE_URL: ${{ github.event_name == 'deployment_status' && github.event.deployment_status.environment_url || inputs.base_url }}
-          XT_SESSION: ${{ secrets.XT_UI_SESSION }}
-        run: npx playwright test tests/e2e/image-upload.spec.ts --reporter=list
+          XT_BASE_URL: ${{ env.BASE_URL }}
+        run: npx playwright test tests/e2e/image-upload.spec.ts --reporter=list --retries=0
 
       - name: Upload Playwright report
         if: always()

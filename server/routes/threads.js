@@ -17,4 +17,4 @@ export async function splitThread({ request }) {
   return json({ posts })
 }
 
-export const threadRoutes = [{ method: 'POST', path: '/threads/split', handler: splitThread }]
+export const threadRoutes = [{ method: 'POST', path: '/threads/split', handler: splitThread, ci: true }]
