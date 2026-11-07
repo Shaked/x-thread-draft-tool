@@ -74,6 +74,37 @@ jobs:
       - name: Run API tests
         run: npm run test:api
 
+  smoke-local:
+    name: Smoke test against the local API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start the local headless API
+        run: |
+          npm run dev:api > dev-api.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8787/api/health >/dev/null 2>&1; then exit 0; fi
+            sleep 1
+          done
+          echo "::error::Local API did not start"; cat dev-api.log; exit 1
+
+      - name: Run the smoke test
+        run: |
+          set -euo pipefail
+          token=$(curl -fsS -X POST http://127.0.0.1:8787/api/dev/token \
+            -H 'content-type: application/json' -d '{"login":"ci-smoke"}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).token")
+          echo "::add-mask::$token"
+          XT_BASE_URL=http://127.0.0.1:8787 XT_TOKEN="$token" npm run smoke
+
   e2e:
     name: E2E tests (playwright)
     runs-on: ubuntu-latest
