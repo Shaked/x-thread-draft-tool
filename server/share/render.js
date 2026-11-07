@@ -1,29 +1,27 @@
-// Pure renderers for the share edge function. No Deno or supabase
-// imports so the same module can be unit-tested under Node/vitest.
+// Pure renderers for the share endpoint. No Node, Deno or database imports,
+// so the same module runs in the API function and in unit/e2e tests.
+//
+// Types are documented with JSDoc typedefs below.
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export type Format = 'md' | 'html'
+/**
+ * @typedef {"md" | "html"} Format
+ */
 
-export type ImageEntry = string | { url?: string }
+/**
+ * @typedef {string | { url?: string }} ImageEntry
+ */
 
-export type Post = {
-  id?: string
-  text?: string
-  images?: ImageEntry[]
-  embeddedTweet?: string | null
-}
+/**
+ * @typedef {{ id?: string, text?: string, images?: ImageEntry[], embeddedTweet?: string | null }} Post
+ */
 
-export type Payload = {
-  title: string
-  posts: Post[]
-  author_name: string | null
-  author_handle: string | null
-  author_avatar: string | null
-  created_at: string | null
-}
+/**
+ * @typedef {{ title: string, posts: Post[], author_name: string | null, author_handle: string | null, author_avatar: string | null, created_at: string | null }} Payload
+ */
 
-export function response(body: string, contentType: string, status = 200): Response {
+export function response(body, contentType, status = 200) {
   // Build headers via the Headers constructor (rather than a plain object) so
   // Content-Type is preserved verbatim by every edge-runtime/gateway combo.
   // Content-Disposition: inline is set explicitly so the browser never
@@ -39,15 +37,15 @@ export function response(body: string, contentType: string, status = 200): Respo
   return new Response(body, { status, headers })
 }
 
-export function textResponse(body: string, status = 200): Response {
+export function textResponse(body, status = 200) {
   return response(body, 'text/markdown', status)
 }
 
-export function htmlResponse(body: string, status = 200): Response {
+export function htmlResponse(body, status = 200) {
   return response(body, 'text/html', status)
 }
 
-export function extractTokenAndFormat(url: URL): { token: string | null; format: Format } {
+export function extractTokenAndFormat(url) {
   // Format selection, in order of precedence:
   //   1. ?format=html|md  query parameter
   //   2. .html / .md      path extension
@@ -57,7 +55,7 @@ export function extractTokenAndFormat(url: URL): { token: string | null; format:
   const queryFormat = url.searchParams.get('format')
   const parts = url.pathname.split('/').filter(Boolean)
   let last = parts[parts.length - 1] || ''
-  let format: Format = 'md'
+  let format = 'md'
 
   if (last.endsWith('.html')) {
     format = 'html'
@@ -73,13 +71,13 @@ export function extractTokenAndFormat(url: URL): { token: string | null; format:
   return { token: UUID_RE.test(last) ? last : null, format }
 }
 
-export function imageUrl(img: ImageEntry): string | null {
+export function imageUrl(img) {
   if (!img) return null
   if (typeof img === 'string') return img
   return img.url || null
 }
 
-export function renderMarkdown(title: string, posts: Post[]): string {
+export function renderMarkdown(title, posts) {
   const total = posts.length
   let md = `# ${title || 'Thread'}\n\n`
 
@@ -104,11 +102,11 @@ export function renderMarkdown(title: string, posts: Post[]): string {
 
 const RTL_RE = /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/
 
-export function isRTL(text: string): boolean {
+export function isRTL(text) {
   return RTL_RE.test(text)
 }
 
-export function htmlEscape(s: string): string {
+export function htmlEscape(s) {
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -119,7 +117,7 @@ export function htmlEscape(s: string): string {
 
 const URL_RE = /(https?:\/\/[^\s<]+)/g
 
-export function linkify(escaped: string): string {
+export function linkify(escaped) {
   return escaped.replace(URL_RE, (m) => {
     const trimmed = m.replace(/[.,;:!?)\]]+$/, '')
     const trail = m.slice(trimmed.length)
@@ -127,25 +125,25 @@ export function linkify(escaped: string): string {
   })
 }
 
-export function renderText(text: string): string {
+export function renderText(text) {
   if (!text) return ''
   return linkify(htmlEscape(text)).replace(/\n/g, '<br>')
 }
 
-export function formatDate(d: Date): string {
+export function formatDate(d) {
   const day = d.getDate().toString().padStart(2, '0')
   const month = (d.getMonth() + 1).toString().padStart(2, '0')
   const year = d.getFullYear()
   return `${day}/${month}/${year}`
 }
 
-export function tweetIdFrom(url: string): string | null {
+export function tweetIdFrom(url) {
   const m = url.match(/status\/(\d+)/)
   return m ? m[1] : null
 }
 
-export function renderImages(images: ImageEntry[]): string {
-  const urls = images.map(imageUrl).filter((u): u is string => !!u)
+export function renderImages(images) {
+  const urls = images.map(imageUrl).filter((u) => !!u)
   if (urls.length === 0) return ''
 
   const layout = urls.length === 1 ? 'one' : urls.length === 2 ? 'two' : urls.length === 3 ? 'three' : 'four'
@@ -161,7 +159,7 @@ export function renderImages(images: ImageEntry[]): string {
   return `<div class="x-media x-media-${layout}">${items}</div>`
 }
 
-export function renderEmbed(url: string): string {
+export function renderEmbed(url) {
   const safeUrl = htmlEscape(url)
   const id = tweetIdFrom(url)
   if (!id) {
@@ -176,7 +174,7 @@ export function renderEmbed(url: string): string {
   )
 }
 
-export function actionBar(): string {
+export function actionBar() {
   return `
     <div class="x-actions" aria-hidden="true">
       <span class="x-action">
@@ -205,7 +203,7 @@ export function actionBar(): string {
   `
 }
 
-export function avatarHtml(name: string, avatar: string | null): string {
+export function avatarHtml(name, avatar) {
   if (avatar) {
     return `<img class="x-avatar" src="${htmlEscape(avatar)}" alt="${htmlEscape(name)}" loading="lazy">`
   }
@@ -213,11 +211,11 @@ export function avatarHtml(name: string, avatar: string | null): string {
   return `<div class="x-avatar x-avatar-fallback">${htmlEscape(initial)}</div>`
 }
 
-export function verifiedBadge(): string {
+export function verifiedBadge() {
   return `<svg class="x-verified" viewBox="0 0 22 22" width="18" height="18" aria-label="Verified"><path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/></svg>`
 }
 
-export function renderHtml(payload: Payload): string {
+export function renderHtml(payload) {
   const title = payload.title || 'Thread'
   const posts = payload.posts || []
   const authorName = payload.author_name || 'Author'

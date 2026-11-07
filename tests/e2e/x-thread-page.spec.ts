@@ -1,5 +1,14 @@
 import { expect, test } from '@playwright/test'
-import { renderHtml, type Payload } from '../../supabase/functions/share/render.ts'
+import { renderHtml } from '../../server/share/render.js'
+
+type Payload = {
+  title: string
+  posts: { id?: string; text?: string; images?: (string | { url?: string })[]; embeddedTweet?: string | null }[]
+  author_name: string | null
+  author_handle: string | null
+  author_avatar: string | null
+  created_at: string | null
+}
 
 function payload(overrides: Partial<Payload> = {}): Payload {
   return {
