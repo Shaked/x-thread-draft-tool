@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '../utils/supabase'
+import { draftsApi } from '../utils/api'
 
 export default function AgentLinkButton({ draftId }) {
   const [copied, setCopied] = useState(false)
@@ -11,16 +11,11 @@ export default function AgentLinkButton({ draftId }) {
     setBusy(true)
     setError(null)
     try {
-      const { data, error: rpcError } = await supabase.rpc('create_share_token', {
-        p_draft_id: draftId
-      })
-      if (rpcError) throw rpcError
-
-      const token = typeof data === 'string' ? data : data?.token
+      const token = await draftsApi.createShareToken(draftId)
       if (!token) throw new Error('No token returned')
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL.replace(/\/$/, '')
-      const url = `${supabaseUrl}/functions/v1/share/${token}.md`
+      const appOrigin = window.location.origin.replace(/\/$/, '')
+      const url = `${appOrigin}/api/share/${token}.md`
       await navigator.clipboard.writeText(url)
 
       setCopied(true)

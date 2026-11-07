@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { supabase, isOwner, deleteAllDraftImages, normalizeImages } from '../utils/supabase'
+import { draftsApi, authApi } from '../utils/api'
+import { isOwner, normalizeImages } from '../utils/images'
 import { set as idbSet, get as idbGet } from 'idb-keyval'
 import ThreadComposer from '../components/ThreadComposer'
 import ShareButton from '../components/ShareButton'
@@ -47,14 +48,10 @@ export default function DraftEditor({ user }) {
       setLoading(true)
       setError(null)
 
-      // Try to load from Supabase first
-      const { data, error: fetchError } = await supabase
-        .from('drafts')
-        .select('*')
-        .eq('id', id)
-        .single()
-
-      if (fetchError) {
+      let data
+      try {
+        data = await draftsApi.get(id)
+      } catch (fetchError) {
         // If not found and user is not logged in, check IndexedDB
         if (!user) {
           const localDraft = await idbGet(`draft-${id}`)
@@ -108,16 +105,10 @@ export default function DraftEditor({ user }) {
           setSaving(true)
           setSynced(false)
 
-          const { error: updateError } = await supabase
-            .from('drafts')
-            .update({
-              title: draftToSave.title,
-              posts: draftToSave.posts,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', id)
-
-          if (updateError) throw updateError
+          await draftsApi.update(id, {
+            title: draftToSave.title,
+            posts: draftToSave.posts
+          })
 
           lastSavedRef.current = JSON.stringify(draftToSave)
           setSynced(true)
@@ -198,26 +189,8 @@ export default function DraftEditor({ user }) {
     try {
       setSaving(true)
 
-      // Delete all images
-      await deleteAllDraftImages(draft.posts)
-
-      // Clear images from posts
-      const cleanedPosts = draft.posts.map(post => ({
-        ...post,
-        images: []
-      }))
-
-      // Update draft
-      const { error: updateError } = await supabase
-        .from('drafts')
-        .update({
-          posts: cleanedPosts,
-          is_published: true,
-          published_at: new Date().toISOString()
-        })
-        .eq('id', id)
-
-      if (updateError) throw updateError
+      // The server deletes the draft's images, clears them from posts and marks it published.
+      await draftsApi.publish(id)
 
       alert('Draft published successfully!')
       navigate('/')
@@ -230,8 +203,13 @@ export default function DraftEditor({ user }) {
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    navigate('/')
+    try {
+      await authApi.logout()
+    } catch (err) {
+      console.error('Logout error:', err)
+    }
+    // Reload so the app re-reads the (now cleared) session.
+    window.location.assign('/')
   }
 
   if (loading) {

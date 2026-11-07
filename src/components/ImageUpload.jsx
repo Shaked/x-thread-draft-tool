@@ -1,10 +1,14 @@
 import { useState, useRef, forwardRef, useImperativeHandle } from 'react'
 import { useParams } from 'react-router-dom'
-import { supabase, uploadImage, uploadImageFromUrl } from '../utils/supabase'
+import { uploadImage, uploadImageFromUrl } from '../utils/images'
 
 const MAX_IMAGES = 4
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB before compression
 const MAX_IMAGE_WIDTH = 1600
+const NOT_LOGGED_IN = 'You must be logged in to upload images'
+
+// Map an upload error to the message shown to the user.
+const uploadErrorMessage = (err) => (err.status === 401 ? NOT_LOGGED_IN : err.message || 'Failed to upload images')
 
 const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
   const [uploading, setUploading] = useState(false)
@@ -96,16 +100,10 @@ const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
     setUploading(true)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('You must be logged in to upload images')
-      }
-
       const uploadPromises = fileArray.map(async (file) => {
         // Compress image
         const compressedFile = await compressImage(file)
-        // Upload to Supabase
-        const url = await uploadImage(compressedFile, user.id, draftId || 'temp')
+        const url = await uploadImage(compressedFile, draftId || 'temp')
         return {
           url,
           uploadMethod
@@ -116,7 +114,7 @@ const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
       onChange([...images, ...imageObjects])
     } catch (err) {
       console.error('Upload error:', err)
-      setError(err.message || 'Failed to upload images')
+      setError(uploadErrorMessage(err))
     } finally {
       setUploading(false)
     }
@@ -136,13 +134,8 @@ const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
     setUrlLoading(true)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('You must be logged in to upload images')
-      }
-
       console.log(`Fetching image from URL: ${imageUrl}`)
-      const imageObject = await uploadImageFromUrl(imageUrl, user.id, draftId || 'temp')
+      const imageObject = await uploadImageFromUrl(imageUrl, draftId || 'temp')
       console.log('Image uploaded successfully:', imageObject)
 
       const newImages = [...images, imageObject]
@@ -155,7 +148,7 @@ const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
       return imageObject
     } catch (err) {
       console.error('URL upload error:', err)
-      const errorMsg = err.message || 'Failed to fetch image from URL'
+      const errorMsg = err.status === 401 ? NOT_LOGGED_IN : err.message || 'Failed to fetch image from URL'
       setError(`${errorMsg} - URL: ${imageUrl.substring(0, 50)}...`)
 
       // Auto-clear error after 5 seconds
