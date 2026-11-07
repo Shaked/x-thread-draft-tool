@@ -78,6 +78,16 @@ A modern web app for composing, managing, and exporting Twitter/X threads with c
 
 Tests run without any external service: `npm run test:unit` (React and helper tests) and `npm run test:api` (API routes against an in-process Postgres, PGlite).
 
+## API & agents
+
+Every feature of the app is also available as a JSON API under `/api`, with the same
+permissions as your GitHub account. Create a personal token at `/settings/tokens` (or get one
+with GitHub's device flow via `npm run agent:login`), then use `Authorization: Bearer xt_...`.
+
+- Discovery: [`/llms.txt`](./public/llms.txt) and [`/api/openapi.json`](./server/openapi.js)
+- Agent guide with curl examples: [docs/agents/api.md](./docs/agents/api.md)
+- Local API for development and tests: `npm run dev:api` (http://127.0.0.1:8787), then `npm run smoke`
+
 ## Project Structure
 
 ```

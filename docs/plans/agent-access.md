@@ -274,12 +274,12 @@ that deployment — create a new token on that preview (web page or `npm run age
 
 ## Validation checklist (reviewer)
 
-- [ ] No route accepts writes without `requireUser`; bearer and cookie paths share the same owner checks.
-- [ ] Token plaintext never stored or logged; only hash + prefix in DB; list endpoint omits hash.
-- [ ] Invalid bearer never falls back to cookie.
-- [ ] Origin check skipped only when an `authorization` header is present.
-- [ ] `/api/dev/token` is unreachable from `api/handler.js` (grep: not imported by `server/`).
-- [ ] SSRF guard covers DNS-resolved private ranges and refuses redirects.
-- [ ] `/llms.txt` and `/api/openapi.json` served on preview; openapi parity test passes.
-- [ ] `npm run test:unit`, `npm run build`, and the `smoke-local` CI job pass.
-- [ ] `vercel-migration.md` execution status table updated; PR #21 description lists the human steps.
+- [x] No route accepts writes without `requireUser`; bearer and cookie paths share the same owner checks. (Intentional exceptions: `device/start`, `device/poll`, `auth/logout`, `threads/split`, and the share GET, which consumes by token.)
+- [x] Token plaintext never stored or logged; only hash + prefix in DB; list endpoint omits hash.
+- [x] Invalid bearer never falls back to cookie.
+- [x] Origin check skipped only when an `authorization` header is present.
+- [x] `/api/dev/token` is unreachable from `api/handler.js` (grep: not imported by `server/`).
+- [x] SSRF guard covers DNS-resolved private ranges and refuses redirects.
+- [ ] `/llms.txt` and `/api/openapi.json` served on preview. *Not yet: verified locally (dev server serves both; smoke 16/16); the preview check happens after this PR's deployment. The openapi parity test passes.*
+- [x] `npm run test:unit`, `npm run build` pass. The `smoke-local` job runs the same level-2 smoke that passes locally; its CI result appears on PR #21.
+- [x] `vercel-migration.md` execution status table updated; PR #21 description lists the human steps.

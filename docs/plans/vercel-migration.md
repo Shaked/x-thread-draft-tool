@@ -1,7 +1,7 @@
 # Plan: Migrate off Supabase to Vercel + Neon + Vercel Blob
 
-Status: **Phases 1–2 and Tasks 3.1–3.2 done (PR #21). Next for the executor: Phase 5
-([agent-access.md](./agent-access.md)), in the same PR. Then Shaked: Task 3.3 and Phase 4.**
+Status: **Phases 1–2, Tasks 3.1–3.2 and Phase 5 (agent access) done in PR #21. Next: the human
+steps listed in the PR description (Task 3.3 and Phase 4).**
 Executor: Haiku (code tasks) + Shaked (tasks marked **[HUMAN]**, all doable from a phone)
 Validator: Claude Opus (see "Validation checklist" at the end)
 
@@ -78,8 +78,8 @@ Phase 0 is **complete** (2026-11-07). Findings and resulting changes:
 | Phase 1 — backend (Tasks 1.1–1.11) | executor | done |
 | Phase 2 — frontend + Supabase removal + docs (Tasks 2.1–2.7) | executor | done |
 | Tasks 3.1–3.2 — data migration script + workflow | executor | done |
-| **Phase 5 — agent-first access (agent-access.md Tasks 5.1–5.13)** | executor | **next** |
-| Final executor pass — both validation checklists, PR #21 description | executor | after Phase 5 |
+| Phase 5 — agent-first access (agent-access.md Tasks 5.1–5.13) | executor | done (PR #21) |
+| Final executor pass — both validation checklists, PR #21 description | executor | done (PR #21) |
 | Phase 5 human steps (Device Flow, Deployment Protection, token, secrets) | Shaked | after PR #21 is updated |
 | Phase 4 step 1 — preview testing (human + agent smoke) | Shaked + agents | after Phase 5 human steps |
 | Merge PR #21, then Task 3.3 immediately, then Phase 4 steps 2–4 | Shaked | last |
@@ -519,14 +519,14 @@ to Neon after cutover would need to be re-entered, so decide within the first da
 
 ## Validation checklist (for the reviewer)
 
-- [ ] `grep -rni supabase src tests api server vite.config.js package.json vercel.json` → nothing.
-- [ ] Every write query in `server/routes/drafts.js`/`images.js` is filtered by `session.uid`.
-- [ ] `GET /api/drafts/:id` is the only unauthenticated draft read; no list endpoint is public.
-- [ ] Share consume is a single `UPDATE ... RETURNING`; concurrency test exists and passes.
-- [ ] OAuth `state` checked; GitHub token not persisted; cookie `HttpOnly; Secure; SameSite=Lax`.
-- [ ] `navigateFallbackDenylist` includes `/api/`.
-- [ ] `vercel.json` API rewrite precedes the SPA rewrite.
-- [ ] Only one file under `api/`.
-- [ ] `npm run build`, `npm run test:unit`, `npm run test:api`, `npm run test:e2e` pass.
-- [ ] Docs + changelog file updated; `docs:refresh` run.
-- [ ] Migration SQL is additive only; migrator is idempotent (run twice in a test).
+- [ ] `grep -rni supabase src tests api server vite.config.js package.json vercel.json` → nothing. *Partly: the only matches are `tests/api/migrate-from-supabase.test.js` (tests the kept one-time migration helper), and the migration script, which is outside this list.*
+- [x] Every write query in `server/routes/drafts.js`/`images.js`/`tokens.js` is filtered by the caller's user id.
+- [x] `GET /api/drafts/:id` is the only unauthenticated draft read; no list endpoint is public. (Export `GET /api/drafts/:id/export` is also public by id, as agent-access.md specifies.)
+- [x] Share consume is a single `UPDATE ... RETURNING`; concurrency test exists and passes.
+- [x] OAuth `state` checked; GitHub token not persisted; cookie `HttpOnly; Secure; SameSite=Lax`.
+- [x] `navigateFallbackDenylist` includes `/api/` (and `/llms.txt`).
+- [x] `vercel.json` API rewrite precedes the SPA rewrite.
+- [x] Only one file under `api/`.
+- [x] `npm run build`, `npm run test:unit`, `npm run test:api`, `npm run test:e2e` pass (e2e 13/13 with the preinstalled Chromium).
+- [x] Docs + changelog file updated; `docs:refresh` run.
+- [x] Migration SQL is additive only; migrator is idempotent (run twice in a test).
