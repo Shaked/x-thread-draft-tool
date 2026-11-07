@@ -1,6 +1,6 @@
 # Plan: Migrate off Supabase to Vercel + Neon + Vercel Blob
 
-Status: **Phase 0 done — ready for Haiku (Phases 1–3.2)**
+Status: **Phases 1–2 and Tasks 3.1–3.2 implemented (PR open). Phase 3.3 and Phase 4 are manual.**
 Executor: Haiku (code tasks) + Shaked (tasks marked **[HUMAN]**, all doable from a phone)
 Validator: Claude Opus (see "Validation checklist" at the end)
 

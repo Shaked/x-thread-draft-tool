@@ -2,5 +2,7 @@
 
 - PWA support.
 - Mobile-responsive UI.
-- GitHub OAuth sign-in.
+- GitHub OAuth sign-in (`/api/auth/login`, `/api/auth/callback`). Anyone with a GitHub account can sign in.
+- Session: signed HS256 cookie `xt_session` (HttpOnly, Secure, SameSite=Lax, 30 days). The GitHub token is not stored.
+- Owner-only writes are filtered by the session user id in every query; a non-owner gets 404.
 - Deployment metadata visibility.

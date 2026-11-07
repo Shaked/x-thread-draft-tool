@@ -10,7 +10,8 @@
 - PWA and offline-first behavior (service worker + IndexedDB).
 
 ## Backend/platform
-- Supabase auth, database, and storage integration.
+- Serverless API design (Vercel Functions), Postgres (Neon) and object storage (Vercel Blob).
+- OAuth sign-in with signed session cookies and owner-scoped SQL.
 - Share-token and secure link workflow design.
 
 ## Quality + delivery

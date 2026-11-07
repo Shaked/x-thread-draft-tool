@@ -2,7 +2,7 @@
 
 A modern web app for composing, managing, and exporting Twitter/X threads with cloud sync, image uploads, and shareable draft links.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/x-thread-draft-tool&env=VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/x-thread-draft-tool&env=GITHUB_CLIENT_ID,GITHUB_CLIENT_SECRET,SESSION_SECRET,PUBLIC_APP_URL)
 
 ## Features
 
@@ -15,7 +15,7 @@ A modern web app for composing, managing, and exporting Twitter/X threads with c
 - **Thread numbering** - Automatic post numbering (1/n format)
 
 ### Storage & Sync
-- **Cloud sync** - Auto-save drafts to Supabase
+- **Cloud sync** - Auto-save drafts to Neon Postgres via the app's API
 - **Offline editing** - Continue editing without internet (IndexedDB)
 - **Conflict resolution** - Latest timestamp wins on sync
 - **Published archive** - Mark drafts as published to archive them
@@ -35,7 +35,10 @@ A modern web app for composing, managing, and exporting Twitter/X threads with c
 ## Tech Stack
 
 - **Frontend**: React 18 + Vite
-- **Backend**: Supabase (PostgreSQL + Auth + Storage)
+- **API**: one Vercel Function (`api/handler.js`) under `/api`
+- **Database**: Neon Postgres (`pg`)
+- **Images**: Vercel Blob
+- **Auth**: GitHub OAuth App + signed session cookie (`jose`)
 - **Deployment**: Vercel
 - **Styling**: Custom CSS
 - **PWA**: vite-plugin-pwa
@@ -47,8 +50,8 @@ A modern web app for composing, managing, and exporting Twitter/X threads with c
 1. Click the "Deploy with Vercel" button above
 2. Follow [SETUP.md](./SETUP.md) for complete instructions
 3. You'll need:
-   - Supabase account (free)
-   - GitHub account (for OAuth)
+   - Neon database and Vercel Blob store (both free, added from the Vercel Marketplace)
+   - A GitHub OAuth App
 
 ### Option 2: Local Development
 
@@ -63,25 +66,37 @@ A modern web app for composing, managing, and exporting Twitter/X threads with c
    npm install
    ```
 
-3. Create `.env.local`:
-   ```
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
+3. Create `.env.local` with the variables from [Environment Variables](#environment-variables).
+   The API needs a Neon database and a `SESSION_SECRET`; the front end talks to `/api` on the same origin.
 
-4. Run development server:
+4. Run the front end:
    ```bash
    npm run dev
    ```
 
 5. Open http://localhost:5173
 
+Tests run without any external service: `npm run test:unit` (React and helper tests) and `npm run test:api` (API routes against an in-process Postgres, PGlite).
+
 ## Project Structure
 
 ```
 .
-├── supabase/
-│   └── schema.sql         # Database schema
+├── api/
+│   └── handler.js         # The one Vercel Function; delegates to server/router.js
+├── server/
+│   ├── router.js          # Path/method dispatch, CSRF origin check, error mapping
+│   ├── routes/            # auth.js, drafts.js, images.js, share.js
+│   ├── share/render.js    # One-time share page + markdown renderers (pure JS)
+│   ├── db.js              # Lazy pg pool (max 1 connection per function instance)
+│   ├── session.js         # HS256 JWT session cookie
+│   └── blob.js            # Vercel Blob put/delete wrappers
+├── db/
+│   └── migrations/        # Additive SQL, applied at build time by scripts/migrate.mjs
+├── tests/
+│   ├── unit/              # Vitest + Testing Library
+│   ├── api/               # API route tests (PGlite)
+│   └── e2e/               # Playwright
 ├── src/
 │   ├── components/        # React components
 │   │   ├── PostBox.jsx    # Individual post editor
@@ -94,7 +109,8 @@ A modern web app for composing, managing, and exporting Twitter/X threads with c
 │   ├── pages/
 │   │   └── DraftEditor.jsx # Main editing page
 │   ├── utils/
-│   │   ├── supabase.js    # Supabase client
+│   │   ├── api.js         # Same-origin client for /api
+│   │   ├── images.js      # Image upload helpers
 │   │   └── ...
 │   ├── styles/
 │   │   └── App.css        # Styles
@@ -105,17 +121,27 @@ A modern web app for composing, managing, and exporting Twitter/X threads with c
 
 ## Database Schema
 
-The app uses three main tables in Supabase:
+The app uses three tables in Neon Postgres (see `db/migrations/001_init.sql`):
+
+### `users`
+- `id` - UUID (primary key); users migrated from Supabase keep their original UUID
+- `github_id` - Unique GitHub account id (users are matched on this at sign-in)
+- `login`, `name`, `avatar_url` - Profile fields from GitHub
 
 ### `drafts`
 - `id` - UUID (primary key)
-- `user_id` - UUID (foreign key to auth.users)
+- `user_id` - UUID (foreign key to users)
 - `title` - Text
 - `posts` - JSONB (array of post objects)
 - `is_published` - Boolean
 - `published_at` - Timestamp
 - `created_at` - Timestamp
 - `updated_at` - Timestamp
+
+### `share_tokens`
+- `token` - UUID (primary key); one-time share link
+- `draft_id`, `created_by` - Draft and owner
+- `used`, `used_at` - Set atomically on first use
 
 ### Post Object Structure
 ```json
@@ -140,12 +166,12 @@ The **X Thread** button generates a one-time-use share token and copies a URL li
 
 `https://<your-app-domain>/x-thread-preview/<token>`
 
-Why this shape: some edge gateway/CDN paths force `.html` URLs to `text/plain` regardless of response headers. The app route fetches the one-time HTML payload from Supabase and writes it into the document, avoiding Edge Function `text/html` rewrite behavior on direct navigation.
+Why this shape: some edge gateway/CDN paths force `.html` URLs to `text/plain` regardless of response headers. The app route fetches the one-time HTML payload from `/api/share/<token>?format=html` and writes it into the document, avoiding `text/html` rewrite behavior on direct navigation.
 
 Behavior:
 - First successful open consumes the token and renders the styled HTML thread preview.
 - Any later open returns an expired/invalid response (`410 Gone`).
-- `?format=md` can still be used for markdown output when needed.
+- Agent links copy `/api/share/<token>.md` (markdown). The same link works once.
 
 ### Published Feature
 
@@ -164,17 +190,24 @@ The app works offline using:
 ### Image Upload
 
 - Drag & drop or click to upload
-- Automatic compression (max 1920px width)
-- 5MB per image limit
+- Automatic compression (max 1600px width)
+- 4MB per image limit (uploads are checked by the API)
 - 4 images per post max
-- Stored in Supabase Storage
+- Stored in Vercel Blob (public URLs with random suffixes); images are deleted when a draft is published or deleted
 
 ## Environment Variables
 
-### Required
+### Vercel (set by integrations)
 
-- `VITE_SUPABASE_URL` - Your Supabase project URL
-- `VITE_SUPABASE_ANON_KEY` - Your Supabase anon/public key
+- `DATABASE_URL` - Neon pooled connection string (used by the API)
+- `DATABASE_URL_UNPOOLED` - Neon direct connection string (used by migrations at build time)
+- `BLOB_READ_WRITE_TOKEN` - Vercel Blob store token
+
+### Vercel (set by you, per environment)
+
+- `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` - GitHub OAuth App credentials
+- `SESSION_SECRET` - 32+ random bytes, e.g. `openssl rand -base64 48`
+- `PUBLIC_APP_URL` - Public origin of the deployment, no trailing slash
 
 ### Setup
 
@@ -184,13 +217,11 @@ See [SETUP.md](./SETUP.md) for detailed setup instructions.
 
 The app can run entirely for free:
 
-- **Vercel**: Free for personal projects
-- **Supabase Free Tier**:
-  - 500MB database
-  - 1GB storage
-  - 50K monthly active users
+- **Vercel Hobby**: Free for personal, non-commercial projects
+- **Neon Free**: Free Postgres database
+- **Vercel Blob Free**: Free storage quota
 
-Unless you have thousands of users, you'll stay within free limits.
+Images are deleted on publish, so storage stays small. Free-tier limits stop the service when exceeded; they do not bill.
 
 ## Contributing
 
@@ -200,7 +231,7 @@ Contributions are welcome! Please open an issue or PR.
 
 When a task changes behavior, contributors should update:
 - `docs/plans/current.md`
-- `docs/features/supported.md`
+- `docs/features/*.md`
 - `README.md` (if user-facing behavior/setup changed)
 - a new timestamped changelog file under `docs/changelogs/` (`YYYYMMDD-HHMMSS-<slug>.md`)
 
@@ -210,4 +241,4 @@ MIT
 
 ## Credits
 
-Built with React, Supabase, and Vercel.
+Built with React, Vercel, Neon, and Vercel Blob.
