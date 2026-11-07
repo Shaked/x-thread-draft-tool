@@ -78,7 +78,7 @@ jobs:
           echo "IMAGES_OK=$ok" >> "$GITHUB_ENV"
           echo "IMAGES_FAILED=$fail" >> "$GITHUB_ENV"
 
-      - name: Write summary (schema + counts, no user data)
+      - name: Write summary (schema + counts, no user data; also printed to the log)
         run: |
           set -euo pipefail
           {
@@ -91,7 +91,7 @@ jobs:
             psql "$SUPABASE_DB_URL" -At -c "select 'users', count(*) from auth.users union all select 'drafts', count(*) from public.drafts union all select 'share_tokens', count(*) from public.share_tokens"
             echo '```'
             echo "Images downloaded: ${IMAGES_OK}, failed: ${IMAGES_FAILED}"
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Encrypt
         run: |
