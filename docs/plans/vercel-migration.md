@@ -1,6 +1,6 @@
 # Plan: Migrate off Supabase to Vercel + Neon + Vercel Blob
 
-Status: **Ready for execution**
+Status: **Phase 0 done — ready for Haiku (Phases 1–3.2)**
 Executor: Haiku (code tasks) + Shaked (tasks marked **[HUMAN]**, all doable from a phone)
 Validator: Claude Opus (see "Validation checklist" at the end)
 
@@ -28,6 +28,41 @@ offline/IndexedDB behaviour, same "anyone with the link can view, only the owner
 - No UI redesign. No new features. No TypeScript conversion of the app.
 - Do not touch `src/utils/threadSplitter.js`, `exportFormats.js`, `rtlDetector.js`, `localStorage.js`.
 - Do not change the post object shape (`{ id, text, images, embeddedTweet }`).
+
+## Amendments after Phase 0 (these override anything below)
+
+Phase 0 is **complete** (2026-11-07). Findings and resulting changes:
+
+1. **Supabase schema confirmed** (backup run 42383061789): `drafts` has exactly
+   `id, user_id, title, posts, is_published, published_at, created_at, updated_at`.
+   `is_published` is **nullable** in Supabase → the importer must use
+   `coalesce(is_published, false)`. Counts: 7 users, 17 drafts, 23 share tokens, 108 storage objects
+   (most are orphans; only images referenced in `posts` are migrated).
+2. **Neon env vars** use prefix `DATABASE`: the app uses only `DATABASE_URL` (pooled) and
+   `DATABASE_URL_UNPOOLED` (direct). Ignore the other `DATABASE_*` vars Neon created.
+3. **Each Preview deployment gets its own Neon branch** (integration setting). Therefore migrations
+   run **at build time** on Vercel, not from a GitHub workflow:
+   - `vercel.json` `buildCommand` becomes
+     `node scripts/migrate.mjs && VITE_DEPLOYED_AT=... (existing command unchanged)`.
+   - `scripts/migrate.mjs` uses `DATABASE_URL_UNPOOLED`; if it is missing it prints a warning and
+     exits 0 (so `npm run build` in CI and locally still works). On Vercel it is always set.
+   - **Do not create** `.github/workflows/db-migrate.yml` (Task 2.6). Instead add the destructive-SQL
+     lint over `db/migrations/*.sql` as a step in the `unit` job of `.github/workflows/tests.yml`.
+4. **One GitHub OAuth App** serves both environments (two redirect URIs registered). Vercel env:
+   `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (Production + Preview, same values);
+   `SESSION_SECRET` and `PUBLIC_APP_URL` differ per environment:
+   - Production: `https://x-thread-draft-tool.vercel.app`
+   - Preview: `https://x-thread-draft-tool-preview.vercel.app` (custom domain bound to branch
+     `claude/lucid-sagan-bbciuo`). Preview sign-in works only on this domain.
+5. **Blob store** `x-thread-images` is **public**; env var `BLOB_READ_WRITE_TOKEN`.
+6. **GitHub Actions secrets available**: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_ID`,
+   `SUPABASE_DB_PASSWORD`, `SUPABASE_URL`, `DATABASE_URL_UNPOOLED` (production Neon),
+   `BLOB_READ_WRITE_TOKEN`. `data-migrate.yml` (Task 3.2) uses these; no `SUPABASE_DB_URL` secret
+   exists, resolve it with `scripts/supabase-db-url.sh`.
+7. **Do not delete** `.github/workflows/supabase-backup.yml` or `scripts/supabase-db-url.sh` in
+   Task 2.6 (kept until Supabase is deleted). Do delete `keep-supabase-alive.yml` and `supabase-deploy.yml`.
+8. **Executor deliverable**: work on branch `claude/lucid-sagan-bbciuo`, push, and open **one PR**
+   to `main`. Do not merge it. Do not run the data migration.
 
 ## Fixed decisions (do not re-decide)
 
