@@ -1,7 +1,7 @@
 # Plan: Migrate off Supabase to Vercel + Neon + Vercel Blob
 
 Status: **Ready for execution**
-Executor: Haiku (code tasks) + Shaked (tasks marked **[HUMAN]**)
+Executor: Haiku (code tasks) + Shaked (tasks marked **[HUMAN]**, all doable from a phone)
 Validator: Claude Opus (see "Validation checklist" at the end)
 
 ## Goal
@@ -66,37 +66,53 @@ Removed: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, all `SUPABASE_*` GitHub 
 
 ---
 
-## Phase 0 — Backup and provisioning **[HUMAN]**
+## Phase 0 — Environment preparation **[HUMAN, phone only]**
 
-Do this first; Supabase free projects pause and can become unrestorable.
+Everything here is done in a phone browser (GitHub, Vercel, Neon and Supabase dashboards) or the
+GitHub app. Haiku starts **only after** Phase 0 is complete. Keep every secret in 1Password and
+never paste secrets into a Claude chat. If a GitHub settings menu is hidden on mobile, switch the
+browser to "Desktop site".
 
-0.1 In the Supabase dashboard, make sure the project is active (restore it if paused).
-0.2 Copy the **direct** Postgres connection string (Settings → Database) into a local
-    shell variable `SUPABASE_DB_URL`. Never commit it.
-0.3 Take a full backup (keep it outside the repo):
-```bash
-mkdir -p ~/xt-backup && cd ~/xt-backup
-pg_dump "$SUPABASE_DB_URL" --schema=public --no-owner --no-privileges -f public.sql
-psql "$SUPABASE_DB_URL" -c "\d public.drafts" > drafts_columns.txt
-psql "$SUPABASE_DB_URL" -c "\copy (select id, raw_user_meta_data, email, created_at from auth.users) to 'auth_users.csv' csv header"
-```
-0.4 Send `drafts_columns.txt` to the executor. If `drafts` has columns beyond
-    `id, user_id, title, posts, is_published, published_at, created_at, updated_at`,
-    they must be added to `db/migrations/001_init.sql` (Task 1.2).
-0.5 Vercel dashboard → project → **Storage** → Create **Neon** (Free plan) and connect it to
-    the project for Production + Preview + Development. Then create a **Blob** store and connect it.
-    Confirm `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `BLOB_READ_WRITE_TOKEN` appear in
-    Settings → Environment Variables.
-0.6 In Neon console create a branch `preview` and set the Preview-env `DATABASE_URL` /
-    `DATABASE_URL_UNPOOLED` to that branch (skip if the integration already creates preview branches).
-0.7 GitHub → Settings → Developer settings → OAuth Apps → New:
-    - **Production app**: Homepage `PUBLIC_APP_URL`; callback `PUBLIC_APP_URL/api/auth/callback`.
-    - **Preview app** (recommended): callback
-      `https://<project>-git-claude-lucid-sagan-bbciuo-<scope>.vercel.app/api/auth/callback`
-      (the stable branch alias shown on the Vercel deployment page).
-0.8 Set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `SESSION_SECRET`, `PUBLIC_APP_URL` in Vercel
-    (Production values from the production app, Preview values from the preview app/alias).
-0.9 Add GitHub Actions secret `DATABASE_URL_UNPOOLED` (production Neon direct URL).
+0.1 **Merge the plan PR** (it contains this plan and `supabase-backup.yml`). Workflows can only be
+    started manually once they are on `main`.
+0.2 **Supabase awake:** Supabase dashboard → project. If paused, tap **Restore** and wait.
+0.3 **Supabase connection string:** Supabase → **Connect** → **Session pooler** (IPv4; the
+    "Direct" string is IPv6-only and fails from GitHub Actions). Put the DB password in place of
+    `[YOUR-PASSWORD]` (reset it under Database settings if you don't have it).
+0.4 **Backup passphrase:** 1Password → new 64-char password → save as "xt backup passphrase".
+0.5 **GitHub secrets** (repo → Settings → Secrets and variables → Actions): add
+    `SUPABASE_DB_URL` (0.3) and `BACKUP_PASSPHRASE` (0.4). `SUPABASE_URL` already exists.
+0.6 **Run the backup:** GitHub app → repo → Actions → **Supabase backup (pre-migration)** →
+    Run workflow on `main`. When it is green, the run summary shows the `drafts` columns and row
+    counts, and an encrypted `supabase-backup` artifact (kept 90 days) is attached.
+    Haiku reads the `drafts` columns from this run summary for Task 1.2.
+0.7 **Neon + Blob:** Vercel → project → **Storage** → Create **Neon** (Free) → connect to
+    Production, Preview and Development. Then Create **Blob** → connect. Check that Settings →
+    Environment Variables lists `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `BLOB_READ_WRITE_TOKEN`.
+0.8 **Preview DB branch:** Neon console → Branches → create `preview` → copy its pooled and
+    direct strings into Vercel env vars `DATABASE_URL` / `DATABASE_URL_UNPOOLED` for **Preview**
+    only. Skip this if the integration already creates per-preview branches.
+0.9 **URLs:** Vercel → Deployments → note the production domain (= `PUBLIC_APP_URL`) and the
+    branch alias for `claude/lucid-sagan-bbciuo` (`...-git-claude-lucid-sagan-bbciuo-....vercel.app`).
+0.10 **GitHub OAuth apps** (github.com → Settings → Developer settings → OAuth Apps → New):
+    - Production: Homepage `PUBLIC_APP_URL`, callback `PUBLIC_APP_URL/api/auth/callback`.
+    - Preview: Homepage = branch alias, callback `<branch alias>/api/auth/callback`.
+    Generate a client secret for each and store the IDs and secrets in 1Password.
+0.11 **Session secrets:** 1Password → two new 64-char passwords ("xt session prod", "xt session preview").
+0.12 **Vercel env vars** (Settings → Environment Variables):
+    - Production: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (production app), `SESSION_SECRET`
+      (prod), `PUBLIC_APP_URL` (production domain, no trailing slash).
+    - Preview: the same names with the preview app values, the preview session secret, and the
+      branch alias URL.
+0.13 **GitHub secrets for the migration workflows:** `DATABASE_URL_UNPOOLED` (production Neon
+    direct string, Neon console → Connect) and `BLOB_READ_WRITE_TOKEN` (Vercel → Storage → your
+    Blob store → `.env.local` tab).
+0.14 **Start Haiku:** Claude app → Code → new session on `Shaked/x-thread-draft-tool`, model
+    Haiku, prompt:
+    > Execute `docs/plans/vercel-migration.md` Phases 1, 2 and Tasks 3.1–3.2 on branch
+    > `claude/lucid-sagan-bbciuo`. Skip tasks marked [HUMAN]. Read the `drafts` columns from the
+    > latest successful "Supabase backup (pre-migration)" run summary. Commit per task, push, and
+    > open a PR when done.
 
 ---
 
@@ -155,7 +171,7 @@ create table if not exists share_tokens (
 );
 create index if not exists share_tokens_draft_id_idx on share_tokens(draft_id);
 ```
-(Add any extra `drafts` columns reported in Phase 0.4.)
+(Add any extra `drafts` columns shown in the Phase 0.5 backup run summary.)
 
 Create `scripts/migrate.mjs`:
 - Reads `DATABASE_URL_UNPOOLED` (fallback `DATABASE_URL`); exits 1 with a clear message if missing.
@@ -375,7 +391,7 @@ Keep `buildCommand`, `outputDirectory`, `framework`. Rewrites **in this order**:
 
 ## Phase 3 — Data migration
 
-### Task 3.1 — `scripts/migrate-from-supabase.mjs` (Haiku writes, Shaked runs)
+### Task 3.1 — `scripts/migrate-from-supabase.mjs` (Haiku writes)
 
 - Env: `SUPABASE_DB_URL`, `DATABASE_URL_UNPOOLED`, `BLOB_READ_WRITE_TOKEN`. Flag `--dry-run`
   (default **on**; `--apply` to write).
@@ -391,30 +407,35 @@ Keep `buildCommand`, `outputDirectory`, `framework`. Rewrites **in this order**:
   4. Share tokens: copy only `used = false` rows.
   5. Print counts: users, drafts, images moved/failed, tokens; and every failure.
 
-### Task 3.2 — Run it **[HUMAN]**
+### Task 3.2 — `.github/workflows/data-migrate.yml` (Haiku writes)
 
-```bash
-vercel env pull .env.migrate --environment=production   # gives DATABASE_URL_UNPOOLED, BLOB_READ_WRITE_TOKEN
-set -a; . ./.env.migrate; set +a; export SUPABASE_DB_URL='...'
-npm run db:migrate
-node scripts/migrate-from-supabase.mjs            # dry run, read the report
-node scripts/migrate-from-supabase.mjs --apply
-rm .env.migrate
-```
+- `workflow_dispatch` with a boolean input `apply` (default `false` = dry run).
+- Env from secrets: `SUPABASE_DB_URL`, `DATABASE_URL_UNPOOLED`, `BLOB_READ_WRITE_TOKEN`.
+- Steps: checkout → setup-node 20 → `npm ci` → `npm run db:migrate` →
+  `node scripts/migrate-from-supabase.mjs`, adding `--apply` when the input is true.
+- The script also writes its report to `$GITHUB_STEP_SUMMARY`: counts and draft ids only,
+  no draft text and no emails.
+- Upload `url-map.json` as an artifact (retention 30 days).
+
+### Task 3.3 — Run it **[HUMAN, phone]**
+
+After the PR is merged: GitHub app → Actions → **Data migrate** → Run workflow on `main` with
+`apply` off → read the summary → run again with `apply` on. Re-running is safe.
 
 ---
 
 ## Phase 4 — Cutover **[HUMAN]** + verification
 
 1. Open a PR from the branch. On the **Preview** deployment (branch alias):
-   `curl -s <preview>/api/health` → `{"ok":true}` (proves rewrite + function wiring);
+   open `<preview>/api/health` in the phone browser → `{"ok":true}` (proves rewrite + function wiring);
    sign in with GitHub; create/edit/duplicate/delete a draft; upload a file image and a URL image;
    publish (images disappear); X Thread link opens once then shows expired; Agent `.md` link works once;
-   open a draft link in a private window (read-only view); go offline in devtools and edit → reconnect → saved.
-2. Run Phase 3 against production, merge the PR, repeat the step-1 smoke test on production
+   open a draft link in a private tab (read-only view); turn on airplane mode, edit, turn it off → change is saved.
+2. Merge the PR, run Task 3.3 (Data migrate) against production, repeat the step-1 smoke test on production
    with a real migrated draft.
 3. Remove `VITE_SUPABASE_*` from Vercel env and `SUPABASE_*` GitHub secrets.
-4. Keep the Supabase project untouched for 14 days as a fallback, then pause/delete it.
+4. Keep the Supabase project untouched for 14 days as a fallback, then delete it, and delete
+   `.github/workflows/supabase-backup.yml` and the `SUPABASE_*` / `BACKUP_PASSPHRASE` secrets.
 
 Rollback: revert the merge commit on `main` (Vercel redeploys the Supabase version). Data written
 to Neon after cutover would need to be re-entered, so decide within the first day.
