@@ -99,3 +99,18 @@ export const imagesApi = {
     return request('/images/from-url', { method: 'POST', body: { draftId, url } })
   }
 }
+
+export const tokensApi = {
+  list() {
+    return request('/tokens')
+  },
+
+  /** Returns `{ token, id, name, prefix, expires_at }`. The token is shown once. */
+  create({ name, expires_in_days }) {
+    return request('/tokens', { method: 'POST', body: { name, expires_in_days } })
+  },
+
+  revoke(id) {
+    return request(`/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+}

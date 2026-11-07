@@ -104,6 +104,9 @@ export default function DraftList({ user }) {
         <button className="new-draft-btn" onClick={createNewDraft}>
           + New Draft
         </button>
+        <button className="tab" onClick={() => navigate('/settings/tokens')}>
+          API tokens
+        </button>
       </div>
 
       <div className="draft-tabs">

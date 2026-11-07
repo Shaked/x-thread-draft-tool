@@ -5,6 +5,7 @@ import LoginPage from './components/LoginPage'
 import DraftList from './components/DraftList'
 import DraftEditor from './pages/DraftEditor'
 import XThreadPreviewPage from './pages/XThreadPreviewPage'
+import TokensPage from './pages/TokensPage'
 import './styles/App.css'
 
 function App() {
@@ -96,6 +97,10 @@ function App() {
           <Route
             path="/draft/:id"
             element={<DraftEditor user={user} />}
+          />
+          <Route
+            path="/settings/tokens"
+            element={user ? <TokensPage /> : <LoginPage />}
           />
           <Route
             path="/x-thread-preview/:token"
