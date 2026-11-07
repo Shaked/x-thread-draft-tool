@@ -56,6 +56,20 @@ test.describe('image upload', () => {
         console.log(`auth/me status=${me.status()} body=${String(body).slice(0, 200)}`)
       }
       else console.log('auth/me: no response seen')
+      // Probe: can the page's own fetch reach /api/auth/me at all? Bounded by a 10 s abort.
+      const probe = await page.evaluate(async () => {
+        const c = new AbortController()
+        const t = setTimeout(() => c.abort(), 10_000)
+        try {
+          const r = await fetch('/api/auth/me', { credentials: 'same-origin', signal: c.signal })
+          return `status=${r.status}`
+        } catch (e) {
+          return `error=${(e as Error).name}`
+        } finally {
+          clearTimeout(t)
+        }
+      })
+      console.log(`page fetch probe: ${probe}`)
       await page.locator('.new-draft-btn').first().click()
       await expect(page).toHaveURL(/\/draft\//)
       draftId = new URL(page.url()).pathname.split('/').pop() ?? null
