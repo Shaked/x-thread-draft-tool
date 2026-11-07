@@ -1,5 +1,6 @@
 import { HttpError, error, json } from './http.js'
 import { authRoutes } from './routes/auth.js'
+import { deviceRoutes } from './routes/device.js'
 import { draftRoutes } from './routes/drafts.js'
 import { imageRoutes } from './routes/images.js'
 import { shareRoutes } from './routes/share.js'
@@ -13,6 +14,7 @@ function health() {
 
 export const ROUTES = [
   ...authRoutes,
+  ...deviceRoutes,
   ...draftRoutes,
   ...imageRoutes,
   ...shareRoutes,

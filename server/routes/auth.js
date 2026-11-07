@@ -1,18 +1,9 @@
 import { query } from '../db.js'
+import { fetchGithubUser, upsertGithubUser } from '../github-user.js'
 import { HttpError, cookie, json, parseCookies } from '../http.js'
 import { authenticate, clearSessionCookie, createSession, sessionCookie } from '../session.js'
 
 const STATE_COOKIE = 'xt_oauth_state'
-const UPSERT_USER = `
-  insert into users (github_id, login, name, avatar_url)
-  values ($1, $2, $3, $4)
-  on conflict (github_id) do update set
-    login = excluded.login,
-    name = excluded.name,
-    avatar_url = excluded.avatar_url,
-    updated_at = now()
-  returning *`
-
 function appOrigin() {
   return process.env.PUBLIC_APP_URL.replace(/\/$/, '')
 }
@@ -57,19 +48,6 @@ async function exchangeCode(code) {
   return data.access_token
 }
 
-async function fetchGithubUser(accessToken) {
-  const response = await fetch('https://api.github.com/user', {
-    headers: {
-      authorization: `Bearer ${accessToken}`,
-      'user-agent': 'x-thread-draft-tool',
-      accept: 'application/vnd.github+json'
-    }
-  })
-  const data = await response.json().catch(() => null)
-  if (!response.ok || !data?.id || !data?.login) throw new HttpError(502, 'GitHub sign-in failed')
-  return data
-}
-
 /**
  * GET /api/auth/callback: verifies state, upserts the user, issues the session cookie.
  * The GitHub access token is used once and never stored.
@@ -84,14 +62,9 @@ export async function callback({ request, url }) {
 
   const accessToken = await exchangeCode(code)
   const github = await fetchGithubUser(accessToken)
-  const { rows } = await query(UPSERT_USER, [
-    github.id,
-    github.login,
-    github.name ?? null,
-    github.avatar_url ?? null
-  ])
+  const user = await upsertGithubUser(github)
 
-  const token = await createSession(rows[0])
+  const token = await createSession(user)
   return redirect(`${appOrigin()}/`, [sessionCookie(token), cookie(STATE_COOKIE, '', { maxAge: 0 })])
 }
 
