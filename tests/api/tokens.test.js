@@ -1,0 +1,133 @@
+// @vitest-environment node
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn(async () => {}) }))
+
+import { route } from '../../server/router.js'
+import { createApiToken } from '../../server/tokens.js'
+import { apiRequest, setupTestDb } from './helpers/db.js'
+
+let db
+let alice
+let aliceCookie
+
+beforeAll(async () => {
+  db = await setupTestDb()
+})
+
+beforeEach(async () => {
+  await db.reset()
+  alice = await db.insertUser({ github_id: 1, login: 'alice' })
+  aliceCookie = await db.cookieFor(alice)
+})
+
+afterEach(() => {
+  vi.clearAllMocks()
+})
+
+const bearer = (token) => ({ authorization: `Bearer ${token}` })
+
+async function newToken(name = 'agent') {
+  return createApiToken(alice.id, { name })
+}
+
+describe('creating tokens', () => {
+  it('a browser session creates a token; the plaintext is returned once and stored only as a hash', async () => {
+    const res = await route(
+      apiRequest('/api/tokens', { method: 'POST', cookie: aliceCookie, body: { name: 'laptop', expires_in_days: 30 } })
+    )
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.token).toMatch(/^xt_[A-Za-z0-9_-]{40,}$/)
+    expect(body.prefix).toBe(body.token.slice(0, 10))
+
+    const { rows } = await db.pg.query('select token_hash, token_prefix from api_tokens where id = $1', [body.id])
+    expect(rows[0].token_hash).toMatch(/^[0-9a-f]{64}$/)
+    expect(rows[0].token_hash).not.toContain(body.token)
+  })
+
+  it('a bearer token cannot create tokens (403)', async () => {
+    const { token } = await newToken()
+    const res = await route(apiRequest('/api/tokens', { method: 'POST', headers: bearer(token), body: { name: 'x' } }))
+    expect(res.status).toBe(403)
+  })
+
+  it('rejects an empty name and an out-of-range expiry', async () => {
+    const noName = await route(apiRequest('/api/tokens', { method: 'POST', cookie: aliceCookie, body: { name: '  ' } }))
+    expect(noName.status).toBe(400)
+    const tooLong = await route(
+      apiRequest('/api/tokens', { method: 'POST', cookie: aliceCookie, body: { name: 'x', expires_in_days: 366 } })
+    )
+    expect(tooLong.status).toBe(400)
+  })
+
+  it('refuses the 21st active token with 409', async () => {
+    for (let i = 0; i < 20; i++) await newToken(`t${i}`)
+    const res = await route(apiRequest('/api/tokens', { method: 'POST', cookie: aliceCookie, body: { name: 'extra' } }))
+    expect(res.status).toBe(409)
+  })
+})
+
+describe('listing and revoking', () => {
+  it('lists tokens without the hash', async () => {
+    await newToken()
+    const res = await route(apiRequest('/api/tokens', { cookie: aliceCookie }))
+    const { tokens } = await res.json()
+    expect(tokens).toHaveLength(1)
+    expect(JSON.stringify(tokens)).not.toMatch(/token_hash|[0-9a-f]{64}/)
+  })
+
+  it('a revoked token gets 401 afterwards', async () => {
+    const { token, id } = await newToken()
+    const ok = await route(apiRequest('/api/auth/me', { headers: bearer(token) }))
+    expect((await ok.json()).auth).toBe('token')
+
+    const revoke = await route(apiRequest(`/api/tokens/${id}`, { method: 'DELETE', cookie: aliceCookie }))
+    expect(revoke.status).toBe(200)
+    const after = await route(apiRequest('/api/drafts?published=false', { headers: bearer(token) }))
+    expect(after.status).toBe(401)
+  })
+
+  it('cannot revoke another user token (404)', async () => {
+    const bob = await db.insertUser({ github_id: 2, login: 'bob' })
+    const { id } = await createApiToken(bob.id, { name: 'bobs' })
+    const res = await route(apiRequest(`/api/tokens/${id}`, { method: 'DELETE', cookie: aliceCookie }))
+    expect(res.status).toBe(404)
+  })
+
+  it('an expired token gets 401', async () => {
+    const { token, id } = await newToken()
+    await db.pg.query("update api_tokens set expires_at = now() - interval '1 day' where id = $1", [id])
+    const res = await route(apiRequest('/api/auth/me', { headers: bearer(token) }))
+    expect(res.status).toBe(401)
+  })
+})
+
+describe('authentication precedence and CSRF', () => {
+  it('an invalid bearer never falls back to a valid cookie', async () => {
+    const res = await route(
+      apiRequest('/api/drafts?published=false', { cookie: aliceCookie, headers: bearer('xt_' + 'a'.repeat(40)) })
+    )
+    expect(res.status).toBe(401)
+  })
+
+  it('a bearer request with a foreign Origin is still allowed', async () => {
+    const { token } = await newToken()
+    const res = await route(
+      apiRequest('/api/drafts', {
+        method: 'POST',
+        headers: bearer(token),
+        origin: 'https://evil.example',
+        body: { title: 'from agent', posts: [] }
+      })
+    )
+    expect(res.status).toBe(201)
+  })
+
+  it('a cookie request with a foreign Origin is refused (403)', async () => {
+    const res = await route(
+      apiRequest('/api/drafts', { method: 'POST', cookie: aliceCookie, origin: 'https://evil.example', body: { title: 'x', posts: [] } })
+    )
+    expect(res.status).toBe(403)
+  })
+})
