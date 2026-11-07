@@ -46,10 +46,11 @@ function routePath(url) {
   return `/${raw.replace(/^\/+|\/+$/g, '')}`
 }
 
+/** Refuses state-changing requests whose Origin is not the app (falls back to the request's own origin). */
 function checkOrigin(request) {
   const origin = request.headers.get('origin')
   if (!origin) return
-  const appOrigin = process.env.PUBLIC_APP_URL.replace(/\/$/, '')
+  const appOrigin = (process.env.PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/$/, '')
   if (origin !== appOrigin) throw new HttpError(403, 'Cross-origin request blocked')
 }
 
