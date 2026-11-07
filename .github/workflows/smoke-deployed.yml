@@ -31,6 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       XT_SMOKE_TOKEN: ${{ secrets.XT_SMOKE_TOKEN }}
+      XT_SMOKE_TOKEN_PRODUCTION: ${{ secrets.XT_SMOKE_TOKEN_PRODUCTION }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       BASE_URL: ${{ github.event.deployment_status.environment_url || inputs.base_url }}
     steps:
@@ -59,9 +60,14 @@ jobs:
 
       - name: Run the smoke test
         if: steps.gate.outputs.run == 'true'
-        env:
-          XT_TOKEN: ${{ secrets.XT_SMOKE_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "$BASE_URL" ]; then echo "::error::No base URL"; exit 1; fi
-          XT_BASE_URL="$BASE_URL" npm run smoke
+          # Production has its own database, so it needs its own token.
+          if [ "$BASE_URL" = "https://x-thread-draft-tool.vercel.app" ]; then
+            token="${XT_SMOKE_TOKEN_PRODUCTION:-}"
+            if [ -z "$token" ]; then echo "::error::XT_SMOKE_TOKEN_PRODUCTION is not set"; exit 1; fi
+          else
+            token="${XT_SMOKE_TOKEN:-}"
+          fi
+          XT_TOKEN="$token" XT_BASE_URL="$BASE_URL" npm run smoke
