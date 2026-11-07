@@ -1,10 +1,14 @@
 name: UI image upload test
 
-# Manual only. Runs tests/e2e/image-upload.spec.ts against a deployment you choose.
+# Runs tests/e2e/image-upload.spec.ts automatically after every successful PREVIEW deployment,
+# against that deployment's URL. Production is excluded: the test writes a draft (then deletes it),
+# so it never runs against production without a human decision.
+# Also runnable by hand (workflow_dispatch) against any https URL.
 # Needs the repository secret XT_UI_SESSION: the xt_session cookie value of a signed-in user.
-# The test creates a draft and deletes it again; no data is left behind.
+# The run fails (not skips) when the secret is missing.
 
 on:
+  deployment_status:
   workflow_dispatch:
     inputs:
       base_url:
@@ -18,6 +22,11 @@ permissions:
 jobs:
   image-upload:
     name: Image upload (UI)
+    if: >-
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'deployment_status' &&
+       github.event.deployment_status.state == 'success' &&
+       github.event.deployment_status.environment != 'Production')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -34,7 +43,7 @@ jobs:
 
       - name: Check inputs
         env:
-          BASE_URL: ${{ inputs.base_url }}
+          BASE_URL: ${{ github.event_name == 'deployment_status' && github.event.deployment_status.environment_url || inputs.base_url }}
           XT_SESSION: ${{ secrets.XT_UI_SESSION }}
         run: |
           set -euo pipefail
@@ -44,7 +53,7 @@ jobs:
           fi
           case "$BASE_URL" in
             https://*) ;;
-            *) echo "::error::base_url must start with https://"; exit 1 ;;
+            *) echo "::error::base URL must start with https://"; exit 1 ;;
           esac
 
       - name: Install dependencies
@@ -55,7 +64,7 @@ jobs:
 
       - name: Run image upload test
         env:
-          XT_BASE_URL: ${{ inputs.base_url }}
+          XT_BASE_URL: ${{ github.event_name == 'deployment_status' && github.event.deployment_status.environment_url || inputs.base_url }}
           XT_SESSION: ${{ secrets.XT_UI_SESSION }}
         run: npx playwright test tests/e2e/image-upload.spec.ts --reporter=list
 
