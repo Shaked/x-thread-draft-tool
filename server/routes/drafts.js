@@ -2,7 +2,7 @@ import { query } from '../db.js'
 import { HttpError, json, readJson } from '../http.js'
 import { requireUser } from '../session.js'
 import { deleteBlobUrls } from '../blob.js'
-import { imageUrlsFrom } from '../draft-images.js'
+import { imageUrlsFrom, isOwnedBlobUrl } from '../draft-images.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const COLUMNS = 'id, user_id, title, posts, is_published, published_at, created_at, updated_at'
@@ -41,6 +41,18 @@ async function ownedPosts(id, uid) {
   const { rows } = await query('select posts from drafts where id = $1 and user_id = $2', [id, uid])
   if (!rows[0]) throw notFound()
   return rows[0].posts
+}
+
+/**
+ * Blob URLs that may be deleted with this draft: only the owner's own objects, and never an
+ * object that another draft of the same owner still references (duplicates share URLs).
+ */
+async function deletableImageUrls(uid, id, posts) {
+  const owned = imageUrlsFrom(posts).filter((url) => isOwnedBlobUrl(url, uid))
+  if (owned.length === 0) return []
+  const { rows } = await query('select posts from drafts where user_id = $1 and id <> $2', [uid, id])
+  const stillUsed = new Set(rows.flatMap((row) => imageUrlsFrom(row.posts)))
+  return owned.filter((url) => !stillUsed.has(url))
 }
 
 /** GET /api/drafts?published=true|false */
@@ -106,7 +118,7 @@ export async function updateDraft({ request, params }) {
 export async function publishDraft({ request, params }) {
   const session = await requireUser(request)
   const posts = await ownedPosts(params.id, session.uid)
-  await deleteBlobUrls(imageUrlsFrom(posts))
+  await deleteBlobUrls(await deletableImageUrls(session.uid, params.id, posts))
   const cleaned = posts.map((post) => ({ ...post, images: [] }))
 
   const { rows } = await query(
@@ -127,7 +139,7 @@ export async function publishDraft({ request, params }) {
 export async function deleteDraft({ request, params }) {
   const session = await requireUser(request)
   const posts = await ownedPosts(params.id, session.uid)
-  await deleteBlobUrls(imageUrlsFrom(posts))
+  await deleteBlobUrls(await deletableImageUrls(session.uid, params.id, posts))
   await query('delete from drafts where id = $1 and user_id = $2', [params.id, session.uid])
   return json({ ok: true })
 }

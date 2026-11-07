@@ -10,14 +10,14 @@ import { deleteBlobUrls } from '../../server/blob.js'
 import { route } from '../../server/router.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
 
-const BLOB_A = 'https://store.public.blob.vercel-storage.com/drafts/u/d/a.png'
-const BLOB_B = 'https://store.public.blob.vercel-storage.com/drafts/u/d/b.jpg'
-
 let db
 let alice
 let bob
 let aliceCookie
 let bobCookie
+
+// A Blob URL under the given user's own prefix
+const blob = (name, uid = () => alice.id) => `https://store.public.blob.vercel-storage.com/drafts/${uid()}/d/${name}`
 
 beforeAll(async () => {
   db = await setupTestDb()
@@ -133,9 +133,26 @@ describe('owner-only writes', () => {
     expect(res.status).toBe(400)
   })
 
+  it('never deletes Blob objects under another user prefix', async () => {
+    const foreign = blob('x.png', () => bob.id)
+    const draft = await db.insertDraft(alice.id, { posts: [{ id: 'p', images: [foreign] }] })
+    await route(apiRequest(`/api/drafts/${draft.id}`, { method: 'DELETE', cookie: aliceCookie }))
+    const deleted = vi.mocked(deleteBlobUrls).mock.calls.flatMap(([urls]) => urls)
+    expect(deleted).not.toContain(foreign)
+  })
+
+  it('keeps objects still referenced by another draft of the owner (duplicates)', async () => {
+    const shared = blob('shared.png')
+    const original = await db.insertDraft(alice.id, { posts: [{ id: 'p', images: [shared] }] })
+    await db.insertDraft(alice.id, { posts: [{ id: 'q', images: [shared] }] })
+    await route(apiRequest(`/api/drafts/${original.id}`, { method: 'DELETE', cookie: aliceCookie }))
+    const deleted = vi.mocked(deleteBlobUrls).mock.calls.flatMap(([urls]) => urls)
+    expect(deleted).not.toContain(shared)
+  })
+
   it('DELETE by a non-owner returns 404 and keeps the row; by the owner deletes its blob images', async () => {
     const draft = await db.insertDraft(alice.id, {
-      posts: [{ id: 'p', text: '', images: [{ url: BLOB_A }, BLOB_B] }]
+      posts: [{ id: 'p', text: '', images: [{ url: blob('a.png') }, blob('b.jpg')] }]
     })
 
     const denied = await route(apiRequest(`/api/drafts/${draft.id}`, { method: 'DELETE', cookie: bobCookie }))
@@ -144,31 +161,31 @@ describe('owner-only writes', () => {
 
     const ok = await route(apiRequest(`/api/drafts/${draft.id}`, { method: 'DELETE', cookie: aliceCookie }))
     expect(await json(ok)).toEqual({ ok: true })
-    expect(deleteBlobUrls).toHaveBeenCalledWith([BLOB_A, BLOB_B])
+    expect(deleteBlobUrls).toHaveBeenCalledWith([blob('a.png'), blob('b.jpg')])
     expect((await db.pg.query('select id from drafts where id = $1', [draft.id])).rows).toEqual([])
   })
 
   it('publish by a non-owner returns 404 and changes nothing', async () => {
-    const draft = await db.insertDraft(alice.id, { posts: [{ id: 'p', images: [BLOB_A] }] })
+    const draft = await db.insertDraft(alice.id, { posts: [{ id: 'p', images: [blob('a.png')] }] })
     const res = await route(apiRequest(`/api/drafts/${draft.id}/publish`, { method: 'POST', cookie: bobCookie }))
     expect(res.status).toBe(404)
     expect(deleteBlobUrls).not.toHaveBeenCalled()
     const { rows } = await db.pg.query('select is_published, posts from drafts where id = $1', [draft.id])
     expect(rows[0].is_published).toBe(false)
-    expect(rows[0].posts[0].images).toEqual([BLOB_A])
+    expect(rows[0].posts[0].images).toEqual([blob('a.png')])
   })
 
   it('publish by the owner deletes the images, clears them from posts and marks the draft published', async () => {
     const draft = await db.insertDraft(alice.id, {
       posts: [
-        { id: 'p1', text: 'one', images: [{ url: BLOB_A }] },
-        { id: 'p2', text: 'two', images: [BLOB_B] }
+        { id: 'p1', text: 'one', images: [{ url: blob('a.png') }] },
+        { id: 'p2', text: 'two', images: [blob('b.jpg')] }
       ]
     })
     const res = await route(apiRequest(`/api/drafts/${draft.id}/publish`, { method: 'POST', cookie: aliceCookie }))
     expect(res.status).toBe(200)
 
-    expect(deleteBlobUrls).toHaveBeenCalledWith([BLOB_A, BLOB_B])
+    expect(deleteBlobUrls).toHaveBeenCalledWith([blob('a.png'), blob('b.jpg')])
     const { draft: published } = await json(res)
     expect(published.is_published).toBe(true)
     expect(published.published_at).not.toBeNull()

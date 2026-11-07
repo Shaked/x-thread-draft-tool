@@ -10,6 +10,11 @@ export function isBlobUrl(url) {
   }
 }
 
+/** True when the URL is a Blob object under this user's own `drafts/<uid>/` prefix. */
+export function isOwnedBlobUrl(url, uid) {
+  return isBlobUrl(url) && new URL(url).pathname.startsWith(`/drafts/${uid}/`)
+}
+
 /** Every image URL referenced by a draft's posts (string entries and `{ url }` entries). */
 export function imageUrlsFrom(posts) {
   if (!Array.isArray(posts)) return []

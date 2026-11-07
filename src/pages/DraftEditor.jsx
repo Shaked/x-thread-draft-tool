@@ -115,10 +115,12 @@ export default function DraftEditor({ user }) {
 
           // Update IndexedDB
           await idbSet(`draft-${id}`, draftToSave)
+          return true
         } catch (err) {
           console.error('Save error:', err)
           // Still save to IndexedDB even if server fails
           await idbSet(`draft-${id}`, draftToSave)
+          return false
         } finally {
           setSaving(false)
         }
@@ -128,7 +130,7 @@ export default function DraftEditor({ user }) {
         if (saveTimeoutRef.current) {
           clearTimeout(saveTimeoutRef.current)
         }
-        await saveFn()
+        return saveFn()
       } else {
         // Debounce
         if (saveTimeoutRef.current) {
@@ -188,6 +190,10 @@ export default function DraftEditor({ user }) {
 
     try {
       setSaving(true)
+
+      // Publish reads the saved posts on the server, so flush the pending autosave first.
+      const saved = await saveDraft(draft, true)
+      if (!saved) throw new Error('Could not save your latest edits. Try again.')
 
       // The server deletes the draft's images, clears them from posts and marks it published.
       await draftsApi.publish(id)
