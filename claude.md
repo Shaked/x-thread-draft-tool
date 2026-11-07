@@ -3,7 +3,7 @@
 This file is the primary, actionable map for what to use.
 
 <!-- AUTO-INDEX:START -->
-_Last refreshed: 2026-11-07 17:48:23.955 UTC_
+_Last refreshed: 2026-11-07 17:48:24.211 UTC_
 
 ## Feature Index (auto-generated, use directly)
 - Draft Management: [`docs/features/draft-management.md`](./docs/features/draft-management.md)
