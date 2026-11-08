@@ -104,8 +104,9 @@ export default function DraftEditor({ user }) {
 
   // Collapse sidebar by default on smaller screens
   useEffect(() => {
+    // Only window resizes and mount run this, so a manual expand is not undone by a re-run.
     const handleResize = () => {
-      if (window.innerWidth < 1024 && !sidebarCollapsed) {
+      if (window.innerWidth < 1024) {
         setSidebarCollapsed(true)
       }
     }
@@ -115,7 +116,7 @@ export default function DraftEditor({ user }) {
 
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [sidebarCollapsed])
+  }, [])
 
   const loadDraft = useCallback(async () => {
     try {

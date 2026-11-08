@@ -17,7 +17,7 @@ const vitestGlobals = {
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'playwright-report/**', 'test-results/**', 'public/**'],
+    ignores: ['.claude/**', 'dist/**', 'node_modules/**', 'coverage/**', 'playwright-report/**', 'test-results/**', 'public/**'],
   },
 
   // Applies to every JavaScript file. TypeScript (tests/e2e/*.ts) is not linted here.
