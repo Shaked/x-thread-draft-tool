@@ -1,0 +1,1 @@
+- New runbook [docs/plans/hardening-finish.md](../plans/hardening-finish.md): order, decisions D-1 to D-24, procedures and Tasks 20-42 to finish the post-migration hardening plan end to end, including the Neon preview-branch hook and the single stable preview.
