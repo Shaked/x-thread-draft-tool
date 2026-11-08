@@ -1,10 +1,9 @@
 name: Smoke test (deployed)
 
 # Runs the smoke test against a deployed URL after a successful Vercel deployment, and on demand.
-# Hardening Task 26 (docs/plans/hardening-finish.md, D-9): the job signs in with a short-lived GitHub
-# OIDC identity token for the deployment's audience. The server accepts it only from this repository
-# and this workflow file (server/oidc-ci.js). The long-lived XT_SMOKE_TOKEN* secrets are a fallback
-# used only while the OIDC sign-in is refused; Task 27 removes the fallback.
+# The job signs in with a short-lived GitHub OIDC identity token for the deployment's audience.
+# The server accepts it only from this repository and this workflow file (server/oidc-ci.js).
+# No long-lived token is stored: the XT_SMOKE_TOKEN* secrets were removed in hardening Task 27 (D-9).
 # Preview and production deployments both get the full test.
 #
 # Optional secret VERCEL_AUTOMATION_BYPASS_SECRET is sent as x-vercel-protection-bypass if
@@ -36,8 +35,6 @@ jobs:
       contents: read
       id-token: write
     env:
-      XT_SMOKE_TOKEN: ${{ secrets.XT_SMOKE_TOKEN }}
-      XT_SMOKE_TOKEN_PRODUCTION: ${{ secrets.XT_SMOKE_TOKEN_PRODUCTION }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       BASE_URL: ${{ github.event.deployment_status.environment_url || inputs.base_url }}
       DEPLOY_ENV: ${{ github.event.deployment.environment || '' }}
@@ -69,24 +66,5 @@ jobs:
           oidc=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUD" | jq -r '.value')
           if [ -z "$oidc" ] || [ "$oidc" = "null" ]; then echo "::error::could not get a GitHub OIDC token"; exit 1; fi
           echo "::add-mask::$oidc"
-
-          # The probe sends the same deployment-protection bypass as the smoke run, so a 401 from Vercel
-          # is not mistaken for a refused OIDC token (Codex P2 on #65).
-          bypass_args=()
-          if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
-            bypass_args=(-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET")
-          fi
-          status=$(curl -sS -o /dev/null -w '%{http_code}' ${bypass_args[@]+"${bypass_args[@]}"} -H "authorization: Bearer $oidc" "$BASE_URL/api/auth/me")
-          if [ "$status" = "401" ]; then
-            # Fallback (removed in Task 27): the server refused the OIDC token, so use the old secret for this environment.
-            if [ "$AUD" = x-thread-draft-tool-ci-production ]; then fallback="${XT_SMOKE_TOKEN_PRODUCTION:-}"; else fallback="${XT_SMOKE_TOKEN:-}"; fi
-            if [ -n "$fallback" ]; then
-              echo "::warning::OIDC refused; using the fallback token"
-              echo "auth: fallback"
-              XT_EXPECT_AUTH=token XT_TOKEN="$fallback" XT_BASE_URL="$BASE_URL" npm run smoke
-              exit 0
-            fi
-          fi
-
           echo "auth: OIDC"
           XT_EXPECT_AUTH=ci-oidc XT_TOKEN="$oidc" XT_BASE_URL="$BASE_URL" npm run smoke

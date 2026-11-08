@@ -170,7 +170,7 @@ curl -s $BASE/api/health
 `npm run smoke` creates drafts titled `[smoke] <timestamp>` in the token owner's account and
 deletes them, even if a step fails. It prints PASS/FAIL per step and never prints the token.
 Set `XT_SMOKE_PUBLIC=1` to run only the steps that need no account (account steps print SKIP).
-The automatic deployed smoke test (`.github/workflows/smoke-deployed.yml`) runs the full test on Preview and Production deployments. It signs in with a GitHub OIDC identity (`auth: ci-oidc`), so it needs no stored token. The long-lived smoke-token secrets are only a fallback while OIDC is refused.
+The automatic deployed smoke test (`.github/workflows/smoke-deployed.yml`) runs the full test on Preview and Production deployments. It signs in with a GitHub OIDC identity (`auth: ci-oidc`), so it needs no stored token. No long-lived smoke token is stored (the XT_SMOKE_TOKEN* secrets were removed in Task 27).
 
 `/api/dev/token` exists only on the local headless server. It is not part of the Vercel function.
 
