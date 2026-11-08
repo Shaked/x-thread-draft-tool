@@ -1,0 +1,80 @@
+{
+  "_comment": "Synthetic reviewThreads nodes in the shape the GraphQL query returns (comments(first: 1)). Logins are GraphQL form (no [bot] suffix). No real data.",
+  "threads": [
+    {
+      "isResolved": false,
+      "comments": {
+        "nodes": [
+          {
+            "author": { "login": "chatgpt-codex-connector" },
+            "body": "**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Build the search SQL with parameters, not string concatenation**\n\nThe handler concatenates `req.query.q` into the SQL text.\n\n<!-- codex-code-review-finding:v1 -->",
+            "path": "api/search.js",
+            "line": 42,
+            "originalLine": 42,
+            "url": "https://github.com/Shaked/x-thread-draft-tool/pull/99#discussion_r1"
+          }
+        ]
+      }
+    },
+    {
+      "isResolved": true,
+      "comments": {
+        "nodes": [
+          {
+            "author": { "login": "chatgpt-codex-connector" },
+            "body": "**<sub><sub>![P0 Badge](https://img.shields.io/badge/P0-red?style=flat)</sub></sub>  Token is logged on every request**\n\n<!-- codex-code-review-finding:v1 -->",
+            "path": "api/auth.js",
+            "line": 7,
+            "originalLine": 7,
+            "url": "https://github.com/Shaked/x-thread-draft-tool/pull/99#discussion_r2"
+          }
+        ]
+      }
+    },
+    {
+      "isResolved": false,
+      "comments": {
+        "nodes": [
+          {
+            "author": { "login": "chatgpt-codex-connector" },
+            "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Rename the helper for clarity**\n\n<!-- codex-code-review-finding:v1 -->",
+            "path": "src/format.js",
+            "line": null,
+            "originalLine": 13,
+            "url": "https://github.com/Shaked/x-thread-draft-tool/pull/99#discussion_r3"
+          }
+        ]
+      }
+    },
+    {
+      "isResolved": false,
+      "comments": {
+        "nodes": [
+          {
+            "author": { "login": "Shaked" },
+            "body": "**P0 Badge** pasted by a person, not a Codex finding. Must be ignored.",
+            "path": "README.md",
+            "line": 1,
+            "originalLine": 1,
+            "url": "https://github.com/Shaked/x-thread-draft-tool/pull/99#discussion_r4"
+          }
+        ]
+      }
+    },
+    {
+      "isResolved": false,
+      "comments": {
+        "nodes": [
+          {
+            "author": { "login": "chatgpt-codex-connector" },
+            "body": "![P0 Badge](https://img.shields.io/badge/P0-red?style=flat) Codex text without the finding marker. Not a finding.",
+            "path": "README.md",
+            "line": 2,
+            "originalLine": 2,
+            "url": "https://github.com/Shaked/x-thread-draft-tool/pull/99#discussion_r5"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "_comment": "Synthetic issue comments (REST shape). The human comment pastes a completed summary marker to check that only the Codex bot counts. Request markers name SHAs.",
+  "comments": [
+    {
+      "id": 1001,
+      "user": { "login": "Shaked" },
+      "body": "<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 {\"code_review\":{\"commit_sha\":\"0000000000000000000000000000000000000001\",\"status\":\"completed\",\"has_unresolved_findings\":false}} -->"
+    },
+    {
+      "id": 1002,
+      "user": { "login": "github-actions[bot]" },
+      "body": "@codex review\n\n<!-- codex-gate-review-request sha=7a38449db310ad4628825c53f7749cde3934ae62 -->"
+    },
+    {
+      "id": 1003,
+      "user": { "login": "chatgpt-codex-connector[bot]" },
+      "body": "<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 {\"code_review\":{\"commit_sha\":\"528f5bae9a858200c99d1d1735581bc8fbd83764\",\"status\":\"completed\",\"has_unresolved_findings\":true}} -->"
+    }
+  ]
+}
