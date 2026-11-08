@@ -318,7 +318,7 @@ decides between splitting it and a per-file exception).
 
 ## Task 5 — Codex as the blocking reviewer
 
-Status: Not started.
+Status: 5.2 In PR #NN (decision C: no secret, a person comments `@codex review` after pushes). The 5.1 report is in PR #57.
 
 ### 5.1 Spike: when does Codex review (no code)
 Find out, then report to Shaked and wait:
@@ -329,6 +329,7 @@ Find out, then report to Shaked and wait:
    once on a throwaway PR that a comment from `github-actions[bot]` starts a review.
 
 ### 5.2 Gate workflow
+**Decision (option C):** the gate posts nothing and uses no secret. When Codex has not completed a review of the head SHA, `Codex review` **fails** and says to comment `@codex review`. Switching to automatic review on push (option A) needs no change; posting the comment from the gate (option B) is one added step with a Codex-connected token.
 **Files:** new `.github/workflows/codex-gate.yml`, new `scripts/codex-gate.mjs`,
 new `tests/unit/codex-gate.test.js`, fixtures under `tests/unit/fixtures/codex/`.
 **How Codex reports (observed on PRs #23–#25):**

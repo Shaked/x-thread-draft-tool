@@ -1,0 +1,58 @@
+name: Codex gate
+
+# Turns Codex review findings into the required check run "Codex review".
+# Blocks on unresolved P0/P1 (or a finding with no readable severity). P2/P3 are notes.
+# Codex reviews on PR open and on "@codex review" from a connected person, not on every push, and it
+# ignores github-actions[bot]. So this workflow posts nothing and uses no secret: when Codex has not
+# completed a review of the current head, the check fails and says to comment "@codex review".
+# Later switch (one line each): turn on automatic review on push in Codex settings (nothing to change
+# here), or add a comment step with a token of a Codex-connected account.
+# Scripts run from a checkout of main only. This workflow never checks out or runs PR code.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created, edited]
+  pull_request_review_thread:
+    types: [resolved, unresolved]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codex-gate-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Codex gate
+    # Fork PRs fail closed in the script.
+    if: ${{ github.event_name != 'issue_comment' || github.event.issue.pull_request }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: write
+    steps:
+      - name: Check out main (scripts only)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+
+      - name: Write the "Codex review" check run
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: node scripts/codex-gate.mjs
