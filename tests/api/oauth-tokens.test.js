@@ -6,6 +6,7 @@ vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn
 
 import { route } from '../../server/router.js'
 import { authenticate } from '../../server/session.js'
+import { setQueryImpl } from '../../server/db.js'
 import { issuePair, resolveAccess, rotate, OAuthError } from '../../server/oauth/tokens.js'
 import { apiRequest, setupTestDb, APP_URL } from './helpers/db.js'
 
@@ -21,7 +22,20 @@ beforeAll(async () => {
   db = await setupTestDb()
 })
 
+// Runs statements against PGlite; failWhen() swaps in a version that throws for matching SQL.
+const passthrough = async (text, params = []) => {
+  const result = await db.pg.query(text, params)
+  return { rows: result.rows, rowCount: result.affectedRows ?? result.rows.length }
+}
+function failWhen(pattern) {
+  setQueryImpl(async (text, params = []) => {
+    if (pattern.test(text)) throw new Error('injected statement failure')
+    return passthrough(text, params)
+  })
+}
+
 beforeEach(async () => {
+  setQueryImpl(passthrough)
   await db.reset()
   await db.pg.exec('truncate oauth_clients cascade')
   await db.pg.query("insert into oauth_clients (client_id, kind, client_name) values ($1, 'registered', 'Test'), ($2, 'registered', 'Other')", [
@@ -243,6 +257,71 @@ describe('rotating a refresh token', () => {
   it('an access token cannot be used as a refresh token', async () => {
     const pair = await issuePair(await newGrant())
     await expectInvalidGrant(rotate(pair.access_token, CLIENT))
+  })
+
+  it('a failure while issuing the replacement leaves the original refresh token usable', async () => {
+    const grantId = await newGrant()
+    const first = await issuePair(grantId)
+    failWhen(/insert into oauth_tokens/)
+    await expect(rotate(first.refresh_token, CLIENT)).rejects.toThrow('injected statement failure')
+    setQueryImpl(passthrough)
+
+    const { rows } = await db.pg.query('select used_at from oauth_tokens where token_hash = $1', [sha256(first.refresh_token)])
+    expect(rows[0].used_at).toBeNull()
+    const grant = await db.pg.query('select revoked_at, last_used_at from oauth_grants where id = $1', [grantId])
+    expect(grant.rows[0]).toEqual({ revoked_at: null, last_used_at: null })
+
+    const second = await rotate(first.refresh_token, CLIENT)
+    expect(await resolveAccess(second.access_token, API)).toMatchObject({ uid: alice.id })
+  })
+
+  it('a failure after the old token is spent rolls that spend back as well', async () => {
+    const grantId = await newGrant()
+    const first = await issuePair(grantId)
+    failWhen(/update oauth_grants set last_used_at/)
+    await expect(rotate(first.refresh_token, CLIENT)).rejects.toThrow('injected statement failure')
+    setQueryImpl(passthrough)
+
+    const { rows } = await db.pg.query("select count(*)::int as n from oauth_tokens where kind = 'refresh'")
+    expect(rows[0].n).toBe(1)
+    await expect(rotate(first.refresh_token, CLIENT)).resolves.toMatchObject({ token_type: 'Bearer' })
+  })
+
+  it('a failing cleanup does not fail the rotation, revoke the grant or spend anything', async () => {
+    const grantId = await newGrant()
+    const first = await issuePair(grantId)
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    failWhen(/delete from oauth_tokens/)
+
+    const second = await rotate(first.refresh_token, CLIENT)
+    expect(second).toMatchObject({ token_type: 'Bearer', expires_in: 3600 })
+    expect(second.refresh_token).toMatch(/^xtr_/)
+    expect(errorLog).toHaveBeenCalledWith('[oauth] token cleanup failed', expect.any(Error))
+
+    setQueryImpl(passthrough)
+    expect(await resolveAccess(second.access_token, API)).toMatchObject({ uid: alice.id })
+    const grant = await db.pg.query('select revoked_at from oauth_grants where id = $1', [grantId])
+    expect(grant.rows[0].revoked_at).toBeNull()
+    const third = await rotate(second.refresh_token, CLIENT)
+    expect(third.refresh_token).toMatch(/^xtr_/)
+
+    failWhen(/delete from oauth_tokens/)
+    await expect(issuePair(grantId)).resolves.toMatchObject({ token_type: 'Bearer' })
+    setQueryImpl(passthrough)
+    errorLog.mockRestore()
+  })
+
+  it('reuse still revokes the grant after a rotation that had a failing cleanup', async () => {
+    const grantId = await newGrant()
+    const first = await issuePair(grantId)
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    failWhen(/delete from oauth_tokens/)
+    const second = await rotate(first.refresh_token, CLIENT)
+    setQueryImpl(passthrough)
+    errorLog.mockRestore()
+
+    await expectInvalidGrant(rotate(first.refresh_token, CLIENT))
+    expect(await resolveAccess(second.access_token, API)).toBeNull()
   })
 
   it('two concurrent rotations: exactly one succeeds', async () => {
