@@ -12,7 +12,7 @@
     "test:api": "vitest run tests/api",
     "db:migrate": "node scripts/migrate.mjs --strict",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=chromium",
     "test:e2e:install": "playwright install --with-deps chromium",
     "lint": "vite build --mode production",
     "screens": "playwright test --project=screens",
