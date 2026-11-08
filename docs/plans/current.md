@@ -7,6 +7,7 @@
 - E2E remains gated in GitHub Actions.
 
 ## Planned next
+- Draft, waiting for Shaked's decisions: [small-prs.md](./small-prs.md), every PR ≤ 100 changed lines, big work split into stacks proven in a temp worktree before opening PRs, enforced by Claude Code hooks, git hooks and CI from `main`.
 - Next: [post-migration-hardening.md](./post-migration-hardening.md), decisions complete, Tasks 0–7 written for step-by-step execution: audit fixes, CI cleanup, security gates, quality gates, test budget, Codex review gate, light theme and friendlier UI, OIDC for CI and an MCP connector for agents.
 - Finish the Supabase → Neon/Blob migration: run `data-migrate.yml` (dry run, then apply), smoke-test Preview and Production, then retire Supabase after 14 days (Phase 4 of [vercel-migration.md](./vercel-migration.md)).
 - Increase regression tests around publish/archive and share-link error paths.
