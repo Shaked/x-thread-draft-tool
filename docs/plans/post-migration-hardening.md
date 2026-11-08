@@ -289,7 +289,7 @@ Shaked adds `Lint`, `knip`, `dup`, `slop`, `net-lines` to the required checks af
 
 ## Task 4 — Test time budget
 
-Status: Not started. One PR.
+Status: In PR #42. One PR.
 
 **Why:** 10 of 14 files exceed 3 s in CI; each API file boots PGlite and runs every migration.
 **Files:** `vitest.config.js`, new `tests/api/helpers/global-setup.js`, `tests/api/helpers/db.js`,
