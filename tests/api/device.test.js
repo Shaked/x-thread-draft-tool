@@ -138,7 +138,8 @@ describe('device flow', () => {
     const drafts = await route(apiRequest('/api/drafts?published=false', { headers: { authorization: `Bearer ${pair.access_token}` } }))
     expect(drafts.status).toBe(200)
 
-    // Reusing the spent refresh token is refused and revokes the grant (reuse detection).
+    // Reusing the spent refresh token after the grace window is refused and revokes the grant (reuse detection).
+    await db.pg.query("update oauth_tokens set used_at = now() - interval '1 minute' where kind = 'refresh' and used_at is not null")
     const reused = await refresh(first.refresh_token, 'device:claude')
     expect(reused.status).toBe(400)
     expect((await reused.json()).error).toBe('invalid_grant')
