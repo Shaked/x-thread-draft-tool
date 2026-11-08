@@ -496,7 +496,8 @@ body {
   font-weight: 700;
 }
 
-.new-draft-btn {
+.new-draft-btn,
+.publish-btn {
   padding: 10px 20px;
   background-color: var(--accent);
   color: var(--accent-text);
@@ -1226,13 +1227,6 @@ body {
 .publish-btn {
   padding: 8px 16px;
   background-color: var(--success);
-  color: var(--accent-text);
-  border: none;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
 }
 
 .publish-btn:hover:not(:disabled) {
