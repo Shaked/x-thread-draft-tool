@@ -1,0 +1,1 @@
+- Neon preview hook: a PR push reuses its preview branch, makes room at the branch limit, or stops; a PR close deletes its branch; a daily sweep deletes merged and closed-unmerged previews past 24 hours. Main, the default and the stable preview are never deleted (hardening Task 24, D-5).

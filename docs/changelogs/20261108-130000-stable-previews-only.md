@@ -1,0 +1,1 @@
+- Only `main` and the stable branch `claude/lucid-sagan-bbciuo` deploy to Vercel; other `claude/*` and `codex/*` branches no longer get previews (hardening Task 22, D-3).
