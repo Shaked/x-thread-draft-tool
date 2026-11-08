@@ -70,7 +70,13 @@ jobs:
           if [ -z "$oidc" ] || [ "$oidc" = "null" ]; then echo "::error::could not get a GitHub OIDC token"; exit 1; fi
           echo "::add-mask::$oidc"
 
-          status=$(curl -sS -o /dev/null -w '%{http_code}' -H "authorization: Bearer $oidc" "$BASE_URL/api/auth/me")
+          # The probe sends the same deployment-protection bypass as the smoke run, so a 401 from Vercel
+          # is not mistaken for a refused OIDC token (Codex P2 on #65).
+          bypass_args=()
+          if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
+            bypass_args=(-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET")
+          fi
+          status=$(curl -sS -o /dev/null -w '%{http_code}' ${bypass_args[@]+"${bypass_args[@]}"} -H "authorization: Bearer $oidc" "$BASE_URL/api/auth/me")
           if [ "$status" = "401" ]; then
             # Fallback (removed in Task 27): the server refused the OIDC token, so use the old secret for this environment.
             if [ "$AUD" = x-thread-draft-tool-ci-production ]; then fallback="${XT_SMOKE_TOKEN_PRODUCTION:-}"; else fallback="${XT_SMOKE_TOKEN:-}"; fi
