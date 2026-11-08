@@ -29,7 +29,7 @@ function newToken(prefix) {
 }
 
 /** Inserts a new access + refresh pair for `grantId` through `q` and returns the plaintext pair. */
-async function insertPair(q, grantId) {
+export async function insertPair(q, grantId) {
   const access = newToken(ACCESS_PREFIX)
   const refresh = newToken(REFRESH_PREFIX)
   await q(
@@ -52,7 +52,7 @@ async function insertPair(q, grantId) {
  * the caller's token change has committed, and a failure is logged, never thrown. Re-running
  * it is harmless because it only deletes rows matching the expiry condition.
  */
-async function cleanupExpired() {
+export async function cleanupExpired() {
   try {
     await query(
       `delete from oauth_tokens where token_hash in (

@@ -515,6 +515,84 @@ describe('POST /oauth/token', () => {
   })
 })
 
+// ---- transactions and re-approval -------------------------------------------------------------
+
+describe('code exchange is atomic', () => {
+  it('a failed token insert rolls back: the code stays unused, the grant stays active, and a retry succeeds', async () => {
+    const clientId = await registerClient()
+    const { verifier, challenge } = pkce()
+    const { code } = await approve(clientId, { challenge, resource: API })
+    const body = {
+      grant_type: 'authorization_code', code, redirect_uri: LOCAL_REDIRECT, client_id: clientId,
+      code_verifier: verifier, resource: API
+    }
+
+    const original = db.pg.query.bind(db.pg)
+    let injected = false
+    vi.spyOn(db.pg, 'query').mockImplementation(async (text, params) => {
+      if (!injected && /insert into oauth_tokens/.test(text)) {
+        injected = true
+        throw new Error('simulated insert failure')
+      }
+      return original(text, params)
+    })
+    const failed = await exchange(body)
+    expect(failed.status).toBe(500)
+    vi.restoreAllMocks()
+
+    const { rows: codes } = await db.pg.query('select used_at from oauth_codes')
+    expect(codes[0].used_at).toBeNull()
+    const { rows: grants } = await db.pg.query('select revoked_at from oauth_grants')
+    expect(grants[0].revoked_at).toBeNull()
+    const { rows: tokens } = await db.pg.query('select count(*)::int as n from oauth_tokens')
+    expect(tokens[0].n).toBe(0)
+
+    const retry = await exchange(body)
+    expect(retry.status).toBe(200)
+    expect(await retry.json()).toMatchObject({ access_token: expect.stringMatching(/^xta_/) })
+  })
+})
+
+describe('re-approving a revoked app', () => {
+  it('refuses the old access and refresh tokens once the same app is approved again', async () => {
+    const { tokens, clientId } = await fullPair({ resource: API })
+    expect((await get('/api/drafts?published=false', { headers: bearer(tokens.access_token) })).status).toBe(200)
+    await post('/api/oauth/revoke', new URLSearchParams({ token: tokens.refresh_token }).toString())
+
+    const { verifier, challenge } = pkce()
+    const { code } = await approve(clientId, { challenge, resource: API })
+    expect(code).toBeTruthy()
+
+    expect(await resolveAccess(tokens.access_token, API)).toBeNull()
+    expect((await get('/api/drafts?published=false', { headers: bearer(tokens.access_token) })).status).toBe(401)
+    const refresh = await exchange({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: clientId })
+    expect(await refresh.json()).toMatchObject({ error: 'invalid_grant' })
+
+    const fresh = await exchange({
+      grant_type: 'authorization_code', code, redirect_uri: LOCAL_REDIRECT, client_id: clientId,
+      code_verifier: verifier, resource: API
+    })
+    expect(fresh.status).toBe(200)
+    const next = await fresh.json()
+    expect((await get('/api/drafts?published=false', { headers: bearer(next.access_token) })).status).toBe(200)
+  })
+
+  it('refuses an unused code issued before the revocation', async () => {
+    const clientId = await registerClient()
+    const { verifier, challenge } = pkce()
+    const { code: oldCode } = await approve(clientId, { challenge, resource: API })
+    await db.pg.exec('update oauth_grants set revoked_at = now()')
+
+    await approve(clientId, { challenge: pkce().challenge, resource: API })
+    const res = await exchange({
+      grant_type: 'authorization_code', code: oldCode, redirect_uri: LOCAL_REDIRECT, client_id: clientId,
+      code_verifier: verifier, resource: API
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'invalid_grant' })
+  })
+})
+
 // ---- revoke -----------------------------------------------------------------------------------
 
 describe('POST /oauth/revoke', () => {

@@ -2,11 +2,11 @@
 // Metadata (RFC 8414, RFC 9728), client registration, the authorize page, the code and refresh
 // token endpoint, and revocation. Tokens come from server/oauth/tokens.js (Task 7.4).
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
-import { query } from '../db.js'
+import { query, transaction } from '../db.js'
 import { HttpError, json, readJson } from '../http.js'
 import { readSession } from '../session.js'
 import { hashToken } from '../tokens.js'
-import { OAuthError, SCOPE, issuePair, rotate } from '../oauth/tokens.js'
+import { OAuthError, SCOPE, cleanupExpired, insertPair, rotate } from '../oauth/tokens.js'
 import { getClient, isValidRedirectUriList, registerClient } from '../oauth/clients.js'
 import {
   consentHeaders,
@@ -234,18 +234,32 @@ export async function authorizePost({ request }) {
     return redirectTo(decision.redirect_uri, { error: 'access_denied', state: decision.state }, base)
   }
 
-  const { rows } = await query(
-    `insert into oauth_grants (user_id, client_id, scope, resource) values ($1, $2, $3, $4)
-     on conflict (user_id, client_id, resource) do update set revoked_at = null, scope = excluded.scope
-     returning id`,
-    [session.uid, decision.client_id, decision.scope, decision.resource]
-  )
   const code = randomBytes(32).toString('base64url')
-  await query(
-    `insert into oauth_codes (code_hash, grant_id, redirect_uri, code_challenge, expires_at)
-     values ($1, $2, $3, $4, now() + ${CODE_TTL})`,
-    [hashToken(code), rows[0].id, decision.redirect_uri, decision.code_challenge]
-  )
+  await transaction(async (q) => {
+    // One grant per user, client and resource. The row is locked so a concurrent approval waits.
+    await q(
+      `insert into oauth_grants (user_id, client_id, scope, resource) values ($1, $2, $3, $4)
+       on conflict (user_id, client_id, resource) do nothing`,
+      [session.uid, decision.client_id, decision.scope, decision.resource]
+    )
+    const { rows } = await q(
+      `select id, revoked_at from oauth_grants
+        where user_id = $1 and client_id = $2 and resource = $3 for update`,
+      [session.uid, decision.client_id, decision.resource]
+    )
+    const grant = rows[0]
+    if (grant.revoked_at) {
+      // Reactivating a revoked grant: every code and token issued before revocation must stay dead.
+      await q('delete from oauth_tokens where grant_id = $1', [grant.id])
+      await q('delete from oauth_codes where grant_id = $1', [grant.id])
+    }
+    await q('update oauth_grants set revoked_at = null, scope = $2 where id = $1', [grant.id, decision.scope])
+    await q(
+      `insert into oauth_codes (code_hash, grant_id, redirect_uri, code_challenge, expires_at)
+       values ($1, $2, $3, $4, now() + ${CODE_TTL})`,
+      [hashToken(code), grant.id, decision.redirect_uri, decision.code_challenge]
+    )
+  })
   return redirectTo(decision.redirect_uri, { code, state: decision.state }, base)
 }
 
@@ -299,19 +313,27 @@ async function exchangeCode(form) {
     throw new OAuthError('invalid_target', 'The resource does not match the one the code was issued for', 400)
   }
 
-  // One statement: of two concurrent exchanges, only one can use the code.
-  const { rows: spent } = await query(
-    `update oauth_codes set used_at = now()
-      where code_hash = $1 and used_at is null and expires_at > now()
-      returning grant_id`,
-    [hash]
-  )
-  if (!spent[0]) {
+  // Spending the code, issuing the pair and stamping the grant are one transaction: if the
+  // insert fails, the rollback leaves the code unused so the client can retry. Of two
+  // concurrent exchanges, only one can mark the code used.
+  const pair = await transaction(async (q) => {
+    const { rows: spent } = await q(
+      `update oauth_codes set used_at = now()
+        where code_hash = $1 and used_at is null and expires_at > now()
+        returning grant_id`,
+      [hash]
+    )
+    if (!spent[0]) return null
+    const issued = await insertPair(q, row.grant_id)
+    await q('update oauth_grants set last_used_at = now() where id = $1', [row.grant_id])
+    return issued
+  })
+  if (!pair) {
+    // Lost the race: the code was spent by a concurrent exchange. Reuse, so revoke.
     await revokeGrant(row.grant_id)
     throw invalidCode()
   }
-  const pair = await issuePair(row.grant_id)
-  await query('update oauth_grants set last_used_at = now() where id = $1', [row.grant_id])
+  await cleanupExpired()
   return pair
 }
 
