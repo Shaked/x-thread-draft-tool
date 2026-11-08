@@ -8,10 +8,6 @@ export const REFRESH_PREFIX = 'xtr_'
 export const SCOPE = 'drafts'
 export const ACCESS_TTL_SECONDS = 60 * 60
 const REFRESH_TTL_DAYS = 90
-// A refresh token spent this recently may be presented once more by its own client without it
-// counting as reuse: two concurrent refreshes (say, two scripts sharing one credentials file)
-// would otherwise revoke the grant.
-const REFRESH_GRACE_SECONDS = 10
 const CLEANUP_BATCH = 100
 
 const ACCESS_SHAPE = /^xta_[A-Za-z0-9_-]{43}$/
@@ -90,26 +86,21 @@ async function revokeGrant(grantId) {
  * Exchanges a refresh token for a new pair. The old refresh token is spent.
  * Throws OAuthError('invalid_grant') when the token is unknown, expired, belongs to another
  * client or a revoked grant (none of these spend it), or was already used. Using a spent
- * refresh token revokes the whole grant (reuse detection), except during the short grace
- * window after it was spent: its own client then gets a further fresh pair instead, which
- * keeps concurrent refreshes from revoking the grant. Only hashes are stored, so the pair
- * the first caller received cannot be returned again; each caller gets its own pair.
+ * refresh token revokes the whole grant (reuse detection).
  */
 export async function rotate(refreshToken, clientId) {
   if (typeof refreshToken !== 'string' || !REFRESH_SHAPE.test(refreshToken)) throw invalidGrant()
   const hash = hashToken(refreshToken)
 
   const { rows: found } = await query(
-    `select t.grant_id, t.used_at,
-            t.used_at > now() - make_interval(secs => $2) as in_grace,
-            t.expires_at > now() as fresh, g.client_id, g.revoked_at
+    `select t.grant_id, t.used_at, t.expires_at > now() as fresh, g.client_id, g.revoked_at
        from oauth_tokens t join oauth_grants g on g.id = t.grant_id
       where t.token_hash = $1 and t.kind = 'refresh'`,
-    [hash, REFRESH_GRACE_SECONDS]
+    [hash]
   )
   const row = found[0]
   if (!row) throw invalidGrant()
-  if (row.used_at && !row.in_grace) {
+  if (row.used_at) {
     await revokeGrant(row.grant_id)
     throw invalidGrant()
   }
@@ -117,15 +108,13 @@ export async function rotate(refreshToken, clientId) {
 
   // Spending the old token and issuing its replacement are one transaction: if any part
   // fails, the rollback leaves the old token unspent so the client can retry.
-  // Of two concurrent rotations, one marks the token used; the other waits on that row lock and,
-  // when it re-checks the row, finds it spent inside the grace window.
+  // Of two concurrent rotations, only one can mark the token used.
   const pair = await transaction(async (q) => {
     const { rows: spent } = await q(
-      `update oauth_tokens set used_at = coalesce(used_at, now())
-        where token_hash = $1 and kind = 'refresh' and expires_at > now()
-          and (used_at is null or used_at > now() - make_interval(secs => $2))
+      `update oauth_tokens set used_at = now()
+        where token_hash = $1 and kind = 'refresh' and used_at is null and expires_at > now()
         returning grant_id`,
-      [hash, REFRESH_GRACE_SECONDS]
+      [hash]
     )
     if (!spent[0]) return null
     const issued = await insertPair(q, row.grant_id)
@@ -133,7 +122,7 @@ export async function rotate(refreshToken, clientId) {
     return issued
   })
   if (!pair) {
-    // Spent before the grace window began, or the token expired meanwhile. Reuse, so revoke.
+    // Lost the race: the token was spent by a concurrent request. Reuse, so revoke.
     await revokeGrant(row.grant_id)
     throw invalidGrant()
   }

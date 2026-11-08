@@ -210,39 +210,10 @@ describe('rotating a refresh token', () => {
     expect(rows[0].last_used_at).not.toBeNull()
   })
 
-  it('two concurrent refreshes with the same token both succeed and do not revoke the grant', async () => {
-    const grantId = await newGrant()
-    const first = await issuePair(grantId)
-
-    const [a, b] = await Promise.all([rotate(first.refresh_token, CLIENT), rotate(first.refresh_token, CLIENT)])
-
-    const grant = await db.pg.query('select revoked_at from oauth_grants where id = $1', [grantId])
-    expect(grant.rows[0].revoked_at).toBeNull()
-    for (const pair of [a, b]) {
-      expect(await resolveAccess(pair.access_token, API)).toMatchObject({ uid: alice.id })
-    }
-    expect(a.refresh_token).not.toBe(b.refresh_token)
-    await expect(rotate(a.refresh_token, CLIENT)).resolves.toMatchObject({ token_type: 'Bearer' })
-    await expect(rotate(b.refresh_token, CLIENT)).resolves.toMatchObject({ token_type: 'Bearer' })
-  })
-
-  it('a second use of a spent token inside the grace window is served, from another client it is not', async () => {
-    const grantId = await newGrant()
-    const first = await issuePair(grantId)
-    await rotate(first.refresh_token, CLIENT)
-    await expectInvalidGrant(rotate(first.refresh_token, OTHER_CLIENT))
-    await expect(rotate(first.refresh_token, CLIENT)).resolves.toMatchObject({ token_type: 'Bearer' })
-    const grant = await db.pg.query('select revoked_at from oauth_grants where id = $1', [grantId])
-    expect(grant.rows[0].revoked_at).toBeNull()
-  })
-
-  it('reusing a spent refresh token after the grace window is invalid_grant and revokes the whole grant', async () => {
+  it('reusing a spent refresh token is invalid_grant and revokes the whole grant', async () => {
     const grantId = await newGrant()
     const first = await issuePair(grantId)
     const second = await rotate(first.refresh_token, CLIENT)
-    await db.pg.query("update oauth_tokens set used_at = now() - interval '1 minute' where token_hash = $1", [
-      sha256(first.refresh_token)
-    ])
 
     await expectInvalidGrant(rotate(first.refresh_token, CLIENT))
 
@@ -349,10 +320,20 @@ describe('rotating a refresh token', () => {
     setQueryImpl(passthrough)
     errorLog.mockRestore()
 
-    await db.pg.query("update oauth_tokens set used_at = now() - interval '1 minute' where token_hash = $1", [
-      sha256(first.refresh_token)
-    ])
     await expectInvalidGrant(rotate(first.refresh_token, CLIENT))
     expect(await resolveAccess(second.access_token, API)).toBeNull()
+  })
+
+  it('two concurrent rotations: exactly one succeeds', async () => {
+    const pair = await issuePair(await newGrant())
+    const results = await Promise.allSettled([
+      rotate(pair.refresh_token, CLIENT),
+      rotate(pair.refresh_token, CLIENT)
+    ])
+    const fulfilled = results.filter((r) => r.status === 'fulfilled')
+    const rejected = results.filter((r) => r.status === 'rejected')
+    expect(fulfilled).toHaveLength(1)
+    expect(rejected).toHaveLength(1)
+    expect(rejected[0].reason).toMatchObject({ code: 'invalid_grant' })
   })
 })

@@ -6,7 +6,6 @@ vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn
 
 import { route } from '../../server/router.js'
 import { resolveAccess } from '../../server/oauth/tokens.js'
-import { hashToken } from '../../server/tokens.js'
 import { setMetadataResolverForTests } from '../../server/oauth/clients.js'
 import { safeReturnTo } from '../../server/routes/auth.js'
 import { apiRequest, setupTestDb, APP_URL } from './helpers/db.js'
@@ -528,7 +527,6 @@ describe('POST /oauth/token', () => {
     const next = await refreshed.json()
     expect(next.access_token).not.toBe(tokens.access_token)
 
-    await db.pg.query("update oauth_tokens set used_at = now() - interval '1 minute' where token_hash = $1", [hashToken(tokens.refresh_token)])
     const reuse = await exchange({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: clientId })
     expect(await reuse.json()).toMatchObject({ error: 'invalid_grant' })
     expect(await resolveAccess(next.access_token, API)).toBeNull()

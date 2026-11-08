@@ -20,8 +20,7 @@ token is always `401`, never a fallback to the cookie.
 An access token (`xta_`) lasts 1 hour and is bound to one resource: a token for the REST API
 is refused on `/api/mcp`, and the reverse. It refreshes with a rotating refresh token (`xtr_`,
 90 days unused), at `POST /api/oauth/token` with `grant_type=refresh_token`. Reusing a spent
-refresh token revokes its whole connected app, except during the 10 seconds after it was
-spent (concurrent refreshes), when its own client gets a fresh pair.
+refresh token revokes its whole connected app.
 
 Hand-made `xt_` tokens are personal (they act as the GitHub user who created them), expire after
 7 days at most, and can be revoked at any time. At most 20 are active per user. The plaintext is
@@ -67,8 +66,8 @@ XT_TOKEN=$(node scripts/xt-token.mjs) npm run smoke              # prints a fres
 client id, the refresh token and the current access token. `xt-token` returns the stored access
 token while it is valid, otherwise it refreshes, saves the rotated refresh token and prints the new
 access token. If it fails, it says to run `npm run agent:login` again. Set `XT_CREDENTIALS_FILE` to
-use another file. Two refreshes at once are safe: a spent refresh token is still accepted from its own client for
-10 seconds, and each caller gets its own valid pair.
+use another file. Do not run two refreshes at once: the second would reuse the first's spent token and
+revoke the connected app.
 
 ## Error format and status codes
 
