@@ -481,6 +481,45 @@ describe('POST /oauth/token', () => {
     expect((await get('/api/drafts?published=false', { headers: bearer(tokens.access_token) })).status).toBe(401)
   })
 
+  it('a redeemed code with a wrong verifier does not revoke the grant', async () => {
+    const clientId = await registerClient()
+    const { verifier, challenge } = pkce()
+    const { code } = await approve(clientId, { challenge, resource: API })
+    const first = await exchange({
+      grant_type: 'authorization_code', code, redirect_uri: LOCAL_REDIRECT, client_id: clientId,
+      code_verifier: verifier, resource: API
+    })
+    const tokens = await first.json()
+
+    const forged = await exchange({
+      grant_type: 'authorization_code', code, redirect_uri: LOCAL_REDIRECT, client_id: clientId,
+      code_verifier: pkce().verifier, resource: API
+    })
+    expect(forged.status).toBe(400)
+    expect(await forged.json()).toMatchObject({ error: 'invalid_grant' })
+    expect(await resolveAccess(tokens.access_token, API)).toMatchObject({ uid: alice.id, via: 'oauth' })
+    expect((await get('/api/drafts?published=false', { headers: bearer(tokens.access_token) })).status).toBe(200)
+  })
+
+  it('a redeemed code with a wrong redirect URI does not revoke the grant', async () => {
+    const clientId = await registerClient({ redirect_uris: [LOCAL_REDIRECT, 'http://localhost:4001/cb'] })
+    const { verifier, challenge } = pkce()
+    const { code } = await approve(clientId, { challenge, resource: API })
+    const first = await exchange({
+      grant_type: 'authorization_code', code, redirect_uri: LOCAL_REDIRECT, client_id: clientId,
+      code_verifier: verifier, resource: API
+    })
+    const tokens = await first.json()
+
+    const forged = await exchange({
+      grant_type: 'authorization_code', code, redirect_uri: 'http://localhost:4001/cb', client_id: clientId,
+      code_verifier: verifier, resource: API
+    })
+    expect(forged.status).toBe(400)
+    expect(await forged.json()).toMatchObject({ error: 'invalid_grant' })
+    expect(await resolveAccess(tokens.access_token, API)).toMatchObject({ uid: alice.id, via: 'oauth' })
+  })
+
   it('refreshes by rotation, and reusing a spent refresh token revokes the grant', async () => {
     const { tokens, clientId } = await fullPair({ resource: API })
     const refreshed = await exchange({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: clientId })

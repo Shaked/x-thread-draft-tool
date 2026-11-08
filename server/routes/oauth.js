@@ -302,13 +302,18 @@ async function exchangeCode(form) {
   )
   const row = rows[0]
   if (!row) throw invalidCode()
+  // Client, redirect URI and PKCE verifier must match before anything else happens, including
+  // reuse revocation. Otherwise anyone holding a spent code (say, from a logged callback URL)
+  // could revoke the user's grant without proving they are the client that was issued it.
+  const bindingsMatch =
+    row.client_id === clientId && row.redirect_uri === redirectUri && pkceMatches(verifier, row.code_challenge)
   if (row.used_at) {
-    await revokeGrant(row.grant_id)
+    // Only a request that presents the code's bindings (a genuine replay by the legitimate client) revokes.
+    if (bindingsMatch && resource === row.resource) await revokeGrant(row.grant_id)
     throw invalidCode()
   }
   if (!row.fresh || row.revoked_at) throw invalidCode()
-  if (row.client_id !== clientId || row.redirect_uri !== redirectUri) throw invalidCode()
-  if (!pkceMatches(verifier, row.code_challenge)) throw invalidCode()
+  if (!bindingsMatch) throw invalidCode()
   if (resource !== row.resource) {
     throw new OAuthError('invalid_target', 'The resource does not match the one the code was issued for', 400)
   }
