@@ -1,0 +1,86 @@
+name: Codex gate
+
+# Turns Codex review findings into the required check run "Codex review".
+# Blocks on unresolved P0/P1 (or a finding with no readable severity). P2/P3 are notes.
+# Codex does not re-review on every push. When repository variable CODEX_REVIEW_COMMENT is "1",
+# the request job posts "@codex review" once per new head SHA. Otherwise Codex must review on its own.
+# Scripts run from a checkout of main only. This workflow never checks out or runs PR code.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created, edited]
+  pull_request_review_thread:
+    types: [resolved, unresolved]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codex-gate-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  request:
+    name: Request a Codex review (opt-in)
+    # Only this job holds issues: write, and it runs only when the variable is "1".
+    if: ${{ vars.CODEX_REVIEW_COMMENT == '1' && (github.event_name != 'issue_comment' || github.event.issue.pull_request) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+    steps:
+      - name: Check out main (scripts only)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Post "@codex review" for the head SHA if needed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          CODEX_REVIEW_COMMENT: ${{ vars.CODEX_REVIEW_COMMENT }}
+        run: node scripts/codex-gate.mjs request
+
+  gate:
+    name: Codex gate
+    # Runs even when the request job is skipped or fails. Fork PRs fail closed in the script.
+    needs: request
+    if: ${{ always() && (github.event_name != 'issue_comment' || github.event.issue.pull_request) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: write
+    steps:
+      - name: Check out main (scripts only)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Write the "Codex review" check run
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          CODEX_REVIEW_COMMENT: ${{ vars.CODEX_REVIEW_COMMENT }}
+        run: node scripts/codex-gate.mjs gate
