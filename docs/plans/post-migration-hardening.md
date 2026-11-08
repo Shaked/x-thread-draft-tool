@@ -689,6 +689,7 @@ unknown method errors.
   list drafts, with no token copied. 70 minutes later (access token expired) it still works.
 
 ### 7.7 Device flow and scripts use the short-lived pair
+Status: In PR (branch `claude/task-7-7-device-flow`; add the PR number once it is opened).
 **Files:** `server/routes/device.js`, `scripts/agent-login.mjs`, new `scripts/xt-token.mjs`,
 `tests/api/device.test.js`, `docs/agents/api.md`, `public/llms.txt`, `server/openapi.js`, `AGENTS.md`.
 **Steps:**

@@ -87,7 +87,8 @@ const accountStep = publicOnly ? async (name) => console.log(`SKIP ${name}: XT_S
 await accountStep('me (token)', async () => {
   const data = await call('GET', '/api/auth/me')
   if (!data.user) throw new Error('not signed in: check the token')
-  if (data.auth !== 'token') throw new Error(`auth is ${data.auth}, expected token`)
+  // 'token': a hand-made xt_ token; 'oauth': an access token from the device flow or the connector.
+  if (!['token', 'oauth'].includes(data.auth)) throw new Error(`auth is ${data.auth}, expected a bearer token`)
 })
 
 await step('split text', async () => {

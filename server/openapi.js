@@ -186,11 +186,11 @@ export const OPENAPI = {
     },
     '/auth/device/poll': {
       post: {
-        summary: 'Poll the device flow. 202 while pending; 201 returns a new API token once approved.',
+        summary: 'Poll the device flow. 202 while pending; 201 returns an access token (1 hour) and a refresh token once approved.',
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['device_code'], properties: { device_code: { type: 'string' }, name: { type: 'string', maxLength: 100 } } } } } },
         responses: {
           202: { description: 'Still waiting for approval', content: { 'application/json': { schema: { type: 'object', properties: { status: { const: 'pending' }, interval: { type: 'integer' } } } } } },
-          ...json({ type: 'object', properties: { token: { type: 'string' }, expires_at: { type: 'string' }, user: { type: 'object' } } }, '201'),
+          ...json({ type: 'object', properties: { access_token: { type: 'string', example: 'xta_…' }, refresh_token: { type: 'string', example: 'xtr_…' }, token_type: { const: 'Bearer' }, expires_in: { type: 'integer', example: 3600 }, scope: { type: 'string', example: 'drafts' }, client_id: { type: 'string', example: 'device:Claude agent' }, token: { type: 'string', description: 'Deprecated alias of access_token, removed one release later' }, user: { type: 'object' } } }, '201'),
           400: { description: 'Denied, expired or invalid device code', content: errorContent() }
         }
       }
