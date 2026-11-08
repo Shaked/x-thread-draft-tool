@@ -1,6 +1,9 @@
 # Plan: Keyless agent auth, automated reviews, code quality gates, light UI
 
 Status: **Planned, decisions complete (2026-11-07). Not started.** Task 1.0 is in PR #24.
+
+**Execution (from 2026-11-08):** see [hardening-finish.md](./hardening-finish.md) for the order,
+the remaining decisions (D-1 to D-24) and the procedures used to finish this plan.
 Owner: Shaked (decisions, dashboard steps, merges). Executor: an agent following
 [How to execute this plan](#how-to-execute-this-plan) one task at a time.
 
