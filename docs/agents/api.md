@@ -195,6 +195,8 @@ preview answers 401 to a token that worked before, create a new token on that pr
 
 Only `main` and the stable branch `claude/lucid-sagan-bbciuo` deploy (`vercel.json` `git.deploymentEnabled`). A PR is put on the stable preview by the runbook's P-PREVIEW (`docs/plans/hardening-finish.md`).
 
+**Neon preview branches:** `.github/workflows/neon-preview-cleanup.yml` runs `scripts/neon-preview-cleanup.mjs`. On each PR push it runs `preflight`: reuse the PR's `preview/<branch>`, or make room when the project is at its branch limit (`branches_limit`, 10 on the free plan), or stop with exit 2. On close it deletes that PR's branch. A daily run deletes merged and closed-unmerged previews after 24 hours. `main`, the default, primary, delete-restricted or protected branches and the stable preview are never deleted.
+
 ## CI identity (GitHub Actions OIDC)
 
 GitHub Actions can call the API without a stored token. The workflow requests a short-lived OIDC identity
