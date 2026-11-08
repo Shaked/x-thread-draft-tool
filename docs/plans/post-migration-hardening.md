@@ -1,6 +1,9 @@
 # Plan: Keyless agent auth, automated reviews, code quality gates, light UI
 
 Status: **Planned, decisions complete (2026-11-07). Not started.** Task 1.0 is in PR #24.
+
+**Execution (from 2026-11-08):** see [hardening-finish.md](./hardening-finish.md) for the order,
+the remaining decisions (D-1 to D-24) and the procedures used to finish this plan.
 Owner: Shaked (decisions, dashboard steps, merges). Executor: an agent following
 [How to execute this plan](#how-to-execute-this-plan) one task at a time.
 
@@ -184,7 +187,7 @@ Status: blocked until Shaked confirms the Supabase project is deleted (on or aft
 
 ## Task 2 — Security gates
 
-Status: Not started. One PR for 2.1–2.3; 2.4 is Shaked's.
+Status: In PR #36 (2.1–2.3). 2.4 is Shaked's.
 
 ### 2.1 CodeQL
 **Files:** new `.github/workflows/codeql.yml`.
@@ -318,7 +321,7 @@ decides between splitting it and a per-file exception).
 
 ## Task 5 — Codex as the blocking reviewer
 
-Status: Not started.
+Status: 5.1 merged in PR #57 (report in the section below). 5.2 In PR #58 (decision C: no secret, a person comments `@codex review` after pushes).
 
 ### 5.1 Spike: when does Codex review (no code)
 Find out, then report to Shaked and wait:
@@ -328,7 +331,50 @@ Find out, then report to Shaked and wait:
    settings if that option exists. Otherwise the gate posts `@codex review` on each push; verify
    once on a throwaway PR that a comment from `github-actions[bot]` starts a review.
 
+#### 5.1 report (measured 2026-11-08)
+Status: report written, **waiting for Shaked** (decision below).
+
+**Q1. Does Codex re-review on push? No.** Measured over every PR with a Codex summary comment
+(28 of 30 sampled PRs between #17 and #53 have one): the summary comment is created once, its
+`commit_sha` is the head at the time the PR was opened, and 27 of 28 record the trigger `PR opened`.
+Pushes never update it.
+- #23: 7 commits, last push 18:19 UTC; summary still at `7a38449` (first commit), completed 17:44.
+- #25: 2 commits; summary at `528f5ba`, the second push `482ecb1` (18:16) was never reviewed.
+- #21: 41 commits; summary at `4628324`. #32: 14 commits; summary at the first head.
+- On #53 (15 commits) the summary was at `103120a` only because Shaked commented
+  `@codex review`; the same comment was edited in place and its trigger became `Manual request`.
+- 22 of the 28 PRs ended with head ≠ the summary's `commit_sha`. The other 6 had no push after the
+  PR was opened (or, for #53, a manual request).
+- The summary's own help text lists the triggers: open a PR, mark a draft ready, comment
+  `@codex review` / `@codex security review`. Nothing about pushes.
+- Consequence for the gate: the summary's `commit_sha` goes stale on nearly every PR, so a gate that
+  waits for "completed on head" never passes unless something requests a new review per push.
+
+**Q2. Can the gate post `@codex review` itself? No, not as `github-actions[bot]`.** Throwaway PR #55
+(closed, not merged): a workflow on `synchronize` posted `@codex review` as `github-actions[bot]`.
+Codex answered within 4 seconds: "To use Codex here, create a Codex account and connect to github"
+and started no review (summary stayed at the first commit, `PR opened`). Codex only acts on comments
+from a GitHub user who has a connected Codex account.
+
+**Not measurable from here:** whether Codex settings have an "automatic review on every push"
+option. The Codex settings page needs Shaked's login.
+
+**Decision needed from Shaked (5.2 cannot start without it):**
+- **A. Turn on automatic reviews on push** in Codex settings
+  (https://chatgpt.com/codex/cloud/settings/general), if the option exists. No secret, simplest.
+  Tell the agent it exists and it implements 5.2 as written.
+- **B. Gate posts `@codex review` as a connected user.** Needs a token of a GitHub account (or app)
+  that is connected to Codex, stored as a repo secret. Conflicts with goal 1 (no long-lived
+  secrets); a fine-grained PAT limited to this repo with Pull requests write, rotated, is the
+  smallest form.
+- **C. Humans request the review.** Shaked (or any connected user) comments `@codex review` after
+  pushes; the gate shows `Waiting for Codex on <sha7>` until then. No secret, but a required check
+  stays pending on every PR until someone comments.
+
+Recommendation: A if it exists, else C. B only if you accept a token.
+
 ### 5.2 Gate workflow
+**Decision (option C):** the gate posts nothing and uses no secret. When Codex has not completed a review of the head SHA, `Codex review` **fails** and says to comment `@codex review`. Switching to automatic review on push (option A) needs no change; posting the comment from the gate (option B) is one added step with a Codex-connected token.
 **Files:** new `.github/workflows/codex-gate.yml`, new `scripts/codex-gate.mjs`,
 new `tests/unit/codex-gate.test.js`, fixtures under `tests/unit/fixtures/codex/`.
 **How Codex reports (observed on PRs #23–#25):**

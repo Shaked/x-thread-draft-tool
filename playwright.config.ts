@@ -13,6 +13,13 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: /screens\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] }
+    },
+    // Screenshot harness for UI work. Not part of the default run; see `npm run screens`.
+    {
+      name: 'screens',
+      testMatch: /screens\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] }
     }
   ]
