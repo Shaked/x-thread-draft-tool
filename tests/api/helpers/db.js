@@ -1,6 +1,7 @@
 // Shared fixtures for API tests: an in-process Postgres (PGlite) wired into server/db.js.
+import { readFile } from 'node:fs/promises'
+import { inject } from 'vitest'
 import { PGlite } from '@electric-sql/pglite'
-import { applyMigrations } from '../../../scripts/migrate.mjs'
 import { setQueryImpl } from '../../../server/db.js'
 import { createSession } from '../../../server/session.js'
 
@@ -12,16 +13,13 @@ export async function setupTestDb() {
   process.env.GITHUB_CLIENT_ID = 'test-client-id'
   process.env.GITHUB_CLIENT_SECRET = 'test-client-secret'
 
-  const pg = new PGlite()
+  // Migrated snapshot written once by tests/api/helpers/global-setup.js.
+  const snapshot = await readFile(inject('pgliteSnapshot'))
+  const pg = new PGlite({ loadDataDir: new Blob([snapshot]) })
   setQueryImpl(async (text, params = []) => {
     const result = await pg.query(text, params)
     return { rows: result.rows, rowCount: result.affectedRows ?? result.rows.length }
   })
-  await applyMigrations((text, params) =>
-    params === undefined
-      ? pg.exec(text).then((results) => ({ rows: results.at(-1)?.rows ?? [] }))
-      : pg.query(text, params)
-  )
 
   return {
     pg,
