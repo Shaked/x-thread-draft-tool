@@ -28,6 +28,8 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Slop scan
+        run: npm run slop
       - name: Duplicate code (jscpd)
         run: npm run dup
 
