@@ -4,6 +4,7 @@ import { findUserByToken } from './tokens.js'
 import { resolveAccess } from './oauth/tokens.js'
 import { verifyCiToken } from './oidc-ci.js'
 import { upsertGithubUser } from './github-user.js'
+import { currentCaller } from './caller-context.js'
 
 // The CI identity: a dedicated row in users (github_id -1; real GitHub ids are positive).
 const CI_USER = { id: -1, login: 'ci-smoke', name: 'CI', avatar_url: null }
@@ -52,6 +53,9 @@ export function clearSessionCookie() {
  * Returns `{ uid, gh, login, via: 'token' | 'session' }`, or null when signed out.
  */
 export async function authenticate(request) {
+  // An in-process MCP tool call (server/mcp/tools.js) runs as the token's user.
+  const caller = currentCaller()
+  if (caller) return caller
   const header = request.headers.get('authorization')
   if (header !== null) {
     const match = header.match(/^Bearer (xt_[A-Za-z0-9_-]{40,})$/)
