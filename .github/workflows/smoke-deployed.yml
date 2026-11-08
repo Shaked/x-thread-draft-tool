@@ -3,7 +3,7 @@ name: Smoke test (deployed)
 # Runs the smoke test against a deployed URL after a successful Vercel deployment, and on demand.
 # The job signs in with a short-lived GitHub OIDC identity token for the deployment's audience.
 # The server accepts it only from this repository and this workflow file (server/oidc-ci.js).
-# No long-lived token is stored: the XT_SMOKE_TOKEN* secrets were removed in hardening Task 27 (D-9).
+# No long-lived token is stored: the old smoke-token secrets were removed in hardening Task 27 (D-9).
 # Preview and production deployments both get the full test.
 #
 # Optional secret VERCEL_AUTOMATION_BYPASS_SECRET is sent as x-vercel-protection-bypass if
