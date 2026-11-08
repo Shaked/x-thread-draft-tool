@@ -504,6 +504,7 @@ old value was pasted in a chat). The executor then removes or keeps the header i
 **Acceptance:** preview smoke passes after the change.
 
 ### 7.3 Database: OAuth tables
+Status: In PR #48.
 **Files:** new `db/migrations/003_oauth.sql`.
 Additive only (the migration lint blocks `drop`, `delete`, `truncate`):
 ```sql
