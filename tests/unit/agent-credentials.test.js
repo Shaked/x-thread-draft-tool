@@ -2,7 +2,7 @@
 // Agent scripts (plan Task 7.7): the device login stores a pair, and the access token refreshes
 // when it expires. fetch is always a mock; nothing touches the network.
 import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -156,6 +156,63 @@ describe('getAccessToken', () => {
     await getAccessToken({ file, fetchImpl, now: () => NOW })
     await getAccessToken({ file, fetchImpl, now: () => NOW + 2 * 60 * 60 * 1000 })
     expect(new URLSearchParams(fetchImpl.mock.calls[1][1].body).get('refresh_token')).toBe(REFRESH_2)
+  })
+
+  it('concurrent callers with an expired token refresh once and the grant is not revoked', async () => {
+    await writeStored(storedAt(NOW - 1000))
+    // A stand-in for the server's rotation: presenting a spent refresh token revokes the grant.
+    let current = REFRESH_1
+    let revoked = false
+    let issued = 0
+    const fetchImpl = vi.fn(async (_url, init) => {
+      const presented = new URLSearchParams(init.body).get('refresh_token')
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      if (revoked || presented !== current) {
+        revoked = true
+        return jsonResponse(400, { error: 'invalid_grant' })
+      }
+      issued += 1
+      current = `xtr_${String(issued).repeat(43)}`
+      return jsonResponse(200, pair(`xta_${String(issued).repeat(43)}`, current))
+    })
+
+    const results = await Promise.all([
+      getAccessToken({ file, fetchImpl, now: () => NOW }),
+      getAccessToken({ file, fetchImpl, now: () => NOW }),
+      getAccessToken({ file, fetchImpl, now: () => NOW })
+    ])
+
+    expect(revoked).toBe(false)
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(new Set(results)).toEqual(new Set([`xta_${'1'.repeat(43)}`]))
+    expect((await readCredentials(file)).refresh_token).toBe(current)
+  })
+
+  it('releases the lock when the refresh fails, so the next caller is not blocked', async () => {
+    await writeStored(storedAt(NOW - 1))
+    const failing = vi.fn(async () => jsonResponse(400, { error: 'invalid_grant' }))
+    await expect(getAccessToken({ file, fetchImpl: failing, now: () => NOW })).rejects.toThrow('Could not refresh')
+    const ok = vi.fn(async () => jsonResponse(200, pair(ACCESS_2, REFRESH_2)))
+    expect(await getAccessToken({ file, fetchImpl: ok, now: () => NOW })).toBe(ACCESS_2)
+  })
+
+  it('takes over a stale lock left by a crashed process', async () => {
+    await writeStored(storedAt(NOW - 1))
+    await writeFile(`${file}.lock`, '99999')
+    const old = new Date(Date.now() - 10 * 60 * 1000)
+    await utimes(`${file}.lock`, old, old)
+    const ok = vi.fn(async () => jsonResponse(200, pair(ACCESS_2, REFRESH_2)))
+    expect(await getAccessToken({ file, fetchImpl: ok, now: () => NOW })).toBe(ACCESS_2)
+  })
+
+  it('gives up with a CredentialsError when a live lock is never released', async () => {
+    await writeStored(storedAt(NOW - 1))
+    await writeFile(`${file}.lock`, '99999')
+    const fetchImpl = vi.fn()
+    await expect(getAccessToken({ file, fetchImpl, now: () => NOW, lockWaitMs: 150, lockStaleMs: 60_000 })).rejects.toThrow(
+      'Timed out waiting for another xt command'
+    )
+    expect(fetchImpl).not.toHaveBeenCalled()
   })
 
   it('a refused refresh throws a CredentialsError that says to log in again, without the token', async () => {
