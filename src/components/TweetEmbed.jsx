@@ -1,9 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
+import { resolvedTheme, THEME_CHANGE_EVENT } from '../utils/theme'
 
 export default function TweetEmbed({ url }) {
   const containerRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  // Bumped when the device scheme changes under the 'system' theme, so the embed re-renders in the new theme.
+  const [themeKey, setThemeKey] = useState(0)
+
+  useEffect(() => {
+    const onThemeChange = () => setThemeKey((key) => key + 1)
+    window.addEventListener(THEME_CHANGE_EVENT, onThemeChange)
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, onThemeChange)
+  }, [])
 
   useEffect(() => {
     if (!url) return
@@ -48,7 +57,7 @@ export default function TweetEmbed({ url }) {
           id,
           containerRef.current,
           {
-            theme: 'light',
+            theme: resolvedTheme(),
             conversation: 'none',
             cards: 'visible',
             align: 'center'
@@ -80,7 +89,7 @@ export default function TweetEmbed({ url }) {
         containerRef.current.innerHTML = ''
       }
     }
-  }, [url])
+  }, [url, themeKey])
 
   if (!url) return null
 

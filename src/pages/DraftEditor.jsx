@@ -267,16 +267,22 @@ export default function DraftEditor({ user }) {
             value={draft.title}
             onChange={(e) => handleTitleChange(e.target.value)}
             className="draft-title-input"
+            aria-label="Draft title"
             placeholder="Untitled Draft"
           />
         ) : (
           <h1 className="draft-title-display">{draft.title}</h1>
         )}
 
-        <div className="header-actions">
-          {!synced && <span className="sync-status syncing">Syncing...</span>}
-          {synced && !saving && <span className="sync-status synced">✓ Saved</span>}
+        <span
+          className={`sync-status ${!synced || saving ? 'syncing' : 'synced'}`}
+          role="status"
+          aria-live="polite"
+        >
+          {!synced || saving ? 'Saving…' : 'Saved'}
+        </span>
 
+        <div className="header-actions">
           <ShareButton draftId={id} />
 
           {isEditMode && <AgentLinkButton draftId={id} />}
@@ -309,7 +315,7 @@ export default function DraftEditor({ user }) {
 
           {isEditMode && !draft.is_published && (
             <div className="editor-hint">
-              <p>💡 Tip: Images are auto-uploaded. Drafts are auto-saved every second.</p>
+              <p>Images upload automatically. Changes save as you type.</p>
             </div>
           )}
 
@@ -330,6 +336,7 @@ export default function DraftEditor({ user }) {
           className="sidebar-toggle"
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           title={sidebarCollapsed ? 'Show export panel' : 'Hide export panel'}
+          aria-label={sidebarCollapsed ? 'Show export panel' : 'Hide export panel'}
         >
           {sidebarCollapsed ? '◀' : '▶'}
         </button>
