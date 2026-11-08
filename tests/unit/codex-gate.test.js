@@ -335,3 +335,91 @@ describe('createGitHub', () => {
     expect(comments.map((c) => c.body)).toEqual(['a', 'b']);
   });
 });
+
+// Comment-only Codex findings (Opus decision on #58, after the live check on #67).
+const SHA_67 = 'a28ac7b82d256f90c68eb43a8527e9f20accbdb5';
+const SHA_OLD = '34dd504e4d109ae96bc291ba2d82c7fb11ba6774';
+// The P1 that Codex posted as a plain PR comment on #67 (text as posted).
+const FINDING_67 = `## Review finding
+
+- **[P1] Parameterize the draft-title query.** The \`t\` query parameter is interpolated directly into SQL, allowing crafted input such as \`' OR 1=1 --\` to alter the query. [server/routes/throwaway-sql.jsL4-L7](https://github.com/Shaked/x-thread-draft-tool/blob/${SHA_67}/server/routes/throwaway-sql.js#L4-L7)
+
+No code changes were made, so no commit or follow-up pull request was created.`;
+const findingComment = (id, body) => ({ id, user: { login: 'chatgpt-codex-connector[bot]' }, body, html_url: `https://example.test/c/${id}` });
+const humanCommentFx = (id, body) => ({ id, user: { login: 'Shaked' }, body });
+
+describe('codexCommentFindings: comment-only findings', () => {
+  it('blocks on the P1 comment posted for the current head (the #67 case)', () => {
+    const findings = gate.codexCommentFindings({ comments: [findingComment(1, FINDING_67)], headSha: SHA_67 });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe('P1');
+    expect(gate.classifyFindings(findings).conclusion).toBe('failure');
+  });
+
+  it('ignores a finding comment that names an older head', () => {
+    const comment = findingComment(2, FINDING_67.replaceAll(SHA_67, SHA_OLD));
+    expect(gate.codexCommentFindings({ comments: [comment], headSha: SHA_67 })).toEqual([]);
+  });
+
+  it('a person clears one comment only with the exact marker naming its id', () => {
+    const finding = findingComment(7, FINDING_67);
+    const cleared = gate.codexCommentFindings({
+      comments: [finding, humanCommentFx(8, `Fixed in a new commit.\ncodex-finding-handled: 7`)],
+      headSha: SHA_67,
+    });
+    expect(cleared).toEqual([]);
+    const otherId = gate.codexCommentFindings({
+      comments: [finding, humanCommentFx(9, 'codex-finding-handled: 70')],
+      headSha: SHA_67,
+    });
+    expect(otherId).toHaveLength(1);
+  });
+
+  it('Codex cannot clear its own finding with the marker', () => {
+    const forged = findingComment(12, 'codex-finding-handled: 7');
+    const findings = gate.codexCommentFindings({ comments: [findingComment(7, FINDING_67), forged], headSha: SHA_67 });
+    expect(findings).toHaveLength(1);
+  });
+
+  it('a bullet with no readable badge blocks (fail closed)', () => {
+    const body = '## Review finding\n\n- Something was found but no severity was printed.';
+    const findings = gate.codexCommentFindings({ comments: [findingComment(3, body)], headSha: SHA_67 });
+    expect(findings[0].severity).toBeNull();
+    expect(gate.classifyFindings(findings).conclusion).toBe('failure');
+  });
+
+  it('a P2 comment is a note, not a block', () => {
+    const body = FINDING_67.replace('[P1]', '[P2]');
+    const findings = gate.codexCommentFindings({ comments: [findingComment(4, body)], headSha: SHA_67 });
+    expect(gate.classifyFindings(findings).conclusion).toBe('success');
+  });
+});
+
+describe('runGate: comment findings and the summary flag', () => {
+  it('fails on the #67 P1 comment even when the summary is completed with no flag', async () => {
+    const summary = findingComment(
+      20,
+      `<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 {"code_review":{"commit_sha":"${SHA_67}","status":"completed","has_unresolved_findings":false}} -->`,
+    );
+    const gh = fakeGh({
+      getPull: vi.fn(async () => ({ head: { sha: SHA_67, repo: { full_name: 'o/r' } }, base: { repo: { full_name: 'o/r' } } })),
+      listComments: vi.fn(async () => [findingComment(1, FINDING_67), summary]),
+    });
+    const result = await gate.runGate({ event, gh });
+    expect(result.state).toBe('failure');
+    expect(gh.updateCheckRun).toHaveBeenLastCalledWith(42, expect.objectContaining({ conclusion: 'failure' }));
+  });
+
+  it('fails closed when the summary says findings exist but none is visible', async () => {
+    const summary = findingComment(
+      21,
+      `<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 {"code_review":{"commit_sha":"${SHA_67}","status":"completed","has_unresolved_findings":true}} -->`,
+    );
+    const gh = fakeGh({
+      getPull: vi.fn(async () => ({ head: { sha: SHA_67, repo: { full_name: 'o/r' } }, base: { repo: { full_name: 'o/r' } } })),
+      listComments: vi.fn(async () => [summary]),
+    });
+    const result = await gate.runGate({ event, gh });
+    expect(result.state).toBe('failure');
+  });
+});

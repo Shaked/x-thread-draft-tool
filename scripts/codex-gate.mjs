@@ -113,6 +113,52 @@ export function unresolvedFindings(threads) {
 
 // P0/P1 block. A finding with no readable severity also blocks: a new badge format must not pass.
 // P2/P3 are notes only.
+// Codex also posts findings as plain PR comments ("## Review finding" with one bullet per finding).
+// A comment counts only for the current head: its text must name the head sha, or no other sha.
+// A bullet with no readable [P0-3] badge counts as blocking. A person clears one comment only with
+// the exact marker "codex-finding-handled: <comment id>" in a non-Codex comment (Opus decision, #58).
+export const COMMENT_FINDING_HEADING = /(^|\n)##\s+Review finding\b/;
+export const HANDLED_PREFIX = 'codex-finding-handled: ';
+const SHA_PATTERN = /\b[0-9a-f]{40}\b/g;
+
+export function isCodexCommentFinding(comment) {
+  return isCodexLogin(comment?.user?.login) && COMMENT_FINDING_HEADING.test(comment.body ?? '');
+}
+
+export function belongsToHead(body, headSha) {
+  const shas = (body ?? '').match(SHA_PATTERN) ?? [];
+  return shas.every((sha) => sha === headSha) ;
+}
+
+export function codexCommentFindings({ comments, headSha }) {
+  const cleared = new Set();
+  for (const c of comments) {
+    if (isCodexLogin(c?.user?.login)) continue;
+    for (const match of (c.body ?? '').matchAll(/codex-finding-handled: (\d+)/g)) cleared.add(match[1]);
+  }
+  const findings = [];
+  for (const comment of comments) {
+    if (!isCodexCommentFinding(comment)) continue;
+    if (!belongsToHead(comment.body, headSha)) continue;
+    if (cleared.has(String(comment.id))) continue;
+    const bullets = (comment.body ?? '').split('\n').filter((line) => line.startsWith('- '));
+    for (const line of bullets) {
+      const badge = /\[P([0-3])\]/.exec(line);
+      findings.push({
+        severity: badge ? `P${badge[1]}` : null,
+        title: line.replace(/\[P[0-3]\]/, '').replace(/[*`]/g, '').replace(/^-\s*/, '').trim() || 'Untitled finding',
+        path: 'PR comment',
+        line: null,
+        url: comment.html_url ?? null,
+      });
+    }
+    if (bullets.length === 0) {
+      findings.push({ severity: null, title: 'Review finding with no readable bullet', path: 'PR comment', line: null, url: comment.html_url ?? null });
+    }
+  }
+  return findings;
+}
+
 export function classifyFindings(findings) {
   const blocking = findings.filter(
     (f) => f.severity === null || f.severity === 'P0' || f.severity === 'P1',
@@ -199,13 +245,21 @@ export async function runGate({ event, gh }) {
   });
 
   const comments = await gh.listComments(number);
-  const evaluation = evaluateReview({ summary: findLatestSummary(comments), headSha });
+  const summary = findLatestSummary(comments);
+  const evaluation = evaluateReview({ summary, headSha });
   if (!evaluation.ready) {
     await gh.updateCheckRun(checkRunId, notReviewedCheck({ headSha, evaluation }));
     return { state: 'not-reviewed', reason: evaluation.reason };
   }
 
-  const findings = unresolvedFindings(await gh.listReviewThreads(number));
+  const threadFindings = unresolvedFindings(await gh.listReviewThreads(number));
+  const commentFindings = codexCommentFindings({ comments, headSha });
+  let findings = [...threadFindings, ...commentFindings];
+  // Codex's summary can say it has unresolved findings that neither threads nor comments show.
+  // Fail closed rather than trust the flag alone.
+  if (findings.length === 0 && summary?.hasUnresolvedFindings) {
+    findings = [{ severity: null, title: 'Codex reports unresolved findings the gate cannot see', path: 'Codex summary', line: null, url: null }];
+  }
   const result = completedCheck({ findings });
   await gh.updateCheckRun(checkRunId, { ...result, completed_at: new Date().toISOString() });
   return { state: result.conclusion, blocking: classifyFindings(findings).blocking.length };
