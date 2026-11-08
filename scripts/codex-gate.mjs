@@ -125,9 +125,11 @@ export function isCodexCommentFinding(comment) {
   return isCodexLogin(comment?.user?.login) && COMMENT_FINDING_HEADING.test(comment.body ?? '');
 }
 
+// A comment belongs to the head when it names the head sha. A comment that names only other shas is
+// stale. A comment that names no sha at all is counted (fail closed).
 export function belongsToHead(body, headSha) {
   const shas = (body ?? '').match(SHA_PATTERN) ?? [];
-  return shas.every((sha) => sha === headSha) ;
+  return shas.length === 0 || shas.includes(headSha);
 }
 
 export function codexCommentFindings({ comments, headSha }) {
@@ -165,10 +167,14 @@ export function visibleCommentFindingCount({ comments, headSha }) {
   return comments.filter((c) => isCodexCommentFinding(c) && belongsToHead(c.body, headSha)).length;
 }
 
-export function visibleThreadFindingCount(threads) {
+// Threads from earlier commits do not count for this head. A thread counts when its original commit
+// is the head, or its body names the head.
+export function visibleThreadFindingCount(threads, headSha) {
   return threads.filter((t) => {
     const first = t.comments?.nodes?.[0];
-    return first && isFindingComment(first);
+    if (!first || !isFindingComment(first)) return false;
+    const originalSha = first.originalCommit?.oid ?? null;
+    return originalSha === headSha || belongsToHead(first.body, headSha);
   }).length;
 }
 
@@ -272,7 +278,7 @@ export async function runGate({ event, gh }) {
   // Codex's summary can say it has unresolved findings that the gate cannot see at all (no finding
   // thread or comment for this head, handled or not). Fail closed then. A finding a person handled
   // is visible, so it does not trigger this fallback.
-  const visible = visibleThreadFindingCount(threads) + visibleCommentFindingCount({ comments, headSha });
+  const visible = visibleThreadFindingCount(threads, headSha) + visibleCommentFindingCount({ comments, headSha });
   if (findings.length === 0 && summary?.hasUnresolvedFindings && visible === 0) {
     findings = [{ severity: null, title: 'Codex reports unresolved findings the gate cannot see', path: 'Codex summary', line: null, url: null }];
   }
@@ -332,7 +338,7 @@ export function createGitHub({ token, repo, fetchImpl = fetch }) {
               nodes {
                 isResolved
                 comments(first: 1) {
-                  nodes { author { login } body path line originalLine url }
+                  nodes { author { login } body path line originalLine url originalCommit { oid } }
                 }
               }
             }

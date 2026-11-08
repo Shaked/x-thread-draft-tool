@@ -440,3 +440,18 @@ describe('runGate: a handled finding is visible, so it does not trip the fallbac
   });
 });
 
+describe('belongsToHead and visible threads: P2s from Codex on #68', () => {
+  it('a comment naming the head and another sha still belongs to the head', () => {
+    expect(gate.belongsToHead(`Compared with ${SHA_OLD}: fixed at ${SHA_67}`, SHA_67)).toBe(true);
+  });
+
+  it('a comment naming only an older sha does not belong to the head', () => {
+    expect(gate.belongsToHead(`Finding at ${SHA_OLD}`, SHA_67)).toBe(false);
+  });
+
+  it('a resolved thread from an earlier commit does not count as visible for this head', () => {
+    const oldThread = { comments: { nodes: [{ body: 'x', originalCommit: { oid: SHA_OLD } }] } };
+    expect(gate.visibleThreadFindingCount([oldThread], SHA_67)).toBe(0);
+  });
+});
+
