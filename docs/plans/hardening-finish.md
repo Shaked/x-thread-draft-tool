@@ -457,7 +457,7 @@ task, question, decision). Opus cannot override section 1.
 9. Live: `actions_run_trigger` `run_workflow` `neon-preview-cleanup.yml` on `main` with `dry_run: true`. The log must show a `Neon branches: N; limit: 10; candidates: C` line, and `skip main reason=default branch` for `main`. Paste it into the ledger.
 
 ### Task 25 — Login starts on the canonical origin (D-1)
-**Done when:** merged; round R1 confirms the per-deployment URL redirects.
+**Done when:** merged. The live redirect check runs in Task 29 (round R1), which is what verifies it; Task 29 is not done until that check passes. (Codex P2 on #59: avoids a done-when cycle between Tasks 25 and 29.)
 **Files:** `server/routes/auth.js`, `tests/api/auth.test.js`, changelog.
 1. `login({ request, url })`:
    - Host = `request.headers.get('x-forwarded-host') ?? url.host`.
@@ -511,7 +511,7 @@ task, question, decision). Opus cannot override section 1.
    - If Codex finds nothing in 60 minutes (D-24), record `gate live check inconclusive: Codex silent` and continue.
 
 ### Task 29 — Task 0.3b: #56, then #34 (round R1)
-**Done when:** both merged; R1 `preview-ok`.
+**Done when:** both merged; R1 `preview-ok`, including the Task 25 redirect check below.
 1. #56: P-UPDATE, P-CODEX, P-MERGE, P-PROD.
 2. #34: P-UPDATE (brings in #56 and Task 25), P-CODEX, then P-PREVIEW R1.
    - Extra check: `web_fetch_vercel_url` of the stable deployment's own per-deployment URL `/api/auth/login` must return a 302 whose `Location` starts with `https://x-thread-draft-tool-preview.vercel.app/api/auth/login` (Task 25 live check).
