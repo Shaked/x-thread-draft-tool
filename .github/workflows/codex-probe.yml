@@ -1,0 +1,16 @@
+name: codex-probe
+on:
+  pull_request:
+    types: [synchronize]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  ask:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: gh pr comment "$PR" --repo "$REPO" --body "@codex review"
