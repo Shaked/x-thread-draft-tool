@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { resolvedTheme } from '../utils/theme'
 
 export default function TweetEmbed({ url }) {
   const containerRef = useRef(null)
@@ -48,7 +49,7 @@ export default function TweetEmbed({ url }) {
           id,
           containerRef.current,
           {
-            theme: 'light',
+            theme: resolvedTheme(),
             conversation: 'none',
             cards: 'visible',
             align: 'center'

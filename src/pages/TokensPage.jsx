@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { tokensApi } from '../utils/api'
+import ThemeSetting from '../components/ThemeSetting'
 
 const EXPIRY_OPTIONS = [30, 90, 365]
 
@@ -73,6 +74,7 @@ export default function TokensPage() {
     <div className="tokens-page">
       <p><Link to="/">← Back to drafts</Link></p>
       <h1>API tokens</h1>
+      <ThemeSetting />
       <p>
         Tokens let agents use the API as you. Each token has the same permissions as your account in
         the app. See <code>/llms.txt</code> for how agents use them.
