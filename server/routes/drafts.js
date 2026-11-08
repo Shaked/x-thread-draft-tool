@@ -202,13 +202,13 @@ export async function createShareToken({ request, params }) {
 }
 
 export const draftRoutes = [
-  { method: 'GET', path: '/drafts', handler: listDrafts },
-  { method: 'POST', path: '/drafts', handler: createDraft },
-  { method: 'GET', path: '/drafts/:id', handler: getDraft },
-  { method: 'PATCH', path: '/drafts/:id', handler: updateDraft },
-  { method: 'POST', path: '/drafts/:id/publish', handler: publishDraft },
-  { method: 'POST', path: '/drafts/:id/duplicate', handler: duplicateDraft },
-  { method: 'GET', path: '/drafts/:id/export', handler: exportDraft },
-  { method: 'DELETE', path: '/drafts/:id', handler: deleteDraft },
-  { method: 'POST', path: '/drafts/:id/share-tokens', handler: createShareToken }
+  { method: 'GET', path: '/drafts', handler: listDrafts, ci: true },
+  { method: 'POST', path: '/drafts', handler: createDraft, ci: true },
+  { method: 'GET', path: '/drafts/:id', handler: getDraft, ci: true },
+  { method: 'PATCH', path: '/drafts/:id', handler: updateDraft, ci: true },
+  { method: 'POST', path: '/drafts/:id/publish', handler: publishDraft, ci: true },
+  { method: 'POST', path: '/drafts/:id/duplicate', handler: duplicateDraft, ci: true },
+  { method: 'GET', path: '/drafts/:id/export', handler: exportDraft, ci: true },
+  { method: 'DELETE', path: '/drafts/:id', handler: deleteDraft, ci: true },
+  { method: 'POST', path: '/drafts/:id/share-tokens', handler: createShareToken, ci: true }
 ]

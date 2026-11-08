@@ -192,3 +192,18 @@ permitted. Use the two stable domains.
 
 **Databases behind previews:** each Preview deployment can get its own Neon branch. If a new
 preview answers 401 to a token that worked before, create a new token on that preview.
+
+## CI identity (GitHub Actions OIDC)
+
+GitHub Actions can call the API without a stored token. The workflow requests a short-lived OIDC identity
+token for the deployment's audience (`x-thread-draft-tool-ci-preview` or `…-ci-production`) and sends it as
+`Authorization: Bearer <jwt>`. The server (`server/oidc-ci.js`) accepts it only when all of these hold:
+
+- `CI_OIDC_ENABLED=1` and `CI_OIDC_REPOSITORY_ID` (the numeric repository id) are set for that environment.
+- The token is RS256, issued by `https://token.actions.githubusercontent.com`, not older than 5 minutes.
+- `repository_id`, `workflow_ref` and `job_workflow_ref` name this repository and `.github/workflows/ui-image-upload.yml`.
+- The event is `workflow_dispatch` or `deployment_status`, on the runner `github-hosted`.
+- The ref is `refs/heads/main`, or a branch on a preview only when `CI_OIDC_ALLOW_BRANCHES=1`.
+
+The caller is the `ci-smoke` user, and it sees only its own drafts. CI tokens work only on the routes marked
+`ci: true` in `server/routes/*.js`; other routes refuse them with 401. Cookies and `xt_` tokens are unchanged.

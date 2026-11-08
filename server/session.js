@@ -1,6 +1,11 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookie, parseCookies, HttpError } from './http.js'
 import { findUserByToken } from './tokens.js'
+import { verifyCiToken } from './oidc-ci.js'
+import { upsertGithubUser } from './github-user.js'
+
+// The CI identity: a dedicated row in users (github_id -1; real GitHub ids are positive).
+const CI_USER = { id: -1, login: 'ci-smoke', name: 'CI', avatar_url: null }
 
 export const SESSION_COOKIE = 'xt_session'
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30
@@ -49,9 +54,21 @@ export async function authenticate(request) {
   const header = request.headers.get('authorization')
   if (header !== null) {
     const match = header.match(/^Bearer (xt_[A-Za-z0-9_-]{40,})$/)
-    const user = match ? await findUserByToken(match[1]) : null
-    if (!user) throw new HttpError(401, 'Invalid or expired API token')
-    return user
+    if (match) {
+      const user = await findUserByToken(match[1])
+      if (!user) throw new HttpError(401, 'Invalid or expired API token')
+      return user
+    }
+    // A three-part JWT is a GitHub Actions identity token (see server/oidc-ci.js).
+    const jwt = header.match(/^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/)
+    if (jwt && jwt[1].length <= 4096) {
+      const claims = await verifyCiToken(jwt[1])
+      console.log(`[auth] ci-oidc token ${claims ? 'accepted' : 'rejected'}`)
+      if (!claims) throw new HttpError(401, 'Invalid or expired API token')
+      const row = await upsertGithubUser(CI_USER)
+      return { uid: row.id, gh: '-1', login: CI_USER.login, via: 'ci-oidc' }
+    }
+    throw new HttpError(401, 'Invalid or expired API token')
   }
   const session = await readSession(request)
   return session ? { ...session, via: 'session' } : null

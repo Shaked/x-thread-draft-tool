@@ -84,6 +84,6 @@ export async function logout() {
 export const authRoutes = [
   { method: 'GET', path: '/auth/login', handler: login },
   { method: 'GET', path: '/auth/callback', handler: callback },
-  { method: 'GET', path: '/auth/me', handler: me },
+  { method: 'GET', path: '/auth/me', handler: me, ci: true },
   { method: 'POST', path: '/auth/logout', handler: logout }
 ]
