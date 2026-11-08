@@ -467,6 +467,7 @@ spec: <https://modelcontextprotocol.io/specification/latest/basic/authorization>
 - `<origin>` below means `PUBLIC_APP_URL` without a trailing slash.
 
 ### 7.1 GitHub Actions OIDC for the smoke test
+Status: In PR #32 (server verifier, route allowlist, UI test and workflow use OIDC). The smoke workflow still uses XT_SMOKE_TOKEN until the production step.
 **Files:** new `server/oidc-ci.js`, `server/session.js`, `server/github-user.js` (if the upsert
 lives there), new `tests/api/oidc-ci.test.js`, `.github/workflows/smoke-deployed.yml`, `docs/agents/api.md`.
 **Steps:**

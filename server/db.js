@@ -10,7 +10,13 @@ let impl = null
 export async function query(text, params = []) {
   if (impl) return impl(text, params)
   if (!pool) {
-    pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 })
+    // Timeouts so a stalled connection fails in seconds instead of hanging the request.
+    pool = new pg.Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 1,
+      connectionTimeoutMillis: 8000,
+      query_timeout: 15000
+    })
   }
   return pool.query(text, params)
 }

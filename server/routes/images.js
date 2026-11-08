@@ -68,7 +68,7 @@ export async function uploadImageFromUrl({ request }) {
 }
 
 export const imageRoutes = [
-  { method: 'POST', path: '/images', handler: uploadImage },
-  { method: 'POST', path: '/images/from-url', handler: uploadImageFromUrl },
-  { method: 'DELETE', path: '/images', handler: deleteImage }
+  { method: 'POST', path: '/images', handler: uploadImage, ci: true },
+  { method: 'POST', path: '/images/from-url', handler: uploadImageFromUrl, ci: true },
+  { method: 'DELETE', path: '/images', handler: deleteImage, ci: true }
 ]
