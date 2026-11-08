@@ -968,7 +968,7 @@ body {
 }
 
 .carousel-nav:hover {
-  background-color: var(--surface-2);
+  background-color: var(--overlay-90);
   transform: translateY(-50%) scale(1.1);
 }
 
@@ -1513,7 +1513,8 @@ body {
     min-height: 44px;
     justify-content: center;
     font-size: 14px;
-    white-space: nowrap;
+    white-space: normal;
+    text-align: center;
   }
 
   .header-actions .icon-btn .btn-icon {
