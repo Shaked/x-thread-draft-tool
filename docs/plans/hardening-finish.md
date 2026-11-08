@@ -473,12 +473,13 @@ task, question, decision). Opus cannot override section 1.
 
 ### Task 26 — Deployed smoke signs in with OIDC (D-9)
 **Done when:** merged; a production deployment's `Smoke test` run passes with the log line `auth: OIDC` (not `fallback`), recorded in the ledger.
-**Files:** `server/oidc-ci.js`, `tests/api/oidc-ci.test.js`, `.github/workflows/smoke-deployed.yml`, `docs/agents/api.md`, changelog.
+**Files:** `server/oidc-ci.js`, `tests/api/oidc-ci.test.js`, `scripts/smoke.mjs`, `.github/workflows/smoke-deployed.yml`, `docs/agents/api.md`, changelog.
+- `scripts/smoke.mjs` (Codex P1 on #59): the `me (token)` step asserts `data.auth === 'token'` (line 90). The server reports a verified CI identity as `auth: 'ci-oidc'` (`server/session.js` `via: 'ci-oidc'`, exposed by `/api/auth/me`). Accept `ci-oidc` when the run uses OIDC and `token` when it uses the fallback; any other value still fails. Add a test for both values.
 1. `oidc-ci.js`:
    - Replace `CI_WORKFLOW_PATH` with `CI_WORKFLOW_PATHS = ['.github/workflows/ui-image-upload.yml', '.github/workflows/smoke-deployed.yml']`. Both `workflow_ref` and `job_workflow_ref` must equal `${REPO}/${p}@${pinned}` for the **same** `p`.
    - Production `deployment_status` (no ref) is allowed only when `claims.sha === env.VERCEL_GIT_COMMIT_SHA` and `env.VERCEL_GIT_COMMIT_REF === 'main'`. The token is then bound to the very build that runs on `main`.
    - Everything else is unchanged.
-2. Tests (add): smoke workflow accepted on preview; another workflow file rejected; production `deployment_status` with a matching sha and ref `main` accepted; sha mismatch rejected; `VERCEL_GIT_COMMIT_REF=feature` rejected; `workflow_ref` from one file with `job_workflow_ref` from the other rejected.
+2. Tests (add): the smoke assertion for both `ci-oidc` and `token`; smoke workflow accepted on preview; another workflow file rejected; production `deployment_status` with a matching sha and ref `main` accepted; sha mismatch rejected; `VERCEL_GIT_COMMIT_REF=feature` rejected; `workflow_ref` from one file with `job_workflow_ref` from the other rejected.
 3. `smoke-deployed.yml`:
    - Top-level `permissions: contents: read`; job `permissions: contents: read, id-token: write`.
    - Pin both actions.
