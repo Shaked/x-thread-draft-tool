@@ -24,6 +24,10 @@ describe('net-lines counting', () => {
     expect(countNetLines(numstat)).toEqual({ added: 0, removed: 0 })
   })
 
+  it('counts a moved file under its new path (rename records are not expected: diff uses --no-renames)', () => {
+    expect(countNetLines('1\t0\tserver/a.js')).toEqual({ added: 1, removed: 0 })
+  })
+
   it('handles blank lines and empty input', () => {
     expect(countNetLines('')).toEqual({ added: 0, removed: 0 })
     expect(countNetLines('\n\n1\t0\tsrc/a.js\n\n')).toEqual({ added: 1, removed: 0 })

@@ -54,7 +54,7 @@ export function evaluate({ numstat, body = '' }) {
 }
 
 function main() {
-  const numstat = execFileSync('git', ['diff', '--numstat', 'origin/main...HEAD'], { encoding: 'utf8' })
+  const numstat = execFileSync('git', ['diff', '--numstat', '--no-renames', 'origin/main...HEAD'], { encoding: 'utf8' })
   const result = evaluate({ numstat, body: process.env.PR_BODY || '' })
   console.log(`net-lines: added ${result.added}, removed ${result.removed}`)
   console.log(`net-lines: ${result.pass ? 'PASS' : 'FAIL'}: ${result.reason}`)
