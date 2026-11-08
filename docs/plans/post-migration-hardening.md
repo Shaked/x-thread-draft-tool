@@ -372,6 +372,7 @@ Status: Not started. One PR per sub-task, in order. Every UI PR attaches before/
 screenshots from 6.0 at 390 px and 1280 px width (both themes from 6.2 on).
 
 ### 6.0 Screenshot harness
+Status: In PR #43 (open)
 **Files:** new `tests/e2e/screens.spec.ts`, `playwright.config.ts` (a `screens` project, not run by default),
 `.github/workflows/tests.yml` (a `workflow_dispatch`-only job that uploads the PNGs).
 **Steps:** the spec starts from the local headless API (`npm run dev:api`, token from `/api/dev/token`)
@@ -381,6 +382,7 @@ Script `"screens": "playwright test --project=screens"`.
 **Acceptance:** `npm run screens` writes 7 PNGs per width.
 
 ### 6.1 Design tokens (no visual change)
+Status: Blocked: 6.0 (PR #43) is unmerged; 6.1 is in PR #44 (open)
 **Files:** `src/styles/App.css` and any component with inline colors.
 **Steps:**
 1. List colors: `grep -oE '#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)' src/styles/App.css | sort | uniq -c | sort -rn`.
@@ -393,6 +395,7 @@ Script `"screens": "playwright test --project=screens"`.
 `App.css` is shorter than 1,789 lines.
 
 ### 6.2 Light default + Light / Dark / System setting
+Status: Blocked: 6.1 (PR #44) is unmerged; 6.2 is in PR #45 (open)
 **Files:** `index.html`, `src/styles/App.css`, new `src/utils/theme.js`,
 new `src/components/ThemeSetting.jsx`, `src/App.jsx`, `src/components/EmojiPicker.jsx`,
 `src/components/TweetEmbed.jsx`, `vite.config.js`, new `tests/unit/theme.test.js`,
@@ -440,6 +443,12 @@ and ≥ 3 for border/bg and focus/bg.
   `XThreadPreviewPage`, `ThreadPreview`.
 - 6.3d Settings: `TokensPage` (with "Connected apps" from Task 7.8, if merged; otherwise a placeholder-free version).
 
+Status:
+- 6.3a: Blocked: 6.2 (PR #45) is unmerged; 6.3a is in PR #47 (open) and needs Shaked's approval
+- 6.3b: Blocked: 6.3a approval (no PR yet).
+- 6.3c: Blocked: 6.3a approval (no PR yet).
+- 6.3d: Blocked: 6.3a approval (no PR yet).
+
 **Each PR description:** a before/after table of every visible label that changed, and screenshots.
 **Acceptance per PR:** Shaked approves on the preview; E2E green; net-lines passes (markup and CSS
 should shrink, or cite this task); contrast test passes; no new hard-coded colors.
@@ -467,7 +476,7 @@ spec: <https://modelcontextprotocol.io/specification/latest/basic/authorization>
 - `<origin>` below means `PUBLIC_APP_URL` without a trailing slash.
 
 ### 7.1 GitHub Actions OIDC for the smoke test
-Status: In PR #32 (server verifier, route allowlist, UI test and workflow use OIDC). The smoke workflow still uses XT_SMOKE_TOKEN until the production step.
+Status: Blocked: PR #32 (merged) landed the server verifier only; smoke-deployed.yml still uses XT_SMOKE_TOKEN, and Shaked's Vercel env vars and production approval are pending
 **Files:** new `server/oidc-ci.js`, `server/session.js`, `server/github-user.js` (if the upsert
 lives there), new `tests/api/oidc-ci.test.js`, `.github/workflows/smoke-deployed.yml`, `docs/agents/api.md`.
 **Steps:**
@@ -498,12 +507,14 @@ wrong issuer, wrong `repository_id`, another workflow file, other `event_name`, 
 Production and approves one production run: 16/16. Then Shaked deletes both `XT_SMOKE_TOKEN*` secrets.
 
 ### 7.2 Deployment Protection bypass secret
+Status: Not started
 Shaked chooses in the Vercel dashboard: turn off Vercel Authentication for previews (the app has
 its own GitHub login) and delete `VERCEL_AUTOMATION_BYPASS_SECRET`, or keep it and rotate it (the
 old value was pasted in a chat). The executor then removes or keeps the header in `scripts/smoke.mjs`.
 **Acceptance:** preview smoke passes after the change.
 
 ### 7.3 Database: OAuth tables
+Status: In PR #48 (open)
 **Files:** new `db/migrations/003_oauth.sql`.
 Additive only (the migration lint blocks `drop`, `delete`, `truncate`):
 ```sql
@@ -548,6 +559,7 @@ create index if not exists oauth_grants_user_idx on oauth_grants(user_id);
 **Acceptance:** `npm run test:unit` passes, including the idempotency test in `migrate.test.js`.
 
 ### 7.4 Token service and the 7-day cap
+Status: Blocked: 7.3 (PR #48) is unmerged; 7.4 is in PR #49 (open)
 **Files:** new `server/oauth/tokens.js`, new `tests/api/oauth-tokens.test.js`, `server/session.js`,
 `server/tokens.js`, `src/pages/TokensPage.jsx` (expiry choices 1–7 days), `tests/api/tokens.test.js`.
 **Functions in `server/oauth/tokens.js`:**
@@ -570,6 +582,7 @@ grant; concurrent rotate with `Promise.all` (exactly one succeeds); wrong client
 null; revoked grant → null; `xt_` token with `expires_in_days: 8` → 400.
 
 ### 7.5 Authorization server endpoints
+Status: Blocked: 7.4 (PR #49) is unmerged; 7.5 is in PR #50 (open)
 **Files:** new `server/routes/oauth.js`, new `server/oauth/clients.js`, new `server/oauth/consent.js`,
 `server/router.js`, `server/routes/auth.js`, `vercel.json`, `server/openapi.js`, new `tests/api/oauth.test.js`.
 **Routing:** in `vercel.json`, before the SPA fallback, add
@@ -637,6 +650,7 @@ refresh rotation and reuse; revoke; `return_to=https://evil.example` ignored.
 returns the document; the openapi test passes with the new REST endpoints documented.
 
 ### 7.6 MCP endpoint `/api/mcp`
+Status: Blocked: 7.5 (PR #50) is unmerged; 7.6 is in PR #51 (open)
 **Files:** new `server/mcp/server.js`, new `server/mcp/tools.js`, new `server/caller-context.js`,
 `server/session.js`, `server/router.js`, new `tests/api/mcp.test.js`.
 **Transport:** Streamable HTTP, stateless, JSON responses only (no SSE, no session id).
@@ -689,6 +703,7 @@ unknown method errors.
   list drafts, with no token copied. 70 minutes later (access token expired) it still works.
 
 ### 7.7 Device flow and scripts use the short-lived pair
+Status: Blocked: 7.6 (PR #51) is unmerged; 7.7 is in PR #52 (open)
 **Files:** `server/routes/device.js`, `scripts/agent-login.mjs`, new `scripts/xt-token.mjs`,
 `tests/api/device.test.js`, `docs/agents/api.md`, `public/llms.txt`, `server/openapi.js`, `AGENTS.md`.
 **Steps:**
@@ -707,6 +722,7 @@ needed): `npm run agent:login` once, then `XT_TOKEN=$(node scripts/xt-token.mjs)
 passes twice in a row, the second time after a refresh.
 
 ### 7.8 Settings: Connected apps
+Status: Blocked: 7.7 (PR #52) is unmerged; 7.8 is in PR #53 (open)
 **Files:** new `server/routes/grants.js`, `server/router.js`, `server/openapi.js`,
 `src/pages/TokensPage.jsx`, new `tests/api/grants.test.js`.
 **Steps:** `GET /api/grants` (session or bearer) lists the user's grants: client name, kind, redirect
@@ -715,6 +731,7 @@ working). The page shows "Connected apps" above "Personal tokens (7 days max)".
 **Acceptance:** after revoking a connected app its next MCP call returns 401 (API test, plus one manual check on the preview).
 
 ### 7.9 Cap existing hand-made tokens (last)
+Status: Blocked: 7.8 (PR #53) is unmerged; 7.9 is in PR #54 (open)
 Only after 7.1 runs on Production (the old smoke tokens are no longer used).
 **Files:** new `db/migrations/004_token_cap.sql`:
 ```sql
