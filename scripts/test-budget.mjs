@@ -9,9 +9,20 @@ import { join, relative } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const ROOT = fileURLToPath(new URL('..', import.meta.url))
+// Falls back to the working directory when the module runs under a non-file URL (jsdom in unit tests).
+const ROOT = (() => {
+  try {
+    return fileURLToPath(new URL('..', import.meta.url))
+  } catch {
+    return process.cwd()
+  }
+})()
 export const FILE_LIMIT_MS = Number(process.env.TEST_BUDGET_FILE_MS ?? 3000)
 export const TOTAL_LIMIT_MS = Number(process.env.TEST_BUDGET_TOTAL_MS ?? 30000)
+// Per-file exceptions. Keep this list short and say why next to each entry.
+export const FILE_LIMIT_OVERRIDES = {
+  'tests/api/migrate.test.js': 5000 // boots a fresh PGlite to test migrations; hardening Task 4 stop-if, decided 2026-11-08
+}
 const SLOWEST_SHOWN = 5
 
 /** Per-file durations in milliseconds, slowest first, from a vitest JSON report. */
@@ -28,7 +39,8 @@ export function fileDurations(report, root = ROOT) {
 export function violations(durations, totalMs) {
   const problems = []
   for (const { file, ms } of durations) {
-    if (ms > FILE_LIMIT_MS) problems.push(`${file} took ${ms} ms (limit ${FILE_LIMIT_MS} ms)`)
+    const limit = FILE_LIMIT_OVERRIDES[file] ?? FILE_LIMIT_MS
+    if (ms > limit) problems.push(`${file} took ${ms} ms (limit ${limit} ms)`)
   }
   if (totalMs > TOTAL_LIMIT_MS) problems.push(`total ${Math.round(totalMs)} ms (limit ${TOTAL_LIMIT_MS} ms)`)
   return problems
