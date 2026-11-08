@@ -345,7 +345,7 @@ task, question, decision). Opus cannot override section 1.
 4. Comment on #47: "Look approved by Shaked on the preview (2026-11-08); recorded per docs/plans/hardening-finish.md D-16." + footer.
 
 ### Task 22 — Previews only from the stable branch (D-3)
-**Done when:** merged, and a new `claude/*` branch pushed after the merge gets no Vercel deployment.
+**Done when:** merged. Its no-deployment check runs in Task 23 step 5 (the branch Task 23 pushes after this merge); Task 22 is not done until that check passes. (Codex P2 on #59: avoids a done-when cycle between Tasks 22 and 23.)
 **Files:** `vercel.json`, new `tests/unit/vercel-config.test.js`, `docs/agents/api.md` (one paragraph under "Databases behind previews"), changelog.
 1. In `vercel.json`, add at the top level:
    ```json
@@ -360,7 +360,7 @@ task, question, decision). Opus cannot override section 1.
 2. Test: read `vercel.json`, assert this exact object, assert `buildCommand` and `rewrites` are unchanged from `main` (copy the values into the test).
 3. Docs: "Only `main` and the stable branch `claude/lucid-sagan-bbciuo` deploy. A PR is put on the stable preview by the runbook's P-PREVIEW."
 4. P-PR, P-MERGE, P-PROD.
-5. Verify: Task 23's branch (pushed after this merge) has no deployment in `mcp__Vercel__list_deployments` 10 minutes after its push. If one appears: P-OPUS.
+5. Verify (run in Task 23 step 5, the branch pushed after this merge): that branch has no deployment in `mcp__Vercel__list_deployments` 10 minutes after its push. If one appears: P-OPUS.
 
 ### Task 23 — Skip production builds for docs/CI/test-only merges (D-4)
 **Done when:** merged; the next docs-only merge to `main` shows a production deployment `CANCELED` by the ignore step.
