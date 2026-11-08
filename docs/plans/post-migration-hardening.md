@@ -318,7 +318,7 @@ decides between splitting it and a per-file exception).
 
 ## Task 5 — Codex as the blocking reviewer
 
-Status: 5.1 In PR #NN (report in the section below). 5.2 not started, waiting for Shaked's decision A/B/C.
+Status: 5.1 In PR #57 (report in the section below). 5.2 not started, waiting for Shaked's decision A/B/C.
 
 ### 5.1 Spike: when does Codex review (no code)
 Find out, then report to Shaked and wait:
