@@ -1,0 +1,6 @@
+{
+  "path": ["src", "server", "api", "scripts"],
+  "minTokens": 50,
+  "threshold": 0.8,
+  "reporters": ["console"]
+}
