@@ -77,7 +77,7 @@ function App() {
   }
 
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <BrowserRouter>
       <div className="app">
         <div className="deployment-meta">
           <span><strong>Last deployed:</strong> {deployedAt}{deployedAgo}</span>
