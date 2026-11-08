@@ -318,7 +318,7 @@ decides between splitting it and a per-file exception).
 
 ## Task 5 — Codex as the blocking reviewer
 
-Status: 5.2 In PR #NN (decision C: no secret, a person comments `@codex review` after pushes). The 5.1 report is in PR #57.
+Status: 5.2 In PR #58 (decision C: no secret, a person comments `@codex review` after pushes). The 5.1 report is in PR #57.
 
 ### 5.1 Spike: when does Codex review (no code)
 Find out, then report to Shaked and wait:
