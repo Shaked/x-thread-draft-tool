@@ -8,7 +8,7 @@
   --success: #00a06d;  --success-hover: #008a5f;  --success-tint-10: #00a06d1a;  --success-tint-40: #00a06d66;
   --warning: #b45309;  --warning-strong: #92400e;  --warning-tint-10: #b453091a;  --warning-tint-40: #b4530966;
   --focus: #1670ad;
-  --overlay-30: rgba(0, 0, 0, 0.3);  --overlay-70: #000c;  --overlay-90: #000e;
+  --overlay-30: rgba(0, 0, 0, 0.3);  --overlay-70: #000c;  --overlay-90: #000e;  --on-overlay: #ffffff;
   --space-1: 4px;  --space-2: 8px;  --space-3: 12px;  --space-4: 16px;  --space-5: 24px;  --space-6: 32px;
   --radius: 12px;  --radius-sm: 8px;
 }
@@ -23,7 +23,7 @@
   --success: #00ba7c;  --success-hover: #00a06d;  --success-tint-10: #00ba7c10;  --success-tint-40: #00ba7c40;
   --warning: #ffd700;  --warning-strong: #b45309;  --warning-tint-10: #ffd70010;  --warning-tint-40: #ffd70040;
   --focus: #1d9bf0;
-  --overlay-30: rgba(0, 0, 0, 0.3);  --overlay-70: #000c;  --overlay-90: #000e;
+  --overlay-30: rgba(0, 0, 0, 0.3);  --overlay-70: #000c;  --overlay-90: #000e;  --on-overlay: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -37,7 +37,7 @@
     --success: #00ba7c;  --success-hover: #00a06d;  --success-tint-10: #00ba7c10;  --success-tint-40: #00ba7c40;
     --warning: #ffd700;  --warning-strong: #b45309;  --warning-tint-10: #ffd70010;  --warning-tint-40: #ffd70040;
     --focus: #1d9bf0;
-    --overlay-30: rgba(0, 0, 0, 0.3);  --overlay-70: #000c;  --overlay-90: #000e;
+    --overlay-30: rgba(0, 0, 0, 0.3);  --overlay-70: #000c;  --overlay-90: #000e;  --on-overlay: #ffffff;
   }
 }
 
@@ -516,7 +516,8 @@ body {
   font-weight: 700;
 }
 
-.new-draft-btn {
+.new-draft-btn,
+.publish-btn {
   padding: 10px 20px;
   background-color: var(--accent);
   color: var(--accent-text);
@@ -950,9 +951,9 @@ body {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text-strong);
+  background-color: var(--overlay-70);
+  border: none;
+  color: var(--on-overlay);
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -1034,9 +1035,9 @@ body {
   right: 10px;
   min-height: 44px;
   padding: 0 16px;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text-strong);
+  background-color: var(--overlay-70);
+  border: none;
+  color: var(--on-overlay);
   border-radius: 22px;
   font-size: 14px;
   font-weight: 600;
@@ -1128,7 +1129,8 @@ body {
   position: relative;
 }
 
-.share-btn {
+.share-btn,
+.logout-btn {
   padding: 8px 16px;
   background-color: var(--surface);
   border: 1px solid var(--border);
@@ -1269,18 +1271,11 @@ body {
 .publish-btn {
   min-height: 44px;
   padding: 8px 16px;
-  background-color: var(--accent);
-  color: var(--accent-text);
-  border: none;
-  border-radius: 22px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  background-color: var(--success);
 }
 
 .publish-btn:hover:not(:disabled) {
-  background-color: var(--accent-hover);
+  background-color: var(--success-hover);
 }
 
 .publish-btn:disabled {
@@ -1290,15 +1285,6 @@ body {
 
 .logout-btn {
   min-height: 44px;
-  padding: 8px 16px;
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  color: var(--text-strong);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
 .logout-btn:hover {
@@ -1632,11 +1618,11 @@ body {
 .tokens-page { max-width: 640px; margin: 0 auto; padding: 16px; }
 .tokens-form { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .tokens-form input { flex: 1 1 200px; padding: 8px; font-size: 16px; }
-.token-created { border: 1px solid var(--light-border); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.token-created { border: 1px solid var(--border-soft); border-radius: 8px; padding: 12px; margin: 12px 0; }
 .token-warning { color: var(--warning-strong); }
-.token-secret { display: block; word-break: break-all; padding: 8px; background: var(--light-surface); border-radius: 6px; margin: 8px 0; }
+.token-secret { display: block; word-break: break-all; padding: 8px; background: var(--surface-2); border-radius: 6px; margin: 8px 0; }
 .token-list { list-style: none; padding: 0; }
-.token-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--light-border); }
+.token-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
 
 /* Theme choice (Light / Dark / Match device). */
 .theme-setting {
