@@ -161,6 +161,8 @@ curl -s $BASE/api/health
 
 ## How to test at each level
 
+The pre-commit hook scans staged files with gitleaks when it is installed locally (`.gitleaks.toml`); CI's `gitleaks` job is the enforcing check.
+
 | Level | Command | Needs network? | Needs secrets? |
 |---|---|---|---|
 | 1. Unit + API | `npm ci && npm run test:unit` | npm registry only | no |
