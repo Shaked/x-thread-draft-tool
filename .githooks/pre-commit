@@ -1,6 +1,14 @@
 #!/usr/bin/env sh
 set -e
 
+# Secret scan on staged content. CI's gitleaks job is the enforcing check; this only runs when
+# gitleaks is installed locally.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --config .gitleaks.toml
+else
+  echo "gitleaks not installed: skipping local secret scan (CI enforces it)."
+fi
+
 echo "Running pre-commit checks (lint + unit tests)..."
 npm run precommit:checks
 # docs:refresh may update the claude.md index; include it in this commit.

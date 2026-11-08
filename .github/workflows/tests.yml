@@ -30,6 +30,8 @@ jobs:
 
       - name: Slop scan
         run: npm run slop
+      - name: Duplicate code (jscpd)
+        run: npm run dup
 
       # Reject any migration that contains a destructive statement (same patterns as the
       # former Supabase deploy guard). Destructive changes need a deliberate, reviewed rewrite.
