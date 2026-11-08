@@ -193,6 +193,8 @@ permitted. Use the two stable domains.
 **Databases behind previews:** each Preview deployment can get its own Neon branch. If a new
 preview answers 401 to a token that worked before, create a new token on that preview.
 
+Only `main` and the stable branch `claude/lucid-sagan-bbciuo` deploy (`vercel.json` `git.deploymentEnabled`). A PR is put on the stable preview by the runbook's P-PREVIEW (`docs/plans/hardening-finish.md`).
+
 ## CI identity (GitHub Actions OIDC)
 
 GitHub Actions can call the API without a stored token. The workflow requests a short-lived OIDC identity
