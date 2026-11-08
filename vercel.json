@@ -8,6 +8,10 @@
       "destination": "/api/handler?__path=:path*"
     },
     {
+      "source": "/.well-known/:path*",
+      "destination": "/api/handler?__path=.well-known/:path*"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

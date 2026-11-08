@@ -11,7 +11,7 @@ const CI_USER = { id: -1, login: 'ci-smoke', name: 'CI', avatar_url: null }
 export const SESSION_COOKIE = 'xt_session'
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 
-function secretKey() {
+export function secretKey() {
   const secret = process.env.SESSION_SECRET
   if (!secret) throw new Error('SESSION_SECRET is not set')
   return new TextEncoder().encode(secret)

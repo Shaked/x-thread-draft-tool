@@ -7,8 +7,12 @@ import { shareRoutes } from './routes/share.js'
 import { tokenRoutes } from './routes/tokens.js'
 import { threadRoutes } from './routes/threads.js'
 import { openapiRoutes } from './routes/openapi.js'
+import { oauthRoutes } from './routes/oauth.js'
 
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE'])
+
+// OAuth endpoints that never use cookies, so the Origin check does not apply to them (plan 7.5).
+const NO_ORIGIN_CHECK = new Set(['/oauth/token', '/oauth/register', '/oauth/revoke'])
 
 function health() {
   return json({ ok: true })
@@ -22,6 +26,7 @@ export const ROUTES = [
   ...shareRoutes,
   ...tokenRoutes,
   ...threadRoutes,
+  ...oauthRoutes,
   ...openapiRoutes,
   { method: 'GET', path: '/health', handler: health }
 ]
@@ -70,7 +75,8 @@ export async function route(request) {
 
     // Only cookie-authenticated writes need the Origin check. A bearer token cannot be attached
     // cross-site without a CORS preflight, and this API sends no CORS allow headers.
-    if (MUTATING.has(request.method) && request.headers.get('authorization') === null) {
+    const cookieless = request.method === 'POST' && NO_ORIGIN_CHECK.has(path)
+    if (MUTATING.has(request.method) && request.headers.get('authorization') === null && !cookieless) {
       checkOrigin(request)
     }
 

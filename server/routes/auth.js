@@ -4,6 +4,15 @@ import { HttpError, cookie, json, parseCookies } from '../http.js'
 import { authenticate, clearSessionCookie, createSession, sessionCookie } from '../session.js'
 
 const STATE_COOKIE = 'xt_oauth_state'
+const RETURN_COOKIE = 'xt_oauth_return'
+
+/** Only the MCP consent page may be a post-sign-in destination (plan 7.5, item 9): no scheme, no `//`. */
+export function safeReturnTo(value) {
+  if (typeof value !== 'string' || value.length > 2000) return null
+  if (!value.startsWith('/api/oauth/authorize?')) return null
+  if (/[\\\u0000-\u001f]/.test(value)) return null
+  return value
+}
 function appOrigin() {
   return process.env.PUBLIC_APP_URL.replace(/\/$/, '')
 }
@@ -19,17 +28,18 @@ function redirect(location, cookies = []) {
 }
 
 /** GET /api/auth/login: starts the GitHub OAuth flow with a one-time state cookie. */
-export async function login() {
+export async function login({ url }) {
   const state = crypto.randomUUID()
+  const returnTo = safeReturnTo(url.searchParams.get('return_to'))
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID,
     redirect_uri: callbackUrl(),
     scope: 'read:user',
     state
   })
-  return redirect(`https://github.com/login/oauth/authorize?${params}`, [
-    cookie(STATE_COOKIE, state, { maxAge: 600 })
-  ])
+  const cookies = [cookie(STATE_COOKIE, state, { maxAge: 600 })]
+  if (returnTo) cookies.push(cookie(RETURN_COOKIE, returnTo, { maxAge: 600 }))
+  return redirect(`https://github.com/login/oauth/authorize?${params}`, cookies)
 }
 
 async function exchangeCode(code) {
@@ -65,7 +75,12 @@ export async function callback({ request, url }) {
   const user = await upsertGithubUser(github)
 
   const token = await createSession(user)
-  return redirect(`${appOrigin()}/`, [sessionCookie(token), cookie(STATE_COOKIE, '', { maxAge: 0 })])
+  const returnTo = safeReturnTo(parseCookies(request)[RETURN_COOKIE])
+  return redirect(`${appOrigin()}${returnTo ?? '/'}`, [
+    sessionCookie(token),
+    cookie(STATE_COOKIE, '', { maxAge: 0 }),
+    cookie(RETURN_COOKIE, '', { maxAge: 0 })
+  ])
 }
 
 /** GET /api/auth/me: cookie session or bearer token. `user` is null when signed out. */
