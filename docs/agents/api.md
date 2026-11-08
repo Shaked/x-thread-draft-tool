@@ -25,7 +25,9 @@ refresh token revokes its whole connected app.
 Hand-made `xt_` tokens are personal (they act as the GitHub user who created them), expire after
 7 days at most, and can be revoked at any time. At most 20 are active per user. The plaintext is
 shown once; the server keeps only its SHA-256 hash. An invalid, expired or revoked token is always
-`401`, never a fallback to the cookie.
+`401`, never a fallback to the cookie. A hand-made token older than 7 days (including tokens
+created before the cap) gets a `401` whose message says it expired and points to the device flow
+or OAuth.
 
 ### Connect as an MCP connector
 

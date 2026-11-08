@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookie, parseCookies, HttpError } from './http.js'
-import { findUserByToken } from './tokens.js'
+import { findUserByToken, isExpiredApiToken } from './tokens.js'
 import { resolveAccess } from './oauth/tokens.js'
 import { verifyCiToken } from './oidc-ci.js'
 import { upsertGithubUser } from './github-user.js'
@@ -61,7 +61,7 @@ export async function authenticate(request) {
     const match = header.match(/^Bearer (xt_[A-Za-z0-9_-]{40,})$/)
     if (match) {
       const user = await findUserByToken(match[1])
-      if (!user) throw new HttpError(401, 'Invalid or expired API token')
+      if (!user) throw await refusedHandmadeToken(match[1])
       return user
     }
     // OAuth access token (1 hour), bound to the REST API resource `<origin>/api` (RFC 8707).
@@ -83,6 +83,17 @@ export async function authenticate(request) {
   }
   const session = await readSession(request)
   return session ? { ...session, via: 'session' } : null
+}
+
+/** A hand-made token that has expired (7-day cap or its expiry) gets a message that says so. */
+async function refusedHandmadeToken(token) {
+  if (await isExpiredApiToken(token)) {
+    return new HttpError(
+      401,
+      'This API token has expired. Hand-made tokens last 7 days at most. Create a new token at /settings/tokens, or connect with the device flow (POST /api/auth/device/start) or OAuth (MCP at /api/mcp).'
+    )
+  }
+  return new HttpError(401, 'Invalid or expired API token')
 }
 
 /** The REST API resource that OAuth access tokens are issued for: `<origin>/api`. */
