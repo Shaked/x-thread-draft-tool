@@ -414,7 +414,7 @@ fixture bodies copied from PRs #23–#25.
 
 ## Task 6 — Light theme and friendlier UI
 
-Status: Not started. One PR per sub-task, in order. Every UI PR attaches before/after
+Status: 6.0 In PR #43. 6.1 In PR #44. 6.2 In PR #45. 6.3 not started. One PR per sub-task, in order. Every UI PR attaches before/after
 screenshots from 6.0 at 390 px and 1280 px width (both themes from 6.2 on).
 
 ### 6.0 Screenshot harness

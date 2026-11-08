@@ -16,7 +16,7 @@ export default defineConfig({
         name: 'X Thread Draft Tool',
         short_name: 'Thread Draft',
         description: 'Compose, manage, and export Twitter/X threads with ease',
-        theme_color: '#1da1f2',
+        theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
