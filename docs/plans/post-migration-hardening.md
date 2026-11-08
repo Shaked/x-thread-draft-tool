@@ -184,7 +184,7 @@ Status: blocked until Shaked confirms the Supabase project is deleted (on or aft
 
 ## Task 2 — Security gates
 
-Status: Not started. One PR for 2.1–2.3; 2.4 is Shaked's.
+Status: In PR #36 (2.1–2.3). 2.4 is Shaked's.
 
 ### 2.1 CodeQL
 **Files:** new `.github/workflows/codeql.yml`.
