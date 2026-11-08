@@ -1,0 +1,1 @@
+- Login on a per-deployment host redirects to the canonical app origin before starting GitHub sign-in, so the state cookie and callback share one host (hardening Task 25).
