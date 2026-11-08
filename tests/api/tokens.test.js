@@ -5,6 +5,7 @@ vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn
 
 import { route } from '../../server/router.js'
 import { createApiToken } from '../../server/tokens.js'
+import { issuePair } from '../../server/oauth/tokens.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
 
 let db
@@ -100,6 +101,55 @@ describe('listing and revoking', () => {
     await db.pg.query("update api_tokens set expires_at = now() - interval '1 day' where id = $1", [id])
     const res = await route(apiRequest('/api/auth/me', { headers: bearer(token) }))
     expect(res.status).toBe(401)
+  })
+})
+
+describe('OAuth access tokens cannot manage personal tokens', () => {
+  const API = 'https://app.test/api'
+
+  async function oauthAccessToken() {
+    await db.pg.query(
+      "insert into oauth_clients (client_id, kind, client_name) values ('xtc_test_client', 'registered', 'Test') on conflict do nothing"
+    )
+    const { rows } = await db.pg.query(
+      "insert into oauth_grants (user_id, client_id, scope, resource) values ($1, 'xtc_test_client', 'drafts', $2) returning id",
+      [alice.id, API]
+    )
+    return (await issuePair(rows[0].id)).access_token
+  }
+
+  it('GET /api/tokens gets 403 for an OAuth access token', async () => {
+    await newToken()
+    const access = await oauthAccessToken()
+    const res = await route(apiRequest('/api/tokens', { headers: bearer(access) }))
+    expect(res.status).toBe(403)
+    expect((await res.json()).error).toMatch(/OAuth grant/)
+  })
+
+  it('DELETE /api/tokens/:id gets 403 for an OAuth access token and the token is not revoked', async () => {
+    const { token, id } = await newToken()
+    const access = await oauthAccessToken()
+    const res = await route(apiRequest(`/api/tokens/${id}`, { method: 'DELETE', headers: bearer(access) }))
+    expect(res.status).toBe(403)
+    const { rows } = await db.pg.query('select revoked_at from api_tokens where id = $1', [id])
+    expect(rows[0].revoked_at).toBeNull()
+    const still = await route(apiRequest('/api/auth/me', { headers: bearer(token) }))
+    expect(still.status).toBe(200)
+  })
+
+  it('a browser session still lists and revokes tokens', async () => {
+    const { id } = await newToken()
+    const list = await route(apiRequest('/api/tokens', { cookie: aliceCookie }))
+    expect(list.status).toBe(200)
+    expect((await list.json()).tokens).toHaveLength(1)
+    const revoke = await route(apiRequest(`/api/tokens/${id}`, { method: 'DELETE', cookie: aliceCookie }))
+    expect(revoke.status).toBe(200)
+  })
+
+  it('a hand-made xt_ token still lists its owner tokens', async () => {
+    const { token } = await newToken()
+    const res = await route(apiRequest('/api/tokens', { headers: bearer(token) }))
+    expect(res.status).toBe(200)
   })
 })
 

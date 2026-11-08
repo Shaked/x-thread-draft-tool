@@ -77,7 +77,7 @@ Errors are JSON: `{ "error": "message" }`.
 |---|---|
 | 400 | Invalid input (the message says what) |
 | 401 | Not signed in, or invalid/expired/revoked token |
-| 403 | Refused (for example, creating a token with a bearer token, or a foreign origin with a cookie) |
+| 403 | Refused (for example, creating a token with a bearer token, managing API tokens with an OAuth access token, or a foreign origin with a cookie) |
 | 404 | Not found, or not yours (writes never reveal that another user's draft exists) |
 | 409 | Token limit reached |
 | 410 | One-time share link already used |
@@ -105,7 +105,7 @@ curl -s -X POST $BASE/api/auth/logout                               # browser se
 ### Tokens
 
 ```bash
-curl -s $BASE/api/tokens -H "Authorization: Bearer $TOKEN"                     # list (no secrets)
+curl -s $BASE/api/tokens -H "Authorization: Bearer $TOKEN"                     # list (no secrets); xt_ or session only, OAuth gets 403
 curl -s -X POST $BASE/api/tokens -H 'content-type: application/json' \
   -H "Cookie: xt_session=..." -d '{"name":"laptop","expires_in_days":7}'       # session only
 curl -s -X DELETE $BASE/api/tokens/TOKEN_ID -H "Authorization: Bearer $TOKEN"  # revoke

@@ -97,6 +97,18 @@ export async function requireUser(request) {
   return user
 }
 
+/**
+ * Personal-token management (listing and revoking API tokens): a browser session or a hand-made
+ * `xt_` token. OAuth access tokens are refused, since they are granted for drafts and nothing else.
+ */
+export async function requirePersonalUser(request) {
+  const user = await requireUser(request)
+  if (user.via !== 'session' && user.via !== 'token') {
+    throw new HttpError(403, 'Managing API tokens needs a browser session or a personal API token, not an OAuth grant')
+  }
+  return user
+}
+
 /** Like requireUser, but a bearer token is refused (creating tokens needs a human browser session). */
 export async function requireSessionUser(request) {
   const user = await requireUser(request)
