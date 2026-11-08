@@ -35,6 +35,7 @@ function mockDeviceScheme(initialDark) {
 
 describe('theme', () => {
   beforeEach(() => {
+    setTheme('light') // resets the in-memory session choice too
     localStorage.clear()
     delete document.documentElement.dataset.theme
     document.head.innerHTML =
@@ -87,6 +88,19 @@ describe('theme', () => {
     expect(getTheme()).toBe('light')
     expect(setTheme('dark')).toBe('dark')
     expect(document.documentElement.dataset.theme).toBe('dark')
+  })
+
+  it('remembers the choice for the session when storage is blocked', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    setTheme('light')
+    expect(getTheme()).toBe('light')
+    setTheme('dark')
+    expect(getTheme()).toBe('dark')
   })
 
   it('system choice updates meta tags and dispatches an event when the device scheme changes', () => {

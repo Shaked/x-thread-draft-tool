@@ -19,7 +19,11 @@ function readStored() {
   }
 }
 
+// The last choice made in this page. Used when storage is blocked, so the session keeps the choice.
+let sessionTheme = null
+
 function writeStored(value) {
+  sessionTheme = value
   try {
     localStorage.setItem(THEME_KEY, value)
   } catch {
@@ -30,7 +34,8 @@ function writeStored(value) {
 /** The saved choice, or 'light' when nothing valid is stored. */
 export function getTheme() {
   const stored = readStored()
-  return THEMES.includes(stored) ? stored : 'light'
+  if (THEMES.includes(stored)) return stored
+  return THEMES.includes(sessionTheme) ? sessionTheme : 'light'
 }
 
 /** 'light' or 'dark', resolving 'system' against the device setting. */
