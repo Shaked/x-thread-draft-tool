@@ -105,6 +105,7 @@ Status: 0.1 In PR #26. Four PRs, in order: 0.1, 0.3a, 0.2, 0.3b.
 **Stop if:** more than 5 test files need edits.
 
 ### 0.2 Production high chain (`zod` via `@vercel/blob`)
+Status: In PR #30.
 **Why:** 4 high findings reach production through `@vercel/blob`.
 **Files:** `package.json`, `package-lock.json`.
 **Steps:**
