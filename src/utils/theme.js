@@ -4,6 +4,12 @@
 export const THEME_KEY = 'xt-theme'
 export const THEMES = ['light', 'dark', 'system']
 const DARK_QUERY = '(prefers-color-scheme: dark)'
+/** Fired on window when the device scheme changes while the choice is 'system'. */
+export const THEME_CHANGE_EVENT = 'xt-theme-change'
+
+// Only one listener at a time: it is attached while the choice is 'system' and removed otherwise.
+let systemQuery = null
+let systemListener = null
 
 function readStored() {
   try {
@@ -45,11 +51,36 @@ function syncMetaTags(resolved) {
   if (themeColor) themeColor.setAttribute('content', resolved === 'dark' ? '#000000' : '#ffffff')
 }
 
-/** Applies a theme to the page (attribute and meta tags). Unknown values are ignored. */
+function detachSystemListener() {
+  if (systemQuery && systemListener) systemQuery.removeEventListener('change', systemListener)
+  systemQuery = null
+  systemListener = null
+}
+
+// Keeps meta tags and consumers (tweet embeds) in step with the device while the choice is 'system'.
+function syncSystemListener(value) {
+  detachSystemListener()
+  if (value !== 'system') return
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+  const query = window.matchMedia(DARK_QUERY)
+  if (!query || typeof query.addEventListener !== 'function') return
+  systemListener = (event) => {
+    const resolved = event && typeof event.matches === 'boolean'
+      ? (event.matches ? 'dark' : 'light')
+      : resolvedTheme('system')
+    syncMetaTags(resolved)
+    window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: { theme: 'system', resolved } }))
+  }
+  systemQuery = query
+  query.addEventListener('change', systemListener)
+}
+
+/** Applies a theme to the page (attribute, meta tags and device listener). Unknown values are ignored. */
 export function applyTheme(value) {
   if (!THEMES.includes(value)) return getTheme()
   document.documentElement.dataset.theme = value
   syncMetaTags(resolvedTheme(value))
+  syncSystemListener(value)
   return value
 }
 
