@@ -1,0 +1,1 @@
+- The deployed smoke test uses only its GitHub OIDC identity; the long-lived XT_SMOKE_TOKEN* secrets are no longer referenced by any workflow (hardening Task 27, D-9).

@@ -1,0 +1,15 @@
+# Secret scanning config, used by the CI `gitleaks` job and the local pre-commit check.
+# The default ruleset stays on; only the paths and strings below are allowed.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures use fake tokens and a fixed test session secret"
+paths = [
+  '''^tests/.*''',
+]
+# The fixed session secret used by tests/api/helpers/db.js (not a real credential).
+stopwords = [
+  "test-session-secret-0123456789-abcdefghijklmnop",
+]

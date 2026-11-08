@@ -161,6 +161,8 @@ curl -s $BASE/api/health
 
 ## How to test at each level
 
+The pre-commit hook scans staged files with gitleaks when it is installed locally (`.gitleaks.toml`); CI's `gitleaks` job is the enforcing check.
+
 | Level | Command | Needs network? | Needs secrets? |
 |---|---|---|---|
 | 1. Unit + API | `npm ci && npm run test:unit` | npm registry only | no |
@@ -170,8 +172,7 @@ curl -s $BASE/api/health
 `npm run smoke` creates drafts titled `[smoke] <timestamp>` in the token owner's account and
 deletes them, even if a step fails. It prints PASS/FAIL per step and never prints the token.
 Set `XT_SMOKE_PUBLIC=1` to run only the steps that need no account (account steps print SKIP).
-The automatic deployed smoke test uses it for Preview deployments, whose database branch has no
-smoke-test user; Production deployments and manual runs get the full test.
+The automatic deployed smoke test (`.github/workflows/smoke-deployed.yml`) runs the full test on Preview and Production deployments. It signs in with a GitHub OIDC identity (`auth: ci-oidc`), so it needs no stored token. No long-lived smoke token is stored (the XT_SMOKE_TOKEN* secrets were removed in Task 27).
 
 `/api/dev/token` exists only on the local headless server. It is not part of the Vercel function.
 
@@ -192,6 +193,10 @@ permitted. Use the two stable domains.
 
 **Databases behind previews:** each Preview deployment can get its own Neon branch. If a new
 preview answers 401 to a token that worked before, create a new token on that preview.
+
+Only `main` and the stable branch `claude/lucid-sagan-bbciuo` deploy (`vercel.json` `git.deploymentEnabled`). A PR is put on the stable preview by the runbook's P-PREVIEW (`docs/plans/hardening-finish.md`).
+
+**Neon preview branches:** `.github/workflows/neon-preview-cleanup.yml` runs `scripts/neon-preview-cleanup.mjs`. On each PR push it runs `preflight`: reuse the PR's `preview/<branch>`, or make room when the project is at its branch limit (`branches_limit`, 10 on the free plan), or stop with exit 2. On close it deletes that PR's branch. A daily run deletes merged and closed-unmerged previews after 24 hours. `main`, the default, primary, delete-restricted or protected branches and the stable preview are never deleted.
 
 ## CI identity (GitHub Actions OIDC)
 
