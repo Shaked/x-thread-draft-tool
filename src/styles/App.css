@@ -1111,7 +1111,8 @@ body {
   position: relative;
 }
 
-.share-btn {
+.share-btn,
+.logout-btn {
   padding: 8px 16px;
   background-color: var(--surface);
   border: 1px solid var(--border);
@@ -1265,18 +1266,6 @@ body {
 .publish-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-.logout-btn {
-  padding: 8px 16px;
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  color: var(--text-strong);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
 .logout-btn:hover {
