@@ -78,8 +78,10 @@ test.describe('screens', () => {
     test(`captures every screen at ${width}px`, async ({ browser, request }) => {
       test.setTimeout(180_000)
 
-      const owner = await devToken(request, 'screens-owner')
-      const empty = await devToken(request, 'screens-empty')
+      // A fresh login per run and width, so drafts from earlier runs or the other viewport never show up.
+      const run = `${width}-${Date.now()}`
+      const owner = await devToken(request, `screens-owner-${run}`)
+      const empty = await devToken(request, `screens-empty-${run}`)
 
       // Empty list: a user with no drafts.
       await shoot(browser, width, 'drafts-empty', '/', { token: empty })
