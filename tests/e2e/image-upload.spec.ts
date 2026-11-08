@@ -41,42 +41,9 @@ test.describe('image upload', () => {
       return route.continue({ headers: { ...route.request().headers(), ...extra } })
     })
 
-    // Diagnostics: log each API request as it is sent, fails or answers (paths only, never headers).
-    page.on('request', (r) => { if (r.url().includes('/api/')) console.log(`request ${r.method()} ${new URL(r.url()).pathname}`) })
-    page.on('requestfailed', (r) => { if (r.url().includes('/api/')) console.log(`requestfailed ${new URL(r.url()).pathname} ${r.failure()?.errorText}`) })
-    page.on('response', (r) => { if (r.url().includes('/api/')) console.log(`response ${new URL(r.url()).pathname} status=${r.status()}`) })
-    // Why the app might not start: uncaught page errors, console errors, and failed or error responses on any origin.
-    page.on('pageerror', (e) => console.log(`pageerror ${e.message.slice(0, 200)}`))
-    page.on('console', (m) => { if (m.type() === 'error') console.log(`console.error ${m.text().slice(0, 200)}`) })
-    page.on('requestfailed', (r) => console.log(`requestfailed-any ${new URL(r.url()).host}${new URL(r.url()).pathname.slice(0, 80)} ${r.failure()?.errorText}`))
-    page.on('response', (r) => { if (r.status() >= 400) console.log(`http-error ${new URL(r.url()).host}${new URL(r.url()).pathname.slice(0, 80)} status=${r.status()}`) })
-
     let draftId: string | null = null
     try {
-      // Diagnostics: report how the app's sign-in call answered (never the token).
-      const meResponse = page.waitForResponse((r) => r.url().includes('/api/auth/me'), { timeout: 20_000 }).catch(() => null)
       await page.goto(BASE)
-      const me = await meResponse
-      if (me) {
-        // Never wait on the body without a limit: a stalled body would hang the whole test.
-        const body = await Promise.race([me.text().catch(() => ''), new Promise((r) => setTimeout(() => r('(body timed out)'), 5000))])
-        console.log(`auth/me status=${me.status()} body=${String(body).slice(0, 200)}`)
-      }
-      else console.log('auth/me: no response seen')
-      // Probe: can the page's own fetch reach /api/auth/me at all? Bounded by a 10 s abort.
-      const probe = await page.evaluate(async () => {
-        const c = new AbortController()
-        const t = setTimeout(() => c.abort(), 10_000)
-        try {
-          const r = await fetch('/api/auth/me', { credentials: 'same-origin', signal: c.signal })
-          return `status=${r.status}`
-        } catch (e) {
-          return `error=${(e as Error).name}`
-        } finally {
-          clearTimeout(t)
-        }
-      })
-      console.log(`page fetch probe: ${probe}`)
       await page.locator('.new-draft-btn').first().click()
       await expect(page).toHaveURL(/\/draft\//)
       draftId = new URL(page.url()).pathname.split('/').pop() ?? null
