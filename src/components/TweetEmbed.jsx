@@ -5,18 +5,15 @@ export default function TweetEmbed({ url }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // Extract tweet ID from URL (derived during render, no effect needed)
+  const tweetIdMatch = url ? url.match(/status\/(\d+)/) : null
+  const tweetId = tweetIdMatch ? tweetIdMatch[1] : null
+  const displayError = url && !tweetId ? 'Invalid tweet URL' : error
+
   useEffect(() => {
-    if (!url) return
+    if (!tweetId) return
 
-    // Extract tweet ID from URL
-    const tweetIdMatch = url.match(/status\/(\d+)/)
-    if (!tweetIdMatch) {
-      setError('Invalid tweet URL')
-      setLoading(false)
-      return
-    }
-
-    const tweetId = tweetIdMatch[1]
+    const container = containerRef.current
     let isMounted = true
 
     // Load Twitter widget script if not already loaded
@@ -76,18 +73,18 @@ export default function TweetEmbed({ url }) {
     // Cleanup function
     return () => {
       isMounted = false
-      if (containerRef.current) {
-        containerRef.current.innerHTML = ''
+      if (container) {
+        container.innerHTML = ''
       }
     }
-  }, [url])
+  }, [tweetId])
 
   if (!url) return null
 
-  if (error) {
+  if (displayError) {
     return (
       <div className="tweet-embed-error">
-        <p>{error}</p>
+        <p>{displayError}</p>
         <a href={url} target="_blank" rel="noopener noreferrer">
           View tweet on X/Twitter
         </a>

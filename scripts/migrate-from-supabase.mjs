@@ -102,6 +102,130 @@ async function loadUrlMap() {
   return new Map(Object.entries(JSON.parse(await readFile(URL_MAP_PATH, 'utf8'))))
 }
 
+async function migrateUsers({ source, target, stats, userIdMap }) {
+  const { rows: authUsers } = await source.query('select id, raw_user_meta_data from auth.users')
+  for (const user of authUsers) {
+    const profile = githubProfile(user)
+    if (!profile) {
+      stats.users.skippedNoGithub += 1
+      continue
+    }
+    if (!target) {
+      userIdMap.set(user.id, user.id)
+      stats.users.migrated += 1
+      continue
+    }
+    const { rows } = await target.query(
+      `insert into users (id, github_id, login, name, avatar_url)
+       values ($1, $2, $3, $4, $5)
+       on conflict (github_id) do update set github_id = excluded.github_id
+       returning id`,
+      [profile.id, profile.github_id, profile.login, profile.name, profile.avatar_url]
+    )
+    userIdMap.set(user.id, rows[0].id)
+    stats.users.migrated += 1
+  }
+}
+
+// Images are copied first, then the draft row is written with rewritten URLs.
+async function migrateImagesForDraft({ target, stats, failures, urlMap }, draft, targetUserId, posts) {
+  const sourceUrls = [...new Set(supabaseImageUrls(posts))]
+  for (const url of sourceUrls) {
+    if (urlMap.has(url)) {
+      stats.images.reused += 1
+      continue
+    }
+    if (!target) {
+      stats.images.moved += 1
+      continue
+    }
+    try {
+      urlMap.set(url, await copyImage(url, targetUserId, draft.id))
+      stats.images.moved += 1
+    } catch (error) {
+      stats.images.failed.push(draft.id)
+      failures.push(`image in draft ${draft.id}: ${error.message}`)
+    }
+  }
+}
+
+async function writeDraft({ target, stats }, draft, targetUserId, finalPosts) {
+  const inserted = await target.query(
+    `insert into drafts (id, user_id, title, posts, is_published, published_at, created_at, updated_at)
+     values ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)
+     on conflict (id) do update set posts = excluded.posts
+       where drafts.posts::text like '%/storage/v1/object/public/draft-images/%'`,
+    [
+      draft.id,
+      targetUserId,
+      draft.title,
+      JSON.stringify(finalPosts),
+      draft.is_published,
+      draft.published_at,
+      draft.created_at,
+      draft.updated_at
+    ]
+  )
+  if (inserted.rowCount > 0) stats.drafts.migrated += 1
+  else stats.drafts.alreadyPresent += 1
+}
+
+async function migrateDrafts(ctx) {
+  const { source, target, stats, userIdMap, urlMap } = ctx
+  const { rows: drafts } = await source.query(
+    `select id, user_id, title, posts, coalesce(is_published, false) as is_published,
+            published_at, created_at, updated_at
+       from public.drafts
+      order by created_at`
+  )
+  for (const draft of drafts) {
+    const targetUserId = userIdMap.get(draft.user_id)
+    if (!targetUserId) {
+      if (stats.drafts.skippedNoUser.length < 50) stats.drafts.skippedNoUser.push(draft.id)
+      stats.drafts.skippedOrphan += 1
+      continue
+    }
+
+    const posts = draft.posts
+    await migrateImagesForDraft(ctx, draft, targetUserId, posts)
+    const finalPosts = remapPosts(posts, urlMap)
+
+    if (!target) {
+      stats.drafts.migrated += 1
+      continue
+    }
+    await writeDraft(ctx, draft, targetUserId, finalPosts)
+  }
+}
+
+async function migrateTokens({ source, target, stats, userIdMap }) {
+  // Share tokens that were never used
+  const { rows: tokens } = await source.query(
+    'select token, draft_id, created_by, created_at from public.share_tokens where used = false'
+  )
+  for (const token of tokens) {
+    const targetUserId = userIdMap.get(token.created_by)
+    if (!targetUserId) {
+      stats.tokens.skipped += 1
+      continue
+    }
+    if (!target) {
+      stats.tokens.migrated += 1
+      continue
+    }
+    const result = await target.query(
+      `insert into share_tokens (token, draft_id, created_by, created_at)
+       select $1::uuid, $2::uuid, $3::uuid, $4::timestamptz
+        where exists (select 1 from drafts where id = $2::uuid)
+          and exists (select 1 from users where id = $3::uuid)
+       on conflict (token) do nothing`,
+      [token.token, token.draft_id, targetUserId, token.created_at]
+    )
+    if (result.rowCount > 0) stats.tokens.migrated += 1
+    else stats.tokens.skipped += 1
+  }
+}
+
 async function main() {
   const source = new pg.Client(sourceConfig(requireEnv('SUPABASE_DB_URL')))
   const target = APPLY ? new pg.Client({ connectionString: requireEnv('DATABASE_URL_UNPOOLED') }) : null
@@ -119,117 +243,12 @@ async function main() {
   const failures = []
   const urlMap = await loadUrlMap()
   const userIdMap = new Map() // Supabase user id -> target user id
+  const ctx = { source, target, stats, failures, urlMap, userIdMap }
 
   try {
-    // 1. Users
-    const { rows: authUsers } = await source.query('select id, raw_user_meta_data from auth.users')
-    for (const user of authUsers) {
-      const profile = githubProfile(user)
-      if (!profile) {
-        stats.users.skippedNoGithub += 1
-        continue
-      }
-      if (!target) {
-        userIdMap.set(user.id, user.id)
-        stats.users.migrated += 1
-        continue
-      }
-      const { rows } = await target.query(
-        `insert into users (id, github_id, login, name, avatar_url)
-         values ($1, $2, $3, $4, $5)
-         on conflict (github_id) do update set github_id = excluded.github_id
-         returning id`,
-        [profile.id, profile.github_id, profile.login, profile.name, profile.avatar_url]
-      )
-      userIdMap.set(user.id, rows[0].id)
-      stats.users.migrated += 1
-    }
-
-    // 2. Drafts (images are rewritten before the row is written)
-    const { rows: drafts } = await source.query(
-      `select id, user_id, title, posts, coalesce(is_published, false) as is_published,
-              published_at, created_at, updated_at
-         from public.drafts
-        order by created_at`
-    )
-    for (const draft of drafts) {
-      const targetUserId = userIdMap.get(draft.user_id)
-      if (!targetUserId) {
-        if (stats.drafts.skippedNoUser.length < 50) stats.drafts.skippedNoUser.push(draft.id)
-        stats.drafts.skippedOrphan += 1
-        continue
-      }
-
-      const posts = draft.posts
-      const sourceUrls = [...new Set(supabaseImageUrls(posts))]
-      for (const url of sourceUrls) {
-        if (urlMap.has(url)) {
-          stats.images.reused += 1
-          continue
-        }
-        if (!target) {
-          stats.images.moved += 1
-          continue
-        }
-        try {
-          urlMap.set(url, await copyImage(url, targetUserId, draft.id))
-          stats.images.moved += 1
-        } catch (error) {
-          stats.images.failed.push(draft.id)
-          failures.push(`image in draft ${draft.id}: ${error.message}`)
-        }
-      }
-      const finalPosts = remapPosts(posts, urlMap)
-
-      if (!target) {
-        stats.drafts.migrated += 1
-        continue
-      }
-      const inserted = await target.query(
-        `insert into drafts (id, user_id, title, posts, is_published, published_at, created_at, updated_at)
-         values ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)
-         on conflict (id) do update set posts = excluded.posts
-           where drafts.posts::text like '%/storage/v1/object/public/draft-images/%'`,
-        [
-          draft.id,
-          targetUserId,
-          draft.title,
-          JSON.stringify(finalPosts),
-          draft.is_published,
-          draft.published_at,
-          draft.created_at,
-          draft.updated_at
-        ]
-      )
-      if (inserted.rowCount > 0) stats.drafts.migrated += 1
-      else stats.drafts.alreadyPresent += 1
-    }
-
-    // 3. Share tokens that were never used
-    const { rows: tokens } = await source.query(
-      'select token, draft_id, created_by, created_at from public.share_tokens where used = false'
-    )
-    for (const token of tokens) {
-      const targetUserId = userIdMap.get(token.created_by)
-      if (!targetUserId) {
-        stats.tokens.skipped += 1
-        continue
-      }
-      if (!target) {
-        stats.tokens.migrated += 1
-        continue
-      }
-      const result = await target.query(
-        `insert into share_tokens (token, draft_id, created_by, created_at)
-         select $1::uuid, $2::uuid, $3::uuid, $4::timestamptz
-          where exists (select 1 from drafts where id = $2::uuid)
-            and exists (select 1 from users where id = $3::uuid)
-         on conflict (token) do nothing`,
-        [token.token, token.draft_id, targetUserId, token.created_at]
-      )
-      if (result.rowCount > 0) stats.tokens.migrated += 1
-      else stats.tokens.skipped += 1
-    }
+    await migrateUsers(ctx)
+    await migrateDrafts(ctx)
+    await migrateTokens(ctx)
   } finally {
     await source.end()
     if (target) await target.end()

@@ -21,6 +21,29 @@ export function ciAudience(vercelEnv) {
   return `x-thread-draft-tool-ci-${vercelEnv}`
 }
 
+/** The first reason verified claims must be refused, or null when they are acceptable. */
+function claimRefusal(claims, env, vercelEnv, repoId) {
+  if (claims.repository_id !== repoId) return 'repository id does not match the configured id'
+  if (!ALLOWED_EVENTS.has(claims.event_name)) return 'event not allowed'
+  if (claims.runner_environment !== undefined && claims.runner_environment !== 'github-hosted') return 'runner not github-hosted'
+
+  // deployment_status runs have no ref: GitHub pins workflow_ref to the commit sha instead.
+  const ref = typeof claims.ref === 'string' ? claims.ref : ''
+  const pinned = ref || claims.sha || ''
+  const expectedWorkflow = `${REPO}/${CI_WORKFLOW_PATH}@${pinned}`
+  if (!pinned) return 'no ref or commit sha in token'
+  if (claims.workflow_ref !== expectedWorkflow) return `workflow_ref mismatch (got ${claims.workflow_ref})`
+  if (claims.job_workflow_ref !== expectedWorkflow) return `job_workflow_ref mismatch (got ${claims.job_workflow_ref})`
+
+  const isMain = ref === 'refs/heads/main'
+  const branchAllowed = vercelEnv === 'preview' && env.CI_OIDC_ALLOW_BRANCHES === '1'
+  const isBranch = branchAllowed && (ref === '' ? claims.event_name === 'deployment_status' : /^refs\/heads\/[\w./-]+$/.test(ref))
+  if (!isMain && !isBranch) {
+    return `branch ref not allowed (vercelEnv=${vercelEnv} allowBranchesSet=${env.CI_OIDC_ALLOW_BRANCHES === '1'})`
+  }
+  return null
+}
+
 /**
  * Returns the verified claims, or null. Never throws: every failure is "not a valid CI token".
  * env: process env. Only preview and production deployments accept CI tokens.
@@ -48,28 +71,10 @@ export async function verifyCiToken(token, env = process.env) {
   }
 
   // Each refusal names its check in the log. Values are not logged, only whether they matched.
-  const reject = (reason) => {
+  const reason = claimRefusal(claims, env, vercelEnv, repoId)
+  if (reason) {
     console.warn(`[oidc-ci] refused: ${reason} (ref=${claims.ref} event=${claims.event_name})`)
     return null
   }
-  if (claims.repository_id !== repoId) return reject('repository id does not match the configured id')
-  if (!ALLOWED_EVENTS.has(claims.event_name)) return reject('event not allowed')
-  if (claims.runner_environment !== undefined && claims.runner_environment !== 'github-hosted') return reject('runner not github-hosted')
-
-  // deployment_status runs have no ref: GitHub pins workflow_ref to the commit sha instead.
-  const ref = typeof claims.ref === 'string' ? claims.ref : ''
-  const pinned = ref || claims.sha || ''
-  const expectedWorkflow = `${REPO}/${CI_WORKFLOW_PATH}@${pinned}`
-  if (!pinned) return reject('no ref or commit sha in token')
-  if (claims.workflow_ref !== expectedWorkflow) return reject(`workflow_ref mismatch (got ${claims.workflow_ref})`)
-  if (claims.job_workflow_ref !== expectedWorkflow) return reject(`job_workflow_ref mismatch (got ${claims.job_workflow_ref})`)
-
-  const isMain = ref === 'refs/heads/main'
-  const branchAllowed = vercelEnv === 'preview' && env.CI_OIDC_ALLOW_BRANCHES === '1'
-  const isBranch = branchAllowed && (ref === '' ? claims.event_name === 'deployment_status' : /^refs\/heads\/[\w./-]+$/.test(ref))
-  if (!isMain && !isBranch) {
-    return reject(`branch ref not allowed (vercelEnv=${vercelEnv} allowBranchesSet=${env.CI_OIDC_ALLOW_BRANCHES === '1'})`)
-  }
-
   return claims
 }

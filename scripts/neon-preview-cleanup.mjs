@@ -107,7 +107,7 @@ export function makeNeonClient({ apiKey, projectId, base = 'https://console.neon
 }
 
 // argv: ['--dry-run'|'--apply', '--confirm-count=N', '--github=path.json', '--grace-hours=N']
-export async function run({ argv, env, client, readJson, now = Date.now(), log = console.log }) {
+export async function run({ argv, client, readJson, now = Date.now(), log = console.log }) {
   const opts = Object.fromEntries(
     argv.map((a) => {
       const m = a.match(/^--([^=]+)(?:=(.*))?$/);

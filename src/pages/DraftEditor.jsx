@@ -9,6 +9,84 @@ import AgentLinkButton from '../components/AgentLinkButton'
 import XThreadLinkButton from '../components/XThreadLinkButton'
 import ExportOptions from '../components/ExportOptions'
 
+function EditorHeader({ draft, draftId, isEditMode, synced, saving, user, onTitleChange, onPublish, onLogout }) {
+  return (
+    <header className="editor-header">
+      <Link to="/" className="back-link" aria-label="Back" title="Back">
+        <span className="back-arrow">←</span>
+        <span className="back-text">Back</span>
+      </Link>
+
+      {isEditMode ? (
+        <input
+          type="text"
+          value={draft.title}
+          onChange={(e) => onTitleChange(e.target.value)}
+          className="draft-title-input"
+          placeholder="Untitled Draft"
+        />
+      ) : (
+        <h1 className="draft-title-display">{draft.title}</h1>
+      )}
+
+      <div className="header-actions">
+        {!synced && <span className="sync-status syncing">Syncing...</span>}
+        {synced && !saving && <span className="sync-status synced">✓ Saved</span>}
+
+        <ShareButton draftId={draftId} />
+
+        {isEditMode && <AgentLinkButton draftId={draftId} />}
+
+        {isEditMode && <XThreadLinkButton draftId={draftId} />}
+
+        {isEditMode && !draft.is_published && (
+          <button className="publish-btn icon-btn" onClick={onPublish} disabled={saving} title="Publish" aria-label="Publish">
+            <span className="btn-icon">📤</span>
+            <span className="btn-text">Publish</span>
+          </button>
+        )}
+
+        {user && (
+          <button className="logout-btn icon-btn" onClick={onLogout} title="Logout" aria-label="Logout">
+            <span className="btn-icon">⏻</span>
+            <span className="btn-text">Logout</span>
+          </button>
+        )}
+      </div>
+    </header>
+  )
+}
+
+function EditorMainPanel({ draft, isEditMode, user, onPostsChange }) {
+  return (
+      <div className="main-panel">
+        <ThreadComposer
+          posts={draft.posts}
+          onPostsChange={onPostsChange}
+          readOnly={!isEditMode}
+        />
+
+        {isEditMode && !draft.is_published && (
+          <div className="editor-hint">
+            <p>💡 Tip: Images are auto-uploaded. Drafts are auto-saved every second.</p>
+          </div>
+        )}
+
+        {draft.is_published && (
+          <div className="published-badge">
+            <p>📤 This draft has been published</p>
+          </div>
+        )}
+
+        {!isEditMode && user && (
+          <div className="view-only-notice">
+            <p>You are viewing this draft in read-only mode.</p>
+          </div>
+        )}
+      </div>
+  )
+}
+
 export default function DraftEditor({ user }) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -37,13 +115,9 @@ export default function DraftEditor({ user }) {
 
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [])
+  }, [sidebarCollapsed])
 
-  useEffect(() => {
-    loadDraft()
-  }, [id, user])
-
-  const loadDraft = async () => {
+  const loadDraft = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -94,7 +168,12 @@ export default function DraftEditor({ user }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [id, user])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the spinner must reset when the draft id changes
+    loadDraft()
+  }, [loadDraft])
 
   const saveDraft = useCallback(
     async (draftToSave, immediate = false) => {
@@ -255,76 +334,20 @@ export default function DraftEditor({ user }) {
 
   return (
     <div className="draft-editor">
-      <header className="editor-header">
-        <Link to="/" className="back-link" aria-label="Back" title="Back">
-          <span className="back-arrow">←</span>
-          <span className="back-text">Back</span>
-        </Link>
-
-        {isEditMode ? (
-          <input
-            type="text"
-            value={draft.title}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            className="draft-title-input"
-            placeholder="Untitled Draft"
-          />
-        ) : (
-          <h1 className="draft-title-display">{draft.title}</h1>
-        )}
-
-        <div className="header-actions">
-          {!synced && <span className="sync-status syncing">Syncing...</span>}
-          {synced && !saving && <span className="sync-status synced">✓ Saved</span>}
-
-          <ShareButton draftId={id} />
-
-          {isEditMode && <AgentLinkButton draftId={id} />}
-
-          {isEditMode && <XThreadLinkButton draftId={id} />}
-
-          {isEditMode && !draft.is_published && (
-            <button className="publish-btn icon-btn" onClick={handlePublish} disabled={saving} title="Publish" aria-label="Publish">
-              <span className="btn-icon">📤</span>
-              <span className="btn-text">Publish</span>
-            </button>
-          )}
-
-          {user && (
-            <button className="logout-btn icon-btn" onClick={handleLogout} title="Logout" aria-label="Logout">
-              <span className="btn-icon">⏻</span>
-              <span className="btn-text">Logout</span>
-            </button>
-          )}
-        </div>
-      </header>
+      <EditorHeader
+        draft={draft}
+        draftId={id}
+        isEditMode={isEditMode}
+        synced={synced}
+        saving={saving}
+        user={user}
+        onTitleChange={handleTitleChange}
+        onPublish={handlePublish}
+        onLogout={handleLogout}
+      />
 
       <div className={`editor-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-        <div className="main-panel">
-          <ThreadComposer
-            posts={draft.posts}
-            onPostsChange={handlePostsChange}
-            readOnly={!isEditMode}
-          />
-
-          {isEditMode && !draft.is_published && (
-            <div className="editor-hint">
-              <p>💡 Tip: Images are auto-uploaded. Drafts are auto-saved every second.</p>
-            </div>
-          )}
-
-          {draft.is_published && (
-            <div className="published-badge">
-              <p>📤 This draft has been published</p>
-            </div>
-          )}
-
-          {!isEditMode && user && (
-            <div className="view-only-notice">
-              <p>You are viewing this draft in read-only mode.</p>
-            </div>
-          )}
-        </div>
+        <EditorMainPanel draft={draft} isEditMode={isEditMode} user={user} onPostsChange={handlePostsChange} />
 
         <button
           className="sidebar-toggle"

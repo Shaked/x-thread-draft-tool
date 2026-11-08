@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { draftsApi } from '../utils/api'
 
@@ -10,11 +10,7 @@ export default function DraftList({ user }) {
   const [error, setError] = useState(null)
   const navigate = useNavigate()
 
-  useEffect(() => {
-    loadDrafts()
-  }, [user])
-
-  const loadDrafts = async () => {
+  const loadDrafts = useCallback(async () => {
     if (!user) return
 
     try {
@@ -34,7 +30,12 @@ export default function DraftList({ user }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the spinner must reset when the signed-in user changes
+    loadDrafts()
+  }, [loadDrafts])
 
   const createNewDraft = async () => {
     try {

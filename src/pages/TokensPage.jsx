@@ -29,6 +29,7 @@ export default function TokensPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial token list load on mount
     load()
   }, [])
 
@@ -100,7 +101,7 @@ export default function TokensPage() {
       {created && (
         <div className="token-created" role="status">
           <p className="token-warning">
-            <strong>Copy this token now.</strong> It won't be shown again.
+            <strong>Copy this token now.</strong> It won&apos;t be shown again.
           </p>
           <code className="token-secret">{created.token}</code>
           <p>

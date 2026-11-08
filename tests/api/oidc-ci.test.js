@@ -145,10 +145,9 @@ describe('router: CI tokens only on CI routes', () => {
 })
 
 describe('GET /api/auth/me with a CI token (full path, in-memory database)', () => {
-  let db
   beforeAll(async () => {
     const { setupTestDb } = await import('./helpers/db.js')
-    db = await setupTestDb()
+    await setupTestDb()
   })
 
   it('creates the ci-smoke user and returns it on a branch preview', async () => {
