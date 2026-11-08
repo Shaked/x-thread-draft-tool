@@ -13,7 +13,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const prev = process.env.VERCEL_GIT_PREVIOUS_SHA
   let files = []
   try {
-    if (prev) files = execFileSync('git', ['diff', '--name-only', prev, 'HEAD'], { encoding: 'utf8' }).split('\n').filter(Boolean)
+    // --no-renames: a rename must list its source path too, or moving a deployed file into docs/ would skip the build.
+    if (prev) files = execFileSync('git', ['diff', '--no-renames', '--name-only', prev, 'HEAD'], { encoding: 'utf8' }).split('\n').filter(Boolean)
   } catch { files = [] } // slop-ok: no history means build, never skip
   const skip = shouldSkip(process.env, files)
   console.log(skip ? `[ignore] skipping: only ${files.length} docs/CI/test files changed` : '[ignore] building')
