@@ -247,6 +247,18 @@ function fakeGh(overrides = {}) {
 const event = { pull_request: { number: PR } };
 
 describe('runGate', () => {
+  it('a reused check is put back in progress before review state is read, so a read error cannot leave a success', async () => {
+    const gh = fakeGh({
+      listComments: vi.fn(async () => {
+        throw new Error('GitHub GET comments failed: HTTP 500');
+      }),
+    });
+    await expect(gate.runGate({ event, gh })).rejects.toThrow(/HTTP 500/);
+    const calls = gh.updateCheckRun.mock.calls;
+    expect(calls[0][1]).toEqual(expect.objectContaining({ status: 'in_progress' }));
+    expect(calls.some(([, fields]) => fields.conclusion === 'success')).toBe(false);
+  });
+
   it('fails the check and posts nothing while Codex has not reviewed the head', async () => {
     const gh = fakeGh();
     const result = await gate.runGate({ event, gh });

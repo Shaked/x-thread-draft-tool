@@ -191,6 +191,12 @@ export async function runGate({ event, gh }) {
   if (isForkPr(pr)) throw new Error(FORK_MESSAGE);
   const headSha = pr.head.sha;
   const checkRunId = await gh.findOrCreateCheckRun(headSha);
+  // A reused check run may still hold an earlier success. Put it back in progress before reading review
+  // state, so an error while reading (which throws out of runGate) cannot leave that success standing.
+  await gh.updateCheckRun(checkRunId, {
+    status: 'in_progress',
+    output: { title: 'Checking for a Codex review', summary: 'Re-evaluating the Codex review state.' },
+  });
 
   const comments = await gh.listComments(number);
   const evaluation = evaluateReview({ summary: findLatestSummary(comments), headSha });
