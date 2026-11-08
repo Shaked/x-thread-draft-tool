@@ -19,7 +19,7 @@ function redirect(location, cookies = []) {
 }
 
 /** GET /api/auth/login: starts the GitHub OAuth flow with a one-time state cookie. */
-export async function login() {
+async function login() {
   const state = crypto.randomUUID()
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID,
@@ -52,7 +52,7 @@ async function exchangeCode(code) {
  * GET /api/auth/callback: verifies state, upserts the user, issues the session cookie.
  * The GitHub access token is used once and never stored.
  */
-export async function callback({ request, url }) {
+async function callback({ request, url }) {
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
   const expected = parseCookies(request)[STATE_COOKIE]
@@ -69,7 +69,7 @@ export async function callback({ request, url }) {
 }
 
 /** GET /api/auth/me: cookie session or bearer token. `user` is null when signed out. */
-export async function me({ request }) {
+async function me({ request }) {
   const caller = await authenticate(request)
   if (!caller) return json({ user: null, auth: null })
   const { rows } = await query('select id, login, name, avatar_url from users where id = $1', [caller.uid])
@@ -77,7 +77,7 @@ export async function me({ request }) {
 }
 
 /** POST /api/auth/logout */
-export async function logout() {
+async function logout() {
   return json({ ok: true }, 200, { 'set-cookie': clearSessionCookie() })
 }
 

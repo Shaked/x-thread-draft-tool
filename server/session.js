@@ -7,7 +7,7 @@ import { upsertGithubUser } from './github-user.js'
 // The CI identity: a dedicated row in users (github_id -1; real GitHub ids are positive).
 const CI_USER = { id: -1, login: 'ci-smoke', name: 'CI', avatar_url: null }
 
-export const SESSION_COOKIE = 'xt_session'
+const SESSION_COOKIE = 'xt_session'
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 
 function secretKey() {
@@ -26,7 +26,7 @@ export async function createSession(user) {
 }
 
 /** Returns the session payload, or null when missing, invalid or expired. */
-export async function readSession(request) {
+async function readSession(request) {
   const token = parseCookies(request)[SESSION_COOKIE]
   if (!token) return null
   try {

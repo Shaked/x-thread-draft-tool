@@ -4,7 +4,7 @@ import { applyMigrations } from '../../../scripts/migrate.mjs'
 import { setQueryImpl } from '../../../server/db.js'
 import { createSession } from '../../../server/session.js'
 
-export const APP_URL = 'https://app.test'
+const APP_URL = 'https://app.test'
 
 export async function setupTestDb() {
   process.env.SESSION_SECRET = 'test-session-secret-0123456789-abcdefghijklmnop'

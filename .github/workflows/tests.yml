@@ -28,6 +28,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Unused code (knip)
+        run: npm run knip
+
       # Reject any migration that contains a destructive statement (same patterns as the
       # former Supabase deploy guard). Destructive changes need a deliberate, reviewed rewrite.
       - name: Lint database migrations

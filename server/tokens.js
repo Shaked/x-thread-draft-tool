@@ -10,17 +10,17 @@ function activeSql(alias = '') {
   return `(${a}revoked_at is null and (${a}expires_at is null or ${a}expires_at > now()))`
 }
 
-export function hashToken(token) {
+function hashToken(token) {
   return createHash('sha256').update(token).digest('hex')
 }
 
 /** A new random token: `xt_` + 32 random bytes (base64url). Only the hash is kept. */
-export function generateToken() {
+function generateToken() {
   const token = `xt_${randomBytes(32).toString('base64url')}`
   return { token, hash: hashToken(token), prefix: token.slice(0, 10) }
 }
 
-export function isTokenShape(value) {
+function isTokenShape(value) {
   return typeof value === 'string' && TOKEN_SHAPE.test(value)
 }
 
