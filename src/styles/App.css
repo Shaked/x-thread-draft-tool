@@ -158,8 +158,8 @@ body {
 .add-post-btn {
   width: 100%;
   margin-top: 20px;
-  padding: 12px 20px;
-  font-size: 15px;
+  min-height: 44px;
+  font-size: 16px;
 }
 
 .insert-post-btn {
@@ -169,15 +169,15 @@ body {
   gap: 8px;
   width: 100%;
   margin: 10px 0;
-  padding: 8px 16px;
+  min-height: 44px;
+  padding: 10px 16px;
   background-color: transparent;
   border: 1px dashed var(--border);
   border-radius: 8px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
   transition: all 0.2s;
-  opacity: 0.5;
 }
 
 .insert-post-btn:hover {
@@ -200,16 +200,7 @@ body {
   display: inline;
 }
 
-/* Hide label by default on small screens */
-@media (max-width: 640px) {
-  .insert-label {
-    display: none;
-  }
-
-  .insert-post-btn:hover .insert-label {
-    display: inline;
-  }
-}/* Character Counter */
+/* Character Counter */
 .character-counter {
   display: flex;
   justify-content: flex-end;
@@ -675,8 +666,13 @@ body {
   color: var(--muted);
   font-size: 20px;
   cursor: grab;
-  padding: 4px 8px;
-  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 8px;
   transition: color 0.2s, background-color 0.2s;
   touch-action: none;
   line-height: 1;
@@ -693,7 +689,7 @@ body {
 }
 
 .post-number {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   font-weight: 600;
 }
@@ -708,9 +704,10 @@ body {
   background-color: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-strong);
-  padding: 4px 12px;
-  border-radius: 16px;
-  font-size: 13px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 22px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -736,14 +733,14 @@ body {
 
 .remove-post-btn {
   background-color: transparent;
-  border: none;
+  border: 1px solid var(--danger);
   color: var(--danger);
-  font-size: 24px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  padding: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  padding: 0 16px;
+  min-height: 44px;
+  border-radius: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -764,6 +761,7 @@ body {
   min-height: 120px;
   font-family: inherit;
   line-height: 1.6;
+  max-width: 70ch; /* editor line length: 70 characters at most */
   text-align: start;
   transition: height 0.1s ease;
 }
@@ -797,12 +795,17 @@ body {
 }
 
 .toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
   background: none;
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 6px 10px;
+  padding: 0;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1;
   transition: background-color 0.2s, border-color 0.2s;
 }
@@ -823,7 +826,7 @@ body {
 }
 
 .char-counter {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   font-weight: 600;
 }
@@ -878,12 +881,12 @@ body {
 
 .upload-prompt {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .upload-status {
   color: var(--accent);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .upload-error {
@@ -893,7 +896,7 @@ body {
   border: 1px solid var(--danger);
   border-radius: 6px;
   color: var(--danger);
-  font-size: 13px;
+  font-size: 16px;
 }
 
 /* Image Carousel */
@@ -940,7 +943,7 @@ body {
   border: 1px solid var(--accent);
   border-radius: 8px;
   color: var(--accent);
-  font-size: 13px;
+  font-size: 16px;
   text-align: center;
 }
 
@@ -951,8 +954,8 @@ body {
   background-color: var(--overlay-70);
   border: none;
   color: var(--on-overlay);
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   font-size: 28px;
   cursor: pointer;
@@ -987,22 +990,33 @@ body {
 }
 
 .carousel-indicator {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.carousel-indicator::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background-color: var(--border);
-  border: none;
-  cursor: pointer;
+  transform: translate(-50%, -50%);
   transition: all 0.2s;
-  padding: 0;
 }
 
-.carousel-indicator:hover {
+.carousel-indicator:hover::before {
   background-color: var(--neutral-600);
-  transform: scale(1.2);
 }
 
-.carousel-indicator.active {
+.carousel-indicator.active::before {
   background-color: var(--accent);
   width: 24px;
   border-radius: 4px;
@@ -1010,7 +1024,7 @@ body {
 
 .carousel-counter {
   margin-left: 8px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   font-weight: 600;
 }
@@ -1019,13 +1033,14 @@ body {
   position: absolute;
   top: 10px;
   right: 10px;
+  min-height: 44px;
+  padding: 0 16px;
   background-color: var(--overlay-70);
   border: none;
   color: var(--on-overlay);
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  font-size: 18px;
+  border-radius: 22px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1034,7 +1049,8 @@ body {
 }
 
 .remove-image-btn:hover {
-  background-color: var(--danger);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 /* Tweet Embed */
@@ -1049,8 +1065,9 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text-strong);
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
+  min-height: 44px;
 }
 
 .embed-url-input:focus {
@@ -1090,12 +1107,13 @@ body {
 .remove-embed-btn {
   display: block;
   margin-top: 10px;
-  padding: 8px 16px;
+  min-height: 44px;
+  padding: 0 16px;
   background-color: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-strong);
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1214,6 +1232,7 @@ body {
 .draft-title-input {
   flex: 1;
   max-width: 400px;
+  min-height: 44px;
   padding: 8px 12px;
   background-color: var(--surface);
   border: 1px solid var(--border);
@@ -1234,8 +1253,9 @@ body {
 }
 
 .sync-status {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
   transition: opacity 0.3s ease;
 }
 
@@ -1247,14 +1267,9 @@ body {
   color: var(--success);
 }
 
-/* Hide sync status on mobile to prevent flickering */
-@media (max-width: 768px) {
-  .sync-status {
-    display: none;
-  }
-}
-
+/* Publish is the editor's one primary action: filled accent. */
 .publish-btn {
+  min-height: 44px;
   padding: 8px 16px;
   background-color: var(--success);
 }
@@ -1266,6 +1281,10 @@ body {
 .publish-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.logout-btn {
+  min-height: 44px;
 }
 
 .logout-btn:hover {
@@ -1315,7 +1334,7 @@ body {
   background-color: var(--accent);
   border: 1px solid var(--accent);
   color: var(--accent-text);
-  width: 32px;
+  width: 44px;
   height: 48px;
   border-radius: 8px 0 0 8px;
   cursor: pointer;
@@ -1344,7 +1363,7 @@ body {
   border: 1px solid var(--accent-tint-40);
   border-radius: 12px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .published-badge {
@@ -1354,7 +1373,7 @@ body {
   border: 1px solid var(--success-tint-40);
   border-radius: 12px;
   color: var(--success);
-  font-size: 14px;
+  font-size: 16px;
   text-align: center;
 }
 
@@ -1365,7 +1384,7 @@ body {
   border: 1px solid var(--warning-tint-40);
   border-radius: 12px;
   color: var(--warning);
-  font-size: 14px;
+  font-size: 16px;
   text-align: center;
 }
 
@@ -1438,8 +1457,8 @@ body {
     max-width: none;
     flex: 1;
     min-width: 0;
-    padding: 6px 10px;
-    font-size: 14px;
+    padding: 8px 10px;
+    font-size: 16px;
   }
 
   .draft-title-display {
@@ -1454,6 +1473,9 @@ body {
   .back-link {
     font-size: 0;
     gap: 0;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .back-text {
@@ -1464,24 +1486,49 @@ body {
     font-size: 22px;
   }
 
+  /* Phone: the editor actions move to a sticky bottom bar, as plain text buttons. */
   .header-actions {
-    gap: 4px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    background-color: var(--bg);
+    border-top: 1px solid var(--border);
   }
 
-  .header-actions .icon-btn .btn-text {
-    display: none;
-  }
-
-  .header-actions .icon-btn {
-    padding: 8px 10px;
-    gap: 0;
-    min-width: 36px;
-    min-height: 36px;
+  .header-actions > * {
+    flex: 1 1 auto;
+    display: flex;
     justify-content: center;
   }
 
+  .header-actions .icon-btn {
+    padding: 0 8px;
+    gap: 0;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    font-size: 14px;
+    white-space: normal;
+    text-align: center;
+  }
+
   .header-actions .icon-btn .btn-icon {
-    font-size: 16px;
+    display: none;
+  }
+
+  .header-actions .share-tooltip {
+    top: auto;
+    bottom: 100%;
+    margin: 0 0 8px;
+  }
+
+  .draft-editor {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
 
   .editor-content {
@@ -1506,7 +1553,7 @@ body {
   .sidebar-toggle {
     position: fixed;
     top: auto;
-    bottom: 20px;
+    bottom: 96px;
     right: 20px;
     transform: none;
     width: 48px;
@@ -1529,8 +1576,8 @@ body {
   }
 
   .carousel-nav {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     font-size: 24px;
   }
 
@@ -1628,4 +1675,18 @@ body {
 .theme-segment:focus-within {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+/* Editor page (Task 6.3a): no deployment banner, visible focus ring, 44 px header targets. */
+.app:has(.draft-editor) > .deployment-meta {
+  display: none;
+}
+
+.draft-editor :is(a, button, input, textarea, [role="button"]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.draft-editor .share-btn {
+  min-height: 44px;
 }

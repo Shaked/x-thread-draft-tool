@@ -226,6 +226,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           <button
             className="drag-handle"
             title="Drag to reorder"
+            aria-label={`Drag to reorder post ${index + 1}`}
             {...dragHandleProps}
           >
             ⠿
@@ -246,8 +247,9 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
               className="remove-post-btn"
               onClick={onRemove}
               title="Remove post"
+              aria-label={`Remove post ${index + 1}`}
             >
-              ×
+              Remove
             </button>
           )}
         </div>
@@ -259,6 +261,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           value={text}
           onChange={handleTextChange}
           onPaste={handlePaste}
+          aria-label={`Post ${index + 1} text`}
           placeholder={index === 0 ? "Start your thread..." : "Continue your thread..."}
           className={`post-textarea ${isOverLimit ? 'over-limit' : ''} ${isRTL ? 'rtl' : ''}`}
           dir={isRTL ? 'rtl' : 'ltr'}
@@ -274,6 +277,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
                 className="toolbar-btn"
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 title="Add emoji"
+                aria-label="Add emoji"
               >
                 😀
               </button>
@@ -290,6 +294,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
                 className="toolbar-btn"
                 onClick={() => imageUploadRef.current?.triggerFileSelect()}
                 title="Add image"
+                aria-label="Add image"
                 disabled={images.length >= 4}
               >
                 📷
@@ -299,6 +304,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
                 className={`toolbar-btn ${showEmbedInput || embeddedTweet ? 'active' : ''}`}
                 onClick={() => setShowEmbedInput(!showEmbedInput)}
                 title="Embed tweet"
+                aria-label="Embed tweet"
               >
                 🔗
               </button>
@@ -307,11 +313,12 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
 
           <div className={`char-counter ${isOverLimit ? 'over-limit' : ''}`}>
             {charCount}/{MAX_CHARS}
+            {isOverLimit && ` (${charCount - MAX_CHARS} over)`}
           </div>
         </div>
 
         {detectingUrls && (
-          <div className="url-detection-status">
+          <div className="url-detection-status" role="status" aria-live="polite">
             Detecting and converting image URLs...
           </div>
         )}
@@ -324,6 +331,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
               value={embeddedTweet || ''}
               onChange={(e) => handleEmbedTweetChange(e.target.value)}
               className="embed-url-input"
+              aria-label="Tweet URL"
               autoFocus
             />
           </div>
@@ -380,17 +388,17 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
                       onClick={removeCurrentImage}
                       title="Remove image"
                     >
-                      ×
+                      Remove image
                     </button>
                   )}
                 </div>
 
                 {images.length > 1 && (
                   <>
-                    <button className="carousel-nav carousel-prev" onClick={prevImage} title="Previous image">
+                    <button className="carousel-nav carousel-prev" onClick={prevImage} title="Previous image" aria-label="Previous image">
                       ‹
                     </button>
-                    <button className="carousel-nav carousel-next" onClick={nextImage} title="Next image">
+                    <button className="carousel-nav carousel-next" onClick={nextImage} title="Next image" aria-label="Next image">
                       ›
                     </button>
                   </>

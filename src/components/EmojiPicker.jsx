@@ -29,7 +29,7 @@ export default function EmojiPicker({ onSelect, onClose }) {
   }, [onClose])
 
   return (
-    <div className="emoji-picker-container" ref={pickerRef}>
+    <div className="emoji-picker-container" role="dialog" aria-label="Emoji picker" ref={pickerRef}>
       <Picker
         data={data}
         onEmojiSelect={onSelect}
