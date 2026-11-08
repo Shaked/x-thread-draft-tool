@@ -1,15 +1,11 @@
 name: Smoke test (deployed)
 
 # Runs the smoke test against a deployed URL after a successful Vercel deployment, and on demand.
-# Needs the XT_SMOKE_TOKEN secret (an API token for the owner's account). Without it, the run
-# is skipped with a notice, not failed.
-#
-# Which token and which steps, by Vercel environment:
-# - Production deployments: full test with XT_SMOKE_TOKEN_PRODUCTION (production database).
-# - Preview deployments: public steps only. Each preview deployment gets its own database branch,
-#   which has no smoke-test user, so no token can work there.
-# - Manual runs: full test; XT_SMOKE_TOKEN_PRODUCTION for the production URL, XT_SMOKE_TOKEN
-#   otherwise (the pinned preview alias https://x-thread-draft-tool-preview.vercel.app).
+# Hardening Task 26 (docs/plans/hardening-finish.md, D-9): the job signs in with a short-lived GitHub
+# OIDC identity token for the deployment's audience. The server accepts it only from this repository
+# and this workflow file (server/oidc-ci.js). The long-lived XT_SMOKE_TOKEN* secrets are a fallback
+# used only while the OIDC sign-in is refused; Task 27 removes the fallback.
+# Preview and production deployments both get the full test.
 #
 # Optional secret VERCEL_AUTOMATION_BYPASS_SECRET is sent as x-vercel-protection-bypass if
 # Deployment Protection is enabled on previews.
@@ -36,6 +32,9 @@ jobs:
     # Only successful deployments (or manual runs) continue.
     if: github.event_name == 'workflow_dispatch' || github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     env:
       XT_SMOKE_TOKEN: ${{ secrets.XT_SMOKE_TOKEN }}
       XT_SMOKE_TOKEN_PRODUCTION: ${{ secrets.XT_SMOKE_TOKEN_PRODUCTION }}
@@ -43,43 +42,51 @@ jobs:
       BASE_URL: ${{ github.event.deployment_status.environment_url || inputs.base_url }}
       DEPLOY_ENV: ${{ github.event.deployment.environment || '' }}
     steps:
-      - name: Check for the token secret
-        id: gate
-        run: |
-          if [ -z "${XT_SMOKE_TOKEN:-}" ]; then
-            echo "::notice::XT_SMOKE_TOKEN is not set; skipping the deployed smoke test."
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
-      - uses: actions/checkout@v4
-        if: steps.gate.outputs.run == 'true'
-
-      - uses: actions/setup-node@v4
-        if: steps.gate.outputs.run == 'true'
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: npm
 
       - name: Install dependencies
-        if: steps.gate.outputs.run == 'true'
         run: npm ci
 
       - name: Run the smoke test
-        if: steps.gate.outputs.run == 'true'
         run: |
           set -euo pipefail
           if [ -z "$BASE_URL" ]; then echo "::error::No base URL"; exit 1; fi
-          # Production has its own database, so it needs its own token.
+          # The production environment name or the production domain selects the production audience.
           if [ "$DEPLOY_ENV" = "Production" ] || [ "$BASE_URL" = "https://x-thread-draft-tool.vercel.app" ]; then
-            token="${XT_SMOKE_TOKEN_PRODUCTION:-}"
-            if [ -z "$token" ]; then echo "::error::XT_SMOKE_TOKEN_PRODUCTION is not set"; exit 1; fi
-          elif [ -n "$DEPLOY_ENV" ]; then
-            echo "::notice::$DEPLOY_ENV deployment uses its own database branch: running the public steps only."
-            XT_SMOKE_PUBLIC=1 XT_BASE_URL="$BASE_URL" npm run smoke
-            exit 0
+            AUD=x-thread-draft-tool-ci-production
           else
-            token="${XT_SMOKE_TOKEN:-}"
+            AUD=x-thread-draft-tool-ci-preview
           fi
-          XT_TOKEN="$token" XT_BASE_URL="$BASE_URL" npm run smoke
+          oidc=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUD" | jq -r '.value')
+          if [ -z "$oidc" ] || [ "$oidc" = "null" ]; then echo "::error::could not get a GitHub OIDC token"; exit 1; fi
+          echo "::add-mask::$oidc"
+
+          # The probe sends the same deployment-protection bypass as the smoke run, so a 401 from Vercel
+          # is not mistaken for a refused OIDC token (Codex P2 on #65).
+          bypass_args=()
+          if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
+            bypass_args=(-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET")
+          fi
+          status=$(curl -sS -o /dev/null -w '%{http_code}' ${bypass_args[@]+"${bypass_args[@]}"} -H "authorization: Bearer $oidc" "$BASE_URL/api/auth/me")
+          if [ "$status" = "401" ]; then
+            # Fallback (removed in Task 27): the server refused the OIDC token, so use the old secret for this environment.
+            if [ "$AUD" = x-thread-draft-tool-ci-production ]; then fallback="${XT_SMOKE_TOKEN_PRODUCTION:-}"; else fallback="${XT_SMOKE_TOKEN:-}"; fi
+            if [ -n "$fallback" ]; then
+              echo "::warning::OIDC refused; using the fallback token"
+              echo "auth: fallback"
+              XT_EXPECT_AUTH=token XT_TOKEN="$fallback" XT_BASE_URL="$BASE_URL" npm run smoke
+              exit 0
+            fi
+          fi
+
+          echo "auth: OIDC"
+          XT_EXPECT_AUTH=ci-oidc XT_TOKEN="$oidc" XT_BASE_URL="$BASE_URL" npm run smoke
