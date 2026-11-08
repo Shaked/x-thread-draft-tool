@@ -708,6 +708,7 @@ needed): `npm run agent:login` once, then `XT_TOKEN=$(node scripts/xt-token.mjs)
 passes twice in a row, the second time after a refresh.
 
 ### 7.8 Settings: Connected apps
+Status: In review on `claude/task-7-8-connected-apps` (PR number to be added when it opens).
 **Files:** new `server/routes/grants.js`, `server/router.js`, `server/openapi.js`,
 `src/pages/TokensPage.jsx`, new `tests/api/grants.test.js`.
 **Steps:** `GET /api/grants` (session or bearer) lists the user's grants: client name, kind, redirect

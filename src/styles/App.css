@@ -1787,3 +1787,12 @@ body {
 .token-secret { display: block; word-break: break-all; padding: 8px; background: #f4f4f5; border-radius: 6px; margin: 8px 0; }
 .token-list { list-style: none; padding: 0; }
 .token-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+
+/* Connected apps (plan Task 7.8): touch targets of 44 px and a visible focus ring */
+.connected-apps { margin-bottom: 24px; }
+.connected-apps button:focus-visible,
+.connected-apps a:focus-visible { outline: 3px solid #1d9bf0; outline-offset: 2px; }
+.grant-list { list-style: none; padding: 0; }
+.grant-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+.grant-revoke-btn { min-height: 44px; min-width: 44px; padding: 8px 12px; font-size: 16px; background: transparent; border: 1px solid #f4212e; border-radius: 8px; color: #f4212e; cursor: pointer; }
+.grant-revoke-btn:hover { background-color: #f4212e20; }
