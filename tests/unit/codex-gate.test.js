@@ -423,3 +423,20 @@ describe('runGate: comment findings and the summary flag', () => {
     expect(result.state).toBe('failure');
   });
 });
+
+describe('runGate: a handled finding is visible, so it does not trip the fallback', () => {
+  it('passes when the only Codex finding is cleared with the marker and the summary flag stays true', async () => {
+    const summary = findingComment(
+      30,
+      `<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 {"code_review":{"commit_sha":"${SHA_67}","status":"completed","has_unresolved_findings":true}} -->`,
+    );
+    const handled = humanCommentFx(31, 'Fixed in a new commit.\ncodex-finding-handled: 1');
+    const gh = fakeGh({
+      getPull: vi.fn(async () => ({ head: { sha: SHA_67, repo: { full_name: 'o/r' } }, base: { repo: { full_name: 'o/r' } } })),
+      listComments: vi.fn(async () => [findingComment(1, FINDING_67), summary, handled]),
+    });
+    const result = await gate.runGate({ event, gh });
+    expect(result.state).toBe('success');
+  });
+});
+

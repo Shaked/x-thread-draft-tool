@@ -159,6 +159,19 @@ export function codexCommentFindings({ comments, headSha }) {
   return findings;
 }
 
+// Every Codex finding comment for the head, cleared or not. Used to tell "no finding is visible"
+// from "a finding is visible and was handled".
+export function visibleCommentFindingCount({ comments, headSha }) {
+  return comments.filter((c) => isCodexCommentFinding(c) && belongsToHead(c.body, headSha)).length;
+}
+
+export function visibleThreadFindingCount(threads) {
+  return threads.filter((t) => {
+    const first = t.comments?.nodes?.[0];
+    return first && isFindingComment(first);
+  }).length;
+}
+
 export function classifyFindings(findings) {
   const blocking = findings.filter(
     (f) => f.severity === null || f.severity === 'P0' || f.severity === 'P1',
@@ -252,12 +265,15 @@ export async function runGate({ event, gh }) {
     return { state: 'not-reviewed', reason: evaluation.reason };
   }
 
-  const threadFindings = unresolvedFindings(await gh.listReviewThreads(number));
+  const threads = await gh.listReviewThreads(number);
+  const threadFindings = unresolvedFindings(threads);
   const commentFindings = codexCommentFindings({ comments, headSha });
   let findings = [...threadFindings, ...commentFindings];
-  // Codex's summary can say it has unresolved findings that neither threads nor comments show.
-  // Fail closed rather than trust the flag alone.
-  if (findings.length === 0 && summary?.hasUnresolvedFindings) {
+  // Codex's summary can say it has unresolved findings that the gate cannot see at all (no finding
+  // thread or comment for this head, handled or not). Fail closed then. A finding a person handled
+  // is visible, so it does not trigger this fallback.
+  const visible = visibleThreadFindingCount(threads) + visibleCommentFindingCount({ comments, headSha });
+  if (findings.length === 0 && summary?.hasUnresolvedFindings && visible === 0) {
     findings = [{ severity: null, title: 'Codex reports unresolved findings the gate cannot see', path: 'Codex summary', line: null, url: null }];
   }
   const result = completedCheck({ findings });
