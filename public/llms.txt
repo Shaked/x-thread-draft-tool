@@ -12,7 +12,7 @@
     user `user_code` and `verification_uri`, then `POST /api/auth/device/poll` every `interval`
     seconds until it returns 201 with `token`.
 - A token acts as the GitHub user who created it. It can read and change only that user's drafts.
-- Tokens expire after 90 days by default (max 365). Revoke with `DELETE /api/tokens/{id}`.
+- Tokens expire after 7 days by default (max 7). Revoke with `DELETE /api/tokens/{id}`.
 - An invalid, expired or revoked token returns 401. It never falls back to a cookie.
 
 ## Quickstart

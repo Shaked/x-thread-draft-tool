@@ -1,6 +1,6 @@
 import { HttpError, json, readJson } from '../http.js'
 import { requireSessionUser, requireUser } from '../session.js'
-import { createApiToken, listApiTokens, revokeApiToken } from '../tokens.js'
+import { createApiToken, listApiTokens, MAX_EXPIRY_DAYS, revokeApiToken } from '../tokens.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -17,7 +17,7 @@ export async function createToken({ request }) {
   if (!body || typeof body !== 'object') throw new HttpError(400, 'Body must be a JSON object')
   const created = await createApiToken(user.uid, {
     name: body.name,
-    expiresInDays: body.expires_in_days ?? 90,
+    expiresInDays: body.expires_in_days ?? MAX_EXPIRY_DAYS,
     via: 'web'
   })
   return json(created, 201)

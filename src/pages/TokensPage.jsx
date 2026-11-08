@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { tokensApi } from '../utils/api'
 
-const EXPIRY_OPTIONS = [30, 90, 365]
+const EXPIRY_OPTIONS = [1, 3, 7]
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—')
 
@@ -12,7 +12,7 @@ export default function TokensPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [name, setName] = useState('')
-  const [days, setDays] = useState(90)
+  const [days, setDays] = useState(7)
   const [created, setCreated] = useState(null)
   const [copied, setCopied] = useState(false)
 

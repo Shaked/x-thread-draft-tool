@@ -34,7 +34,7 @@ async function newToken(name = 'agent') {
 describe('creating tokens', () => {
   it('a browser session creates a token; the plaintext is returned once and stored only as a hash', async () => {
     const res = await route(
-      apiRequest('/api/tokens', { method: 'POST', cookie: aliceCookie, body: { name: 'laptop', expires_in_days: 30 } })
+      apiRequest('/api/tokens', { method: 'POST', cookie: aliceCookie, body: { name: 'laptop', expires_in_days: 7 } })
     )
     expect(res.status).toBe(201)
     const body = await res.json()
@@ -100,6 +100,40 @@ describe('listing and revoking', () => {
     await db.pg.query("update api_tokens set expires_at = now() - interval '1 day' where id = $1", [id])
     const res = await route(apiRequest('/api/auth/me', { headers: bearer(token) }))
     expect(res.status).toBe(401)
+  })
+})
+
+describe('7-day cap on hand-made tokens (plan D4)', () => {
+  it('defaults to 7 days', async () => {
+    const created = await createApiToken(alice.id, { name: 'default' })
+    const { rows } = await db.pg.query(
+      'select extract(epoch from (expires_at - now())) as secs from api_tokens where id = $1',
+      [created.id]
+    )
+    expect(Number(rows[0].secs)).toBeGreaterThan(7 * 86400 - 120)
+    expect(Number(rows[0].secs)).toBeLessThanOrEqual(7 * 86400)
+  })
+
+  it('accepts 1 and 7 days', async () => {
+    for (const days of [1, 7]) {
+      const res = await route(
+        apiRequest('/api/tokens', { method: 'POST', cookie: aliceCookie, body: { name: `d${days}`, expires_in_days: days } })
+      )
+      expect(res.status).toBe(201)
+    }
+  })
+
+  it('refuses 8 days with 400', async () => {
+    const res = await route(
+      apiRequest('/api/tokens', { method: 'POST', cookie: aliceCookie, body: { name: 'x', expires_in_days: 8 } })
+    )
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/from 1 to 7/)
+    await expect(createApiToken(alice.id, { name: 'x', expiresInDays: 8 })).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('refuses 0 days', async () => {
+    await expect(createApiToken(alice.id, { name: 'x', expiresInDays: 0 })).rejects.toMatchObject({ status: 400 })
   })
 })
 
