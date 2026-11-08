@@ -106,7 +106,8 @@ an admin merge. Both leave a trail.
   docs/changelog.d/drafts-validation.md
   ```
   Part k = `origin/main` + every file listed in parts 1..k taken whole from the work branch
-  (deleted files are deleted). The last part equals the work tree by construction.
+  (deleted files are deleted). The last part equals the work tree minus `split.txt` by construction.
+  **Tree equality** everywhere in this plan means: `git diff --quiet <last part> <work-branch> -- . ':(exclude)split.txt'` exits 0.
   `split.txt` itself is never part of a part.
 - Every part's PR targets **`main`**. Only **one part is open at a time**: part k+1 is opened only
   after part k is merged, and only after merging `origin/main` into part k+1's branch.
@@ -166,7 +167,7 @@ in this file has no entry, or when its **Files:** backtick paths differ from the
 
 ### Task check (deterministic part of validation)
 `task:check <id>` fails when:
-- a changed file is not in the task's `files` (the PR's own fragment is always allowed);
+- a changed file is in neither the task's `files` nor its `tests` (the PR's own fragment is always allowed);
 - a `tests` file is missing, or is not changed when the task creates the code it tests;
 - any `acceptance` command exits non-zero (each runs with `execFileSync` through `sh -c` in a fixed list: plan text is trusted, PR text never is);
 - a new or changed file under `scripts/`, `.claude/hooks/`, `.githooks/` or `.github/workflows/` has no test file that mentions its path (`tests/unit/test-map.test.js` enforces the same on the whole repo);
@@ -352,7 +353,7 @@ workflow replace `node-version: 20` with `node-version-file: .nvmrc` (5 places).
 - It refuses to run when a manifest path doesn't differ between `origin/main` and the work branch.
 - It refuses when a changed file on the work branch is missing from the manifest (other than `split.txt`).
 - All git calls use `execFileSync` with array arguments.
-**Tests:** a temp repo; a 3-part manifest; the last part's tree equals the work tree (`git rev-parse <b>^{tree}`); a missing path fails.
+**Tests:** a temp repo; a 3-part manifest; tree equality as defined in R4 (`split.txt` excluded) passes; a missing path fails; a work branch whose only extra file is `split.txt` still passes.
 **Acceptance:** `npx vitest run tests/unit/split.test.js` passes.
 
 ### Task 11 — `split.mjs verify`
@@ -362,7 +363,7 @@ workflow replace `node-version: 20` with `node-version-file: .nvmrc` (5 places).
 2. in that worktree: `npm ci`, `npm run precommit:checks`, `npm run test:e2e`;
 3. the size of the **cumulative** diff `origin/main...part k` minus part k−1: each part ≤ 100 (R1 via `measure`);
 4. `git merge-tree --write-tree origin/main <part k>` exits 0;
-5. part n's tree == work branch tree;
+5. tree equality (R4, `split.txt` excluded) between part n and the work branch;
 6. `git worktree remove --force` in a `finally` block.
 
 It prints one line per part, `part k/n: size N, merge ok, tests ok`. Then it writes `<git rev-parse --git-common-dir>/split-verified/<branch>` containing the tree SHA. The record is a hint for the PR hook, not a gate.
@@ -448,7 +449,7 @@ Everything else (`push_files`, `create_or_update_file`, `delete_file`, `merge_pu
 | B5 | Huge single lines, binary blobs, `.gitattributes` tricks | R1 weights and NUL check |
 | B6 | Lockfile churn | Free only with a `package.json` change |
 | B7 | Parts green alone but broken together | Cumulative parts: part k is main + parts 1..k, tested in its own worktree (T11) |
-| B8 | Parts don't add up to the tested work | Tree equality at build and verify time (T10, T11) |
+| B8 | Parts don't add up to the tested work | Tree equality, `split.txt` excluded, at build and verify time (T10, T11) |
 | B9 | Parts merged out of order | Only one part open; size measured against `main` refuses an early part k+1 (R4) |
 | B10 | `main` moves after verification | Ruleset "up to date"; merge `origin/main` into the next part before opening it |
 | B11 | A part ships an unguarded route or half a migration | R4 production-safe rules; Shaked's review |
