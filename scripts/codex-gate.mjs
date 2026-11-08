@@ -113,6 +113,71 @@ export function unresolvedFindings(threads) {
 
 // P0/P1 block. A finding with no readable severity also blocks: a new badge format must not pass.
 // P2/P3 are notes only.
+// Codex also posts findings as plain PR comments ("## Review finding" with one bullet per finding).
+// A comment counts only for the current head: its text must name the head sha, or no other sha.
+// A bullet with no readable [P0-3] badge counts as blocking. A person clears one comment only with
+// the exact marker "codex-finding-handled: <comment id>" in a non-Codex comment (Opus decision, #58).
+export const COMMENT_FINDING_HEADING = /(^|\n)##\s+Review finding\b/;
+export const HANDLED_PREFIX = 'codex-finding-handled: ';
+const SHA_PATTERN = /\b[0-9a-f]{40}\b/g;
+
+export function isCodexCommentFinding(comment) {
+  return isCodexLogin(comment?.user?.login) && COMMENT_FINDING_HEADING.test(comment.body ?? '');
+}
+
+// A comment belongs to the head when it names the head sha. A comment that names only other shas is
+// stale. A comment that names no sha at all is counted (fail closed).
+export function belongsToHead(body, headSha) {
+  const shas = (body ?? '').match(SHA_PATTERN) ?? [];
+  return shas.length === 0 || shas.includes(headSha);
+}
+
+export function codexCommentFindings({ comments, headSha }) {
+  const cleared = new Set();
+  for (const c of comments) {
+    if (isCodexLogin(c?.user?.login)) continue;
+    for (const match of (c.body ?? '').matchAll(/codex-finding-handled: (\d+)/g)) cleared.add(match[1]);
+  }
+  const findings = [];
+  for (const comment of comments) {
+    if (!isCodexCommentFinding(comment)) continue;
+    if (!belongsToHead(comment.body, headSha)) continue;
+    if (cleared.has(String(comment.id))) continue;
+    const bullets = (comment.body ?? '').split('\n').filter((line) => line.startsWith('- '));
+    for (const line of bullets) {
+      const badge = /\[P([0-3])\]/.exec(line);
+      findings.push({
+        severity: badge ? `P${badge[1]}` : null,
+        title: line.replace(/\[P[0-3]\]/, '').replace(/[*`]/g, '').replace(/^-\s*/, '').trim() || 'Untitled finding',
+        path: 'PR comment',
+        line: null,
+        url: comment.html_url ?? null,
+      });
+    }
+    if (bullets.length === 0) {
+      findings.push({ severity: null, title: 'Review finding with no readable bullet', path: 'PR comment', line: null, url: comment.html_url ?? null });
+    }
+  }
+  return findings;
+}
+
+// Every Codex finding comment for the head, cleared or not. Used to tell "no finding is visible"
+// from "a finding is visible and was handled".
+export function visibleCommentFindingCount({ comments, headSha }) {
+  return comments.filter((c) => isCodexCommentFinding(c) && belongsToHead(c.body, headSha)).length;
+}
+
+// Threads from earlier commits do not count for this head. A thread counts when its original commit
+// is the head, or its body names the head.
+export function visibleThreadFindingCount(threads, headSha) {
+  return threads.filter((t) => {
+    const first = t.comments?.nodes?.[0];
+    if (!first || !isFindingComment(first)) return false;
+    const originalSha = first.originalCommit?.oid ?? null;
+    return originalSha === headSha || belongsToHead(first.body, headSha);
+  }).length;
+}
+
 export function classifyFindings(findings) {
   const blocking = findings.filter(
     (f) => f.severity === null || f.severity === 'P0' || f.severity === 'P1',
@@ -199,13 +264,24 @@ export async function runGate({ event, gh }) {
   });
 
   const comments = await gh.listComments(number);
-  const evaluation = evaluateReview({ summary: findLatestSummary(comments), headSha });
+  const summary = findLatestSummary(comments);
+  const evaluation = evaluateReview({ summary, headSha });
   if (!evaluation.ready) {
     await gh.updateCheckRun(checkRunId, notReviewedCheck({ headSha, evaluation }));
     return { state: 'not-reviewed', reason: evaluation.reason };
   }
 
-  const findings = unresolvedFindings(await gh.listReviewThreads(number));
+  const threads = await gh.listReviewThreads(number);
+  const threadFindings = unresolvedFindings(threads);
+  const commentFindings = codexCommentFindings({ comments, headSha });
+  let findings = [...threadFindings, ...commentFindings];
+  // Codex's summary can say it has unresolved findings that the gate cannot see at all (no finding
+  // thread or comment for this head, handled or not). Fail closed then. A finding a person handled
+  // is visible, so it does not trigger this fallback.
+  const visible = visibleThreadFindingCount(threads, headSha) + visibleCommentFindingCount({ comments, headSha });
+  if (findings.length === 0 && summary?.hasUnresolvedFindings && visible === 0) {
+    findings = [{ severity: null, title: 'Codex reports unresolved findings the gate cannot see', path: 'Codex summary', line: null, url: null }];
+  }
   const result = completedCheck({ findings });
   await gh.updateCheckRun(checkRunId, { ...result, completed_at: new Date().toISOString() });
   return { state: result.conclusion, blocking: classifyFindings(findings).blocking.length };
@@ -262,7 +338,7 @@ export function createGitHub({ token, repo, fetchImpl = fetch }) {
               nodes {
                 isResolved
                 comments(first: 1) {
-                  nodes { author { login } body path line originalLine url }
+                  nodes { author { login } body path line originalLine url originalCommit { oid } }
                 }
               }
             }
