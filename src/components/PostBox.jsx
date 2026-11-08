@@ -7,6 +7,143 @@ const TweetEmbed = lazy(() => import('./TweetEmbed'))
 const MAX_CHARS = 280
 const IMAGE_URL_REGEX = /https?:\/\/[^\s]+?\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?[^\s]*)?/gi
 
+function PostToolbar({ readOnly, showEmojiPicker, setShowEmojiPicker, onEmojiSelect, imageUploadRef, imageCount, showEmbedInput, setShowEmbedInput, embeddedTweet }) {
+  if (readOnly) return null
+  return (
+    <div className="toolbar-actions">
+      <button
+        className="toolbar-btn"
+        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+        title="Add emoji"
+      >
+        😀
+      </button>
+      {showEmojiPicker && (
+        <Suspense fallback={<div className="emoji-picker-loading">Loading…</div>}>
+          <EmojiPicker
+            onSelect={onEmojiSelect}
+            onClose={() => setShowEmojiPicker(false)}
+          />
+        </Suspense>
+      )}
+
+      <button
+        className="toolbar-btn"
+        onClick={() => imageUploadRef.current?.triggerFileSelect()}
+        title="Add image"
+        disabled={imageCount >= 4}
+      >
+        📷
+      </button>
+
+      <button
+        className={`toolbar-btn ${showEmbedInput || embeddedTweet ? 'active' : ''}`}
+        onClick={() => setShowEmbedInput(!showEmbedInput)}
+        title="Embed tweet"
+      >
+        🔗
+      </button>
+    </div>
+  )
+}
+
+function EmbedArea({ readOnly, showEmbedInput, embeddedTweet, embedVisible, containerRef, onEmbedChange, onRemoveEmbed }) {
+  return (
+    <>
+    {!readOnly && showEmbedInput && (
+      <div className="embed-input">
+        <input
+          type="text"
+          placeholder="Paste tweet URL to embed..."
+          value={embeddedTweet || ''}
+          onChange={(e) => onEmbedChange(e.target.value)}
+          className="embed-url-input"
+          autoFocus
+        />
+      </div>
+    )}
+
+    {embeddedTweet && (
+      <div className="embedded-tweet-container" ref={containerRef}>
+        {embedVisible ? (
+          <Suspense fallback={<div className="tweet-embed-loading">Loading tweet…</div>}>
+            <TweetEmbed url={embeddedTweet} />
+          </Suspense>
+        ) : (
+          <div className="tweet-embed-loading">Tweet will load when visible…</div>
+        )}
+        {!readOnly && (
+          <button
+            className="remove-embed-btn"
+            onClick={onRemoveEmbed}
+          >
+            Remove embed
+          </button>
+        )}
+      </div>
+    )}
+    </>
+  )
+}
+
+function ImageCarousel({ images, imageIndex, readOnly, onSelect, onPrev, onNext, onRemove }) {
+  const img = images[imageIndex]
+  const imageUrl = typeof img === 'string' ? img : img.url
+
+  return (
+    <div className="image-carousel">
+      <div className="image-carousel-container">
+        <img
+          src={imageUrl}
+          alt={`Preview ${imageIndex + 1}`}
+          className="carousel-image"
+          loading="lazy"
+          decoding="async"
+        />
+
+        <div className="carousel-overlay">
+          {!readOnly && (
+            <button
+              className="remove-image-btn"
+              onClick={onRemove}
+              title="Remove image"
+            >
+              ×
+            </button>
+          )}
+        </div>
+
+        {images.length > 1 && (
+          <>
+            <button className="carousel-nav carousel-prev" onClick={onPrev} title="Previous image">
+              ‹
+            </button>
+            <button className="carousel-nav carousel-next" onClick={onNext} title="Next image">
+              ›
+            </button>
+          </>
+        )}
+      </div>
+
+      {images.length > 1 && (
+        <div className="carousel-indicators">
+          {images.map((_, idx) => (
+            <button
+              key={idx}
+              className={`carousel-indicator ${idx === imageIndex ? 'active' : ''}`}
+              onClick={() => onSelect(idx)}
+              title={`Image ${idx + 1}`}
+            />
+          ))}
+          <span className="carousel-counter">
+            {imageIndex + 1} / {images.length}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function PostBox({ post, index, totalPosts, onChange, onRemove, readOnly = false, dragHandleProps }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showEmbedInput, setShowEmbedInput] = useState(false)
@@ -20,6 +157,8 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
 
   const text = post?.text || ''
   const images = post?.images || []
+  // Keep the visible index inside the list when images are removed (derived, no effect).
+  const imageIndex = Math.min(currentImageIndex, Math.max(images.length - 1, 0))
   const embeddedTweet = post?.embeddedTweet || null
   const charCount = text.length
   const isOverLimit = charCount > MAX_CHARS
@@ -127,6 +266,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
     if (!node) return
 
     if (typeof IntersectionObserver === 'undefined') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- fallback when IntersectionObserver is missing; runs once per embed
       setEmbedVisible(true)
       return
     }
@@ -186,20 +326,14 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   }
 
   const removeCurrentImage = () => {
-    const newImages = images.filter((_, i) => i !== currentImageIndex)
+    const newImages = images.filter((_, i) => i !== imageIndex)
     handleImagesChange(newImages)
-    if (currentImageIndex >= newImages.length && newImages.length > 0) {
+    if (imageIndex >= newImages.length && newImages.length > 0) {
       setCurrentImageIndex(newImages.length - 1)
     } else if (newImages.length === 0) {
       setCurrentImageIndex(0)
     }
   }
-
-  useEffect(() => {
-    if (currentImageIndex >= images.length && images.length > 0) {
-      setCurrentImageIndex(images.length - 1)
-    }
-  }, [images.length, currentImageIndex])
 
   const handleCopyText = async () => {
     try {
@@ -268,43 +402,17 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
         />
 
         <div className="post-toolbar">
-          {!readOnly && (
-            <div className="toolbar-actions">
-              <button
-                className="toolbar-btn"
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                title="Add emoji"
-              >
-                😀
-              </button>
-              {showEmojiPicker && (
-                <Suspense fallback={<div className="emoji-picker-loading">Loading…</div>}>
-                  <EmojiPicker
-                    onSelect={handleEmojiSelect}
-                    onClose={() => setShowEmojiPicker(false)}
-                  />
-                </Suspense>
-              )}
-
-              <button
-                className="toolbar-btn"
-                onClick={() => imageUploadRef.current?.triggerFileSelect()}
-                title="Add image"
-                disabled={images.length >= 4}
-              >
-                📷
-              </button>
-
-              <button
-                className={`toolbar-btn ${showEmbedInput || embeddedTweet ? 'active' : ''}`}
-                onClick={() => setShowEmbedInput(!showEmbedInput)}
-                title="Embed tweet"
-              >
-                🔗
-              </button>
-            </div>
-          )}
-
+          <PostToolbar
+            readOnly={readOnly}
+            showEmojiPicker={showEmojiPicker}
+            setShowEmojiPicker={setShowEmojiPicker}
+            onEmojiSelect={handleEmojiSelect}
+            imageUploadRef={imageUploadRef}
+            imageCount={images.length}
+            showEmbedInput={showEmbedInput}
+            setShowEmbedInput={setShowEmbedInput}
+            embeddedTweet={embeddedTweet}
+          />
           <div className={`char-counter ${isOverLimit ? 'over-limit' : ''}`}>
             {charCount}/{MAX_CHARS}
           </div>
@@ -316,38 +424,15 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           </div>
         )}
 
-        {!readOnly && showEmbedInput && (
-          <div className="embed-input">
-            <input
-              type="text"
-              placeholder="Paste tweet URL to embed..."
-              value={embeddedTweet || ''}
-              onChange={(e) => handleEmbedTweetChange(e.target.value)}
-              className="embed-url-input"
-              autoFocus
-            />
-          </div>
-        )}
-
-        {embeddedTweet && (
-          <div className="embedded-tweet-container" ref={embedContainerRef}>
-            {embedVisible ? (
-              <Suspense fallback={<div className="tweet-embed-loading">Loading tweet…</div>}>
-                <TweetEmbed url={embeddedTweet} />
-              </Suspense>
-            ) : (
-              <div className="tweet-embed-loading">Tweet will load when visible…</div>
-            )}
-            {!readOnly && (
-              <button
-                className="remove-embed-btn"
-                onClick={handleRemoveEmbed}
-              >
-                Remove embed
-              </button>
-            )}
-          </div>
-        )}
+        <EmbedArea
+          readOnly={readOnly}
+          showEmbedInput={showEmbedInput}
+          embeddedTweet={embeddedTweet}
+          embedVisible={embedVisible}
+          containerRef={embedContainerRef}
+          onEmbedChange={handleEmbedTweetChange}
+          onRemoveEmbed={handleRemoveEmbed}
+        />
 
         {!readOnly && (
           <ImageUpload
@@ -358,63 +443,17 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           />
         )}
 
-        {images.length > 0 && (() => {
-          const img = images[currentImageIndex]
-          const imageUrl = typeof img === 'string' ? img : img.url
-
-          return (
-            <div className="image-carousel">
-              <div className="image-carousel-container">
-                <img
-                  src={imageUrl}
-                  alt={`Preview ${currentImageIndex + 1}`}
-                  className="carousel-image"
-                  loading="lazy"
-                  decoding="async"
-                />
-
-                <div className="carousel-overlay">
-                  {!readOnly && (
-                    <button
-                      className="remove-image-btn"
-                      onClick={removeCurrentImage}
-                      title="Remove image"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-
-                {images.length > 1 && (
-                  <>
-                    <button className="carousel-nav carousel-prev" onClick={prevImage} title="Previous image">
-                      ‹
-                    </button>
-                    <button className="carousel-nav carousel-next" onClick={nextImage} title="Next image">
-                      ›
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {images.length > 1 && (
-                <div className="carousel-indicators">
-                  {images.map((_, idx) => (
-                    <button
-                      key={idx}
-                      className={`carousel-indicator ${idx === currentImageIndex ? 'active' : ''}`}
-                      onClick={() => setCurrentImageIndex(idx)}
-                      title={`Image ${idx + 1}`}
-                    />
-                  ))}
-                  <span className="carousel-counter">
-                    {currentImageIndex + 1} / {images.length}
-                  </span>
-                </div>
-              )}
-            </div>
-          )
-        })()}
+        {images.length > 0 && (
+          <ImageCarousel
+            images={images}
+            imageIndex={imageIndex}
+            readOnly={readOnly}
+            onSelect={setCurrentImageIndex}
+            onPrev={prevImage}
+            onNext={nextImage}
+            onRemove={removeCurrentImage}
+          />
+        )}
       </div>
     </div>
   )
