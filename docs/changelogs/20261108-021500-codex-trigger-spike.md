@@ -1,0 +1,1 @@
+- Task 5.1 report in the hardening plan: Codex reviews only on PR open and on `@codex review` from a connected user, not on push, and ignores `github-actions[bot]`. Task 5.2 waits for an owner decision.

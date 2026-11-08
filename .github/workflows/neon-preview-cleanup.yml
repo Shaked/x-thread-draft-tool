@@ -1,16 +1,22 @@
 name: Neon preview cleanup
 
-# Scheduled runs are DRY RUN ONLY. Deletes happen only from a manual dispatch with dry_run=false,
-# an exact confirm_count, and approval of the neon-cleanup environment by a required reviewer.
-# Production (the default branch) and the stable preview are never selected; see the script.
+# Hardening Task 24 (docs/plans/hardening-finish.md, D-5).
+#   pull_request (opened, reopened, synchronize): preflight, so a new preview gets a Neon branch
+#     only when there is room (reuse, ok, or cleanup to make room).
+#   pull_request (closed): delete this PR's preview branch right away (grace 0).
+#   schedule (daily): delete merged and closed-unmerged previews past grace (24 h), and stale orphans.
+#   workflow_dispatch: plan only. Deletes need the manual apply job and the neon-cleanup approval.
+# The job checks out the default branch, so PR code never runs with the Neon key. Fork PRs have no key.
 
 on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
   schedule:
-    - cron: '17 6 * * 1'
+    - cron: '17 6 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run only (no deletes)'
+        description: 'Plan only (no deletes)'
         type: boolean
         default: true
       confirm_count:
@@ -18,7 +24,7 @@ on:
         type: string
         default: ''
       grace_hours:
-        description: 'Hours after a PR merges before its preview branch is eligible'
+        description: 'Hours after a PR merges or closes before its preview branch is eligible'
         type: string
         default: '24'
 
@@ -31,13 +37,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  plan:
-    name: Plan (dry run)
+  neon:
+    name: Neon branches
     runs-on: ubuntu-latest
     steps:
-      - name: Check out
+      - name: Check out the default branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Set up Node
@@ -56,29 +63,61 @@ jobs:
           gh api --paginate "repos/$REPO/pulls?state=closed&per_page=100" \
             -q '.[] | select(.merged_at != null) | {head: .head.ref, merged_at: .merged_at}' \
             | jq -s '.' > merged-prs.json
+          gh api --paginate "repos/$REPO/pulls?state=closed&per_page=100" \
+            -q '.[] | select(.merged_at == null) | {head: .head.ref, closed_at: .closed_at}' \
+            | jq -s '.' > closed-prs.json
           gh api --paginate "repos/$REPO/branches?per_page=100" -q '.[].name' \
             | jq -R -s 'split("\n") | map(select(length > 0))' > git-branches.json
-          jq -n --slurpfile o open-heads.json --slurpfile m merged-prs.json --slurpfile g git-branches.json \
-            '{openPrHeads: $o[0], mergedPrs: $m[0], gitBranches: $g[0]}' > github.json
-          echo "open PR heads: $(jq length open-heads.json), merged PRs: $(jq length merged-prs.json), git branches: $(jq length git-branches.json)"
+          jq -n --slurpfile o open-heads.json --slurpfile m merged-prs.json --slurpfile c closed-prs.json \
+            --slurpfile g git-branches.json \
+            '{openPrHeads: $o[0], mergedPrs: $m[0], closedPrs: $c[0], gitBranches: $g[0]}' > github.json
+          echo "open PR heads: $(jq length open-heads.json), merged PRs: $(jq length merged-prs.json), closed PRs: $(jq length closed-prs.json), git branches: $(jq length git-branches.json)"
 
-      - name: Plan (dry run)
+      - name: Run
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_BRANCH_LIMIT: '10'
           GRACE_HOURS: ${{ inputs.grace_hours || '24' }}
-        run: node scripts/neon-preview-cleanup.mjs --dry-run --github=github.json --grace-hours="$GRACE_HOURS"
+          HEAD_REF: ${{ github.head_ref }}
+          ACTION: ${{ github.event.action }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "$NEON_API_KEY" ]; then
+            echo "::notice::no Neon key available (fork PR or secret not set); nothing done"
+            exit 0
+          fi
+          case "$EVENT" in
+            pull_request)
+              if [ "$ACTION" = "closed" ]; then
+                node scripts/neon-preview-cleanup.mjs apply --auto --only="preview/$HEAD_REF" --grace-hours=0 --github=github.json
+              else
+                node scripts/neon-preview-cleanup.mjs preflight --branch="$HEAD_REF" --cleanup-on-full --github=github.json
+              fi
+              ;;
+            schedule)
+              node scripts/neon-preview-cleanup.mjs apply --auto --grace-hours=24 --github=github.json
+              ;;
+            workflow_dispatch)
+              node scripts/neon-preview-cleanup.mjs plan --grace-hours="$GRACE_HOURS" --github=github.json
+              ;;
+            *)
+              echo "::error::unexpected event $EVENT"
+              exit 1
+              ;;
+          esac
 
   apply:
     name: Apply (deletes)
-    needs: plan
     if: github.event_name == 'workflow_dispatch' && inputs.dry_run == false
     runs-on: ubuntu-latest
     environment: neon-cleanup
     steps:
-      - name: Check out
+      - name: Check out the default branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Set up Node
@@ -97,15 +136,20 @@ jobs:
           gh api --paginate "repos/$REPO/pulls?state=closed&per_page=100" \
             -q '.[] | select(.merged_at != null) | {head: .head.ref, merged_at: .merged_at}' \
             | jq -s '.' > merged-prs.json
+          gh api --paginate "repos/$REPO/pulls?state=closed&per_page=100" \
+            -q '.[] | select(.merged_at == null) | {head: .head.ref, closed_at: .closed_at}' \
+            | jq -s '.' > closed-prs.json
           gh api --paginate "repos/$REPO/branches?per_page=100" -q '.[].name' \
             | jq -R -s 'split("\n") | map(select(length > 0))' > git-branches.json
-          jq -n --slurpfile o open-heads.json --slurpfile m merged-prs.json --slurpfile g git-branches.json \
-            '{openPrHeads: $o[0], mergedPrs: $m[0], gitBranches: $g[0]}' > github.json
+          jq -n --slurpfile o open-heads.json --slurpfile m merged-prs.json --slurpfile c closed-prs.json \
+            --slurpfile g git-branches.json \
+            '{openPrHeads: $o[0], mergedPrs: $m[0], closedPrs: $c[0], gitBranches: $g[0]}' > github.json
 
       - name: Delete confirmed candidates
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_BRANCH_LIMIT: '10'
           CONFIRM_COUNT: ${{ inputs.confirm_count }}
           GRACE_HOURS: ${{ inputs.grace_hours || '24' }}
-        run: node scripts/neon-preview-cleanup.mjs --apply --confirm-count="$CONFIRM_COUNT" --github=github.json --grace-hours="$GRACE_HOURS"
+        run: node scripts/neon-preview-cleanup.mjs apply --confirm-count="$CONFIRM_COUNT" --grace-hours="$GRACE_HOURS" --github=github.json
