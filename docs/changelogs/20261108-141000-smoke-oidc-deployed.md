@@ -1,0 +1,1 @@
+- The deployed smoke test signs in with a GitHub OIDC identity on every environment, and runs the full test on previews too. The long-lived smoke-token secrets are a fallback only while OIDC is refused (hardening Task 26, D-9).
