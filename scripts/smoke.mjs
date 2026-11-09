@@ -20,9 +20,13 @@ const token = process.env.XT_TOKEN || ''
 const publicOnly = process.env.XT_SMOKE_PUBLIC === '1'
 const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
 
-function headers(extra = {}) {
+// Routes that never take a token (the server refuses a CI JWT on any route not marked ci: true).
+const PUBLIC_PATHS = new Set(['/api/health', '/llms.txt', '/api/openapi.json'])
+const isPublicPath = (path) => PUBLIC_PATHS.has(path) || path.startsWith('/api/share/')
+
+function headers(extra = {}, path = '') {
   const out = { ...extra }
-  if (token) out.authorization = `Bearer ${token}`
+  if (token && !isPublicPath(path)) out.authorization = `Bearer ${token}`
   if (bypass) out['x-vercel-protection-bypass'] = bypass
   return out
 }
@@ -36,7 +40,7 @@ function redact(text) {
 }
 
 async function call(method, path, { body, expect = [200], accept, raw = false } = {}) {
-  const init = { method, headers: headers(accept ? { accept } : {}) }
+  const init = { method, headers: headers(accept ? { accept } : {}, path) }
   if (body !== undefined) {
     init.body = JSON.stringify(body)
     init.headers['content-type'] = 'application/json'
@@ -87,7 +91,9 @@ const accountStep = publicOnly ? async (name) => console.log(`SKIP ${name}: XT_S
 await accountStep('me (token)', async () => {
   const data = await call('GET', '/api/auth/me')
   if (!data.user) throw new Error('not signed in: check the token')
-  if (data.auth !== 'token') throw new Error(`auth is ${data.auth}, expected token`)
+  // XT_EXPECT_AUTH: 'ci-oidc' for a CI identity token (the deployed smoke run), 'token' for an API token.
+  const expected = process.env.XT_EXPECT_AUTH || 'token'
+  if (data.auth !== expected) throw new Error(`auth is ${data.auth}, expected ${expected}`)
 })
 
 await step('split text', async () => {

@@ -4,7 +4,8 @@ import { createRemoteJWKSet, jwtVerify } from 'jose'
 // matches this repository, this workflow file and an allowed trigger. Off unless CI_OIDC_ENABLED=1.
 
 export const OIDC_ISSUER = 'https://token.actions.githubusercontent.com'
-export const CI_WORKFLOW_PATH = '.github/workflows/ui-image-upload.yml'
+// Each workflow may request a token; workflow_ref and job_workflow_ref must name the same file.
+export const CI_WORKFLOW_PATHS = ['.github/workflows/ui-image-upload.yml', '.github/workflows/smoke-deployed.yml']
 const REPO = 'Shaked/x-thread-draft-tool'
 const ALLOWED_EVENTS = new Set(['workflow_dispatch', 'deployment_status'])
 const MAX_TOKEN_AGE = '5m'
@@ -59,15 +60,24 @@ export async function verifyCiToken(token, env = process.env) {
   // deployment_status runs have no ref: GitHub pins workflow_ref to the commit sha instead.
   const ref = typeof claims.ref === 'string' ? claims.ref : ''
   const pinned = ref || claims.sha || ''
-  const expectedWorkflow = `${REPO}/${CI_WORKFLOW_PATH}@${pinned}`
   if (!pinned) return reject('no ref or commit sha in token')
-  if (claims.workflow_ref !== expectedWorkflow) return reject(`workflow_ref mismatch (got ${claims.workflow_ref})`)
-  if (claims.job_workflow_ref !== expectedWorkflow) return reject(`job_workflow_ref mismatch (got ${claims.job_workflow_ref})`)
+  const matchedWorkflow = CI_WORKFLOW_PATHS.find((p) => {
+    const expected = `${REPO}/${p}@${pinned}`
+    return claims.workflow_ref === expected && claims.job_workflow_ref === expected
+  })
+  if (!matchedWorkflow) return reject(`workflow not an allowed CI workflow (workflow_ref=${claims.workflow_ref})`)
 
   const isMain = ref === 'refs/heads/main'
+  // Production deployment_status (no ref): the token is bound to the build that runs on main.
+  const isProductionBuild =
+    vercelEnv === 'production' &&
+    ref === '' &&
+    claims.event_name === 'deployment_status' &&
+    claims.sha === env.VERCEL_GIT_COMMIT_SHA &&
+    env.VERCEL_GIT_COMMIT_REF === 'main'
   const branchAllowed = vercelEnv === 'preview' && env.CI_OIDC_ALLOW_BRANCHES === '1'
   const isBranch = branchAllowed && (ref === '' ? claims.event_name === 'deployment_status' : /^refs\/heads\/[\w./-]+$/.test(ref))
-  if (!isMain && !isBranch) {
+  if (!isMain && !isBranch && !isProductionBuild) {
     return reject(`branch ref not allowed (vercelEnv=${vercelEnv} allowBranchesSet=${env.CI_OIDC_ALLOW_BRANCHES === '1'})`)
   }
 

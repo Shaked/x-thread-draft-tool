@@ -1,0 +1,1 @@
+- Adds the required check "Codex review": fails on unresolved P0/P1 Codex findings and when Codex has not reviewed the current head (comment `@codex review`). No secret; workflow runs scripts from main only. Plan Task 5.2.
