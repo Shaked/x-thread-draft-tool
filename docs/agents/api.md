@@ -16,8 +16,8 @@ token is always `401`, never a fallback to the cookie.
 | `Authorization: Bearer xt_...` | Web UI `/settings/tokens`, device flow, or `npm run agent:login` | Every endpoint |
 | `xt_session` cookie | Sign in with GitHub in a browser | Browser use; required to create tokens |
 
-Tokens are personal (they act as the GitHub user who created them), expire after 90 days by
-default (max 365), and can be revoked at any time. At most 20 are active per user. The plaintext
+Tokens are personal (they act as the GitHub user who created them), expire after 7 days by
+default (max 7), and can be revoked at any time. At most 20 are active per user. The plaintext
 is shown once; the server keeps only its SHA-256 hash.
 
 ### Get a token without a browser (device flow)
@@ -82,7 +82,7 @@ curl -s -X POST $BASE/api/auth/logout                               # browser se
 ```bash
 curl -s $BASE/api/tokens -H "Authorization: Bearer $TOKEN"                     # list (no secrets)
 curl -s -X POST $BASE/api/tokens -H 'content-type: application/json' \
-  -H "Cookie: xt_session=..." -d '{"name":"laptop","expires_in_days":90}'       # session only
+  -H "Cookie: xt_session=..." -d '{"name":"laptop","expires_in_days":7}'       # session only
 curl -s -X DELETE $BASE/api/tokens/TOKEN_ID -H "Authorization: Bearer $TOKEN"  # revoke
 ```
 

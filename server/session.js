@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookie, parseCookies, HttpError } from './http.js'
 import { findUserByToken } from './tokens.js'
+import { resolveAccess } from './oauth/tokens.js'
 import { verifyCiToken } from './oidc-ci.js'
 import { upsertGithubUser } from './github-user.js'
 
@@ -59,6 +60,13 @@ export async function authenticate(request) {
       if (!user) throw new HttpError(401, 'Invalid or expired API token')
       return user
     }
+    // OAuth access token (1 hour), bound to the REST API resource `<origin>/api` (RFC 8707).
+    const access = header.match(/^Bearer (xta_[A-Za-z0-9_-]{43})$/)
+    if (access) {
+      const user = await resolveAccess(access[1], apiResource(request))
+      if (!user) throw new HttpError(401, 'Invalid or expired API token')
+      return user
+    }
     // A three-part JWT is a GitHub Actions identity token (see server/oidc-ci.js).
     const jwt = header.match(/^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/)
     if (jwt && jwt[1].length <= 4096) {
@@ -71,6 +79,12 @@ export async function authenticate(request) {
   }
   const session = await readSession(request)
   return session ? { ...session, via: 'session' } : null
+}
+
+/** The REST API resource that OAuth access tokens are issued for: `<origin>/api`. */
+export function apiResource(request) {
+  const origin = (process.env.PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/$/, '')
+  return `${origin}/api`
 }
 
 export async function requireUser(request) {

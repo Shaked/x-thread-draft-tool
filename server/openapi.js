@@ -135,7 +135,7 @@ export const OPENAPI = {
       post: {
         summary: 'Create an API token. Browser session only (bearer tokens are refused). Shown once.',
         security: [{ cookieAuth: [] }],
-        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['name'], properties: { name: { type: 'string', minLength: 1, maxLength: 100 }, expires_in_days: { type: 'integer', minimum: 1, maximum: 365, default: 90 } } } } } },
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['name'], properties: { name: { type: 'string', minLength: 1, maxLength: 100 }, expires_in_days: { type: 'integer', minimum: 1, maximum: 7, default: 7 } } } } } },
         responses: {
           ...json({ type: 'object', properties: { token: { type: 'string' }, id: { type: 'string' }, name: { type: 'string' }, prefix: { type: 'string' }, expires_at: { type: 'string' } } }, '201'),
           400: BAD_REQUEST,

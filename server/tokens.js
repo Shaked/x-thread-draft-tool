@@ -25,11 +25,13 @@ export function isTokenShape(value) {
 }
 
 /** Creates a token for `userId`. The plaintext is returned here and nowhere else. */
-export async function createApiToken(userId, { name, expiresInDays = 90, via = 'web' } = {}) {
+export const MAX_EXPIRY_DAYS = 7
+
+export async function createApiToken(userId, { name, expiresInDays = MAX_EXPIRY_DAYS, via = 'web' } = {}) {
   const label = typeof name === 'string' ? name.trim() : ''
   if (label.length < 1 || label.length > 100) throw new HttpError(400, 'name must be 1 to 100 characters')
-  if (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > 365) {
-    throw new HttpError(400, 'expires_in_days must be an integer from 1 to 365')
+  if (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > MAX_EXPIRY_DAYS) {
+    throw new HttpError(400, `expires_in_days must be an integer from 1 to ${MAX_EXPIRY_DAYS}`)
   }
 
   const active = await query(
