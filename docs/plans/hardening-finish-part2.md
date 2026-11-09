@@ -1,6 +1,6 @@
 # Hardening finish, part 2: remaining work, bug fixes and tracker
 
-Written 2026-11-09 22:00 UTC. For an executor that follows instructions literally.
+Written 2026-11-09 22:00 UTC, updated 22:10 UTC (#50 merged). For an executor that follows instructions literally.
 This file continues [hardening-finish.md](./hardening-finish.md) ("the runbook"). It does not replace it.
 
 **How to use this file**
@@ -15,16 +15,15 @@ This file continues [hardening-finish.md](./hardening-finish.md) ("the runbook")
 
 ## 1. State (verified 2026-11-09 22:00 UTC)
 
-`main` is at `0efe2ae` (merge of #49). Production is READY on it and its smoke test passed.
+`main` is at `b96dc20` (merge of #50, 2026-11-09 22:05 UTC). **Not yet checked:** the production deployment and the smoke test for `b96dc20` (step S1). The merge before it, `0efe2ae` (#49), was READY with a passing smoke test.
 
-**Merged:** Tasks 20 to 31 and 33, and from Task 34 the pull requests #48 and #49.
+**Merged:** Tasks 20 to 31 and 33, and from Task 34 the pull requests #48, #49 and #50.
 The light theme (#45), the screenshot harness (#43) and the editor redesign (#47) are merged and live.
 
 **Open pull requests**
 
 | PR | Task | Branch | Head | Base | State |
 |---|---|---|---|---|---|
-| #50 | 34 (7.5) | `claude/task-7-5-authorization-server` | `9e1b2527f7753b86a4007cbd1dcfd804fbb528ef` | `main` at `0efe2ae` | Up to date. All checks green except `Codex review`. Codex reviewed this head twice and found nothing. The check fails only because old review threads are not resolved (step S1). |
 | #51 | 34 (7.6) | `claude/task-7-6-mcp-endpoint` | `aafe196` | old `main` | Needs P-UPDATE after #50 merges. |
 | #52 | 34 (7.7) | `claude/task-7-7-device-flow` | `3601d94` | old `main` | Needs P-UPDATE after #51 merges. |
 | #53 | 34 (7.8) | `claude/task-7-8-connected-apps` | `18e4fcf` | old `main` | Top of the stack. Preview round R2. |
@@ -85,7 +84,7 @@ The live copy is the body of issue #60. This is the starting state.
 | Step | Task | What | PR | State | Next action | Done when |
 |---|---|---|---|---|---|---|
 | S0 | none | This plan on `main` | new | todo | Open a docs PR for this file | merged |
-| S1 | 34 | Unblock and merge 7.5 | #50 | doing | Reply to and resolve 4 fixed threads | merged, production READY, smoke green |
+| S1 | 34 | Production check for 7.5 | #50 (merged `b96dc20`) | doing | P-PROD for `b96dc20` | production READY, smoke green |
 | S2 | 34 | Update #53, Codex, preview R2 | #53 | todo | P-UPDATE after S1 | R2 `preview-ok` |
 | S3 | 34 | Merge 7.6 | #51 | todo | P-UPDATE after S2 | merged, production READY, smoke green |
 | S4 | 34 | Merge 7.7 | #52 | todo | P-UPDATE after S3 | merged, production READY, smoke green |
@@ -115,26 +114,23 @@ If a step waits on something, take the next step whose "after" condition is met.
 2. P-CODEX, P-MERGE. The production build is skipped for docs-only merges (expected: `CANCELED` by the ignore step).
 3. Do not wait for S0. Start S1 at once.
 
-### S1. Unblock and merge #50
-1. Read `get_review_comments` on #50. Check that the head is still `9e1b2527f7753b86a4007cbd1dcfd804fbb528ef`. If it is not, stop and treat #50 as a normal P-CODEX loop.
-2. For each thread below: reply to its first comment (`add_reply_to_pull_request_comment`) with the text given plus the footer, then resolve it (`resolve_review_thread`).
-
-   | Thread | Severity | Reply text |
-   |---|---|---|
-   | `PRRT_kwDOQ7YGcM608jqd` | P1 | `Fixed in this PR: reactivating a grant deletes its old tokens and codes inside one locked transaction.` |
-   | `PRRT_kwDOQ7YGcM608jqg` | P2 | `Fixed in this PR: spending the code and issuing the tokens happen in one transaction.` |
-   | `PRRT_kwDOQ7YGcM61J6ka` | P2 | `Fixed in 06bd0c4: the consent token limit is 16384 characters, with a test.` |
-   | `PRRT_kwDOQ7YGcM61KDcm` | P2 | `Fixed in 9e1b252: a session cookie that carries an audience is refused, with a test.` |
-
-   Before you resolve the first two, open the file each thread points to and confirm the fix is in the code on the head. If one is not, do not resolve it: fix it (P-CODEX) or P-OPUS.
-3. Leave `PRRT_kwDOQ7YGcM61KDco` (P2, long return path) unresolved. It is a known gap in the PR body and is step S8.
-4. Follow E2 step 3 until `Codex review` is `success`.
-5. P-MERGE with `expectedHeadSha` = the head from step 1. Then P-PROD.
-6. Ledger: #50 merged with its merge SHA and smoke run number. Add a comment: "Comments 6733988858 and 6737322593 were wrong. Codex had answered in PR comments; #49 and #50 were never blocked by Codex silence."
+### S1. Finish #50: production check
+#50 is merged as `b96dc208ce5571b77f0f20e057cea159884a31ad`. Its four fixed Codex threads are resolved. Do not touch its threads again.
+1. P-PROD for `b96dc20`: the production deployment is `READY` and the `Smoke test` run for that SHA succeeded. If it is `ERROR` or the smoke test is red, follow P-PROD step 4.
+2. Ledger: S1 `done` with the deployment id and the smoke run number.
+3. Thread `PRRT_kwDOQ7YGcM61KDco` (P2, long return path) stays unresolved. It is step S8.
 
 ### S2. #53: update, Codex, preview round R2
 1. P-UPDATE on `claude/task-7-8-connected-apps` (rule E9; the branch below it is `claude/task-7-7-device-flow`).
-   `tests/unit/vercel-config.test.js` and `server/routes/auth.js` conflict the same way they did on #50: take main's side.
+   A trial merge on 2026-11-09 (not pushed) conflicted in exactly three files, all of them the PR's own. Resolve them like this:
+   - `src/pages/TokensPage.jsx` (imports): keep both lines: `import { grantsApi, tokensApi } from '../utils/api'` and `import ThemeSetting from '../components/ThemeSetting'`.
+   - `src/styles/App.css`: keep all of main's block. After it, add the branch's "Connected apps" rules (`.connected-apps` to `.grant-revoke-btn:hover`). Drop the branch's own `.token-row` line (main has it). In the added rules use `var(--border-soft)` in place of `#e5e7eb` and `outline: 2px solid var(--focus)` for the focus ring.
+   - `scripts/smoke.mjs` (the `me (token)` step): accept `XT_EXPECT_AUTH` when it is set; otherwise accept `token` or `oauth`:
+     ```js
+     const expected = process.env.XT_EXPECT_AUTH ? [process.env.XT_EXPECT_AUTH] : ['token', 'oauth']
+     if (!expected.includes(data.auth)) throw new Error(`auth is ${data.auth}, expected ${expected.join(' or ')}`)
+     ```
+   With these three resolutions the build passed and all 486 tests passed locally.
 2. `npm run build && npm run test:unit` must pass. Push. P-CODEX (rules E1, E2).
 3. P-PREVIEW round R2 with #53's head.
 4. Extra checks with `mcp__Vercel__web_fetch_vercel_url` on `https://x-thread-draft-tool-preview.vercel.app`:
@@ -215,14 +211,14 @@ Do the runbook's Task 42, plus:
 
 | ID | Bug | Handled by |
 |---|---|---|
-| B1 | #50's `Codex review` check is red although Codex found nothing on the head: four fixed threads were never resolved. | S1, rule E2 |
+| B1 | #50's `Codex review` check was red although Codex found nothing on the head: four fixed threads were never resolved. | Fixed 2026-11-09: threads resolved, check green, #50 merged. Rule E2 prevents it from happening again. |
 | B2 | A signed-out user loses an authorize request longer than 2,000 characters across GitHub sign-in (`server/routes/auth.js`, Codex P2). | S8 |
 | B3 | Codex gate: outdated unresolved P2 threads hide the summary-flag fallback (`scripts/codex-gate.mjs`). | S6 |
 | B4 | Two refreshes at the same time revoke the whole grant (#52 known gap). | S7 |
 | B5 | #42 (test budget) was skipped: its bare `CodeQL` check failed and nobody found out why. Not merged, so the test time budget is not enforced. | Skipped by Shaked. Stays `skipped(owner)`. When Shaked says go: P-UPDATE, read the failing check's log (P-CI), then the runbook's Task 32. |
 | B6 | Sign-in on the preview shows "Invalid OAuth state". The preview has no GitHub OAuth App of its own. | Owner action O1. No executor work. No automated check needs a human sign-in. |
 | B7 | A stop hook in the session repeats an old message (it says #43 and #45 are open; they are merged) and blocks the end of a turn. It is not in this repository. | Rule E5. Owner note in section 6. |
-| B8 | The ledger body was stale and two comments said "Codex silent" wrongly. | Body rewritten on 2026-11-09; correction comment in S1 step 6; rule E6. |
+| B8 | The ledger body was stale and two comments said "Codex silent" wrongly. | Body rewritten on 2026-11-09; the correction is in the ledger body under "Corrections"; rule E6. |
 | B9 | The executor read only `get_reviews` and missed Codex's answers. | Rule E1 |
 | B10 | The executor guessed the time and polled in a loop. | Rules E3, E4 |
 | B11 | No CORS headers on the token and metadata endpoints, so a browser-only MCP client fails (#50 deviation). | Not in the plan. Ledger follow-up; do nothing unless Shaked asks. |
