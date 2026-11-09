@@ -80,6 +80,63 @@ export const OPENAPI = {
   paths: {
     '/health': { get: { summary: 'Health check', responses: json({ type: 'object', properties: { ok: { type: 'boolean' } } }) } },
     '/openapi.json': { get: { summary: 'This document', responses: json({ type: 'object' }) } },
+    '/.well-known/oauth-protected-resource': {
+      get: { servers: [{ url: '/' }], summary: 'Protected resource metadata (RFC 9728), MCP resource at /api/mcp', responses: json({ type: 'object' }) }
+    },
+    '/.well-known/oauth-protected-resource/api/mcp': {
+      get: { servers: [{ url: '/' }], summary: 'Protected resource metadata for the MCP endpoint (RFC 9728)', responses: json({ type: 'object' }) }
+    },
+    '/.well-known/oauth-authorization-server': {
+      get: { servers: [{ url: '/' }], summary: 'Authorization server metadata (RFC 8414)', responses: json({ type: 'object' }) }
+    },
+    '/oauth/register': {
+      post: {
+        summary: 'Register a public OAuth client (RFC 7591, deprecated in favour of client ID metadata documents)',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: {
+          201: { description: 'Client registered', content: { 'application/json': { schema: { type: 'object' } } } },
+          400: { description: 'invalid_client_metadata', content: errorContent() }
+        }
+      }
+    },
+    '/oauth/authorize': {
+      get: {
+        summary: 'Authorization request (PKCE S256 and resource required). Shows the consent page.',
+        parameters: [
+          { name: 'response_type', in: 'query', required: true, schema: { type: 'string', enum: ['code'] } },
+          { name: 'client_id', in: 'query', required: true, schema: { type: 'string' } },
+          { name: 'redirect_uri', in: 'query', required: true, schema: { type: 'string', format: 'uri' } },
+          { name: 'code_challenge', in: 'query', required: true, schema: { type: 'string' } },
+          { name: 'code_challenge_method', in: 'query', required: true, schema: { type: 'string', enum: ['S256'] } },
+          { name: 'resource', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'state', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'scope', in: 'query', required: false, schema: { type: 'string', enum: ['drafts'] } }
+        ],
+        responses: { 200: { description: 'Consent page (HTML)' }, 302: { description: 'Sign-in or redirect with code or error' }, 400: { description: 'Unknown client or redirect URI (HTML)' } }
+      },
+      post: {
+        summary: 'Approve or deny the consent page (form post)',
+        requestBody: { required: true, content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } } },
+        responses: { 302: { description: 'Redirect to the client with code or error' }, 403: { description: 'Wrong account (HTML)' } }
+      }
+    },
+    '/oauth/token': {
+      post: {
+        summary: 'Token endpoint: authorization_code (with PKCE) and refresh_token grants',
+        requestBody: { required: true, content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } } },
+        responses: {
+          ...json({ type: 'object', properties: { access_token: { type: 'string' }, refresh_token: { type: 'string' }, token_type: { type: 'string' }, expires_in: { type: 'integer' }, scope: { type: 'string' } } }),
+          400: { description: 'invalid_request, invalid_grant, invalid_target or unsupported_grant_type', content: errorContent() }
+        }
+      }
+    },
+    '/oauth/revoke': {
+      post: {
+        summary: 'Revoke the grant a token belongs to (always 200)',
+        requestBody: { required: true, content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } } },
+        responses: { 200: { description: 'Revoked (or nothing to revoke)' } }
+      }
+    },
     '/auth/login': { get: { summary: 'Start GitHub OAuth sign-in (browser redirect)', responses: { 302: { description: 'Redirect to GitHub' } } } },
     '/auth/callback': { get: { summary: 'GitHub OAuth callback (browser)', responses: { 302: { description: 'Redirect to the app' }, 400: BAD_REQUEST } } },
     '/auth/me': {
