@@ -3,6 +3,7 @@
 import { route } from '../router.js'
 import { json } from '../http.js'
 import { runAs } from '../caller-context.js'
+import { randomUUID } from 'node:crypto'
 
 const UUID = { type: 'string', format: 'uuid' }
 const TITLE = { type: 'string', maxLength: 500, description: 'Draft title, at most 500 characters.' }
@@ -53,13 +54,13 @@ const TOOLS = [
     name: 'create_draft',
     description: 'Create a draft. Omit posts for one empty post.' + CONTENT_NOTE,
     inputSchema: { type: 'object', properties: { title: TITLE, posts: POSTS } },
-    run: (args, { rest }) => rest('POST', '/drafts', pick(args, ['title', 'posts']))
+    run: (args, { rest }) => rest('POST', '/drafts', pick(withPostIds(args), ['title', 'posts']))
   },
   {
     name: 'update_draft',
     description: 'Change the title and/or posts of one of your drafts. Omitted fields stay as they are.' + CONTENT_NOTE,
     inputSchema: { type: 'object', properties: { id: UUID, title: TITLE, posts: POSTS }, required: ['id'] },
-    run: (args, { rest }) => rest('PATCH', `/drafts/${enc(args.id)}`, pick(args, ['title', 'posts']))
+    run: (args, { rest }) => rest('PATCH', `/drafts/${enc(args.id)}`, pick(withPostIds(args), ['title', 'posts']))
   },
   {
     name: 'duplicate_draft',
@@ -100,7 +101,7 @@ const TOOLS = [
   },
   {
     name: 'add_image_from_url',
-    description: 'Fetch a public image URL and attach it to one of your drafts. Private addresses are refused.',
+    description: 'Fetch a public image URL and upload it for one of your drafts. Returns the image url; to show it, add { url } to a post\'s images with update_draft (at most 4 per post). Private addresses are refused.',
     inputSchema: {
       type: 'object',
       properties: { draftId: UUID, url: { type: 'string', format: 'uri' } },
@@ -234,6 +235,21 @@ function matchesType(type, value) {
 
 function pick(args, keys) {
   return Object.fromEntries(keys.filter((key) => args[key] !== undefined).map((key) => [key, args[key]]))
+}
+
+// Gives every post a unique id, so the editor can find and delete one post by its id. A post that
+// arrives without an id, or with an id already used, gets a fresh one.
+function withPostIds(args) {
+  if (!Array.isArray(args.posts)) return args
+  const seen = new Set()
+  return {
+    ...args,
+    posts: args.posts.map((post) => {
+      const id = typeof post?.id === 'string' && post.id && !seen.has(post.id) ? post.id : randomUUID()
+      seen.add(id)
+      return { ...post, id }
+    })
+  }
 }
 
 const enc = (value) => encodeURIComponent(String(value))

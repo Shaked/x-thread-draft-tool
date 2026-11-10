@@ -281,6 +281,17 @@ describe('tools/call', () => {
     expect(list.body.result.structuredContent.drafts.map((d) => d.id)).toEqual([draft.id])
   })
 
+  it('gives posts sent without ids unique ids, so each post can be found by id', async () => {
+    const token = await accessToken(alice)
+    const created = await call(
+      modernPost('tools/call', { name: 'create_draft', arguments: { title: 'Ids', posts: [{ text: 'First', images: [], embeddedTweet: null }, { text: 'Second', images: [], embeddedTweet: null }] } }, { token })
+    )
+    expect(created.body.result.isError).toBe(false)
+    const ids = created.body.result.structuredContent.draft.posts.map((post) => post.id)
+    expect(ids.every((id) => typeof id === 'string' && id.length > 0)).toBe(true)
+    expect(new Set(ids).size).toBe(2)
+  })
+
   it('does not show or read another user drafts', async () => {
     const bobDraft = await db.insertDraft(bob.id, { title: 'Bob private' })
     const token = await accessToken(alice)

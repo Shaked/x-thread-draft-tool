@@ -168,13 +168,14 @@ export function visibleCommentFindingCount({ comments, headSha }) {
 }
 
 // Threads from earlier commits do not count for this head. A thread counts when its original commit
-// is the head, or its body names the head.
+// is the head, or its body names the head sha. Unlike belongsToHead, a body that names no sha does
+// not count here: an outdated thread with no sha in its text must not look visible (bug B3).
 export function visibleThreadFindingCount(threads, headSha) {
   return threads.filter((t) => {
     const first = t.comments?.nodes?.[0];
     if (!first || !isFindingComment(first)) return false;
     const originalSha = first.originalCommit?.oid ?? null;
-    return originalSha === headSha || belongsToHead(first.body, headSha);
+    return originalSha === headSha || (first.body ?? '').includes(headSha);
   }).length;
 }
 
@@ -277,9 +278,10 @@ export async function runGate({ event, gh }) {
   let findings = [...threadFindings, ...commentFindings];
   // Codex's summary can say it has unresolved findings that the gate cannot see at all (no finding
   // thread or comment for this head, handled or not). Fail closed then. A finding a person handled
-  // is visible, so it does not trigger this fallback.
+  // is visible, so it does not trigger this fallback. Findings from older commits do not make the
+  // head visible: an outdated P2 thread must not hide the fallback (bug B3).
   const visible = visibleThreadFindingCount(threads, headSha) + visibleCommentFindingCount({ comments, headSha });
-  if (findings.length === 0 && summary?.hasUnresolvedFindings && visible === 0) {
+  if (summary?.hasUnresolvedFindings && visible === 0) {
     findings = [{ severity: null, title: 'Codex reports unresolved findings the gate cannot see', path: 'Codex summary', line: null, url: null }];
   }
   const result = completedCheck({ findings });
