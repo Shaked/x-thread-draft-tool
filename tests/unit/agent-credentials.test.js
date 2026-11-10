@@ -2,7 +2,7 @@
 // Agent scripts (plan Task 7.7): the device login stores a pair, and the access token refreshes
 // when it expires. fetch is always a mock; nothing touches the network.
 import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -12,7 +12,8 @@ import {
   CredentialsError,
   getAccessToken,
   loginWithDevice,
-  readCredentials
+  readCredentials,
+  writeCredentials
 } from '../../scripts/agent-credentials.mjs'
 
 const BASE = 'https://app.example.test'
@@ -56,6 +57,16 @@ async function writeStored(data) {
   await mkdir(path.dirname(file), { recursive: true })
   await writeFile(file, JSON.stringify(data))
 }
+
+describe('writeCredentials', () => {
+  it('replaces the file with a rename: the record is complete, mode 600, and no temp file is left', async () => {
+    await writeCredentials(file, { base_url: BASE, client_id: 'c', refresh_token: REFRESH_1 })
+    await writeCredentials(file, { base_url: BASE, client_id: 'c', refresh_token: REFRESH_2 })
+    expect(JSON.parse(await readFile(file, 'utf8')).refresh_token).toBe(REFRESH_2)
+    expect((await stat(file)).mode & 0o777).toBe(0o600)
+    expect((await readdir(path.dirname(file))).filter((name) => name.endsWith('.tmp'))).toEqual([])
+  })
+})
 
 describe('loginWithDevice', () => {
   it('starts, polls until approved, saves the pair with mode 600, and prints no token', async () => {

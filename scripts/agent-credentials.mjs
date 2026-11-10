@@ -54,10 +54,13 @@ export async function readCredentials(file) {
   return data
 }
 
-/** Writes the credentials with mode 600 in a directory with mode 700. */
+/** Writes the credentials with mode 600 in a directory with mode 700. The write is atomic: a reader
+ * that does not hold the lock sees the old file or the new one, never a truncated record. */
 export async function writeCredentials(file, data) {
   await mkdir(path.dirname(file), { recursive: true, mode: 0o700 })
-  await writeFile(file, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 })
+  const tmp = `${file}.${process.pid}-${randomBytes(4).toString('hex')}.tmp`
+  await writeFile(tmp, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 })
+  await rename(tmp, file)
   await chmod(file, 0o600)
 }
 
