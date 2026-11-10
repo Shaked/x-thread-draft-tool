@@ -7,7 +7,7 @@
 // access_expires_at is epoch milliseconds. Refreshing rotates refresh_token, so the file is rewritten
 // on every refresh.
 import { randomBytes } from 'node:crypto'
-import { chmod, mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
+import { chmod, link, mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
 
@@ -161,6 +161,13 @@ async function breakStaleLock(lockPath, staleMs) {
     // rename is atomic, so only one waiter removes the stale lock.
     const moved = `${lockPath}.stale-${process.pid}-${randomBytes(4).toString('hex')}`
     await rename(lockPath, moved)
+    // Another waiter may have replaced the stale lock with a fresh one since our stat. If we moved a fresh
+    // lock, put it back (link never overwrites) and wait instead of entering the refresh.
+    if (Date.now() - (await stat(moved)).mtimeMs <= staleMs) {
+      await link(moved, lockPath).catch(() => {})
+      await unlink(moved).catch(() => {})
+      return false
+    }
     await unlink(moved).catch(() => {})
     return true
   } catch {

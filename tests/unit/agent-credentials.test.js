@@ -216,6 +216,32 @@ describe('getAccessToken', () => {
     expect(await getAccessToken({ file, fetchImpl: ok, now: () => NOW })).toBe(ACCESS_2)
   })
 
+  it('concurrent callers that meet a stale lock refresh only once', async () => {
+    await writeStored(storedAt(NOW - 1000))
+    await writeFile(`${file}.lock`, '99999')
+    const old = new Date(Date.now() - 10 * 60 * 1000)
+    await utimes(`${file}.lock`, old, old)
+    let current = REFRESH_1
+    let revoked = false
+    let issued = 0
+    const fetchImpl = vi.fn(async (_url, init) => {
+      const presented = new URLSearchParams(init.body).get('refresh_token')
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      if (revoked || presented !== current) {
+        revoked = true
+        return jsonResponse(400, { error: 'invalid_grant' })
+      }
+      issued += 1
+      current = `xtr_${String(issued).repeat(43)}`
+      return jsonResponse(200, pair(`xta_${String(issued).repeat(43)}`, current))
+    })
+    const results = await Promise.all([1, 2, 3, 4, 5].map(() => getAccessToken({ file, fetchImpl, now: () => NOW })))
+    expect(revoked).toBe(false)
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(new Set(results)).toEqual(new Set([`xta_${'1'.repeat(43)}`]))
+    await expect(stat(`${file}.lock`)).rejects.toThrow()
+  })
+
   it('gives up with a CredentialsError when a live lock is never released', async () => {
     await writeStored(storedAt(NOW - 1))
     await writeFile(`${file}.lock`, '99999')
