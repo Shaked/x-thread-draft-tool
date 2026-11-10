@@ -115,7 +115,7 @@ export default function ThreadComposer({ posts, onPostsChange, readOnly = false 
     <div className="thread-composer">
       {!readOnly && (
         <div className="composer-header">
-          <h2>Compose Thread</h2>
+          <h2>Compose thread</h2>
         </div>
       )}
 
@@ -156,8 +156,8 @@ export default function ThreadComposer({ posts, onPostsChange, readOnly = false 
       </DndContext>
 
       {!readOnly && (
-        <button onClick={addPost} className="btn btn-primary add-post-btn">
-          + Add Post
+        <button onClick={addPost} className="btn btn-secondary add-post-btn">
+          + Add post
         </button>
       )}
     </div>

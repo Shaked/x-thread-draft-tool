@@ -7,9 +7,13 @@ import DraftEditor from './pages/DraftEditor'
 import XThreadPreviewPage from './pages/XThreadPreviewPage'
 import TokensPage from './pages/TokensPage'
 import './styles/App.css'
+import { applyTheme, getTheme } from './utils/theme'
 
 function App() {
   const [user, setUser] = useState(null)
+  useEffect(() => {
+    applyTheme(getTheme())
+  }, [])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
