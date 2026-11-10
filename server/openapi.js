@@ -137,6 +137,18 @@ export const OPENAPI = {
         responses: { 200: { description: 'Revoked (or nothing to revoke)' } }
       }
     },
+    '/mcp': {
+      post: {
+        summary: 'MCP endpoint (Streamable HTTP, JSON responses): one JSON-RPC message per POST. Needs an OAuth access token for /api/mcp.',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['jsonrpc', 'method'] } } } },
+        responses: {
+          200: { description: 'JSON-RPC response', content: { 'application/json': { schema: { type: 'object' } } } },
+          202: { description: 'Notification accepted (no body)' },
+          401: { description: 'Missing or invalid access token; WWW-Authenticate points at the protected resource metadata', content: errorContent() },
+          403: { description: 'Origin is not this app', content: errorContent() }
+        }
+      }
+    },
     '/auth/login': { get: { summary: 'Start GitHub OAuth sign-in (browser redirect)', responses: { 302: { description: 'Redirect to GitHub' } } } },
     '/auth/callback': { get: { summary: 'GitHub OAuth callback (browser)', responses: { 302: { description: 'Redirect to the app' }, 400: BAD_REQUEST } } },
     '/auth/me': {

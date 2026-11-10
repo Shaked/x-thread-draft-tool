@@ -8,6 +8,7 @@ import { tokenRoutes } from './routes/tokens.js'
 import { threadRoutes } from './routes/threads.js'
 import { openapiRoutes } from './routes/openapi.js'
 import { oauthRoutes } from './routes/oauth.js'
+import { handleMcp } from './mcp/server.js'
 
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE'])
 
@@ -28,6 +29,9 @@ export const ROUTES = [
   ...threadRoutes,
   ...oauthRoutes,
   ...openapiRoutes,
+  // The MCP endpoint (plan 7.6) checks its own Origin and bearer token, so its 401 carries the
+  // WWW-Authenticate header. selfAuth skips the generic CI-token refusal below.
+  { method: 'POST', path: '/mcp', handler: ({ request }) => handleMcp(request), selfAuth: true },
   { method: 'GET', path: '/health', handler: health }
 ]
 
@@ -88,7 +92,7 @@ export async function route(request) {
 
     // CI identity tokens (three-part JWT) are accepted only on routes marked ci: true.
     const bearer = request.headers.get('authorization') ?? ''
-    if (/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(bearer) && !match.ci) {
+    if (/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(bearer) && !match.ci && !match.selfAuth) {
       throw new HttpError(401, 'CI tokens are not accepted on this route')
     }
 

@@ -1,12 +1,12 @@
 import { HttpError, json, readJson } from '../http.js'
-import { requireSessionUser, requireUser } from '../session.js'
+import { requirePersonalUser, requireSessionUser } from '../session.js'
 import { createApiToken, listApiTokens, MAX_EXPIRY_DAYS, revokeApiToken } from '../tokens.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** GET /api/tokens: session or bearer. Never includes the token hash. */
+/** GET /api/tokens: browser session or personal xt_ token; OAuth access tokens get 403. Never includes the token hash. */
 export async function listTokens({ request }) {
-  const user = await requireUser(request)
+  const user = await requirePersonalUser(request)
   return json({ tokens: await listApiTokens(user.uid) })
 }
 
@@ -23,9 +23,9 @@ export async function createToken({ request }) {
   return json(created, 201)
 }
 
-/** DELETE /api/tokens/:id: session or bearer, own tokens only. */
+/** DELETE /api/tokens/:id: browser session or personal xt_ token, own tokens only; OAuth gets 403. */
 export async function revokeToken({ request, params }) {
-  const user = await requireUser(request)
+  const user = await requirePersonalUser(request)
   if (!UUID_RE.test(params.id) || !(await revokeApiToken(user.uid, params.id))) {
     throw new HttpError(404, 'Token not found')
   }
