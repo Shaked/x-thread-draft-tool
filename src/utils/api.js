@@ -114,3 +114,15 @@ export const tokensApi = {
     return request(`/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' })
   }
 }
+
+/** Connected apps: the signed-in user's OAuth grants (plan Task 7.8). */
+export const grantsApi = {
+  /** Returns `{ grants: [{ id, client_name, kind, redirect_host, resource, scope, created_at, last_used_at, revoked_at }] }`. */
+  list() {
+    return request('/grants')
+  },
+
+  revoke(id) {
+    return request(`/grants/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+}

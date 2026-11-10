@@ -18,6 +18,8 @@ function json(schema, status = '200') {
 
 const draftRef = { $ref: '#/components/schemas/Draft' }
 const tokenRef = { $ref: '#/components/schemas/ApiToken' }
+const grantRef = { $ref: '#/components/schemas/Grant' }
+const FORBIDDEN = { description: 'An OAuth grant was used; a browser session or personal API token is required', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } }
 
 export const OPENAPI = {
   openapi: '3.1.0',
@@ -72,6 +74,21 @@ export const OPENAPI = {
           created_at: { type: 'string', format: 'date-time' },
           last_used_at: { type: ['string', 'null'], format: 'date-time' },
           expires_at: { type: ['string', 'null'], format: 'date-time' },
+          revoked_at: { type: ['string', 'null'], format: 'date-time' }
+        }
+      },
+      Grant: {
+        type: 'object',
+        description: 'A connected app: one OAuth grant of yours. Never includes tokens or codes.',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          client_name: { type: 'string' },
+          kind: { type: 'string', enum: ['registered', 'metadata', 'device'] },
+          redirect_host: { type: ['string', 'null'], example: 'localhost:3000' },
+          resource: { type: 'string', example: 'https://x-thread-draft-tool.vercel.app/api/mcp' },
+          scope: { type: 'string', example: 'drafts' },
+          created_at: { type: 'string', format: 'date-time' },
+          last_used_at: { type: ['string', 'null'], format: 'date-time' },
           revoked_at: { type: ['string', 'null'], format: 'date-time' }
         }
       }
@@ -220,6 +237,21 @@ export const OPENAPI = {
         security: BEARER,
         parameters: [ID],
         responses: { ...json({ type: 'object', properties: { ok: { type: 'boolean' } } }), 401: UNAUTHORIZED, 404: NOT_FOUND }
+      }
+    },
+    '/grants': {
+      get: {
+        summary: 'List your connected apps (OAuth grants), revoked ones included. Browser session or personal token only; OAuth access tokens get 403.',
+        security: BEARER,
+        responses: { ...json({ type: 'object', properties: { grants: { type: 'array', items: grantRef } } }), 401: UNAUTHORIZED, 403: FORBIDDEN }
+      }
+    },
+    '/grants/{id}': {
+      delete: {
+        summary: 'Revoke one of your connected apps. Its access and refresh tokens stop working at once. Browser session or personal token only.',
+        security: BEARER,
+        parameters: [ID],
+        responses: { ...json({ type: 'object', properties: { ok: { type: 'boolean' } } }), 401: UNAUTHORIZED, 403: FORBIDDEN, 404: NOT_FOUND }
       }
     },
     '/drafts': {

@@ -2,6 +2,7 @@ import { HttpError, error, json } from './http.js'
 import { authRoutes } from './routes/auth.js'
 import { deviceRoutes } from './routes/device.js'
 import { draftRoutes } from './routes/drafts.js'
+import { grantRoutes } from './routes/grants.js'
 import { imageRoutes } from './routes/images.js'
 import { shareRoutes } from './routes/share.js'
 import { tokenRoutes } from './routes/tokens.js'
@@ -23,6 +24,7 @@ export const ROUTES = [
   ...authRoutes,
   ...deviceRoutes,
   ...draftRoutes,
+  ...grantRoutes,
   ...imageRoutes,
   ...shareRoutes,
   ...tokenRoutes,
