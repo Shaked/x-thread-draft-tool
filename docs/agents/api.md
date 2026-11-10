@@ -13,12 +13,25 @@ token is always `401`, never a fallback to the cookie.
 
 | Credential | How you get it | Used for |
 |---|---|---|
-| `Authorization: Bearer xt_...` | Web UI `/settings/tokens`, device flow, or `npm run agent:login` | Every endpoint |
+| `Authorization: Bearer xta_...` | MCP connector (OAuth), or device flow / `npm run agent:login` | REST API (`<origin>/api`) and MCP (`<origin>/api/mcp`) |
+| `Authorization: Bearer xt_...` | Web UI `/settings/tokens` (hand-made, quick tests) | Every endpoint |
 | `xt_session` cookie | Sign in with GitHub in a browser | Browser use; required to create tokens |
 
-Tokens are personal (they act as the GitHub user who created them), expire after 7 days by
-default (max 7), and can be revoked at any time. At most 20 are active per user. The plaintext
-is shown once; the server keeps only its SHA-256 hash.
+An access token (`xta_`) lasts 1 hour and is bound to one resource: a token for the REST API
+is refused on `/api/mcp`, and the reverse. It refreshes with a rotating refresh token (`xtr_`,
+90 days unused), at `POST /api/oauth/token` with `grant_type=refresh_token`. Reusing a spent
+refresh token revokes its whole connected app.
+
+Hand-made `xt_` tokens are personal (they act as the GitHub user who created them), expire after
+7 days at most, and can be revoked at any time. At most 20 are active per user. The plaintext is
+shown once; the server keeps only its SHA-256 hash. An invalid, expired or revoked token is always
+`401`, never a fallback to the cookie.
+
+### Connect as an MCP connector
+
+Add `$BASE/api/mcp` as a remote MCP connector. The client discovers the authorization server from
+`$BASE/.well-known/oauth-protected-resource/api/mcp`, you approve once with GitHub sign-in, and the
+client refreshes its access token by itself.
 
 ### Get a token without a browser (device flow)
 
@@ -29,20 +42,32 @@ curl -s -X POST $BASE/api/auth/device/start -H 'content-type: application/json' 
 curl -s -X POST $BASE/api/auth/device/poll -H 'content-type: application/json' \
   -d '{"device_code":"DEVICE_CODE","name":"Claude agent"}'
 # 202 { "status": "pending" } → wait `interval` seconds and poll again
-# 201 { "token": "xt_...", "user": {...} } → store it; it is never shown again
+# 201 { "access_token": "xta_...", "refresh_token": "xtr_...", "expires_in": 3600,
+#       "client_id": "device:Claude agent", "token": "xta_...", "user": {...} }
+#     → store the refresh token; "token" is a deprecated alias of access_token
 ```
 
-Device flow needs "Enable Device Flow" on the GitHub OAuth App (one-time, done by the app owner).
+The device name is a connected app: signing in again with the same name reuses it, and a revoked
+one is replaced by a new one. Device flow needs "Enable Device Flow" on the GitHub OAuth App
+(one-time, done by the app owner).
 
 ### Or from the browser
 
-Sign in at `/settings/tokens`, create a token, copy it.
+Sign in at `/settings/tokens`, create a hand-made `xt_` token (7 days max), copy it.
 
 ### Local CLI helper
 
 ```bash
-node scripts/agent-login.mjs --base $BASE --name "Claude agent"   # writes .xt-token (mode 600)
+node scripts/agent-login.mjs --base $BASE --name "Claude agent"   # saves the pair (mode 600)
+XT_TOKEN=$(node scripts/xt-token.mjs) npm run smoke              # prints a fresh access token
 ```
+
+`agent-login` writes `~/.config/xt/credentials.json` (directory 700, file 600): the base URL, the
+client id, the refresh token and the current access token. `xt-token` returns the stored access
+token while it is valid, otherwise it refreshes, saves the rotated refresh token and prints the new
+access token. If it fails, it says to run `npm run agent:login` again. Set `XT_CREDENTIALS_FILE` to
+use another file. Do not run two refreshes at once: the second would reuse the first's spent token and
+revoke the connected app.
 
 ## Error format and status codes
 

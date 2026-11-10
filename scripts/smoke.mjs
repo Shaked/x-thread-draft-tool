@@ -91,9 +91,10 @@ const accountStep = publicOnly ? async (name) => console.log(`SKIP ${name}: XT_S
 await accountStep('me (token)', async () => {
   const data = await call('GET', '/api/auth/me')
   if (!data.user) throw new Error('not signed in: check the token')
-  // XT_EXPECT_AUTH: 'ci-oidc' for a CI identity token (the deployed smoke run), 'token' for an API token.
-  const expected = process.env.XT_EXPECT_AUTH || 'token'
-  if (data.auth !== expected) throw new Error(`auth is ${data.auth}, expected ${expected}`)
+  // XT_EXPECT_AUTH: 'ci-oidc' for a CI identity token (the deployed smoke run). Unset: a hand-made
+  // xt_ token ('token') or an access token from the device flow or the connector ('oauth').
+  const expected = process.env.XT_EXPECT_AUTH ? [process.env.XT_EXPECT_AUTH] : ['token', 'oauth']
+  if (!expected.includes(data.auth)) throw new Error(`auth is ${data.auth}, expected ${expected.join(' or ')}`)
 })
 
 await step('split text', async () => {
