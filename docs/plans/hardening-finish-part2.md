@@ -5,6 +5,7 @@ This file continues [hardening-finish.md](./hardening-finish.md) ("the runbook")
 
 **How to use this file**
 
+0. Read [AGENTS.md](../../AGENTS.md) ("Working in this repo"). It is short and holds the rules executors forget most.
 1. Read the runbook's section 0 (Checkpoint), section 1 (Rules card), section 2.4 (Allowed writes) and section 5 (Procedures: P-PR, P-CODEX, P-CI, P-MERGE, P-UPDATE, P-PROD, P-PREVIEW, P-UI-REVIEW, P-OPUS, P-WAIT).
 2. Read this file's section 1 (state), section 2 (extra rules) and section 3 (tracker).
 3. Do the steps in section 4 in order, one step at a time. After each step, update the ledger (issue #60) and run the Checkpoint.
@@ -45,12 +46,24 @@ Heads change. Always read the real head with `mcp__github__pull_request_read` (`
   - Task 34 order: merge #50 first, then run R2 on #53. Reason: #50 is finished and reviewed, and #53 needs #50's fixes before its preview means anything.
   - Task 32 (#42) is skipped by Shaked's order. Its row is `skipped(owner)`. Task 33 and later do not wait for it.
   - Task 42 has two extra parts (step S13).
+  - Codex timing: rule E-CODEX below replaces the 30-minute waits in D-24 and P-WAIT.
+- **E-CODEX. Codex answers in 2 to 3 minutes. Never wait 10, 20 or 30 minutes for it.** This is the rule executors forget most. Read it again before every `@codex review`.
+
+  | Minutes after `@codex review` | Do this |
+  |---|---|
+  | 0 | Post `@codex review` plus the footer. Call `send_later` with `delay_minutes: 3`. End the turn. (A Codex comment can wake you sooner.) |
+  | 3 | Read `get_comments` (rule E1). Answer for the head? Act on it. No answer? `send_later` 3 minutes, end the turn. |
+  | 6 | Read again. No answer? `send_later` 4 minutes, end the turn. |
+  | 10 | Read again. No answer? Post `@codex review` once more. `send_later` 5 minutes, end the turn. |
+  | 15 | Read again. No answer? Record `Codex silent (head <sha7>, asked at <time>, <time>)` in the ledger and go on as if Codex found nothing (D-24). |
+
+  Never use a delay longer than 5 minutes for Codex. While you wait for Codex on one PR, you may do an independent step on another.
 - **E1. Where Codex answers.** Codex posts a clean result as an ordinary PR comment, not as a review. To know what Codex said, always read all three:
   1. `pull_request_read` `get_comments`: find the newest comment by `chatgpt-codex-connector[bot]`. It is current when its `commit_sha` (inside `<!-- codex-review-state:v1 ... -->`, or in the visible text) equals the PR head.
   2. `pull_request_read` `get_review_comments`: the review threads and whether each is resolved.
   3. `pull_request_read` `get_check_runs`: the `Codex review` check.
 
-  Never decide "Codex silent" from `get_reviews`. Record `Codex silent` only when `get_comments` shows no Codex comment for the head 60 minutes after the first `@codex review` (rule D-24: ask once more at 30 minutes).
+  Never decide "Codex silent" from `get_reviews`. Record `Codex silent` only by the E-CODEX table (15 minutes, after asking twice), and only from `get_comments`.
 - **E2. Why the `Codex review` check fails.** It counts every unresolved Codex thread, even an outdated one. `P0`/`P1` threads block. `P2`/`P3` threads do not. So after you fix a finding and Codex has reviewed the new head:
   1. Reply on the thread: `Fixed in <sha7>: <one line>` plus the footer.
   2. Resolve it with `mcp__github__resolve_review_thread`.
@@ -58,7 +71,7 @@ Heads change. Always read the real head with `mcp__github__pull_request_read` (`
 
   Resolve a thread only when its fix is in the code, or Opus agreed the finding is wrong. A `P2`/`P3` you did not fix stays unresolved, and you write it under "Known gaps" in the PR body and in the ledger's follow-up list.
 - **E3. Time.** Run `date -u` when you need the time. Never guess it.
-- **E4. Waiting.** After `@codex review` or a push, end the turn. PR events wake you. For anything that sends no PR event, call `send_later` once (10 minutes; Codex 30) and end the turn. Never check the same thing twice in one turn. Never `sleep`.
+- **E4. Waiting.** After `@codex review` or a push, end the turn. PR events wake you. For anything that sends no PR event, call `send_later` once and end the turn: Codex per E-CODEX (3 to 5 minutes), a CI run or a Vercel deployment 5 minutes. Never check the same thing twice in one turn. Never `sleep`.
 - **E5. If a stop hook says the work is not finished.** Do not repeat checks and do not invent work. Write a short true status ("waiting for X on PR #N; the next step is S<n>") and end the turn. Do not edit hook or permission settings. See bug B7.
 - **E6. Ledger.** The table in the body of issue #60 is the tracker. After every step, rewrite the body with `mcp__github__issue_write` (keep the first line `<!-- runbook-ledger:v1 -->`). Add a comment only for a decision or a problem. If an earlier comment was wrong, add a new comment that says so.
 - **E7. Commits and PR text.** No model names anywhere. End a commit message with the `Claude-Session:` line your session gives you and nothing else about the tool. End every GitHub comment with:
@@ -221,6 +234,7 @@ Do the runbook's Task 42, plus:
 | B8 | The ledger body was stale and two comments said "Codex silent" wrongly. | Body rewritten on 2026-11-09; the correction is in the ledger body under "Corrections"; rule E6. |
 | B9 | The executor read only `get_reviews` and missed Codex's answers. | Rule E1 |
 | B10 | The executor guessed the time and polled in a loop. | Rules E3, E4 |
+| B13 | The executor waited 10 to 30 minutes for Codex, which answers in 2 to 3 minutes. It kept forgetting this after context summaries. | Rule E-CODEX; also in AGENTS.md and in the starting prompt (section 8), so it survives a summary. |
 | B11 | No CORS headers on the token and metadata endpoints, so a browser-only MCP client fails (#50 deviation). | Not in the plan. Ledger follow-up; do nothing unless Shaked asks. |
 | B12 | The client-metadata fetch can be fooled by DNS rebinding, like `server/remote-image.js` (#50 known gap). | Ledger follow-up; do nothing unless Shaked asks. |
 
@@ -250,3 +264,39 @@ Do the runbook's Task 42, plus:
 - P1 to P4 are done or still parked with their owner action in the ledger.
 - The runbook's section 7 holds, with exceptions named.
 - `main` is green and production is READY with a passing smoke test on the last runtime merge.
+
+---
+
+## 8. Starting prompt for a new session
+
+Paste this as the first message of the new session.
+
+```
+Execute docs/plans/hardening-finish-part2.md in Shaked/x-thread-draft-tool, step by step, until
+every step is done or parked. Do not ask me anything; questions go to Opus (Agent tool,
+model "opus", prompt from P-OPUS in docs/plans/hardening-finish.md).
+
+Until step S0 merges it, the plan is only on branch claude/relaxed-allen-b47d1n:
+  git fetch origin claude/relaxed-allen-b47d1n main
+  git show origin/claude/relaxed-allen-b47d1n:docs/plans/hardening-finish-part2.md
+  git show origin/claude/relaxed-allen-b47d1n:AGENTS.md
+
+Read first, in this order: AGENTS.md ("Working in this repo"), the plan's sections 1 to 3, then
+docs/plans/hardening-finish.md sections 0, 1, 2.4 and 5. The tracker is the body of issue #60.
+Start at the first step in the tracker that is not done (at writing: S0, then S1).
+
+Four rules people kept breaking. Re-read them after every context summary:
+1. Codex answers in 2 to 3 minutes. After "@codex review", send_later 3 minutes and end the
+   turn. Never wait 10, 20 or 30 minutes. Follow the plan's E-CODEX table.
+2. Codex's answer is a PR comment. Read get_comments, get_review_comments and get_check_runs.
+   Never decide anything from get_reviews alone.
+3. After a fix is on the head and Codex reviewed it, reply on the thread and resolve it,
+   or the "Codex review" check stays red.
+4. Run `date -u` for the time. Never sleep-poll. Never check the same thing twice in a turn.
+
+If a stop hook says #43 or #45 is open: that text is old, both are merged. Write a one-line
+true status and end the turn. Do not edit hook settings.
+
+When a step needs me (an owner action), say in plain words what to click and where, add it to
+the ledger, and continue with the next step.
+```
