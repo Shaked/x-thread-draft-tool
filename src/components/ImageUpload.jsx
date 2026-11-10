@@ -203,6 +203,14 @@ const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
     }
   }
 
+  // Enter or Space opens the file picker, as a click does.
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleClick()
+    }
+  }
+
   if (!canAddMore && images.length > 0) {
     return null // Hide upload area if max images reached
   }
@@ -211,11 +219,15 @@ const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
     <div className="image-upload">
       <div
         className={`upload-area ${dragActive ? 'drag-active' : ''} ${uploading ? 'uploading' : ''}`}
+        role="button"
+        tabIndex={0}
+        aria-disabled={!canAddMore || uploading}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
       >
         <input
           ref={fileInputRef}
@@ -227,19 +239,19 @@ const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
         />
 
         {uploading || urlLoading ? (
-          <div className="upload-status">
-            {uploading ? 'Uploading...' : 'Fetching image...'}
+          <div className="upload-status" role="status" aria-live="polite">
+            {uploading ? 'Uploading…' : 'Fetching image…'}
           </div>
         ) : (
           <div className="upload-prompt">
-            <span className="upload-icon">📷</span>
-            <span>Drag, paste, or click to upload ({images.length}/{MAX_IMAGES})</span>
+            <span className="upload-icon" aria-hidden="true">📷</span>
+            <span>Drag, paste or click to add images ({images.length} of {MAX_IMAGES})</span>
           </div>
         )}
       </div>
 
       {error && (
-        <div className="upload-error">
+        <div className="upload-error" role="alert">
           {error}
         </div>
       )}

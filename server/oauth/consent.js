@@ -76,8 +76,13 @@ export function sealDecision(payload) {
 }
 
 /** Returns the decision payload, or null when missing, tampered with, expired or for another audience. */
+// Largest token sealDecision can produce: up to four 2048-character fields (client_id, redirect_uri and
+// the other accepted parameters), base64url-encoded (4/3) plus the header and claims. Anything longer is
+// not from this server.
+const MAX_DECISION_TOKEN = 16384
+
 export async function openDecision(token) {
-  if (typeof token !== 'string' || token.length === 0 || token.length > 4096) return null
+  if (typeof token !== 'string' || token.length === 0 || token.length > MAX_DECISION_TOKEN) return null
   try {
     const { payload } = await jwtVerify(token, secretKey(), { algorithms: ['HS256'], audience: AUDIENCE })
     return payload

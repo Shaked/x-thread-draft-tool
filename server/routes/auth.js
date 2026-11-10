@@ -27,8 +27,16 @@ function redirect(location, cookies = []) {
   return new Response(null, { status: 302, headers })
 }
 
-/** GET /api/auth/login: starts the GitHub OAuth flow with a one-time state cookie. */
-export async function login({ url }) {
+/**
+ * GET /api/auth/login: starts the GitHub OAuth flow with a one-time state cookie.
+ * Served on a host other than the canonical app origin (a per-deployment URL), it redirects to the
+ * canonical origin first, so the state cookie and the callback always belong to one host.
+ */
+export async function login({ request, url }) {
+  const host = request.headers.get('x-forwarded-host') ?? url.host
+  if (host !== new URL(appOrigin()).host) {
+    return redirect(`${appOrigin()}/api/auth/login`)
+  }
   const state = crypto.randomUUID()
   const returnTo = safeReturnTo(url.searchParams.get('return_to'))
   const params = new URLSearchParams({

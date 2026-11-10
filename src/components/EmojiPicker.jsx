@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import data from '@emoji-mart/data'
 import Picker from '@emoji-mart/react'
+import { resolvedTheme } from '../utils/theme'
 
 export default function EmojiPicker({ onSelect, onClose }) {
   const pickerRef = useRef(null)
@@ -28,11 +29,11 @@ export default function EmojiPicker({ onSelect, onClose }) {
   }, [onClose])
 
   return (
-    <div className="emoji-picker-container" ref={pickerRef}>
+    <div className="emoji-picker-container" role="dialog" aria-label="Emoji picker" ref={pickerRef}>
       <Picker
         data={data}
         onEmojiSelect={onSelect}
-        theme="light"
+        theme={resolvedTheme()}
         previewPosition="none"
         skinTonePosition="none"
       />

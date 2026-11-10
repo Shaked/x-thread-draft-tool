@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { draftsApi } from '../utils/api'
+import ThemeSetting from './ThemeSetting'
 
 export default function DraftList({ user }) {
   const [activeTab, setActiveTab] = useState('drafts') // 'drafts' or 'published'
@@ -101,6 +102,7 @@ export default function DraftList({ user }) {
     <div className="draft-list-page">
       <div className="draft-list-header">
         <h1>Your Threads</h1>
+        <ThemeSetting />
         <button className="new-draft-btn" onClick={createNewDraft}>
           + New Draft
         </button>
