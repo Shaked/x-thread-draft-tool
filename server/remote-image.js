@@ -53,7 +53,7 @@ export function isPrivateAddress(address) {
 }
 
 /** Fetches a public image and returns its bytes and content type, or throws an HttpError. */
-export async function fetchRemoteImage(input) {
+function parseRemoteUrl(input) {
   let url
   try {
     url = new URL(input)
@@ -64,32 +64,18 @@ export async function fetchRemoteImage(input) {
     throw new HttpError(400, 'Only http and https URLs are allowed')
   }
   if (url.username || url.password) throw new HttpError(400, 'URLs with credentials are not allowed')
+  return url
+}
 
+async function assertPublicHost(url) {
   const hostname = url.hostname.replace(/^\[(.*)\]$/, '$1')
   const addresses = isIP(hostname) ? [{ address: hostname }] : await lookup(hostname, { all: true })
   if (addresses.length === 0 || addresses.some((entry) => isPrivateAddress(entry.address))) {
     throw new HttpError(400, 'That address is not allowed')
   }
+}
 
-  let response
-  try {
-    response = await fetch(url, {
-      redirect: 'manual',
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { accept: 'image/*' }
-    })
-  } catch {
-    throw new HttpError(502, 'Could not fetch the image')
-  }
-  if (response.status >= 300 && response.status < 400) throw new HttpError(400, 'Redirects are not followed')
-  if (!response.ok) throw new HttpError(502, `Image host returned HTTP ${response.status}`)
-
-  const contentType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
-  if (!contentType.startsWith('image/')) throw new HttpError(415, 'The URL does not point to an image')
-
-  const declared = Number(response.headers.get('content-length') || 0)
-  if (declared > MAX_REMOTE_IMAGE_BYTES) throw new HttpError(413, 'Image must be 4 MB or smaller')
-
+async function readImageBody(response) {
   const chunks = []
   let total = 0
   const reader = response.body.getReader()
@@ -111,5 +97,32 @@ export async function fetchRemoteImage(input) {
     bytes.set(chunk, offset)
     offset += chunk.byteLength
   }
+  return bytes
+}
+
+export async function fetchRemoteImage(input) {
+  const url = parseRemoteUrl(input)
+  await assertPublicHost(url)
+
+  let response
+  try {
+    response = await fetch(url, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      headers: { accept: 'image/*' }
+    })
+  } catch {
+    throw new HttpError(502, 'Could not fetch the image')
+  }
+  if (response.status >= 300 && response.status < 400) throw new HttpError(400, 'Redirects are not followed')
+  if (!response.ok) throw new HttpError(502, `Image host returned HTTP ${response.status}`)
+
+  const contentType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+  if (!contentType.startsWith('image/')) throw new HttpError(415, 'The URL does not point to an image')
+
+  const declared = Number(response.headers.get('content-length') || 0)
+  if (declared > MAX_REMOTE_IMAGE_BYTES) throw new HttpError(413, 'Image must be 4 MB or smaller')
+
+  const bytes = await readImageBody(response)
   return { bytes, contentType }
 }

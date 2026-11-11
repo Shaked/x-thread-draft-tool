@@ -18,6 +18,8 @@ function json(schema, status = '200') {
 
 const draftRef = { $ref: '#/components/schemas/Draft' }
 const tokenRef = { $ref: '#/components/schemas/ApiToken' }
+const grantRef = { $ref: '#/components/schemas/Grant' }
+const FORBIDDEN = { description: 'An OAuth grant was used; a browser session or personal API token is required', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } }
 
 export const OPENAPI = {
   openapi: '3.1.0',
@@ -74,12 +76,96 @@ export const OPENAPI = {
           expires_at: { type: ['string', 'null'], format: 'date-time' },
           revoked_at: { type: ['string', 'null'], format: 'date-time' }
         }
+      },
+      Grant: {
+        type: 'object',
+        description: 'A connected app: one OAuth grant of yours. Never includes tokens or codes.',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          client_name: { type: 'string' },
+          kind: { type: 'string', enum: ['registered', 'metadata', 'device'] },
+          redirect_host: { type: ['string', 'null'], example: 'localhost:3000' },
+          resource: { type: 'string', example: 'https://x-thread-draft-tool.vercel.app/api/mcp' },
+          scope: { type: 'string', example: 'drafts' },
+          created_at: { type: 'string', format: 'date-time' },
+          last_used_at: { type: ['string', 'null'], format: 'date-time' },
+          revoked_at: { type: ['string', 'null'], format: 'date-time' }
+        }
       }
     }
   },
   paths: {
     '/health': { get: { summary: 'Health check', responses: json({ type: 'object', properties: { ok: { type: 'boolean' } } }) } },
     '/openapi.json': { get: { summary: 'This document', responses: json({ type: 'object' }) } },
+    '/.well-known/oauth-protected-resource': {
+      get: { servers: [{ url: '/' }], summary: 'Protected resource metadata (RFC 9728), MCP resource at /api/mcp', responses: json({ type: 'object' }) }
+    },
+    '/.well-known/oauth-protected-resource/api/mcp': {
+      get: { servers: [{ url: '/' }], summary: 'Protected resource metadata for the MCP endpoint (RFC 9728)', responses: json({ type: 'object' }) }
+    },
+    '/.well-known/oauth-authorization-server': {
+      get: { servers: [{ url: '/' }], summary: 'Authorization server metadata (RFC 8414)', responses: json({ type: 'object' }) }
+    },
+    '/oauth/register': {
+      post: {
+        summary: 'Register a public OAuth client (RFC 7591, deprecated in favour of client ID metadata documents)',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: {
+          201: { description: 'Client registered', content: { 'application/json': { schema: { type: 'object' } } } },
+          400: { description: 'invalid_client_metadata', content: errorContent() }
+        }
+      }
+    },
+    '/oauth/authorize': {
+      get: {
+        summary: 'Authorization request (PKCE S256 and resource required). Shows the consent page.',
+        parameters: [
+          { name: 'response_type', in: 'query', required: true, schema: { type: 'string', enum: ['code'] } },
+          { name: 'client_id', in: 'query', required: true, schema: { type: 'string' } },
+          { name: 'redirect_uri', in: 'query', required: true, schema: { type: 'string', format: 'uri' } },
+          { name: 'code_challenge', in: 'query', required: true, schema: { type: 'string' } },
+          { name: 'code_challenge_method', in: 'query', required: true, schema: { type: 'string', enum: ['S256'] } },
+          { name: 'resource', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'state', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'scope', in: 'query', required: false, schema: { type: 'string', enum: ['drafts'] } }
+        ],
+        responses: { 200: { description: 'Consent page (HTML)' }, 302: { description: 'Sign-in or redirect with code or error' }, 400: { description: 'Unknown client or redirect URI (HTML)' } }
+      },
+      post: {
+        summary: 'Approve or deny the consent page (form post)',
+        requestBody: { required: true, content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } } },
+        responses: { 302: { description: 'Redirect to the client with code or error' }, 403: { description: 'Wrong account (HTML)' } }
+      }
+    },
+    '/oauth/token': {
+      post: {
+        summary: 'Token endpoint: authorization_code (with PKCE) and refresh_token grants',
+        requestBody: { required: true, content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } } },
+        responses: {
+          ...json({ type: 'object', properties: { access_token: { type: 'string' }, refresh_token: { type: 'string' }, token_type: { type: 'string' }, expires_in: { type: 'integer' }, scope: { type: 'string' } } }),
+          400: { description: 'invalid_request, invalid_grant, invalid_target or unsupported_grant_type', content: errorContent() }
+        }
+      }
+    },
+    '/oauth/revoke': {
+      post: {
+        summary: 'Revoke the grant a token belongs to (always 200)',
+        requestBody: { required: true, content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } } },
+        responses: { 200: { description: 'Revoked (or nothing to revoke)' } }
+      }
+    },
+    '/mcp': {
+      post: {
+        summary: 'MCP endpoint (Streamable HTTP, JSON responses): one JSON-RPC message per POST. Needs an OAuth access token for /api/mcp.',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['jsonrpc', 'method'] } } } },
+        responses: {
+          200: { description: 'JSON-RPC response', content: { 'application/json': { schema: { type: 'object' } } } },
+          202: { description: 'Notification accepted (no body)' },
+          401: { description: 'Missing or invalid access token; WWW-Authenticate points at the protected resource metadata', content: errorContent() },
+          403: { description: 'Origin is not this app', content: errorContent() }
+        }
+      }
+    },
     '/auth/login': { get: { summary: 'Start GitHub OAuth sign-in (browser redirect)', responses: { 302: { description: 'Redirect to GitHub' } } } },
     '/auth/callback': { get: { summary: 'GitHub OAuth callback (browser)', responses: { 302: { description: 'Redirect to the app' }, 400: BAD_REQUEST } } },
     '/auth/me': {
@@ -117,11 +203,11 @@ export const OPENAPI = {
     },
     '/auth/device/poll': {
       post: {
-        summary: 'Poll the device flow. 202 while pending; 201 returns a new API token once approved.',
+        summary: 'Poll the device flow. 202 while pending; 201 returns an access token (1 hour) and a refresh token once approved.',
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['device_code'], properties: { device_code: { type: 'string' }, name: { type: 'string', maxLength: 100 } } } } } },
         responses: {
           202: { description: 'Still waiting for approval', content: { 'application/json': { schema: { type: 'object', properties: { status: { const: 'pending' }, interval: { type: 'integer' } } } } } },
-          ...json({ type: 'object', properties: { token: { type: 'string' }, expires_at: { type: 'string' }, user: { type: 'object' } } }, '201'),
+          ...json({ type: 'object', properties: { access_token: { type: 'string', example: 'xta_…' }, refresh_token: { type: 'string', example: 'xtr_…' }, token_type: { const: 'Bearer' }, expires_in: { type: 'integer', example: 3600 }, scope: { type: 'string', example: 'drafts' }, client_id: { type: 'string', example: 'device:Claude agent' }, token: { type: 'string', description: 'Deprecated alias of access_token, removed one release later' }, user: { type: 'object' } } }, '201'),
           400: { description: 'Denied, expired or invalid device code', content: errorContent() }
         }
       }
@@ -135,7 +221,7 @@ export const OPENAPI = {
       post: {
         summary: 'Create an API token. Browser session only (bearer tokens are refused). Shown once.',
         security: [{ cookieAuth: [] }],
-        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['name'], properties: { name: { type: 'string', minLength: 1, maxLength: 100 }, expires_in_days: { type: 'integer', minimum: 1, maximum: 365, default: 90 } } } } } },
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['name'], properties: { name: { type: 'string', minLength: 1, maxLength: 100 }, expires_in_days: { type: 'integer', minimum: 1, maximum: 7, default: 7 } } } } } },
         responses: {
           ...json({ type: 'object', properties: { token: { type: 'string' }, id: { type: 'string' }, name: { type: 'string' }, prefix: { type: 'string' }, expires_at: { type: 'string' } } }, '201'),
           400: BAD_REQUEST,
@@ -151,6 +237,21 @@ export const OPENAPI = {
         security: BEARER,
         parameters: [ID],
         responses: { ...json({ type: 'object', properties: { ok: { type: 'boolean' } } }), 401: UNAUTHORIZED, 404: NOT_FOUND }
+      }
+    },
+    '/grants': {
+      get: {
+        summary: 'List your connected apps (OAuth grants), revoked ones included. Browser session or personal token only; OAuth access tokens get 403.',
+        security: BEARER,
+        responses: { ...json({ type: 'object', properties: { grants: { type: 'array', items: grantRef } } }), 401: UNAUTHORIZED, 403: FORBIDDEN }
+      }
+    },
+    '/grants/{id}': {
+      delete: {
+        summary: 'Revoke one of your connected apps. Its access and refresh tokens stop working at once. Browser session or personal token only.',
+        security: BEARER,
+        parameters: [ID],
+        responses: { ...json({ type: 'object', properties: { ok: { type: 'boolean' } } }), 401: UNAUTHORIZED, 403: FORBIDDEN, 404: NOT_FOUND }
       }
     },
     '/drafts': {

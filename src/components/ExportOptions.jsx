@@ -102,7 +102,7 @@ export default function ExportOptions({ draft }) {
         <button onClick={() => copyToClipboard(false)} className="btn btn-primary">
           📋 Copy
         </button>
-        <button onClick={() => copyToClipboard(true)} className="btn btn-primary">
+        <button onClick={() => copyToClipboard(true)} className="btn btn-secondary">
           🔢 Copy (Numbered)
         </button>
       </div>

@@ -1,0 +1,1 @@
+- Production builds are skipped when a merge changes only docs, CI, tests or dotfile tooling (hardening Task 23, D-4). Preview builds and any other change still build.

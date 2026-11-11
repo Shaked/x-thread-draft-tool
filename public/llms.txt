@@ -5,14 +5,16 @@
 
 ## Auth
 
-- Agents use a personal API token: `Authorization: Bearer xt_...`
-- Get a token in two ways:
-  - Web UI: /settings/tokens (sign in with GitHub first; the token is shown once).
-  - Device flow (no browser needed for the agent): `POST /api/auth/device/start`, show the
-    user `user_code` and `verification_uri`, then `POST /api/auth/device/poll` every `interval`
-    seconds until it returns 201 with `token`.
+- Connect as an MCP connector: add `/api/mcp` as a remote MCP server; sign in with GitHub once.
+- Device flow (no browser needed for the agent): `POST /api/auth/device/start`, show the user
+  `user_code` and `verification_uri`, then `POST /api/auth/device/poll` every `interval` seconds
+  until it returns 201 with `access_token` (`xta_...`, 1 hour) and `refresh_token` (`xtr_...`).
+  Refresh with `POST /api/oauth/token` (`grant_type=refresh_token`, `client_id` from the 201 body).
+  The refresh token rotates on every use.
+- An access token is bound to one resource: `/api` for the REST API, `/api/mcp` for MCP. Each refuses the other.
+- Hand-made token (quick tests): Web UI /settings/tokens, shown once, `Authorization: Bearer xt_...`, 7 days max.
 - A token acts as the GitHub user who created it. It can read and change only that user's drafts.
-- Tokens expire after 90 days by default (max 365). Revoke with `DELETE /api/tokens/{id}`.
+- Revoke a hand-made token with `DELETE /api/tokens/{id}`.
 - An invalid, expired or revoked token returns 401. It never falls back to a cookie.
 
 ## Quickstart

@@ -1,0 +1,1 @@
+Sharing and preview look (plan 6.3c): the Agent link button label is plain, status tooltips are announced and sit on screen at 390 px, the export panel has one primary action, and controls are 44 px tall with a focus ring.

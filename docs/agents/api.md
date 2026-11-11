@@ -13,12 +13,27 @@ token is always `401`, never a fallback to the cookie.
 
 | Credential | How you get it | Used for |
 |---|---|---|
-| `Authorization: Bearer xt_...` | Web UI `/settings/tokens`, device flow, or `npm run agent:login` | Every endpoint |
+| `Authorization: Bearer xta_...` | MCP connector (OAuth), or device flow / `npm run agent:login` | REST API (`<origin>/api`) and MCP (`<origin>/api/mcp`) |
+| `Authorization: Bearer xt_...` | Web UI `/settings/tokens` (hand-made, quick tests) | Every endpoint |
 | `xt_session` cookie | Sign in with GitHub in a browser | Browser use; required to create tokens |
 
-Tokens are personal (they act as the GitHub user who created them), expire after 90 days by
-default (max 365), and can be revoked at any time. At most 20 are active per user. The plaintext
-is shown once; the server keeps only its SHA-256 hash.
+An access token (`xta_`) lasts 1 hour and is bound to one resource: a token for the REST API
+is refused on `/api/mcp`, and the reverse. It refreshes with a rotating refresh token (`xtr_`,
+90 days unused), at `POST /api/oauth/token` with `grant_type=refresh_token`. Reusing a spent
+refresh token revokes its whole connected app.
+
+Hand-made `xt_` tokens are personal (they act as the GitHub user who created them), expire after
+7 days at most, and can be revoked at any time. At most 20 are active per user. The plaintext is
+shown once; the server keeps only its SHA-256 hash. An invalid, expired or revoked token is always
+`401`, never a fallback to the cookie.
+
+### Connect as an MCP connector
+
+Add `$BASE/api/mcp` as a remote MCP connector. The client discovers the authorization server from
+`$BASE/.well-known/oauth-protected-resource/api/mcp`, you approve once with GitHub sign-in, and the
+client refreshes its access token by itself.
+
+**Sign-in limit on long authorize requests.** If you are signed out, the server keeps your authorize request (`/api/oauth/authorize?...`) across GitHub sign-in only when it is 2,000 characters or shorter. A longer one is dropped: after GitHub sign-in you land on the app's home page, not the consent page. You are signed in by then, so start the connection again from your client and the consent page opens directly. To avoid the extra step, keep `client_id`, `redirect_uri` and `state` short. A registered `client_id` and a `state` of a few dozen characters stay well under the limit.
 
 ### Get a token without a browser (device flow)
 
@@ -29,20 +44,32 @@ curl -s -X POST $BASE/api/auth/device/start -H 'content-type: application/json' 
 curl -s -X POST $BASE/api/auth/device/poll -H 'content-type: application/json' \
   -d '{"device_code":"DEVICE_CODE","name":"Claude agent"}'
 # 202 { "status": "pending" } → wait `interval` seconds and poll again
-# 201 { "token": "xt_...", "user": {...} } → store it; it is never shown again
+# 201 { "access_token": "xta_...", "refresh_token": "xtr_...", "expires_in": 3600,
+#       "client_id": "device:Claude agent", "token": "xta_...", "user": {...} }
+#     → store the refresh token; "token" is a deprecated alias of access_token
 ```
 
-Device flow needs "Enable Device Flow" on the GitHub OAuth App (one-time, done by the app owner).
+The device name is a connected app: signing in again with the same name reuses it, and a revoked
+one is replaced by a new one. Device flow needs "Enable Device Flow" on the GitHub OAuth App
+(one-time, done by the app owner).
 
 ### Or from the browser
 
-Sign in at `/settings/tokens`, create a token, copy it.
+Sign in at `/settings/tokens`, create a hand-made `xt_` token (7 days max), copy it.
 
 ### Local CLI helper
 
 ```bash
-node scripts/agent-login.mjs --base $BASE --name "Claude agent"   # writes .xt-token (mode 600)
+node scripts/agent-login.mjs --base $BASE --name "Claude agent"   # saves the pair (mode 600)
+XT_TOKEN=$(node scripts/xt-token.mjs) npm run smoke              # prints a fresh access token
 ```
+
+`agent-login` writes `~/.config/xt/credentials.json` (directory 700, file 600): the base URL, the
+client id, the refresh token and the current access token. `xt-token` returns the stored access
+token while it is valid, otherwise it refreshes, saves the rotated refresh token and prints the new
+access token. If it fails, it says to run `npm run agent:login` again. Set `XT_CREDENTIALS_FILE` to
+use another file. Do not run two refreshes at once: the second would reuse the first's spent token and
+revoke the connected app.
 
 ## Error format and status codes
 
@@ -52,7 +79,7 @@ Errors are JSON: `{ "error": "message" }`.
 |---|---|
 | 400 | Invalid input (the message says what) |
 | 401 | Not signed in, or invalid/expired/revoked token |
-| 403 | Refused (for example, creating a token with a bearer token, or a foreign origin with a cookie) |
+| 403 | Refused (for example, creating a token with a bearer token, managing API tokens with an OAuth access token, or a foreign origin with a cookie) |
 | 404 | Not found, or not yours (writes never reveal that another user's draft exists) |
 | 409 | Token limit reached |
 | 410 | One-time share link already used |
@@ -80,9 +107,9 @@ curl -s -X POST $BASE/api/auth/logout                               # browser se
 ### Tokens
 
 ```bash
-curl -s $BASE/api/tokens -H "Authorization: Bearer $TOKEN"                     # list (no secrets)
+curl -s $BASE/api/tokens -H "Authorization: Bearer $TOKEN"                     # list (no secrets); xt_ or session only, OAuth gets 403
 curl -s -X POST $BASE/api/tokens -H 'content-type: application/json' \
-  -H "Cookie: xt_session=..." -d '{"name":"laptop","expires_in_days":90}'       # session only
+  -H "Cookie: xt_session=..." -d '{"name":"laptop","expires_in_days":7}'       # session only
 curl -s -X DELETE $BASE/api/tokens/TOKEN_ID -H "Authorization: Bearer $TOKEN"  # revoke
 ```
 
@@ -161,6 +188,8 @@ curl -s $BASE/api/health
 
 ## How to test at each level
 
+The pre-commit hook scans staged files with gitleaks when it is installed locally (`.gitleaks.toml`); CI's `gitleaks` job is the enforcing check.
+
 | Level | Command | Needs network? | Needs secrets? |
 |---|---|---|---|
 | 1. Unit + API | `npm ci && npm run test:unit` | npm registry only | no |
@@ -170,8 +199,7 @@ curl -s $BASE/api/health
 `npm run smoke` creates drafts titled `[smoke] <timestamp>` in the token owner's account and
 deletes them, even if a step fails. It prints PASS/FAIL per step and never prints the token.
 Set `XT_SMOKE_PUBLIC=1` to run only the steps that need no account (account steps print SKIP).
-The automatic deployed smoke test uses it for Preview deployments, whose database branch has no
-smoke-test user; Production deployments and manual runs get the full test.
+The automatic deployed smoke test (`.github/workflows/smoke-deployed.yml`) runs the full test on Preview and Production deployments. It signs in with a GitHub OIDC identity (`auth: ci-oidc`), so it needs no stored token. No long-lived smoke token is stored (the XT_SMOKE_TOKEN* secrets were removed in Task 27).
 
 `/api/dev/token` exists only on the local headless server. It is not part of the Vercel function.
 
@@ -192,6 +220,10 @@ permitted. Use the two stable domains.
 
 **Databases behind previews:** each Preview deployment can get its own Neon branch. If a new
 preview answers 401 to a token that worked before, create a new token on that preview.
+
+Only `main` and the stable branch `claude/lucid-sagan-bbciuo` deploy (`vercel.json` `git.deploymentEnabled`). A PR is put on the stable preview by the runbook's P-PREVIEW (`docs/plans/hardening-finish.md`).
+
+**Neon preview branches:** `.github/workflows/neon-preview-cleanup.yml` runs `scripts/neon-preview-cleanup.mjs`. On each PR push it runs `preflight`: reuse the PR's `preview/<branch>`, or make room when the project is at its branch limit (`branches_limit`, 10 on the free plan), or stop with exit 2. On close it deletes that PR's branch. A daily run deletes merged and closed-unmerged previews after 24 hours. `main`, the default, primary, delete-restricted or protected branches and the stable preview are never deleted.
 
 ## CI identity (GitHub Actions OIDC)
 

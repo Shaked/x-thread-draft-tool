@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest'
 import { generateKeyPair, exportJWK, SignJWT, createLocalJWKSet } from 'jose'
-import { verifyCiToken, setJwksForTests, ciAudience, OIDC_ISSUER, CI_WORKFLOW_PATH } from '../../server/oidc-ci.js'
+import { verifyCiToken, setJwksForTests, ciAudience, OIDC_ISSUER, CI_WORKFLOW_PATHS } from '../../server/oidc-ci.js'
 import { route } from '../../server/router.js'
 import { createHmac } from 'node:crypto'
 
 const REPO_ID = '1136002672'
-const WORKFLOW_REF = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATH}@refs/heads/main`
+const WORKFLOW_REF = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATHS[0]}@refs/heads/main`
 const ENV = { CI_OIDC_ENABLED: '1', VERCEL_ENV: 'preview', CI_OIDC_REPOSITORY_ID: REPO_ID }
 
 let signingKey
@@ -64,7 +64,7 @@ describe('verifyCiToken: rejected tokens', () => {
     ['wrong issuer', async () => new SignJWT(claims()).setProtectedHeader({ alg: 'RS256', kid }).setIssuer('https://evil.example').setAudience(ciAudience('preview')).setIssuedAt().setExpirationTime('5m').sign(signingKey)],
     ['wrong repository id', () => mint({ repository_id: '999' })],
     ['another workflow file', () => mint({ workflow_ref: `Shaked/x-thread-draft-tool/.github/workflows/tests.yml@refs/heads/main`, job_workflow_ref: `Shaked/x-thread-draft-tool/.github/workflows/tests.yml@refs/heads/main` })],
-    ['job workflow ref mismatch', () => mint({ job_workflow_ref: `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATH}@refs/heads/other` })],
+    ['job workflow ref mismatch', () => mint({ job_workflow_ref: `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATHS[0]}@refs/heads/other` })],
     ['pull_request trigger', () => mint({ event_name: 'pull_request' })],
     ['expired', () => mint({}, { exp: Math.floor(Date.now() / 1000) - 600 })],
     ['issued more than 5 minutes ago', () => mint({}, { iat: Math.floor(Date.now() / 1000) - 600, exp: Math.floor(Date.now() / 1000) + 300 })],
@@ -102,7 +102,7 @@ describe('verifyCiToken: environment and flags', () => {
   })
 
   it('rejects a branch ref in preview until CI_OIDC_ALLOW_BRANCHES=1', async () => {
-    const branchRef = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATH}@refs/heads/claude/some-branch`
+    const branchRef = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATHS[0]}@refs/heads/claude/some-branch`
     const token = await mint({ ref: 'refs/heads/claude/some-branch', workflow_ref: branchRef, job_workflow_ref: branchRef })
     expect(await verifyCiToken(token, { ...ENV })).toBeNull()
     expect(await verifyCiToken(token, { ...ENV, CI_OIDC_ALLOW_BRANCHES: '1' })).not.toBeNull()
@@ -110,7 +110,7 @@ describe('verifyCiToken: environment and flags', () => {
 
   it('accepts a deployment_status token pinned to a commit sha (no ref) only with CI_OIDC_ALLOW_BRANCHES=1 in preview', async () => {
     const sha = 'c98599bcf0fe4b155ed50878986b8da480d8ff7b'
-    const pinned = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATH}@${sha}`
+    const pinned = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATHS[0]}@${sha}`
     const token = await mint({ ref: '', sha, workflow_ref: pinned, job_workflow_ref: pinned, event_name: 'deployment_status' })
     expect(await verifyCiToken(token, { ...ENV })).toBeNull()
     expect(await verifyCiToken(token, { ...ENV, CI_OIDC_ALLOW_BRANCHES: '1' })).not.toBeNull()
@@ -118,7 +118,7 @@ describe('verifyCiToken: environment and flags', () => {
   })
 
   it('never accepts a branch ref in production', async () => {
-    const branchRef = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATH}@refs/heads/claude/some-branch`
+    const branchRef = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATHS[0]}@refs/heads/claude/some-branch`
     const token = await mint({ ref: 'refs/heads/claude/some-branch', workflow_ref: branchRef, job_workflow_ref: branchRef }, { aud: ciAudience('production') })
     expect(await verifyCiToken(token, { ...ENV, VERCEL_ENV: 'production', CI_OIDC_ALLOW_BRANCHES: '1' })).toBeNull()
   })
@@ -145,14 +145,13 @@ describe('router: CI tokens only on CI routes', () => {
 })
 
 describe('GET /api/auth/me with a CI token (full path, in-memory database)', () => {
-  let db
   beforeAll(async () => {
     const { setupTestDb } = await import('./helpers/db.js')
-    db = await setupTestDb()
+    await setupTestDb()
   })
 
   it('creates the ci-smoke user and returns it on a branch preview', async () => {
-    const branchRef = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATH}@refs/heads/claude/ui-image-upload-test`
+    const branchRef = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATHS[0]}@refs/heads/claude/ui-image-upload-test`
     const token = await mint(
       { ref: 'refs/heads/claude/ui-image-upload-test', workflow_ref: branchRef, job_workflow_ref: branchRef, event_name: 'deployment_status' },
       { aud: ciAudience('preview') }
@@ -168,5 +167,58 @@ describe('GET /api/auth/me with a CI token (full path, in-memory database)', () 
     } finally {
       process.env = saved
     }
+  })
+})
+
+describe('verifyCiToken: Task 26 (smoke workflow and production builds)', () => {
+  const SMOKE = 'smoke-deployed.yml'
+  const SHA = 'c98599bcf0fe4b155ed50878986b8da480d8ff7b'
+  const prodEnv = (over = {}) => ({
+    CI_OIDC_ENABLED: '1',
+    VERCEL_ENV: 'production',
+    CI_OIDC_REPOSITORY_ID: REPO_ID,
+    VERCEL_GIT_COMMIT_SHA: SHA,
+    VERCEL_GIT_COMMIT_REF: 'main',
+    ...over
+  })
+  const deployRefs = (file, sha = SHA) => {
+    const pinned = `Shaked/x-thread-draft-tool/.github/workflows/${file}@${sha}`
+    return { ref: '', sha, workflow_ref: pinned, job_workflow_ref: pinned, event_name: 'deployment_status' }
+  }
+
+  it('accepts the smoke workflow on a preview run', async () => {
+    const wf = `Shaked/x-thread-draft-tool/.github/workflows/${SMOKE}@refs/heads/main`
+    const token = await mint({ workflow_ref: wf, job_workflow_ref: wf })
+    expect(await verifyCiToken(token, { ...ENV })).not.toBeNull()
+  })
+
+  it('rejects a workflow file that is not on the allow list', async () => {
+    const wf = 'Shaked/x-thread-draft-tool/.github/workflows/tests.yml@refs/heads/main'
+    const token = await mint({ workflow_ref: wf, job_workflow_ref: wf })
+    expect(await verifyCiToken(token, { ...ENV })).toBeNull()
+  })
+
+  it('rejects workflow_ref from one allowed file with job_workflow_ref from the other', async () => {
+    const a = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATHS[0]}@refs/heads/main`
+    const b = `Shaked/x-thread-draft-tool/${CI_WORKFLOW_PATHS[1]}@refs/heads/main`
+    const token = await mint({ workflow_ref: a, job_workflow_ref: b })
+    expect(await verifyCiToken(token, { ...ENV })).toBeNull()
+  })
+
+  it('accepts a production deployment_status token whose sha and ref match this build', async () => {
+    const token = await mint(deployRefs(SMOKE), { aud: ciAudience('production') })
+    const result = await verifyCiToken(token, prodEnv())
+    expect(result).not.toBeNull()
+    expect(result.sha).toBe(SHA)
+  })
+
+  it('rejects a production deployment_status token for a different commit', async () => {
+    const token = await mint(deployRefs(SMOKE, 'd'.repeat(40)), { aud: ciAudience('production') })
+    expect(await verifyCiToken(token, prodEnv())).toBeNull()
+  })
+
+  it('rejects a production deployment_status token when this build is not from main', async () => {
+    const token = await mint(deployRefs(SMOKE), { aud: ciAudience('production') })
+    expect(await verifyCiToken(token, prodEnv({ VERCEL_GIT_COMMIT_REF: 'feature' }))).toBeNull()
   })
 })

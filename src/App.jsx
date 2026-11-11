@@ -7,9 +7,13 @@ import DraftEditor from './pages/DraftEditor'
 import XThreadPreviewPage from './pages/XThreadPreviewPage'
 import TokensPage from './pages/TokensPage'
 import './styles/App.css'
+import { applyTheme, getTheme } from './utils/theme'
 
 function App() {
   const [user, setUser] = useState(null)
+  useEffect(() => {
+    applyTheme(getTheme())
+  }, [])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -79,10 +83,6 @@ function App() {
   return (
     <BrowserRouter>
       <div className="app">
-        <div className="deployment-meta">
-          <span><strong>Last deployed:</strong> {deployedAt}{deployedAgo}</span>
-          <span><strong>Version:</strong> {deployCommit}</span>
-        </div>
         <Routes>
           <Route
             path="/"
@@ -100,7 +100,7 @@ function App() {
           />
           <Route
             path="/settings/tokens"
-            element={user ? <TokensPage /> : <LoginPage />}
+            element={user ? <TokensPage deployedAt={deployedAt} deployedAgo={deployedAgo} deployCommit={deployCommit} /> : <LoginPage />}
           />
           <Route
             path="/x-thread-preview/:token"
