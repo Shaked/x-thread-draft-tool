@@ -42,12 +42,12 @@ export default function XThreadLinkButton({ draftId }) {
         <span className="btn-text">{copied ? 'Copied!' : busy ? '...' : 'X Thread'}</span>
       </button>
       {copied && (
-        <div className="share-tooltip">
+        <div className="share-tooltip" role="status" aria-live="polite">
           One-time X-thread link copied. It works exactly once.
         </div>
       )}
       {error && (
-        <div className="share-tooltip share-tooltip-error">
+        <div className="share-tooltip share-tooltip-error" role="alert">
           {error}
         </div>
       )}

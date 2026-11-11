@@ -1173,14 +1173,28 @@ body {
   background-color: var(--accent);
   color: var(--accent-text);
   border-radius: 6px;
-  font-size: 12px;
-  white-space: nowrap;
+  font-size: 14px;
+  width: max-content;
+  max-width: min(280px, 80vw);
   z-index: 100;
   animation: fadeIn 0.2s ease-out;
 }
 
 .share-tooltip-error {
   background-color: var(--danger);
+}
+
+@media (max-width: 600px) {
+  .share-tooltip {
+    position: fixed;
+    top: auto;
+    right: 16px;
+    left: 16px;
+    bottom: 140px;
+    margin-top: 0;
+    max-width: none;
+    text-align: center;
+  }
 }
 
 /* Draft Editor Page */
@@ -1244,6 +1258,20 @@ body {
 
 .icon-btn .btn-icon {
   line-height: 1;
+}
+
+.share-btn {
+  min-height: 44px;
+}
+
+.export-actions .btn {
+  min-height: 44px;
+}
+
+.share-btn:focus-visible,
+.export-actions .btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .draft-title-input {
@@ -1539,9 +1567,15 @@ body {
   }
 
   .header-actions .share-tooltip {
+    position: fixed;
     top: auto;
-    bottom: 100%;
-    margin: 0 0 8px;
+    right: 16px;
+    left: 16px;
+    bottom: 140px;
+    width: auto;
+    margin: 0;
+    max-width: none;
+    text-align: center;
   }
 
   .draft-editor {

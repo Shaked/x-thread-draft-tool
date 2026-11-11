@@ -42,7 +42,7 @@ export default function ShareButton({ draftId }) {
         <span className="btn-text">{copied ? 'Copied!' : 'Share'}</span>
       </button>
       {copied && (
-        <div className="share-tooltip">
+        <div className="share-tooltip" role="status" aria-live="polite">
           Link copied! Anyone with this link can view your draft.
         </div>
       )}
