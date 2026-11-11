@@ -33,6 +33,8 @@ Add `$BASE/api/mcp` as a remote MCP connector. The client discovers the authoriz
 `$BASE/.well-known/oauth-protected-resource/api/mcp`, you approve once with GitHub sign-in, and the
 client refreshes its access token by itself.
 
+**Sign-in limit on long authorize requests.** If you are signed out, the server keeps your authorize request (`/api/oauth/authorize?...`) across GitHub sign-in only when it is 2,000 characters or shorter. A longer one is dropped: after GitHub sign-in you land on the app's home page, not the consent page. You are signed in by then, so start the connection again from your client and the consent page opens directly. To avoid the extra step, keep `client_id`, `redirect_uri` and `state` short. A registered `client_id` and a `state` of a few dozen characters stay well under the limit.
+
 ### Get a token without a browser (device flow)
 
 ```bash
