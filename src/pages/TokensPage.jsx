@@ -10,7 +10,7 @@ const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '‚
 // The MCP connector and the REST API are the two things an app can be connected to.
 const resourceLabel = (resource) => (resource.endsWith('/api/mcp') ? 'Agent connector' : 'API')
 
-export default function TokensPage() {
+export default function TokensPage({ deployedAt, deployedAgo, deployCommit }) {
   const [tokens, setTokens] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -107,6 +107,9 @@ export default function TokensPage() {
     <div className="tokens-page">
       <p><Link to="/">‚Üê Back to drafts</Link></p>
 
+      <h1>API tokens</h1>
+      <ThemeSetting />
+
       <section className="connected-apps" aria-labelledby="connected-apps-heading">
         <h2 id="connected-apps-heading">Connected apps</h2>
         <p>
@@ -154,8 +157,6 @@ export default function TokensPage() {
         )}
       </section>
 
-      <h1>API tokens</h1>
-      <ThemeSetting />
       <p>
         Tokens let agents use the API as you. Each token has the same permissions as your account in
         the app. See <code>/llms.txt</code> for how agents use them.
@@ -223,6 +224,10 @@ export default function TokensPage() {
           })}
         </ul>
       )}
+
+      <p className="settings-about">
+        About: last deployed {deployedAt}{deployedAgo}. Version {deployCommit}.
+      </p>
     </div>
   )
 }
