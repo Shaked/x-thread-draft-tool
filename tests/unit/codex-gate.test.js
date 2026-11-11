@@ -15,7 +15,6 @@ const HEAD = CLEAN_SHA;
 const PR = 25;
 
 const codexComment = (body) => ({ user: { login: 'chatgpt-codex-connector[bot]' }, body });
-const actionsComment = (body) => ({ user: { login: 'github-actions[bot]' }, body });
 const humanComment = (body) => ({ user: { login: 'Shaked' }, body });
 
 describe('parseSummaryState', () => {

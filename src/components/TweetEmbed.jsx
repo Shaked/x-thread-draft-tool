@@ -14,18 +14,13 @@ export default function TweetEmbed({ url }) {
     return () => window.removeEventListener(THEME_CHANGE_EVENT, onThemeChange)
   }, [])
 
+  // The tweet id comes from the URL during render. An invalid URL is shown as an error below, so no effect sets state for it.
+  const tweetId = url ? (url.match(/status\/(\d+)/)?.[1] ?? null) : null
+  const invalidUrl = Boolean(url) && !tweetId
+
   useEffect(() => {
-    if (!url) return
+    if (!url || !tweetId) return
 
-    // Extract tweet ID from URL
-    const tweetIdMatch = url.match(/status\/(\d+)/)
-    if (!tweetIdMatch) {
-      setError('Invalid tweet URL')
-      setLoading(false)
-      return
-    }
-
-    const tweetId = tweetIdMatch[1]
     let isMounted = true
 
     // Load Twitter widget script if not already loaded
@@ -89,14 +84,15 @@ export default function TweetEmbed({ url }) {
         containerRef.current.innerHTML = ''
       }
     }
-  }, [url, themeKey])
+  }, [url, tweetId, themeKey])
 
   if (!url) return null
 
-  if (error) {
+  const shownError = invalidUrl ? 'Invalid tweet URL' : error
+  if (shownError) {
     return (
       <div className="tweet-embed-error">
-        <p>{error}</p>
+        <p>{shownError}</p>
         <a href={url} target="_blank" rel="noopener noreferrer">
           View tweet on X/Twitter
         </a>

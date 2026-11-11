@@ -10,7 +10,10 @@ const RETURN_COOKIE = 'xt_oauth_return'
 export function safeReturnTo(value) {
   if (typeof value !== 'string' || value.length > 2000) return null
   if (!value.startsWith('/api/oauth/authorize?')) return null
-  if (/[\\\u0000-\u001f]/.test(value)) return null
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i)
+    if (code === 0x5c || code <= 0x1f) return null
+  }
   return value
 }
 function appOrigin() {

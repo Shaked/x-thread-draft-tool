@@ -10,7 +10,7 @@ const NOT_LOGGED_IN = 'You must be logged in to upload images'
 // Map an upload error to the message shown to the user.
 const uploadErrorMessage = (err) => (err.status === 401 ? NOT_LOGGED_IN : err.message || 'Failed to upload images')
 
-const ImageUpload = forwardRef(({ images = [], onChange, postId }, ref) => {
+const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
   const [uploading, setUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const [error, setError] = useState(null)
