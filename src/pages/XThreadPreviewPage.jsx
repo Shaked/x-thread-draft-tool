@@ -41,14 +41,14 @@ export default function XThreadPreviewPage() {
   if (error) {
     return (
       <div className="app loading-screen">
-        <div className="loading">{error}</div>
+        <div className="loading" role="alert">{error}</div>
       </div>
     )
   }
 
   return (
     <div className="app loading-screen">
-      <div className="loading">Loading preview…</div>
+      <div className="loading" role="status" aria-live="polite">Loading preview…</div>
     </div>
   )
 }
