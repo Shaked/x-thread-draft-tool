@@ -83,10 +83,6 @@ function App() {
   return (
     <BrowserRouter>
       <div className="app">
-        <div className="deployment-meta">
-          <span><strong>Last deployed:</strong> {deployedAt}{deployedAgo}</span>
-          <span><strong>Version:</strong> {deployCommit}</span>
-        </div>
         <Routes>
           <Route
             path="/"
@@ -104,7 +100,7 @@ function App() {
           />
           <Route
             path="/settings/tokens"
-            element={user ? <TokensPage /> : <LoginPage />}
+            element={user ? <TokensPage deployedAt={deployedAt} deployedAgo={deployedAgo} deployCommit={deployCommit} /> : <LoginPage />}
           />
           <Route
             path="/x-thread-preview/:token"

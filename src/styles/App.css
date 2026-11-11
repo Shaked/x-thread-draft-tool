@@ -70,22 +70,10 @@ body {
   margin: 0 auto;
 }
 
-.deployment-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 24px;
-  margin-bottom: 16px;
-  padding: 10px 14px;
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  background-color: var(--surface-0);
-  color: var(--text-soft);
+.settings-about {
+  margin-top: 32px;
+  color: var(--muted);
   font-size: 13px;
-}
-
-.deployment-meta strong {
-  color: var(--text);
-  font-weight: 600;
 }
 
 .draft-title-input {
@@ -1728,11 +1716,7 @@ body {
   outline-offset: 2px;
 }
 
-/* Editor page (Task 6.3a): no deployment banner, visible focus ring, 44 px header targets. */
-.app:has(.draft-editor) > .deployment-meta {
-  display: none;
-}
-
+/* Editor page (Task 6.3a): visible focus ring, 44 px header targets. */
 .draft-editor :is(a, button, input, textarea, [role="button"]):focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
