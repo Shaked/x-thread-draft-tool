@@ -39,9 +39,6 @@ export default function DraftEditor({ user }) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  useEffect(() => {
-    loadDraft()
-  }, [id, user])
 
   const loadDraft = async () => {
     try {
@@ -95,6 +92,11 @@ export default function DraftEditor({ user }) {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the spinner resets when the draft id changes
+    loadDraft()
+  }, [id, user])
 
   const saveDraft = useCallback(
     async (draftToSave, immediate = false) => {
@@ -332,19 +334,32 @@ export default function DraftEditor({ user }) {
           )}
         </div>
 
-        <button
-          className="sidebar-toggle"
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          title={sidebarCollapsed ? 'Show export panel' : 'Hide export panel'}
-          aria-label={sidebarCollapsed ? 'Show export panel' : 'Hide export panel'}
-        >
-          {sidebarCollapsed ? '◀' : '▶'}
-        </button>
-
-        <div className={`side-panel ${sidebarCollapsed ? 'collapsed' : ''}`}>
-          <ExportOptions draft={draft} />
-        </div>
+        <SidePanel
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          draft={draft}
+        />
       </div>
     </div>
+  )
+}
+
+// The export panel and its toggle. Kept out of DraftEditor so the editor's own complexity stays within the lint limit.
+function SidePanel({ collapsed, onToggle, draft }) {
+  return (
+    <>
+      <button
+        className="sidebar-toggle"
+        onClick={onToggle}
+        title={collapsed ? 'Show export panel' : 'Hide export panel'}
+        aria-label={collapsed ? 'Show export panel' : 'Hide export panel'}
+      >
+        {collapsed ? '◀' : '▶'}
+      </button>
+
+      <div className={`side-panel ${collapsed ? 'collapsed' : ''}`}>
+        <ExportOptions draft={draft} />
+      </div>
+    </>
   )
 }

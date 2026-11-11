@@ -11,9 +11,6 @@ export default function DraftList({ user }) {
   const [error, setError] = useState(null)
   const navigate = useNavigate()
 
-  useEffect(() => {
-    loadDrafts()
-  }, [user])
 
   const loadDrafts = async () => {
     if (!user) return
@@ -36,6 +33,11 @@ export default function DraftList({ user }) {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the spinner resets when the signed-in user changes
+    loadDrafts()
+  }, [user])
 
   const createNewDraft = async () => {
     try {

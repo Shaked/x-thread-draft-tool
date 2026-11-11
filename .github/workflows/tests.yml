@@ -28,6 +28,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Lint (ESLint gate)
+        run: npm run lint
+
       - name: Slop scan
         run: npm run slop
       - name: Duplicate code (jscpd)
