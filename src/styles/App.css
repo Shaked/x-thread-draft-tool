@@ -609,13 +609,30 @@ body {
 
 .delete-btn,
 .duplicate-btn {
-  padding: 8px 12px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 16px;
   background-color: transparent;
+  color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 16px;
+  border-radius: 22px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.delete-btn {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.new-draft-btn:focus-visible,
+.delete-btn:focus-visible,
+.duplicate-btn:focus-visible,
+.github-login-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .delete-btn:hover {

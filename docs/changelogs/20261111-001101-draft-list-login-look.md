@@ -1,0 +1,1 @@
+Friendlier draft list and login (plan 6.3b): plain labels ("Duplicate", "Delete draft", "New draft"), 44 px action buttons, a visible focus ring, and status messages announced to screen readers (`role="status"` and `role="alert"`).

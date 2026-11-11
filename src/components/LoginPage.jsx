@@ -56,7 +56,7 @@ export default function LoginPage() {
             disabled={loading}
           >
             {loading ? (
-              'Redirecting...'
+              'Redirecting to GitHub…'
             ) : (
               <>
                 <svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
@@ -68,7 +68,7 @@ export default function LoginPage() {
           </button>
 
           {error && (
-            <div className="login-error">
+            <div className="login-error" role="alert">
               {error}
             </div>
           )}
