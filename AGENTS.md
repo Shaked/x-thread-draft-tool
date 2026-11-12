@@ -21,6 +21,23 @@ Short on purpose. Read it at the start of every session and after every context 
 - Waiting: never `sleep`-poll and never re-check the same thing in one turn. Schedule one wake-up and
   end the turn.
 
+### Reporting to Shaked (owner)
+- Number every item: task numbers (for example `Task 34`), ledger items (`O1` to `O15`) and PR numbers (`#76`). Never refer to a step by description alone.
+- When something needs Shaked, answer in this template, with one line on what is done first:
+
+  ```
+  Done: <one line>
+
+  ## Needs from you
+  | # | Item | What to do | Link | Unblocks |
+  |---|------|------------|------|----------|
+  | O1 | ... | ... | <url> | ... |
+  ```
+
+  List every open owner item from the ledger, not only the new ones. Link each PR or issue.
+- Record every decision Shaked makes in the ledger (issue #60) with the date. A silent "continue" is not an approval.
+- Never ask Shaked a question in chat when the answer belongs in the ledger; write it as an owner item instead.
+
 ### Codex review (the rule people forget)
 - **Codex answers in 2 to 3 minutes**, not 10 or 30. After `@codex review`, check again after 3
   minutes. Ask once more at 10 minutes; at 15 minutes with no answer, treat it as silent.
