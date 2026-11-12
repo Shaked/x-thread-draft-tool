@@ -1,6 +1,6 @@
 # Runbook: finish the post-migration hardening, end to end
 
-Runbook state: ACTIVE
+Runbook state: DONE
 
 Written 2026-11-08 by the planning session. Executor: **one Haiku session (or a chain of them), end to end,
 without asking Shaked anything in between.** Advisor: **Opus**, consulted through the Agent tool
@@ -51,7 +51,7 @@ Every task section starts with **Done when**. If the Done-when lines already hol
 ## 1. Rules card
 
 <!-- RULES-CARD:START -->
-RUNBOOK RULES CARD (docs/plans/hardening-finish.md). Runbook state is ACTIVE: you are executing it.
+RUNBOOK RULES CARD (docs/plans/hardening-finish.md). Runbook state is DONE: the runbook is finished.
 1. Run the Checkpoint (section 0: C1 to C6) at session start, after every step, on every wake, after compaction, before every merge, delete, close or force-push.
 2. Never ask Shaked anything. A question goes to Opus (P-OPUS). If Opus says owner-only, park the task, add it to the ledger's Owner actions list, and continue with the next task.
 3. The ledger issue "Hardening finish: run ledger" is the memory. Update it after every step.
