@@ -4,6 +4,10 @@ Written 2026-11-12 23:50 UTC for an executor that follows instructions literally
 Procedures named `P-...` are in [hardening-finish.md](./hardening-finish.md) section 5. Rules named
 `E...` are in [hardening-finish-part2.md](./hardening-finish-part2.md) section 2. They apply here unchanged.
 
+**Task numbers for the net-lines rule.** Step Mn is Task n (M0 = Task 0 ... M12 = Task 12). So a PR
+body line such as `Implements docs/plans/mcp-clients.md Task 0` passes `scripts/net-lines.mjs`. The
+same rule applies to `docs/plans/hardening-finish.md`, whose Tasks are 20 to 42.
+
 **What this plan is.** The MCP server already exists (`POST /api/mcp`, 11 tools, OAuth with GitHub
 sign-in). This plan does not rebuild it. It closes the gaps that stop the four clients from
 connecting, adds the missing tools, hardens two weak spots, and makes setup one copy-paste.
