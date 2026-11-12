@@ -37,7 +37,7 @@ function notFound() {
 }
 
 /** POST /api/drafts/:id/duplicate: same copy the editor's Duplicate button makes. */
-export async function duplicateDraft({ request, params }) {
+async function duplicateDraft({ request, params }) {
   const session = await requireUser(request)
   if (!isUuid(params.id)) throw notFound()
   const { rows: sourceRows } = await query(
@@ -55,7 +55,7 @@ export async function duplicateDraft({ request, params }) {
 }
 
 /** GET /api/drafts/:id/export?format=json|text|formatted (public, like GET by id). */
-export async function exportDraft({ url, params }) {
+async function exportDraft({ url, params }) {
   if (!isUuid(params.id)) throw notFound()
   const format = url.searchParams.get('format') ?? 'json'
   const { rows } = await query(`select ${COLUMNS} from drafts where id = $1`, [params.id])
@@ -95,7 +95,7 @@ async function deletableImageUrls(uid, id, posts) {
 }
 
 /** GET /api/drafts?published=true|false&limit=1..200 (default 100) */
-export async function listDrafts({ request, url }) {
+async function listDrafts({ request, url }) {
   const session = await requireUser(request)
   const flag = url.searchParams.get('published')
   if (flag !== 'true' && flag !== 'false') throw new HttpError(400, 'published must be true or false')
@@ -112,7 +112,7 @@ export async function listDrafts({ request, url }) {
 }
 
 /** POST /api/drafts */
-export async function createDraft({ request }) {
+async function createDraft({ request }) {
   const session = await requireUser(request)
   const body = requireObject(await readJson(request))
   const title = body.title === undefined ? '' : validTitle(body.title)
@@ -125,7 +125,7 @@ export async function createDraft({ request }) {
 }
 
 /** GET /api/drafts/:id is the only public draft read (share-by-link). */
-export async function getDraft({ params }) {
+async function getDraft({ params }) {
   if (!isUuid(params.id)) throw notFound()
   const { rows } = await query(`select ${COLUMNS} from drafts where id = $1`, [params.id])
   if (!rows[0]) throw notFound()
@@ -133,7 +133,7 @@ export async function getDraft({ params }) {
 }
 
 /** PATCH /api/drafts/:id: owner only; a non-owner gets 404 and the row is untouched. */
-export async function updateDraft({ request, params }) {
+async function updateDraft({ request, params }) {
   const session = await requireUser(request)
   const body = requireObject(await readJson(request))
   if (body.title === undefined && body.posts === undefined) {
@@ -157,7 +157,7 @@ export async function updateDraft({ request, params }) {
 }
 
 /** POST /api/drafts/:id/publish: deletes the draft's Blob images and clears them from posts. */
-export async function publishDraft({ request, params }) {
+async function publishDraft({ request, params }) {
   const session = await requireUser(request)
   const posts = await ownedPosts(params.id, session.uid)
   await deleteBlobUrls(await deletableImageUrls(session.uid, params.id, posts))
@@ -178,7 +178,7 @@ export async function publishDraft({ request, params }) {
 }
 
 /** DELETE /api/drafts/:id */
-export async function deleteDraft({ request, params }) {
+async function deleteDraft({ request, params }) {
   const session = await requireUser(request)
   const posts = await ownedPosts(params.id, session.uid)
   await deleteBlobUrls(await deletableImageUrls(session.uid, params.id, posts))
@@ -187,7 +187,7 @@ export async function deleteDraft({ request, params }) {
 }
 
 /** POST /api/drafts/:id/share-tokens: one-time token for the X-thread or agent link. */
-export async function createShareToken({ request, params }) {
+async function createShareToken({ request, params }) {
   const session = await requireUser(request)
   if (!isUuid(params.id)) throw notFound()
   const { rows } = await query(

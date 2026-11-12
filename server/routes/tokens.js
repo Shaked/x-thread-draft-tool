@@ -5,13 +5,13 @@ import { createApiToken, listApiTokens, MAX_EXPIRY_DAYS, revokeApiToken } from '
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** GET /api/tokens: browser session or personal xt_ token; OAuth access tokens get 403. Never includes the token hash. */
-export async function listTokens({ request }) {
+async function listTokens({ request }) {
   const user = await requirePersonalUser(request)
   return json({ tokens: await listApiTokens(user.uid) })
 }
 
 /** POST /api/tokens: browser session only. The plaintext is returned here, once. */
-export async function createToken({ request }) {
+async function createToken({ request }) {
   const user = await requireSessionUser(request)
   const body = await readJson(request, 10_000)
   if (!body || typeof body !== 'object') throw new HttpError(400, 'Body must be a JSON object')
@@ -24,7 +24,7 @@ export async function createToken({ request }) {
 }
 
 /** DELETE /api/tokens/:id: browser session or personal xt_ token, own tokens only; OAuth gets 403. */
-export async function revokeToken({ request, params }) {
+async function revokeToken({ request, params }) {
   const user = await requirePersonalUser(request)
   if (!UUID_RE.test(params.id) || !(await revokeApiToken(user.uid, params.id))) {
     throw new HttpError(404, 'Token not found')

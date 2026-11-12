@@ -3,10 +3,10 @@ import { query, transaction } from '../db.js'
 import { hashToken } from '../tokens.js'
 
 // OAuth tokens (plan Task 7.4). Opaque random strings; only their SHA-256 hashes are stored.
-export const ACCESS_PREFIX = 'xta_'
-export const REFRESH_PREFIX = 'xtr_'
+const ACCESS_PREFIX = 'xta_'
+const REFRESH_PREFIX = 'xtr_'
 export const SCOPE = 'drafts'
-export const ACCESS_TTL_SECONDS = 60 * 60
+const ACCESS_TTL_SECONDS = 60 * 60
 const REFRESH_TTL_DAYS = 90
 const CLEANUP_BATCH = 100
 

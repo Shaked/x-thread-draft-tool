@@ -9,7 +9,7 @@ import { isIP } from 'node:net'
 import { query } from '../db.js'
 import { isPrivateAddress } from '../remote-image.js'
 
-export const CLIENT_PREFIX = 'xtc_'
+const CLIENT_PREFIX = 'xtc_'
 const MAX_REDIRECT_URIS = 5
 const MAX_CLIENT_NAME = 100
 const METADATA_MAX_BYTES = 10 * 1024
@@ -28,7 +28,7 @@ export function setMetadataResolverForTests(fn) {
  * Redirect URIs: https, or http on localhost or 127.0.0.1 (native and CLI clients), with no
  * fragment and no credentials. Matching is exact; see the authorize endpoint.
  */
-export function isValidRedirectUri(value) {
+function isValidRedirectUri(value) {
   if (typeof value !== 'string' || value.length > 2048 || value.includes('#')) return false
   let url
   try {
@@ -46,7 +46,7 @@ export function isValidRedirectUriList(value) {
 }
 
 /** A client_id that is an https URL with a path (the metadata document lives there). */
-export function isMetadataUrl(value) {
+function isMetadataUrl(value) {
   if (typeof value !== 'string' || value.length > 2048 || value.includes('#')) return false
   let url
   try {
@@ -120,7 +120,7 @@ async function metadataClient(clientId) {
 }
 
 /** Cache lifetime in seconds from Cache-Control: no-store and no-cache mean 0, capped at 24 h. */
-export function cacheTtl(cacheControl) {
+function cacheTtl(cacheControl) {
   const value = (cacheControl || '').toLowerCase()
   if (/\bno-store\b|\bno-cache\b/.test(value)) return 0
   const match = value.match(/max-age=(\d+)/)

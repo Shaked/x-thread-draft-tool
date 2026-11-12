@@ -35,7 +35,7 @@ function redirect(location, cookies = []) {
  * Served on a host other than the canonical app origin (a per-deployment URL), it redirects to the
  * canonical origin first, so the state cookie and the callback always belong to one host.
  */
-export async function login({ request, url }) {
+async function login({ request, url }) {
   const host = request.headers.get('x-forwarded-host') ?? url.host
   if (host !== new URL(appOrigin()).host) {
     return redirect(`${appOrigin()}/api/auth/login`)
@@ -73,7 +73,7 @@ async function exchangeCode(code) {
  * GET /api/auth/callback: verifies state, upserts the user, issues the session cookie.
  * The GitHub access token is used once and never stored.
  */
-export async function callback({ request, url }) {
+async function callback({ request, url }) {
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
   const expected = parseCookies(request)[STATE_COOKIE]
@@ -95,7 +95,7 @@ export async function callback({ request, url }) {
 }
 
 /** GET /api/auth/me: cookie session or bearer token. `user` is null when signed out. */
-export async function me({ request }) {
+async function me({ request }) {
   const caller = await authenticate(request)
   if (!caller) return json({ user: null, auth: null })
   const { rows } = await query('select id, login, name, avatar_url from users where id = $1', [caller.uid])
@@ -103,7 +103,7 @@ export async function me({ request }) {
 }
 
 /** POST /api/auth/logout */
-export async function logout() {
+async function logout() {
   return json({ ok: true }, 200, { 'set-cookie': clearSessionCookie() })
 }
 

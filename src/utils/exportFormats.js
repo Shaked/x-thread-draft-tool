@@ -32,18 +32,3 @@ export function exportAsFormattedText(tweets) {
     })
     .join('\n\n---\n\n');
 }
-
-/**
- * Formats thread for clipboard copy
- * @param {Array} tweets - Array of tweet objects
- * @param {boolean} includeNumbers - Whether to include tweet numbers
- * @returns {string} - Formatted text for clipboard
- */
-export function formatForClipboard(tweets, includeNumbers = false) {
-  if (includeNumbers) {
-    return tweets
-      .map((tweet, index) => `${index + 1}. ${tweet.text}`)
-      .join('\n\n');
-  }
-  return exportAsPlainText(tweets);
-}

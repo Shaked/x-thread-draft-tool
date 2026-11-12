@@ -65,7 +65,7 @@ async function formBody(request) {
 // ---- Metadata --------------------------------------------------------------------------------
 
 /** GET /.well-known/oauth-protected-resource (also served at .../api/mcp): RFC 9728. */
-export async function protectedResourceMetadata({ request }) {
+async function protectedResourceMetadata({ request }) {
   const base = origin(request)
   return json(
     {
@@ -80,7 +80,7 @@ export async function protectedResourceMetadata({ request }) {
 }
 
 /** GET /.well-known/oauth-authorization-server: RFC 8414, with the MCP-required fields. */
-export async function authorizationServerMetadata({ request }) {
+async function authorizationServerMetadata({ request }) {
   const base = origin(request)
   return json(
     {
@@ -105,7 +105,7 @@ export async function authorizationServerMetadata({ request }) {
 // ---- Registration (RFC 7591, deprecated by the MCP spec, kept for compatibility) ---------------
 
 /** POST /oauth/register: no auth. Only public clients (token_endpoint_auth_method none). */
-export async function register({ request }) {
+async function register({ request }) {
   let body
   try {
     body = await readJson(request, FORM_MAX_BYTES)
@@ -169,7 +169,7 @@ function parseAuthorize(params, base) {
  * GET /oauth/authorize. Unknown client or unregistered redirect URI: an error page, never a
  * redirect. Other problems: redirect with error. No session: sign in first, then come back here.
  */
-export async function authorizeGet({ request, url }) {
+async function authorizeGet({ request, url }) {
   const base = origin(request)
   const params = url.searchParams
   const client = await getClient(params.get('client_id') ?? '')
@@ -218,7 +218,7 @@ export async function authorizeGet({ request, url }) {
 }
 
 /** POST /oauth/authorize (the consent form). CSRF and session binding: the decision must belong to this session's user. */
-export async function authorizePost({ request }) {
+async function authorizePost({ request }) {
   const base = origin(request)
   const form = await formBody(request)
   const decision = await openDecision(form.get('request'))
@@ -343,7 +343,7 @@ async function exchangeCode(form) {
 }
 
 /** POST /oauth/token: authorization_code and refresh_token grants. Public clients only (PKCE). */
-export async function token({ request }) {
+async function token({ request }) {
   const form = await formBody(request)
   const grantType = form.get('grant_type')
   try {
@@ -361,7 +361,7 @@ export async function token({ request }) {
 }
 
 /** POST /oauth/revoke (RFC 7009): revokes the grant the token belongs to. Always 200. */
-export async function revoke({ request }) {
+async function revoke({ request }) {
   const form = await formBody(request)
   const value = form.get('token')
   if (value) {

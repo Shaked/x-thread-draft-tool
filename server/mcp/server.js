@@ -5,8 +5,8 @@ import { resolveAccess } from '../oauth/tokens.js'
 import { runAs } from '../caller-context.js'
 import { callTool, hasTool, listTools } from './tools.js'
 
-export const LATEST_VERSION = '2026-07-28'
-export const SUPPORTED_VERSIONS = [LATEST_VERSION, '2025-11-25', '2025-06-18']
+const LATEST_VERSION = '2026-07-28'
+const SUPPORTED_VERSIONS = [LATEST_VERSION, '2025-11-25', '2025-06-18']
 const LEGACY_VERSIONS = ['2025-11-25', '2025-06-18']
 
 const SERVER_INFO = { name: 'x-thread-draft-tool', version: '0.1.0' }
