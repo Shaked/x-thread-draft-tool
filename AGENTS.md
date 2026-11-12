@@ -41,4 +41,5 @@ Short on purpose. Read it at the start of every session and after every context 
 - Deployed checks run in GitHub Actions or with Vercel's fetch tool on the stable preview
   `https://x-thread-draft-tool-preview.vercel.app`. Never fetch production with it.
 - Current runbook: [docs/plans/hardening-finish-part2.md](./docs/plans/hardening-finish-part2.md).
+- MCP runbook: [docs/plans/mcp-clients.md](./docs/plans/mcp-clients.md). A hook (`scripts/runbook-reminder.mjs`) prints its rules card at session start and after a context summary.
 
