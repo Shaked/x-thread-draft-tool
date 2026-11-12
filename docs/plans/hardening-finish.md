@@ -605,4 +605,4 @@ Do hardening Task 1.2 exactly. P-PR, P-MERGE, P-PROD. Ledger: "O6 second half re
 - `main` is green: `Tests`, CodeQL, security jobs, net-lines, Codex gate.
 - Neon: at most `main` plus the stable branch plus branches of open PRs that still deploy; the daily sweep has run without error at least once.
 - No workflow on `main` references `XT_SMOKE_TOKEN*`; production smoke runs with `auth: OIDC`.
-- Preview deployments created by this runbook: 5 (R1–R5), all on `preview/claude/lucid-sagan-bbciuo`.
+- Preview deployments created by this runbook: 5 planned (R1–R5). R1 (#34), R3, R4 and R5 are READY on the stable Vercel branch `claude/lucid-sagan-bbciuo`. R2 (#53) has no deployment on that branch, so it was not run; see the final ledger. (The Neon branch for that preview is `preview/claude/lucid-sagan-bbciuo`.)
