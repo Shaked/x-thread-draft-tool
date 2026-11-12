@@ -15,6 +15,7 @@
     "test:e2e": "playwright test --project=chromium",
     "test:e2e:install": "playwright install --with-deps chromium",
     "lint": "eslint .",
+    "knip": "knip",
     "screens": "playwright test --project=screens",
     "slop": "node scripts/slop-scan.mjs",
     "dup": "jscpd",
@@ -56,6 +57,7 @@
     "globals": "^17.14.0",
     "jscpd": "^5.4.2",
     "jsdom": "29.1.1",
+    "knip": "^6.44.2",
     "vite": "8.3.6",
     "vite-plugin-pwa": "2.0.0",
     "vitest": "4.1.12"

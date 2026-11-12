@@ -10,7 +10,7 @@ export function setBlobKeyFunction(fn) {
 }
 
 /** The storage key (e.g. `drafts/<uid>/<draft>/<file>`) for a Blob URL, or null if not one. */
-export function blobKey(url) {
+function blobKey(url) {
   if (customKey) return customKey(url)
   try {
     const { hostname, protocol, pathname } = new URL(url)

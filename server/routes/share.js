@@ -14,7 +14,7 @@ function gone(format) {
  * The token is consumed in one atomic UPDATE, so a link works exactly once even under
  * concurrent requests.
  */
-export async function getShare({ url, path }) {
+async function getShare({ url, path }) {
   const pathUrl = new URL(url.href)
   pathUrl.pathname = `/${path}`
   const { token, format } = extractTokenAndFormat(pathUrl)

@@ -6,7 +6,7 @@ import { secretKey } from '../session.js'
 const AUDIENCE = 'oauth-consent'
 const DECISION_TTL = '10m'
 
-export function escapeHtml(value) {
+function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`)
 }
 

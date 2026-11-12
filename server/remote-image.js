@@ -6,7 +6,7 @@ import { lookup as dnsLookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
 import { HttpError } from './http.js'
 
-export const MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024
+const MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024
 const TIMEOUT_MS = 10_000
 
 let lookup = dnsLookup

@@ -9,7 +9,7 @@ import { currentCaller } from './caller-context.js'
 // The CI identity: a dedicated row in users (github_id -1; real GitHub ids are positive).
 const CI_USER = { id: -1, login: 'ci-smoke', name: 'CI', avatar_url: null }
 
-export const SESSION_COOKIE = 'xt_session'
+const SESSION_COOKIE = 'xt_session'
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 
 export function secretKey() {
