@@ -3,7 +3,7 @@ import { HttpError, json, readJson } from '../http.js'
 import { requireUser } from '../session.js'
 import { deleteBlobUrls } from '../blob.js'
 import { imageUrlsFrom, isOwnedBlobUrl } from '../draft-images.js'
-import { exportAsFormattedText, exportAsJSON, exportAsPlainText } from '../../src/utils/exportFormats.js'
+import { exportAsFormattedText, exportAsJSON, exportAsNumberedText, exportAsPlainText } from '../../src/utils/exportFormats.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const COLUMNS = 'id, user_id, title, posts, is_published, published_at, created_at, updated_at'
@@ -68,7 +68,9 @@ async function exportDraft({ url, params }) {
     })
   }
   if (format === 'text' || format === 'formatted') {
-    const body = format === 'text' ? exportAsPlainText(posts) : exportAsFormattedText(posts)
+    const numbered = url.searchParams.get('numbered') === 'true'
+    const body =
+      format === 'text' ? (numbered ? exportAsNumberedText(posts) : exportAsPlainText(posts)) : exportAsFormattedText(posts)
     return new Response(body, { headers: { 'content-type': 'text/plain; charset=utf-8' } })
   }
   throw new HttpError(400, 'format must be json, text or formatted')

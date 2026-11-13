@@ -310,7 +310,7 @@ export const OPENAPI = {
     '/drafts/{id}/export': {
       get: {
         summary: 'Export a draft as JSON, plain text, or numbered text. Public, like GET by id.',
-        parameters: [ID, { name: 'format', in: 'query', required: false, schema: { type: 'string', enum: ['json', 'text', 'formatted'], default: 'json' } }],
+        parameters: [ID, { name: 'format', in: 'query', required: false, schema: { type: 'string', enum: ['json', 'text', 'formatted'], default: 'json' } }, { name: 'numbered', in: 'query', required: false, description: 'With format=text: put an i/N line before each post.', schema: { type: 'boolean', default: false } }],
         responses: {
           200: { description: 'The exported draft', content: { 'application/json': { schema: { type: 'object' } }, 'text/plain': { schema: { type: 'string' } } } },
           400: BAD_REQUEST,

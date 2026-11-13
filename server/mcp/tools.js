@@ -73,13 +73,14 @@ const TOOLS = [
   },
   {
     name: 'export_draft',
-    description: 'Export one of your drafts as json, plain text or formatted text.' + CONTENT_NOTE,
-    inputSchema: { type: 'object', properties: { id: UUID, format: FORMATS }, required: ['id'] },
+    description: 'Export one of your drafts as json, plain text or formatted text. With format text and numbered true, each post gets an i/N line (the UI\'s numbered copy).' + CONTENT_NOTE,
+    inputSchema: { type: 'object', properties: { id: UUID, format: FORMATS, numbered: { type: 'boolean', default: false } }, required: ['id'] },
     annotations: { readOnlyHint: true },
     run: async (args, ctx) => {
       const owned = await fetchOwnedDraft(ctx, args.id)
       if (owned.failure) return owned.failure
-      return ctx.rest('GET', `/drafts/${enc(args.id)}/export?format=${args.format ?? 'json'}`)
+      const numbered = args.numbered === true && (args.format ?? 'json') === 'text' ? '&numbered=true' : ''
+      return ctx.rest('GET', `/drafts/${enc(args.id)}/export?format=${args.format ?? 'json'}${numbered}`)
     }
   },
   {

@@ -32,3 +32,14 @@ export function exportAsFormattedText(tweets) {
     })
     .join('\n\n---\n\n');
 }
+
+/**
+ * Exports thread as plain text with a "i/N" line before each post (the UI's "Copy (Numbered)").
+ * @param {Array} tweets - Array of tweet objects
+ * @returns {string} - Numbered plain text
+ */
+export function exportAsNumberedText(tweets) {
+  return tweets
+    .map((tweet, index) => `${index + 1}/${tweets.length}\n${tweet.text}`)
+    .join('\n\n');
+}

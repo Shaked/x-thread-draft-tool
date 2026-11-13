@@ -1,3 +1,5 @@
+import { exportAsNumberedText, exportAsPlainText } from '../utils/exportFormats.js'
+
 export default function ExportOptions({ draft }) {
   const posts = draft?.posts || []
 
@@ -58,18 +60,7 @@ export default function ExportOptions({ draft }) {
   }
 
   const copyToClipboard = async (includeNumbers = false) => {
-    const totalPosts = posts.length
-    let text = ''
-
-    posts.forEach((post, index) => {
-      if (includeNumbers) {
-        text += `${index + 1}/${totalPosts}\n`
-      }
-      text += post.text
-      if (index < posts.length - 1) {
-        text += '\n\n'
-      }
-    })
+    const text = includeNumbers ? exportAsNumberedText(posts) : exportAsPlainText(posts)
 
     try {
       await navigator.clipboard.writeText(text)
