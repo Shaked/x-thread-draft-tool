@@ -34,7 +34,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await db.reset()
-  await db.pg.exec('truncate oauth_clients cascade')
+  await db.pg.exec('delete from oauth_clients')
   const alice = await db.insertUser({ github_id: 1, login: 'alice' })
   aliceCookie = await db.cookieFor(alice)
   setMetadataResolverForTests(async () => [{ address: '93.184.216.34' }])

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Test time budget: runs the whole vitest suite, then fails when one test file takes longer
-// than FILE_LIMIT_MS or the run takes longer than TOTAL_LIMIT_MS. Prints the five slowest files.
+// than FILE_LIMIT_MS or the run takes longer than TOTAL_LIMIT_MS. A file's time includes its
+// beforeAll/afterAll hooks, and the run uses a fixed number of workers so CI and local runs compare. Prints the five slowest files.
 // The limits can be lowered for a check, for example: TEST_BUDGET_FILE_MS=100 npm run test:budget
 
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { availableParallelism, tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -17,21 +18,20 @@ const ROOT = (() => {
     return process.cwd()
   }
 })()
-export const FILE_LIMIT_MS = Number(process.env.TEST_BUDGET_FILE_MS ?? 3000)
-export const TOTAL_LIMIT_MS = Number(process.env.TEST_BUDGET_TOTAL_MS ?? 30000)
+export const FILE_LIMIT_MS = Number(process.env.TEST_BUDGET_FILE_MS ?? 5000)
+export const TOTAL_LIMIT_MS = Number(process.env.TEST_BUDGET_TOTAL_MS ?? 50000)
 // Per-file exceptions. Keep this list short and say why next to each entry.
 export const FILE_LIMIT_OVERRIDES = {
-  'tests/api/migrate.test.js': 5000 // boots a fresh PGlite to test migrations; hardening Task 4 stop-if, decided 2026-11-08
+  'tests/api/migrate.test.js': 7000, // boots a fresh PGlite and replays every migration; O11 decided by Opus 2026-11-13, revises D-8
+  'tests/api/oauth-migration.test.js': 7000 // boots a fresh PGlite and replays every migration; O11 decided by Opus 2026-11-13, revises D-8
 }
+const WORKERS = Number(process.env.TEST_BUDGET_WORKERS ?? 3)
 const SLOWEST_SHOWN = 5
 
-/** Per-file durations in milliseconds, slowest first, from a vitest JSON report. */
-export function fileDurations(report, root = ROOT) {
-  return report.testResults
-    .map((file) => ({
-      file: relative(root, file.name),
-      ms: Math.round(file.endTime - file.startTime)
-    }))
+/** Per-file durations in whole milliseconds, slowest first, from the rows of test-budget-reporter.mjs. */
+export function fileDurations(rows, root = ROOT) {
+  return rows
+    .map(({ file, ms }) => ({ file: relative(root, file), ms: Math.round(ms) }))
     .sort((a, b) => b.ms - a.ms)
 }
 
@@ -56,18 +56,25 @@ function main() {
       join(ROOT, 'node_modules/vitest/vitest.mjs'),
       'run',
       '--reporter=default',
-      '--reporter=json',
-      `--outputFile.json=${reportPath}`
+      `--reporter=${join(ROOT, 'scripts/test-budget-reporter.mjs')}`,
+      `--maxWorkers=${WORKERS}`
     ],
-    { cwd: ROOT, stdio: 'inherit' }
+    { cwd: ROOT, stdio: 'inherit', env: { ...process.env, TEST_BUDGET_OUT: reportPath } }
   )
   const totalMs = performance.now() - started
 
-  const report = JSON.parse(readFileSync(reportPath, 'utf8'))
-  rmSync(dir, { recursive: true, force: true })
+  let rows
+  try {
+    rows = JSON.parse(readFileSync(reportPath, 'utf8'))
+  } catch {
+    process.exit(run.status || 1)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 
-  const durations = fileDurations(report)
+  const durations = fileDurations(rows)
   console.log(`\ntest-budget: total ${Math.round(totalMs)} ms over ${durations.length} files`)
+  console.log(`test-budget: workers ${WORKERS} (cpus ${availableParallelism()})`)
   console.log(`test-budget: ${SLOWEST_SHOWN} slowest files:`)
   for (const { file, ms } of durations.slice(0, SLOWEST_SHOWN)) {
     console.log(`  ${String(ms).padStart(6)} ms  ${file}`)
