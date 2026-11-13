@@ -5,9 +5,9 @@
 - Vercel + Neon + Vercel Blob migration implemented (Phases 1–2 and the data-migration script). The data migration and cutover are manual steps; see [vercel-migration.md](./vercel-migration.md).
 - Local pre-commit checks run docs refresh + lint + unit tests.
 - E2E remains gated in GitHub Actions.
+- [mcp-clients.md](./mcp-clients.md): the MCP connector works with Claude, Claude Code, Codex and ChatGPT (steps M0 to M12 merged; ledger issue #80). The four real-client runs are owner actions OM-1 to OM-4 on that issue. Setup: [agents/mcp.md](./agents/mcp.md).
 
 ## Planned next
-- [mcp-clients.md](./mcp-clients.md): make the existing MCP connector work in Claude Code, Claude, Codex and ChatGPT (steps M0 to M12, own ledger issue).
 - Done except parked items: [post-migration-hardening.md](./post-migration-hardening.md) (Tasks 0–7: audit fixes, CI gates, Codex gate, light UI, OIDC and MCP connector). Parked: 1.2, 2.4, 4, 7.9. Runbook: [hardening-finish.md](./hardening-finish.md).
 - Finish the Supabase → Neon/Blob migration: run `data-migrate.yml` (dry run, then apply), smoke-test Preview and Production, then retire Supabase after 14 days (Phase 4 of [vercel-migration.md](./vercel-migration.md)).
 - Increase regression tests around publish/archive and share-link error paths.
