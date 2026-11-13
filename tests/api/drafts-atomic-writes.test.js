@@ -245,20 +245,22 @@ describe('MCP post tools', () => {
     expect(await rowOf(draft.id)).toEqual(after)
   })
 
-  it('add_post refuses an empty post_id and writes nothing', async () => {
+  it.each(['', '.', '..', 'a/b', 'a b', 'x?y'])('add_post refuses post_id %j and writes nothing', async (postId) => {
     const draft = await db.insertDraft(alice.id, { posts: POSTS() })
     const before = await rowOf(draft.id)
-    const result = await run('add_post', { id: draft.id, text: 'new', post_id: '' })
+    const result = await run('add_post', { id: draft.id, text: 'new', post_id: postId })
     expect(result.isError).toBe(true)
     expect(result.content[0].text).toMatch(/post_id/)
     expect(await rowOf(draft.id)).toEqual(before)
   })
 
-  it('add_post accepts an id with a slash and update_post can address it', async () => {
+  it('add_post with a valid id (and a UUID) can be edited by update_post', async () => {
     const draft = await db.insertDraft(alice.id, { posts: POSTS() })
-    expect((await run('add_post', { id: draft.id, text: 'new', post_id: 'a/b' })).isError).toBe(false)
-    const updated = await run('update_post', { id: draft.id, post_id: 'a/b', text: 'edited' })
-    expect(updated.isError).toBe(false)
-    expect((await rowOf(draft.id)).posts[2].text).toBe('edited')
+    const uuid = '0b6f1c1e-3c1a-4a52-9d3e-5d1f2b9c7a10'
+    expect((await run('add_post', { id: draft.id, text: 'new', post_id: 'my_post-1' })).isError).toBe(false)
+    expect((await run('add_post', { id: draft.id, text: 'uuid', post_id: uuid })).isError).toBe(false)
+    expect((await run('update_post', { id: draft.id, post_id: 'my_post-1', text: 'edited' })).isError).toBe(false)
+    expect((await run('update_post', { id: draft.id, post_id: uuid, text: 'edited too' })).isError).toBe(false)
+    expect((await rowOf(draft.id)).posts.map((p) => p.text)).toEqual(['first', 'second', 'edited', 'edited too'])
   })
 })

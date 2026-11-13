@@ -203,7 +203,8 @@ const TOOLS = [
           type: 'string',
           minLength: 1,
           maxLength: 100,
-          description: 'Optional id you choose for the new post. Sending the same id and text again changes nothing; the same id with other text is a conflict.'
+          pattern: '^[A-Za-z0-9_-]+$',
+          description: 'Optional id you choose for the new post: letters, digits, _ and - only. Sending the same id and text again changes nothing; the same id with other text is a conflict.'
         }
       },
       required: ['id', 'text']
@@ -429,6 +430,7 @@ function stringLengthProblem(prop, value) {
   if (typeof value !== 'string') return null
   if (prop.minLength !== undefined && value.length < prop.minLength) return `at least ${prop.minLength} character`
   if (prop.maxLength !== undefined && value.length > prop.maxLength) return `at most ${prop.maxLength} characters`
+  if (prop.pattern !== undefined && !new RegExp(prop.pattern).test(value)) return `must match ${prop.pattern}`
   return null
 }
 
