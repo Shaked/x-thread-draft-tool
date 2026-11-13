@@ -195,12 +195,25 @@ const TOOLS = [
     description: 'Add one post to a draft. Without after_post_id it goes last; with it, the post goes right after that one.' + CONTENT_NOTE,
     inputSchema: {
       type: 'object',
-      properties: { id: UUID, text: { type: 'string', maxLength: 280 }, after_post_id: { type: 'string' } },
+      properties: {
+        id: UUID,
+        text: { type: 'string', maxLength: 280 },
+        after_post_id: { type: 'string' },
+        post_id: {
+          type: 'string',
+          maxLength: 100,
+          description: 'Optional id you choose for the new post. Sending the same id and text again changes nothing; the same id with other text is a conflict.'
+        }
+      },
       required: ['id', 'text']
     },
     run: (args, ctx) =>
       postEdit(ctx, args.id, (posts) => {
-        const post = { id: randomUUID(), text: args.text, images: [], embeddedTweet: null }
+        if (args.post_id !== undefined) {
+          const existing = posts.find((p) => p.id === args.post_id)
+          if (existing) return existing.text === args.text ? { posts } : { conflict: 'A post with this post_id already exists with different text.' }
+        }
+        const post = { id: args.post_id ?? randomUUID(), text: args.text, images: [], embeddedTweet: null }
         if (args.after_post_id === undefined) return { posts: [...posts, post] }
         const index = posts.findIndex((p) => p.id === args.after_post_id)
         if (index < 0) return 'after_post_id is not a post in this draft'
@@ -454,8 +467,8 @@ const indexOfPost = (posts, postId) => {
 }
 
 /**
- * update_post: one REST PATCH of the post. The server reads, checks and writes in one transaction,
- * so a concurrent edit cannot be overwritten (plan O1).
+ * update_post: one REST PATCH of the post. The server reads, checks and writes in one transaction
+ * (plan O1), and refuses a stale `version` with 412.
  */
 async function updatePostText(ctx, args) {
   const headers = args.version === undefined ? {} : { 'if-match': `"${args.version}"` }
@@ -473,8 +486,11 @@ const postImageUrls = (post) => (post.images ?? []).map(imageUrlOf).filter((url)
 
 /**
  * Edits the posts of one of the caller's drafts. `change(posts)` returns { posts, removedImages? }
- * or an error text. A published draft is refused: the post tools never change a published draft.
- * The REST PATCH is the only writer. Images of removed posts are deleted only when they are the
+ * or an error text (422), or { conflict } (409). A published draft is refused: the post tools never
+ * change a published draft. The read and the write are two REST calls, but the write sends the
+ * version it read as If-Match, so a concurrent edit makes it a 412 (never retried here: the caller
+ * must re-read, or a retry could apply the change twice). The server no-ops an identical write.
+ * Images of removed posts are deleted only when they are the
  * caller's own and no draft still uses them (same rule as remove_image).
  */
 async function editPosts(ctx, id, change) {
@@ -483,7 +499,12 @@ async function editPosts(ctx, id, change) {
   if (owned.draft.is_published) return json({ error: 'This draft is published. Duplicate it to edit.' }, 409)
   const edited = change(owned.draft.posts)
   if (typeof edited === 'string') return json({ error: edited }, 422)
-  const patched = await ctx.rest('PATCH', `/drafts/${enc(id)}`, { posts: edited.posts })
+  if (edited.conflict) return json({ error: edited.conflict }, 409)
+  const patched = await ctx.rest('PATCH', `/drafts/${enc(id)}`, { posts: edited.posts }, { 'if-match': `"${owned.draft.version}"` })
+  if (patched.status === 412) {
+    const { version } = await patched.json()
+    return json({ error: 'The draft changed since you read it. Nothing was written. Call get_draft to read it again, then repeat the change if it still applies.', version }, 412)
+  }
   if (patched.status >= 400) return patched
   for (const url of edited.removedImages ?? []) {
     if (isOwnedBlobUrl(url, ctx.caller.uid) && !(await stillReferenced(ctx, url))) {

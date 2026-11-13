@@ -128,7 +128,8 @@ curl -s -X POST $BASE/api/drafts -H "Authorization: Bearer $TOKEN" -H 'content-t
 # Read by id (public: anyone with the id)
 curl -s $BASE/api/drafts/DRAFT_ID
 
-# Update title and/or posts (owner)
+# Update title and/or posts (owner). Atomic; sending what the draft already holds is a 200 with no write.
+# Same If-Match rules as the per-post PATCH below (see "Concurrent edits").
 curl -s -X PATCH $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -d '{"posts":[{"id":"p1","text":"Edited","images":[]}]}'
 
@@ -144,7 +145,7 @@ curl -s -X POST $BASE/api/drafts/DRAFT_ID/duplicate -H "Authorization: Bearer $T
 # Export (public): format=json (default), text, or formatted
 curl -s "$BASE/api/drafts/DRAFT_ID/export?format=text"
 
-# Publish (owner): deletes the draft's images and clears them from posts
+# Publish (owner): deletes the draft's images and clears them from posts. Atomic; publishing again is a 200 with no write.
 curl -s -X POST $BASE/api/drafts/DRAFT_ID/publish -H "Authorization: Bearer $TOKEN"
 
 # Delete (owner): deletes the draft and its images
@@ -247,3 +248,23 @@ token for the deployment's audience (`x-thread-draft-tool-ci-preview` or `…-ci
 
 The caller is the `ci-smoke` user, and it sees only its own drafts. CI tokens work only on the routes marked
 `ci: true` in `server/routes/*.js`; other routes refuse them with 401. Cookies and `xt_` tokens are unchanged.
+
+## Concurrent edits: ETag and If-Match
+
+Every write (PATCH a draft, PATCH one post, publish) runs in one transaction on a locked row and
+adds 1 to the draft `version`. `GET /api/drafts/:id` and every write response carry `ETag: "<version>"`.
+
+- Send `If-Match: "<version>"` with a write to refuse it when the draft changed since you read it.
+  A stale tag is `412` with `{ "error": "...", "version": <current> }` (and the `ETag` header); nothing is written.
+  Re-read, then decide whether to repeat the change. Do not retry blindly.
+- `If-Match: *` matches any current version. No header means no check.
+- A weak tag (`W/"3"`) never matches on a write (RFC 9110 strong comparison): `412`.
+- Anything else (`3` without quotes, a list, text) is `400`.
+- A replay is `200` with no write and no version change: the same text on a post, the same title and posts on
+  a whole-draft PATCH, publish of a published draft. The replay check runs before If-Match, so a retry of a
+  write that already landed succeeds even though its tag is now stale.
+- Errors: `400` malformed header or body, `404` not found or not yours, `409` published draft (post routes),
+  `412` stale version.
+- MCP: `add_post`, `remove_post`, `move_post` send the version they read as If-Match; a conflict is a tool error
+  (`isError`) telling you to call `get_draft` again. `add_post` takes an optional `post_id`: the same id and text
+  again changes nothing; the same id with other text is a 409 tool error.
