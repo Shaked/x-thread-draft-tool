@@ -1,6 +1,7 @@
 // MCP tools for drafts (plan Task 7.6). Each tool calls the existing REST handler in-process
 // through server/router.js, as the token's user, so validation and ownership checks are reused.
 import { route } from '../router.js'
+import { isOwnedBlobUrl } from '../draft-images.js'
 import { json } from '../http.js'
 import { runAs } from '../caller-context.js'
 import { randomUUID } from 'node:crypto'
@@ -115,10 +116,78 @@ const TOOLS = [
     description: 'Fetch a public image URL and upload it for one of your drafts. Returns the image url; to show it, add { url } to a post\'s images with update_draft (at most 4 per post). Private addresses are refused.',
     inputSchema: {
       type: 'object',
-      properties: { draftId: UUID, url: { type: 'string', format: 'uri' } },
+      properties: { draftId: UUID, url: { type: 'string', format: 'uri' }, postId: { type: 'string' } },
       required: ['draftId', 'url']
     },
-    run: (args, { rest }) => rest('POST', '/images/from-url', pick(args, ['draftId', 'url']))
+    run: async (args, ctx) => {
+      if (args.postId === undefined) return ctx.rest('POST', '/images/from-url', pick(args, ['draftId', 'url']))
+      // With postId, the image is also added to that post: refuse an unknown post or one with 4 images first.
+      const owned = await fetchOwnedDraft(ctx, args.draftId)
+      if (owned.failure) return owned.failure
+      const index = owned.draft.posts.findIndex((post) => post.id === args.postId)
+      if (index < 0) return json({ error: 'Post not found in this draft' }, 404)
+      if ((owned.draft.posts[index].images ?? []).length >= 4) return json({ error: 'This post already has 4 images' }, 422)
+      const uploaded = await ctx.rest('POST', '/images/from-url', pick(args, ['draftId', 'url']))
+      if (uploaded.status >= 400) return uploaded
+      const { url } = await uploaded.json()
+      // Re-read after the upload, so edits made while it ran are kept. The window between this read
+      // and the PATCH is short but not zero (REST has no per-post update): a known gap, see the PR.
+      const current = await fetchOwnedDraft(ctx, args.draftId)
+      if (current.failure) return current.failure
+      const currentIndex = current.draft.posts.findIndex((post) => post.id === args.postId)
+      if (currentIndex < 0) return json({ error: 'Post not found in this draft' }, 404)
+      if ((current.draft.posts[currentIndex].images ?? []).length >= 4) return json({ error: 'This post already has 4 images' }, 422)
+      const posts = current.draft.posts.map((post, i) => (i === currentIndex ? { ...post, images: [...(post.images ?? []), { url }] } : post))
+      const patched = await ctx.rest('PATCH', `/drafts/${enc(args.draftId)}`, { posts })
+      if (patched.status >= 400) return patched
+      return json({ url, postId: args.postId })
+    }
+  },
+  {
+    name: 'whoami',
+    description: 'The GitHub login of the account this connection acts as.',
+    inputSchema: { type: 'object', properties: {} },
+    run: async (args, { rest }) => {
+      const res = await rest('GET', '/auth/me')
+      if (res.status >= 400) return res
+      const { user } = await res.json()
+      return json({ login: user?.login ?? null })
+    }
+  },
+  {
+    name: 'create_thread_from_text',
+    description: 'Turn long text into a thread draft: split it into posts (at most 280 characters each) and create the draft.' + CONTENT_NOTE,
+    inputSchema: {
+      type: 'object',
+      properties: { text: { type: 'string' }, title: TITLE, max_chars: { type: 'integer', minimum: 20, maximum: 1000 } },
+      required: ['text']
+    },
+    run: async (args, { rest, origin }) => {
+      const split = await rest('POST', '/threads/split', pick(args, ['text', 'max_chars']))
+      if (split.status >= 400) return split
+      const { posts } = await split.json()
+      const created = await rest('POST', '/drafts', { ...pick(args, ['title']), posts: withPostIds({ posts }).posts })
+      return withDraftUrl(created, origin)
+    }
+  },
+  {
+    name: 'remove_image',
+    description: 'Remove one image from a draft. Its file is deleted only when no draft of yours still uses it.' + CONTENT_NOTE,
+    inputSchema: { type: 'object', properties: { draftId: UUID, url: { type: 'string' } }, required: ['draftId', 'url'] },
+    run: async (args, ctx) => {
+      const owned = await fetchOwnedDraft(ctx, args.draftId)
+      if (owned.failure) return owned.failure
+      const posts = owned.draft.posts.map((post) => ({ ...post, images: (post.images ?? []).filter((i) => imageUrlOf(i) !== args.url) }))
+      const patched = await ctx.rest('PATCH', `/drafts/${enc(args.draftId)}`, { posts })
+      if (patched.status >= 400) return patched
+      // Only the caller's own files are deleted (DELETE /images refuses others with 403).
+      if (!isOwnedBlobUrl(args.url, ctx.caller.uid) || (await stillReferenced(ctx, args.url))) {
+        return json({ removed: true, deleted: false })
+      }
+      const deleted = await ctx.rest('DELETE', '/images', { url: args.url })
+      if (deleted.status >= 400) return deleted
+      return json({ removed: true, deleted: true })
+    }
   },
   {
     name: 'publish_draft',
@@ -156,8 +225,33 @@ const META = {
   update_draft: ['Update draft', false, false, true, false],
   add_image_from_url: ['Add image from URL', false, false, false, true],
   publish_draft: ['Publish draft', false, true, true, false],
-  delete_draft: ['Delete draft', false, true, true, false]
+  delete_draft: ['Delete draft', false, true, true, false],
+  whoami: ['Who am I', true, false, true, false],
+  create_thread_from_text: ['Create thread from text', false, false, false, false],
+  remove_image: ['Remove image', false, true, true, false]
 }
+
+// The REST routes each tool calls ("METHOD path", as in server/router.js). The coverage test
+// (tests/api/mcp-coverage.test.js) checks that every REST route is listed here or excluded.
+const REST_ROUTES = {
+  list_drafts: ['GET /drafts'],
+  get_draft: ['GET /drafts/:id'],
+  create_draft: ['POST /drafts'],
+  update_draft: ['PATCH /drafts/:id'],
+  duplicate_draft: ['POST /drafts/:id/duplicate'],
+  export_draft: ['GET /drafts/:id/export'],
+  split_text: ['POST /threads/split'],
+  create_share_link: ['POST /drafts/:id/share-tokens'],
+  add_image_from_url: ['POST /images/from-url', 'GET /drafts/:id', 'PATCH /drafts/:id'],
+  publish_draft: ['POST /drafts/:id/publish'],
+  delete_draft: ['DELETE /drafts/:id'],
+  whoami: ['GET /auth/me'],
+  create_thread_from_text: ['POST /threads/split', 'POST /drafts'],
+  remove_image: ['GET /drafts', 'PATCH /drafts/:id', 'DELETE /images']
+}
+
+/** Every REST route the MCP tools call. */
+export const TOOL_REST_ROUTES = [...new Set(Object.values(REST_ROUTES).flat())]
 
 export function listTools() {
   return TOOLS.map(({ name, description, inputSchema }) => {
@@ -276,6 +370,25 @@ async function withDraftUrl(res, origin) {
   const body = await res.json()
   if (body.draft) body.draft.url = editorUrl(origin, body.draft.id)
   return json(body, res.status)
+}
+
+/** An image entry is a string (older drafts) or an object with a url. Both are supported. */
+const imageUrlOf = (image) => (typeof image === 'string' ? image : image?.url)
+
+/**
+ * True when any draft of the caller (published or not, duplicates included) still uses `url`.
+ * Same question as deletableImageUrls in server/routes/drafts.js. When the caller's drafts cannot
+ * all be read (the list is capped), the answer is true: the file is kept.
+ */
+async function stillReferenced(ctx, url) {
+  for (const published of ['false', 'true']) {
+    const res = await ctx.rest('GET', `/drafts?published=${published}&limit=200`)
+    if (res.status >= 400) return true
+    const { drafts } = await res.json()
+    if (drafts.length >= 200) return true
+    if (drafts.some((draft) => (draft.posts ?? []).some((post) => (post.images ?? []).some((i) => imageUrlOf(i) === url)))) return true
+  }
+  return false
 }
 
 function pick(args, keys) {

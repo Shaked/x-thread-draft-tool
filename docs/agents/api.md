@@ -20,7 +20,7 @@ token is always `401`, never a fallback to the cookie.
 An access token (`xta_`) lasts 1 hour and is bound to one resource: a token for the REST API
 is refused on `/api/mcp`, and the reverse. It refreshes with a rotating refresh token (`xtr_`,
 90 days unused), at `POST /api/oauth/token` with `grant_type=refresh_token`. Reusing a spent
-refresh token revokes its whole connected app. A loopback redirect URI (`localhost` or `127.0.0.1`, http) matches a registered one with any port, so a CLI can pick a free port. At the token endpoint `resource` is optional: when it is absent, the resource the code was issued for is used.
+refresh token revokes its whole connected app. A loopback redirect URI (`localhost` or `127.0.0.1`, http) matches a registered one with any port, so a CLI can pick a free port. At the token endpoint `resource` is optional: when it is absent, the resource the code was issued for is used. The MCP connector's tools are listed in `server/mcp/tools.js`; `tests/api/mcp-coverage.test.js` fails when a REST route has neither a tool nor a documented exclusion.
 
 Hand-made `xt_` tokens are personal (they act as the GitHub user who created them), expire after
 7 days at most, and can be revoked at any time. At most 20 are active per user. The plaintext is

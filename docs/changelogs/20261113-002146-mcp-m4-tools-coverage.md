@@ -1,0 +1,2 @@
+- MCP M4: whoami, create_thread_from_text and remove_image tools; add_image_from_url takes postId; a coverage test fails when a REST route has neither a tool nor an exclusion.
+- Why: the connector could not show the account, make a thread in one call, or remove an image. Plan: docs/plans/mcp-clients.md (step M4).
