@@ -157,10 +157,7 @@ export default function TokensPage({ deployedAt, deployedAgo, deployCommit }) {
         {grantsLoading ? (
           <div className="loading">Loading…</div>
         ) : grants.length === 0 ? (
-          <p>
-            No apps are connected. To connect an agent, add this address as its connector:{' '}
-            <code>{`${window.location.origin}/api/mcp`}</code>
-          </p>
+          <p>No apps are connected. To connect one, use Connect an AI app above.</p>
         ) : (
           <ul className="grant-list">
             {grants.map((grant) => {

@@ -1734,3 +1734,6 @@ body {
 .grant-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
 .grant-revoke-btn { min-height: 44px; min-width: 44px; padding: 8px 12px; font-size: 16px; background: transparent; border: 1px solid #f4212e; border-radius: 8px; color: #f4212e; cursor: pointer; }
 .grant-revoke-btn:hover { background-color: #f4212e20; }
+.copy-btn { min-height: 44px; min-width: 44px; padding: 8px 12px; font-size: 16px; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: inherit; cursor: pointer; }
+.copy-btn:hover { background-color: var(--border-soft); }
+.connect-app-row > div { flex: 1 1 16rem; min-width: 0; }
