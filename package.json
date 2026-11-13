@@ -24,8 +24,7 @@
     "docs:refresh": "node scripts/update-claude-index.mjs",
     "dev:api": "node scripts/dev-api.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "agent:login": "node scripts/agent-login.mjs",
-    "test:clients": "node tests/clients/claude-code-login.mjs && node tests/clients/codex-login.mjs"
+    "agent:login": "node scripts/agent-login.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
