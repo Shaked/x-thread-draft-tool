@@ -37,6 +37,28 @@ function notFound() {
   return new HttpError(404, 'Draft not found')
 }
 
+/**
+ * The If-Match precondition of a request (RFC 9110): null when absent, { any: true } for `*`,
+ * { version, weak } for one entity tag such as "3" or W/"3". Anything else is a 400.
+ */
+function ifMatchOf(request) {
+  const header = request.headers.get('if-match')
+  if (header === null) return null
+  const value = header.trim()
+  if (value === '*') return { any: true }
+  const match = value.match(/^(W\/)?"(\d+)"$/)
+  if (!match) throw new HttpError(400, 'If-Match must be * or the draft version as an entity tag, for example "3"')
+  return { version: Number(match[2]), weak: Boolean(match[1]) }
+}
+
+/** Writes need the strong comparison: a weak tag never matches. */
+const preconditionHolds = (expected, version) => expected === null || expected.any === true || (!expected.weak && expected.version === version)
+
+const etagHeaders = (version) => ({ etag: `"${version}"` })
+
+const staleResponse = (draft) =>
+  json({ error: 'The draft changed since you read it', version: draft.version }, 412, etagHeaders(draft.version))
+
 /** POST /api/drafts/:id/duplicate: same copy the editor's Duplicate button makes. */
 async function duplicateDraft({ request, params }) {
   const session = await requireUser(request)
@@ -52,7 +74,7 @@ async function duplicateDraft({ request, params }) {
     `insert into drafts (user_id, title, posts) values ($1, $2, $3::jsonb) returning ${COLUMNS}`,
     [session.uid, `${source.title || 'Untitled'} (copy)`, JSON.stringify(posts.length ? posts : [EMPTY_POST()])]
   )
-  return json({ draft: rows[0] }, 201)
+  return json({ draft: rows[0] }, 201, etagHeaders(rows[0].version))
 }
 
 /** GET /api/drafts/:id/export?format=json|text|formatted (public, like GET by id). */
@@ -89,10 +111,10 @@ async function ownedPosts(id, uid) {
  * Blob URLs that may be deleted with this draft: only the owner's own objects, and never an
  * object that another draft of the same owner still references (duplicates share URLs).
  */
-async function deletableImageUrls(uid, id, posts) {
+async function deletableImageUrls(run, uid, id, posts) {
   const owned = imageUrlsFrom(posts).filter((url) => isOwnedBlobUrl(url, uid))
   if (owned.length === 0) return []
-  const { rows } = await query('select posts from drafts where user_id = $1 and id <> $2', [uid, id])
+  const { rows } = await run('select posts from drafts where user_id = $1 and id <> $2', [uid, id])
   const stillUsed = new Set(rows.flatMap((row) => imageUrlsFrom(row.posts)))
   return owned.filter((url) => !stillUsed.has(url))
 }
@@ -124,7 +146,7 @@ async function createDraft({ request }) {
     `insert into drafts (user_id, title, posts) values ($1, $2, $3::jsonb) returning ${COLUMNS}`,
     [session.uid, title, JSON.stringify(posts)]
   )
-  return json({ draft: rows[0] }, 201)
+  return json({ draft: rows[0] }, 201, etagHeaders(rows[0].version))
 }
 
 /** GET /api/drafts/:id is the only public draft read (share-by-link). */
@@ -132,10 +154,14 @@ async function getDraft({ params }) {
   if (!isUuid(params.id)) throw notFound()
   const { rows } = await query(`select ${COLUMNS} from drafts where id = $1`, [params.id])
   if (!rows[0]) throw notFound()
-  return json({ draft: rows[0] })
+  return json({ draft: rows[0] }, 200, etagHeaders(rows[0].version))
 }
 
-/** PATCH /api/drafts/:id: owner only; a non-owner gets 404 and the row is untouched. */
+/**
+ * PATCH /api/drafts/:id: owner only; a non-owner gets 404 and the row is untouched. One transaction
+ * with the row locked. Sending what the draft already holds is a 200 with no write (a replay); a
+ * stale If-Match is a 412 with no write.
+ */
 async function updateDraft({ request, params }) {
   const session = await requireUser(request)
   const body = requireObject(await readJson(request))
@@ -145,31 +171,33 @@ async function updateDraft({ request, params }) {
   const title = body.title === undefined ? null : validTitle(body.title)
   const posts = body.posts === undefined ? null : JSON.stringify(validPosts(body.posts))
   if (!isUuid(params.id)) throw notFound()
+  const expected = ifMatchOf(request)
 
-  const { rows } = await query(
-    `update drafts
-        set title = coalesce($3, title),
-            posts = coalesce($4::jsonb, posts),
-            version = version + 1,
-            updated_at = now()
-      where id = $1 and user_id = $2
-      returning ${COLUMNS}`,
-    [params.id, session.uid, title, posts]
-  )
-  if (!rows[0]) throw notFound()
-  return json({ draft: rows[0] })
+  return transaction(async (q) => {
+    const { rows: found } = await q(
+      `select ${COLUMNS},
+              ($3::text is null or title = $3::text) as same_title,
+              ($4::jsonb is null or posts = $4::jsonb) as same_posts
+         from drafts where id = $1 and user_id = $2 for update`,
+      [params.id, session.uid, title, posts]
+    )
+    if (!found[0]) throw notFound()
+    const { same_title: sameTitle, same_posts: samePosts, ...draft } = found[0]
+    if (sameTitle && samePosts) return json({ draft }, 200, etagHeaders(draft.version))
+    if (!preconditionHolds(expected, draft.version)) return staleResponse(draft)
+    const { rows } = await q(
+      `update drafts
+          set title = coalesce($3, title),
+              posts = coalesce($4::jsonb, posts),
+              version = version + 1,
+              updated_at = now()
+        where id = $1 and user_id = $2
+        returning ${COLUMNS}`,
+      [params.id, session.uid, title, posts]
+    )
+    return json({ draft: rows[0] }, 200, etagHeaders(rows[0].version))
+  })
 }
-
-/** The If-Match version of a request, or null when the header is absent. */
-function ifMatchVersion(request) {
-  const header = request.headers.get('if-match')
-  if (header === null) return null
-  const match = header.trim().match(/^"?(\d+)"?$/)
-  if (!match) throw new HttpError(400, 'If-Match must be the draft version, for example "3"')
-  return Number(match[1])
-}
-
-const etagHeaders = (version) => ({ etag: `"${version}"` })
 
 /**
  * PATCH /api/drafts/:id/posts/:postId: changes only the text of one post, and returns the draft.
@@ -185,7 +213,7 @@ async function patchPostText({ request, params }) {
     throw new HttpError(400, `text must be a string of at most ${POST_TEXT_MAX} characters`)
   }
   if (!isUuid(params.id)) throw notFound()
-  const expected = ifMatchVersion(request)
+  const expected = ifMatchOf(request)
 
   return transaction(async (q) => {
     const { rows } = await q(`select ${COLUMNS} from drafts where id = $1 and user_id = $2 for update`, [params.id, session.uid])
@@ -195,9 +223,7 @@ async function patchPostText({ request, params }) {
     const index = draft.posts.findIndex((post) => post.id === params.postId)
     if (index < 0) throw new HttpError(404, 'Post not found in this draft')
     if (draft.posts[index].text === body.text) return json({ draft }, 200, etagHeaders(draft.version))
-    if (expected !== null && expected !== draft.version) {
-      return json({ error: 'The draft changed since you read it', version: draft.version }, 412, etagHeaders(draft.version))
-    }
+    if (!preconditionHolds(expected, draft.version)) return staleResponse(draft)
     const { rows: updated } = await q(
       `update drafts
           set posts = jsonb_set(posts, array[$3::text, 'text'], to_jsonb($4::text)),
@@ -211,33 +237,47 @@ async function patchPostText({ request, params }) {
   })
 }
 
-/** POST /api/drafts/:id/publish: deletes the draft's Blob images and clears them from posts. */
+/**
+ * POST /api/drafts/:id/publish: clears the draft's images from its posts and deletes their Blob
+ * files. One transaction with the row locked. Publishing a published draft is a 200 with no write
+ * (a replay); a stale If-Match is a 412 with no write. The files are deleted only after the commit,
+ * so a rolled-back publish never loses an image.
+ */
 async function publishDraft({ request, params }) {
   const session = await requireUser(request)
-  const posts = await ownedPosts(params.id, session.uid)
-  await deleteBlobUrls(await deletableImageUrls(session.uid, params.id, posts))
-  const cleaned = posts.map((post) => ({ ...post, images: [] }))
+  if (!isUuid(params.id)) throw notFound()
+  const expected = ifMatchOf(request)
 
-  const { rows } = await query(
-    `update drafts
-        set posts = $3::jsonb,
-            is_published = true,
-            published_at = now(),
-            version = version + 1,
-            updated_at = now()
-      where id = $1 and user_id = $2
-      returning ${COLUMNS}`,
-    [params.id, session.uid, JSON.stringify(cleaned)]
-  )
-  if (!rows[0]) throw notFound()
-  return json({ draft: rows[0] })
+  const { response, doomed } = await transaction(async (q) => {
+    const { rows: found } = await q(`select ${COLUMNS} from drafts where id = $1 and user_id = $2 for update`, [params.id, session.uid])
+    if (!found[0]) throw notFound()
+    const draft = found[0]
+    if (draft.is_published) return { response: json({ draft }, 200, etagHeaders(draft.version)), doomed: [] }
+    if (!preconditionHolds(expected, draft.version)) return { response: staleResponse(draft), doomed: [] }
+    const doomed = await deletableImageUrls(q, session.uid, params.id, draft.posts)
+    const cleaned = draft.posts.map((post) => ({ ...post, images: [] }))
+    const { rows } = await q(
+      `update drafts
+          set posts = $3::jsonb,
+              is_published = true,
+              published_at = now(),
+              version = version + 1,
+              updated_at = now()
+        where id = $1 and user_id = $2
+        returning ${COLUMNS}`,
+      [params.id, session.uid, JSON.stringify(cleaned)]
+    )
+    return { response: json({ draft: rows[0] }, 200, etagHeaders(rows[0].version)), doomed }
+  })
+  if (doomed.length) await deleteBlobUrls(doomed)
+  return response
 }
 
 /** DELETE /api/drafts/:id */
 async function deleteDraft({ request, params }) {
   const session = await requireUser(request)
   const posts = await ownedPosts(params.id, session.uid)
-  await deleteBlobUrls(await deletableImageUrls(session.uid, params.id, posts))
+  await deleteBlobUrls(await deletableImageUrls(query, session.uid, params.id, posts))
   await query('delete from drafts where id = $1 and user_id = $2', [params.id, session.uid])
   return json({ ok: true })
 }
