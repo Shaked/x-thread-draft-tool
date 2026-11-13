@@ -19,5 +19,7 @@ describe('applyMigrations', () => {
     const names = tables.rows.map((r) => r.table_name)
     expect(names).toEqual(expect.arrayContaining(['users', 'drafts', 'share_tokens', 'schema_migrations']))
     await pg.close()
-  })
+    // Boots a fresh PGlite and replays every migration (4 now). The file budget (5000 ms, D-8) still
+    // applies; this only stops vitest's 5 s default test timeout from failing the run under load.
+  }, 20000)
 })
