@@ -56,6 +56,8 @@ export async function createApiToken(userId, { name, expiresInDays = MAX_EXPIRY_
 
 /**
  * Resolves a plaintext token to its owner. Returns null when unknown, expired or revoked.
+ * A hand-made token is also refused once it is 7 days old from creation (plan D4), even if
+ * its stored expires_at is later (tokens created before the cap; see db/migrations/006_token_cap.sql).
  * Updates last_used_at at most once every five minutes.
  */
 export async function findUserByToken(token) {
@@ -63,7 +65,8 @@ export async function findUserByToken(token) {
   const { rows } = await query(
     `select u.id, u.github_id, u.login, t.id as token_id
        from api_tokens t join users u on u.id = t.user_id
-      where t.token_hash = $1 and ${activeSql('t')}`,
+      where t.token_hash = $1 and ${activeSql('t')}
+        and t.created_at > now() - interval '${MAX_EXPIRY_DAYS} days'`,
     [hashToken(token)]
   )
   const row = rows[0]
@@ -74,6 +77,21 @@ export async function findUserByToken(token) {
     [row.token_id]
   )
   return { uid: row.id, gh: String(row.github_id), login: row.login, tokenId: row.token_id, via: 'token' }
+}
+
+/**
+ * True when `token` is a known, not revoked hand-made token that has expired: its expires_at has
+ * passed, or it is older than the 7-day cap. Used only to word the 401; it grants nothing.
+ */
+export async function isExpiredApiToken(token) {
+  if (!isTokenShape(token)) return false
+  const { rows } = await query(
+    `select 1 from api_tokens
+      where token_hash = $1 and revoked_at is null
+        and (expires_at <= now() or created_at <= now() - interval '${MAX_EXPIRY_DAYS} days')`,
+    [hashToken(token)]
+  )
+  return rows.length > 0
 }
 
 /** Token rows for display. The hash is never selected. */
