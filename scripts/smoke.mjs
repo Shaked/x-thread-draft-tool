@@ -21,7 +21,13 @@ const publicOnly = process.env.XT_SMOKE_PUBLIC === '1'
 const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
 
 // Routes that never take a token (the server refuses a CI JWT on any route not marked ci: true).
-const PUBLIC_PATHS = new Set(['/api/health', '/llms.txt', '/api/openapi.json'])
+const PUBLIC_PATHS = new Set([
+  '/api/health',
+  '/llms.txt',
+  '/api/openapi.json',
+  '/.well-known/oauth-protected-resource/api/mcp',
+  '/.well-known/oauth-authorization-server'
+])
 const isPublicPath = (path) => PUBLIC_PATHS.has(path) || path.startsWith('/api/share/')
 
 function headers(extra = {}, path = '') {
