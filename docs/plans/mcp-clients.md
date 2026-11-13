@@ -128,7 +128,7 @@ Do not edit `.claude/settings.json` or the script, except in M12 as written. Cod
 | G1 | Claude Code will be refused at authorize. Its metadata document lists `http://localhost/callback` and `http://127.0.0.1/callback` and it listens on a random port. Our match is exact (`client.redirect_uris.includes(redirectUri)` in `authorizeGet`). | Code read; Claude connector docs (section 9) | M1 |
 | G2 | The token endpoint refuses a code exchange without `resource`. A client that omits it cannot finish. | `exchangeCode` in `server/routes/oauth.js` | M1 |
 | G3 | A request without `MCP-Protocol-Version` gets 400. The 2025-06-18 text says to assume `2025-03-26`. `2025-03-26` is not in our list. | `checkProtocolVersion` | M2 |
-| G4 | Client behaviour was never tested end to end. It is now proven by contract tests with mocks, not by a person. | `tests/api/mcp-clients.test.js`, `.claude/skills/e2e-contract-tests.md` | M11 |
+| G4 | Client behaviour was never tested end to end. It is now proven by contract tests with mocks, not by a person. | `tests/api/mcp-clients.test.js`, `tests/api/mcp-contract.test.js`, `.claude/skills/e2e-contract-tests.md` | M11 |
 | G5 | Tools have no `title` and incomplete annotations. ChatGPT and Claude use them to decide what needs a confirmation. | `listTools()` output | M3 |
 | G6 | `create_share_link` returns a bare token, not a link. Draft results carry no link to the editor. | `createShareToken` returns `{ token }` | M3 |
 | G7 | Not reachable through MCP: who am I, remove an image, attach an uploaded image to a post. | Route list vs tool list | M4 |
@@ -139,9 +139,9 @@ Do not edit `.claude/settings.json` or the script, except in M12 as written. Cod
 | G12 | Setup text for the four clients exists nowhere. The deployed smoke test does not touch MCP. | `docs/agents/api.md`, `scripts/smoke.mjs` | M9, M10 |
 
 **Not checked** (find out in the step named): whether ChatGPT or Codex send an `Origin` header
-(M2 adds a log line; M11 reads it). Whether `PUBLIC_APP_URL` is set in production (M9, item 1).
+(M2 adds a log line; read it when a client fails in the field, M11 item 5). Whether `PUBLIC_APP_URL` is set in production (M9, item 1).
 
-**How client behaviour is tested.** Contract tests only. `tests/api/mcp-clients.test.js` runs each
+**How client behaviour is tested.** Contract tests only. `tests/api/mcp-clients.test.js` and `tests/api/mcp-contract.test.js` run each
 client profile through the router with mocks: no real client binary, no account sign-in, no paid
 LLM call, no person. The design rules are in `.claude/skills/e2e-contract-tests.md`.
 
@@ -170,7 +170,7 @@ LLM call, no person. The design rules are in `.claude/skills/e2e-contract-tests.
 | D-1 | Loopback redirect URIs match with the port ignored (RFC 8252 section 7.3). Everything else stays an exact match. The token exchange still compares against the exact URI stored with the code. | G1. A loopback port cannot be registered ahead of time. |
 | D-2 | `resource` is optional at the token endpoint. Absent means "the resource the code (or refresh token) was issued for". Present and different stays `invalid_target`. | G2. The code is already bound at authorize, so nothing is widened. |
 | D-3 | A request with no `MCP-Protocol-Version` header is handled as `2025-03-26`. `2025-03-26` joins the legacy list. A header with an unknown value stays an error. | G3. |
-| D-4 | The Origin check on `/api/mcp` stays. M2 only adds a log line. If M11 shows a client blocked by it, P-OPUS decides. | The check is cheap and the four clients call from servers or CLIs. |
+| D-4 | The Origin check on `/api/mcp` stays. M2 only adds a log line. If a client is blocked by it (M11 item 5), P-OPUS decides. | The check is cheap and the four clients call from servers or CLIs. |
 | D-5 | Images: `add_image_from_url` only. No upload of raw bytes through MCP. | A model cannot send megabytes of base64, and the MCP body limit is 1 MB. Decided exception. |
 | D-6 | No MCP prompts, no resources, no `search`/`fetch` tools, no UI widgets. Tools only. | All four clients support tools. Follow-up, not this plan. |
 | D-7 | Tool calls: at most 120 per user per minute, counted in Postgres. | G11. No new service. |
@@ -200,7 +200,7 @@ The live copy is the ledger's "Steps" table. This is the starting state.
 | M8 | Tool-call rate limit | G11 | todo | M5 | merged, production READY, smoke green |
 | M9 | `docs/agents/mcp.md`, README, `llms.txt`, smoke steps for MCP discovery | G12 | todo | M5 | merged; smoke shows the new steps PASS on production |
 | M10 | Settings page: "Connect an AI app" with the four recipes | G12 | todo | M9 | merged, look `APPROVE` (P-UI-REVIEW) |
-| M11 | Real-client check list for Shaked; fix what the logs show | G4 | todo | M9 | check list posted; every reported failure fixed or parked |
+| M11 | Client contract suite, refresh resource fix, SDK client test | G4 | todo | M9 | contract suite and SDK test green in CI; refresh fix merged |
 | M12 | Finish: docs, switch the hook off, final ledger | none | todo | all above | merged; ledger final |
 
 M7 is independent of M3 to M6. Take it while another PR waits.
@@ -419,18 +419,19 @@ Every code step uses the same frame. It is not repeated below.
    P-PREVIEW, P-UI-REVIEW at 390 px and desktop, light and dark. Frame B.
 
 ### M11. Client contract suite
-**Done when:** the contract suite is green in CI and locally, with no real client, no person and no LLM call.
+**Done when:** items 1 to 4 are merged and green in CI, with no real client, no person and no LLM call.
 
-1. Add the wire-level checks from `.claude/skills/e2e-contract-tests.md` to `tests/api/mcp-clients.test.js`:
+1. Add the wire-level checks from `.claude/skills/e2e-contract-tests.md` in a new file `tests/api/mcp-contract.test.js`:
    a spec-following mock client (discovery from `WWW-Authenticate`, endpoints only from metadata,
    `state`, `iss` and the exact loopback port on the redirect), token fields and `cache-control: no-store`,
-   refresh rotation at the wire level, error bodies, and the 2026-07-28 transport.
+   refresh rotation at the wire level, error bodies. The 2026-07-28 transport stays covered by `tests/api/mcp.test.js`.
 2. Refresh ignores `resource` today (`server/routes/oauth.js`, `rotate` in `server/oauth/tokens.js`).
    Fix it in its own PR, with a test that a wrong `resource` gets `invalid_target`.
-3. Each tool's `inputSchema` compiles as strict JSON Schema (a devDependency, exact version).
-4. When a client fails in the field: add its profile to the contract suite first, reproduce the failure
+3. Each tool's `inputSchema` compiles as strict JSON Schema (ajv 8.20.0 and ajv-formats 3.0.1, exact devDependencies).
+4. The official MCP TypeScript SDK client (`@modelcontextprotocol/sdk` 1.32.2, exact devDependency), with its fetch set to the in-process `route()`, runs discovery, registration, authorize with scripted consent, token, initialize, tools/list, one tools/call and refresh, in `tests/api/mcp-sdk-client.test.js`. Own PR, after item 1.
+5. When a client fails in the field: add its profile to the contract suite first, reproduce the failure
    there, then fix the server in its own PR (Frame A, Frame B). If the fix would break a rule S-1 to S-6: P-OPUS.
-5. The opt-in real-LLM test (`E2E_REAL_LLM=1`) is not part of this plan's done-when.
+6. No test in this plan calls an LLM, a real client app or a person.
 
 ### M12. Finish
 1. `docs/plans/current.md`: move this plan to "Completed / in place". Update `docs/features/platform-and-auth.md`.

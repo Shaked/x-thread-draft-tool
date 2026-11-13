@@ -3,7 +3,8 @@
 // end through POST /api/mcp by a client that holds a real OAuth token: list, create from text,
 // edit the second post, share link, delete, then list again after a token refresh. This proves
 // the server side of the check list without a person. It does not prove what Claude, Claude
-// Code, Codex or ChatGPT do on their own side is covered by the client contract suite (plan M11, in progress).
+// Code, Codex or ChatGPT do on their own side; the client contract suite
+// (tests/api/mcp-contract.test.js, plan M11) covers the wire contract they rely on.
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn(async () => {}) }))
