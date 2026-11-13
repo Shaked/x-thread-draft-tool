@@ -212,15 +212,15 @@ const TOOLS = [
     description: 'Change the text of one post. Its images and embedded tweet stay as they are.' + CONTENT_NOTE,
     inputSchema: {
       type: 'object',
-      properties: { id: UUID, post_id: { type: 'string' }, text: { type: 'string', maxLength: 280 } },
+      properties: {
+        id: UUID,
+        post_id: { type: 'string' },
+        text: { type: 'string', maxLength: 280 },
+        version: { type: 'integer', minimum: 1, description: 'The draft version from get_draft. The change is refused if the draft changed since.' }
+      },
       required: ['id', 'post_id', 'text']
     },
-    run: (args, ctx) =>
-      postEdit(ctx, args.id, (posts) => {
-        const index = indexOfPost(posts, args.post_id)
-        if (typeof index === 'string') return index
-        return { posts: posts.map((p, i) => (i === index ? { ...p, text: args.text } : p)) }
-      })
+    run: (args, ctx) => updatePostText(ctx, args)
   },
   {
     name: 'remove_post',
@@ -314,7 +314,7 @@ const REST_ROUTES = {
   publish_draft: ['POST /drafts/:id/publish'],
   delete_draft: ['DELETE /drafts/:id'],
   add_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
-  update_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
+  update_post: ['PATCH /drafts/:id/posts/:postId'],
   remove_post: ['GET /drafts/:id', 'PATCH /drafts/:id', 'GET /drafts', 'DELETE /images'],
   move_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
   whoami: ['GET /auth/me'],
@@ -357,10 +357,10 @@ export async function callTool(name, args, { caller, origin }) {
 
 /** Calls the REST router in-process as `caller`. No Authorization header: the caller is set in runAs. */
 function restAs(origin, caller) {
-  return (method, path, body) => {
-    const init = { method }
+  return (method, path, body, headers = {}) => {
+    const init = { method, headers: { ...headers } }
     if (body !== undefined) {
-      init.headers = { 'content-type': 'application/json' }
+      init.headers['content-type'] = 'application/json'
       init.body = JSON.stringify(body)
     }
     const request = new Request(`${origin}/api${path}`, init)
@@ -451,6 +451,16 @@ const imageUrlOf = (image) => (typeof image === 'string' ? image : image?.url)
 const indexOfPost = (posts, postId) => {
   const index = posts.findIndex((p) => p.id === postId)
   return index < 0 ? 'Post not found in this draft' : index
+}
+
+/**
+ * update_post: one REST PATCH of the post. The server reads, checks and writes in one transaction,
+ * so a concurrent edit cannot be overwritten (plan O1).
+ */
+async function updatePostText(ctx, args) {
+  const headers = args.version === undefined ? {} : { 'if-match': `"${args.version}"` }
+  const res = await ctx.rest('PATCH', `/drafts/${enc(args.id)}/posts/${enc(args.post_id)}`, { text: args.text }, headers)
+  return withDraftUrl(res, ctx.origin)
 }
 
 /** Runs a post edit and adds the editor link to the result. */
