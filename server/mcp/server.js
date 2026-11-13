@@ -6,8 +6,8 @@ import { runAs } from '../caller-context.js'
 import { callTool, hasTool, listTools } from './tools.js'
 
 const LATEST_VERSION = '2026-07-28'
-const SUPPORTED_VERSIONS = [LATEST_VERSION, '2025-11-25', '2025-06-18']
-const LEGACY_VERSIONS = ['2025-11-25', '2025-06-18']
+const SUPPORTED_VERSIONS = [LATEST_VERSION, '2025-11-25', '2025-06-18', '2025-03-26']
+const LEGACY_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26']
 
 const SERVER_INFO = { name: 'x-thread-draft-tool', version: '0.1.0' }
 const CAPABILITIES = { tools: {} }
@@ -67,7 +67,15 @@ function negotiateLegacy(requested) {
 /** A cross-origin browser request is refused before anything else. Returns a Response, or null to continue. */
 function checkOrigin(request, origin) {
   const requestOrigin = request.headers.get('origin')
-  if (requestOrigin !== null && requestOrigin !== origin) return reply({ error: 'Cross-origin request blocked' }, 403)
+  if (requestOrigin !== null && requestOrigin !== origin) {
+    // Log the host only, never the header value or any token.
+    try {
+      console.warn('[mcp] refused origin', new URL(requestOrigin).host)
+    } catch {
+      console.warn('[mcp] refused origin', '(unparseable)')
+    }
+    return reply({ error: 'Cross-origin request blocked' }, 403)
+  }
   return null
 }
 
@@ -104,10 +112,8 @@ function checkProtocolVersion(request, message, id) {
   if (headerVersion !== null && !SUPPORTED_VERSIONS.includes(headerVersion)) {
     return { response: rpcError(id, -32022, 'Unsupported protocol version', 400, { supported: SUPPORTED_VERSIONS }) }
   }
-  // Every request carries the header except the legacy initialize handshake (2025-06-18 and later).
-  if (headerVersion === null && message.method !== 'initialize') {
-    return { response: rpcError(id, -32600, 'The MCP-Protocol-Version header is required', 400) }
-  }
+  // No header means a legacy client (the 2025-03-26 rule: assume that version). An unknown header
+  // value is refused above.
   const modern = headerVersion === LATEST_VERSION
 
   if (modern) {

@@ -149,7 +149,7 @@ describe('transport', () => {
     expect(body.error.data.supported).toContain(MODERN)
   })
 
-  it('requires the version header on everything except initialize', async () => {
+  it('treats a request without the version header as 2025-03-26 (legacy), and still refuses an unknown value', async () => {
     const token = await accessToken(alice)
     const request = new Request(MCP, {
       method: 'POST',
@@ -157,8 +157,23 @@ describe('transport', () => {
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
     })
     const { status, body } = await call(request)
-    expect(status).toBe(400)
-    expect(body.error.code).toBe(-32600)
+    expect(status).toBe(200)
+    expect(body.result.tools.map((t) => t.name)).toContain('list_drafts')
+
+    const unknown = await route(legacyPost({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { token, headers: { 'mcp-protocol-version': '2030-01-01' } }))
+    expect((await unknown.json()).error.code).toBe(-32022)
+  })
+
+  it('initialize with 2025-03-26 answers 2025-03-26', async () => {
+    const token = await accessToken(alice)
+    const res = await route(
+      legacyPost(
+        { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 't', version: '1' } } },
+        { token, headers: { 'mcp-protocol-version': '2025-03-26' } }
+      )
+    )
+    expect(res.status).toBe(200)
+    expect((await res.json()).result.protocolVersion).toBe('2025-03-26')
   })
 
   it('answers a notification with 202 and no body', async () => {
@@ -236,7 +251,7 @@ describe('initialize, discovery and tools/list', () => {
     const token = await accessToken(alice)
     const { body } = await call(modernPost('server/discover', {}, { token }))
     expect(body.result.resultType).toBe('complete')
-    expect(body.result.supportedVersions).toEqual(['2026-07-28', '2025-11-25', '2025-06-18'])
+    expect(body.result.supportedVersions).toEqual(['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26'])
     expect(body.result.capabilities).toEqual({ tools: {} })
   })
 
