@@ -63,6 +63,11 @@ export async function cleanupExpired() {
   } catch (err) {
     console.error('[oauth] token cleanup failed', err)
   }
+  try {
+    await query(`delete from mcp_rate_limits where minute < now() - interval '1 day'`)
+  } catch (err) {
+    console.error('[mcp] rate limit cleanup failed', err)
+  }
 }
 
 /**
