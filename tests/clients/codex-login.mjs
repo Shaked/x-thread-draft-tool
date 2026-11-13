@@ -143,8 +143,11 @@ try {
     login.stdout.on('data', check)
     login.stderr.on('data', check)
   })
-  if (!prompted) fail(`codex did not ask for the callback URL: ${output.slice(-400)}`)
-  login.stdin.write(approved.location + '\n')
+  if (!prompted) fail(`codex did not ask for the callback URL: ${output.slice(-2000)}`)
+  // A browser would now GET the approved redirect. That request reaches Codex's own loopback listener,
+  // which is up while it waits for the callback. Pasting the URL on stdin did not complete the login in CI.
+  const delivered = await fetch(approved.location, { redirect: 'manual' }).catch((e) => e)
+  if (delivered instanceof Error) fail(`callback could not reach Codex's listener: ${delivered.message}`)
 
   const exitCode = await new Promise((resolve) => {
     const timer = setTimeout(() => resolve('timeout'), 60000)
@@ -153,8 +156,8 @@ try {
       resolve(code)
     })
   })
-  if (exitCode !== 0) fail(`codex mcp login exited with ${exitCode}: ${output.slice(-400)}`)
-  if (!SUCCESS_LINE.test(output)) fail(`no success line: ${output.slice(-400)}`)
+  if (exitCode !== 0) fail(`codex mcp login exited with ${exitCode}: ${output.slice(-2000)}`)
+  if (!SUCCESS_LINE.test(output)) fail(`no success line: ${output.slice(-2000)}`)
   console.log('PASS codex login: real Codex CLI completed OAuth against the local connector')
 } catch (err) {
   console.error(`FAIL codex login: ${err.message}`)
