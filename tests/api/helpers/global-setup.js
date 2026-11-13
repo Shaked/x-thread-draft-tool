@@ -3,7 +3,7 @@
 // then loads that snapshot instead of replaying all migrations. The snapshot is cached under
 // node_modules/.cache and keyed by a hash of db/migrations/*.sql, so a new migration rebuilds it.
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { closeSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PGlite } from '@electric-sql/pglite'
@@ -22,9 +22,20 @@ export function migrationsHash() {
   return hash.digest('hex')
 }
 
+// Opening the file is the check: no separate exists-then-use step (CodeQL js/file-system-race).
+function isCached(path) {
+  try {
+    closeSync(openSync(path, 'r'))
+    return true
+  } catch (error) {
+    if (error.code === 'ENOENT') return false
+    throw error
+  }
+}
+
 export default async function setup(project) {
   const path = join(CACHE_DIR, `pglite-${migrationsHash()}.tgz`)
-  if (!existsSync(path)) {
+  if (!isCached(path)) {
     const pg = new PGlite()
     await applyMigrations((text, params) =>
       params === undefined
@@ -33,7 +44,10 @@ export default async function setup(project) {
     )
     const dump = await pg.dumpDataDir('gzip')
     mkdirSync(CACHE_DIR, { recursive: true })
-    writeFileSync(path, Buffer.from(await dump.arrayBuffer()))
+    // Write under a private name, then rename, so a parallel run never reads a half-written file.
+    const temp = `${path}.${process.pid}.tmp`
+    writeFileSync(temp, Buffer.from(await dump.arrayBuffer()))
+    renameSync(temp, path)
     await pg.close()
   }
   project.provide('pgliteSnapshot', path)
