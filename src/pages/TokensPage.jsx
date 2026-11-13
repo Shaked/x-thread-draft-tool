@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { grantsApi, tokensApi } from '../utils/api'
+import { connectEntries } from '../utils/connectApps'
 import ThemeSetting from '../components/ThemeSetting'
 
 const EXPIRY_OPTIONS = [1, 3, 7]
@@ -9,6 +10,23 @@ const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : 'â
 
 // The MCP connector and the REST API are the two things an app can be connected to.
 const resourceLabel = (resource) => (resource.endsWith('/api/mcp') ? 'Agent connector' : 'API')
+
+function CopyButton({ text, label }) {
+  const [state, setState] = useState('idle')
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setState('copied')
+    } catch {
+      setState('failed')
+    }
+  }
+  return (
+    <button type="button" className="copy-btn" onClick={copy}>
+      {state === 'copied' ? 'Copied!' : state === 'failed' ? 'Copy failed' : label}
+    </button>
+  )
+}
 
 export default function TokensPage({ deployedAt, deployedAgo, deployCommit }) {
   const [tokens, setTokens] = useState([])
@@ -111,6 +129,23 @@ export default function TokensPage({ deployedAt, deployedAgo, deployCommit }) {
       <h1>API tokens</h1>
       <ThemeSetting />
 
+      <section className="connected-apps connect-apps" aria-labelledby="connect-apps-heading">
+        <h2 id="connect-apps-heading">Connect an AI app</h2>
+        <ul className="grant-list connect-app-list">
+          {connectEntries(`${window.location.origin}/api/mcp`).map((entry) => (
+            <li key={entry.id} className="grant-row connect-app-row">
+              <div>
+                <strong>{entry.name}</strong>
+                <div>{entry.hint}</div>
+                <code>{entry.copy}</code>
+              </div>
+              <CopyButton text={entry.copy} label={entry.copyLabel} />
+            </li>
+          ))}
+        </ul>
+        <p>You approve each app once with your GitHub sign-in. Remove it any time below.</p>
+      </section>
+
       <section className="connected-apps" aria-labelledby="connected-apps-heading">
         <h2 id="connected-apps-heading">Connected apps</h2>
         <p>
@@ -122,10 +157,7 @@ export default function TokensPage({ deployedAt, deployedAgo, deployCommit }) {
         {grantsLoading ? (
           <div className="loading">Loadingâ€¦</div>
         ) : grants.length === 0 ? (
-          <p>
-            No apps are connected. To connect an agent, add this address as its connector:{' '}
-            <code>{`${window.location.origin}/api/mcp`}</code>
-          </p>
+          <p>No apps are connected. To connect one, use Connect an AI app above.</p>
         ) : (
           <ul className="grant-list">
             {grants.map((grant) => {
