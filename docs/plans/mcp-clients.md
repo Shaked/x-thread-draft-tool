@@ -128,7 +128,7 @@ Do not edit `.claude/settings.json` or the script, except in M12 as written. Cod
 | G1 | Claude Code will be refused at authorize. Its metadata document lists `http://localhost/callback` and `http://127.0.0.1/callback` and it listens on a random port. Our match is exact (`client.redirect_uris.includes(redirectUri)` in `authorizeGet`). | Code read; Claude connector docs (section 9) | M1 |
 | G2 | The token endpoint refuses a code exchange without `resource`. A client that omits it cannot finish. | `exchangeCode` in `server/routes/oauth.js` | M1 |
 | G3 | A request without `MCP-Protocol-Version` gets 400. The 2025-06-18 text says to assume `2025-03-26`. `2025-03-26` is not in our list. | `checkProtocolVersion` | M2 |
-| G4 | No real client has ever connected. Owner action O7 of the old runbook was never done. | Ledger issue #60 | M11 |
+| G4 | Client behaviour was never tested end to end. It is now proven by contract tests with mocks, not by a person. | `tests/api/mcp-clients.test.js`, `tests/api/mcp-contract.test.js`, `.claude/skills/e2e-contract-tests.md` | M11 |
 | G5 | Tools have no `title` and incomplete annotations. ChatGPT and Claude use them to decide what needs a confirmation. | `listTools()` output | M3 |
 | G6 | `create_share_link` returns a bare token, not a link. Draft results carry no link to the editor. | `createShareToken` returns `{ token }` | M3 |
 | G7 | Not reachable through MCP: who am I, remove an image, attach an uploaded image to a post. | Route list vs tool list | M4 |
@@ -139,12 +139,11 @@ Do not edit `.claude/settings.json` or the script, except in M12 as written. Cod
 | G12 | Setup text for the four clients exists nowhere. The deployed smoke test does not touch MCP. | `docs/agents/api.md`, `scripts/smoke.mjs` | M9, M10 |
 
 **Not checked** (find out in the step named): whether ChatGPT or Codex send an `Origin` header
-(M2 adds a log line; M11 reads it). Whether `PUBLIC_APP_URL` is set in production (M9, item 1).
+(M2 adds a log line; read it when a client fails in the field, M11 item 5). Whether `PUBLIC_APP_URL` is set in production (M9, item 1).
 
-**Where real clients can be tested.** Production only (`https://x-thread-draft-tool.vercel.app`).
-The preview cannot sign in with GitHub (old owner action O1) and sits behind Vercel Authentication
-(old O2). So a real-client test needs Shaked: it needs a human GitHub sign-in inside each app.
-The executor never waits for it (step M11).
+**How client behaviour is tested.** Contract tests only. `tests/api/mcp-clients.test.js` and `tests/api/mcp-contract.test.js` run each
+client profile through the router with mocks: no real client binary, no account sign-in, no paid
+LLM call, no person. The design rules are in `.claude/skills/e2e-contract-tests.md`.
 
 ---
 
@@ -171,12 +170,12 @@ The executor never waits for it (step M11).
 | D-1 | Loopback redirect URIs match with the port ignored (RFC 8252 section 7.3). Everything else stays an exact match. The token exchange still compares against the exact URI stored with the code. | G1. A loopback port cannot be registered ahead of time. |
 | D-2 | `resource` is optional at the token endpoint. Absent means "the resource the code (or refresh token) was issued for". Present and different stays `invalid_target`. | G2. The code is already bound at authorize, so nothing is widened. |
 | D-3 | A request with no `MCP-Protocol-Version` header is handled as `2025-03-26`. `2025-03-26` joins the legacy list. A header with an unknown value stays an error. | G3. |
-| D-4 | The Origin check on `/api/mcp` stays. M2 only adds a log line. If M11 shows a client blocked by it, P-OPUS decides. | The check is cheap and the four clients call from servers or CLIs. |
+| D-4 | The Origin check on `/api/mcp` stays. M2 only adds a log line. If a client is blocked by it (M11 item 5), P-OPUS decides. | The check is cheap and the four clients call from servers or CLIs. |
 | D-5 | Images: `add_image_from_url` only. No upload of raw bytes through MCP. | A model cannot send megabytes of base64, and the MCP body limit is 1 MB. Decided exception. |
 | D-6 | No MCP prompts, no resources, no `search`/`fetch` tools, no UI widgets. Tools only. | All four clients support tools. Follow-up, not this plan. |
 | D-7 | Tool calls: at most 120 per user per minute, counted in Postgres. | G11. No new service. |
 | D-8 | Post tools refuse a published draft and never change `images` or `embeddedTweet` of a post they do not target. | G8. |
-| D-9 | Real-client tests are owner actions. A step never waits for them. | G4. |
+| D-9 | Client behaviour is proven by contract tests with mocks. No step needs a person or a real client. | G4. |
 | D-10 | Client setup facts in section 9 were read on 2026-11-12. Before writing them into docs (M9), open each client's own documentation and correct what changed. Write "checked <date>" next to each. | Client UIs change often. |
 
 **Allowed writes.** As in the runbook's section 2.4, plus: create and edit the ledger issue; the
@@ -201,7 +200,7 @@ The live copy is the ledger's "Steps" table. This is the starting state.
 | M8 | Tool-call rate limit | G11 | todo | M5 | merged, production READY, smoke green |
 | M9 | `docs/agents/mcp.md`, README, `llms.txt`, smoke steps for MCP discovery | G12 | todo | M5 | merged; smoke shows the new steps PASS on production |
 | M10 | Settings page: "Connect an AI app" with the four recipes | G12 | todo | M9 | merged, look `APPROVE` (P-UI-REVIEW) |
-| M11 | Real-client check list for Shaked; fix what the logs show | G4 | todo | M9 | check list posted; every reported failure fixed or parked |
+| M11 | Client contract suite, refresh resource fix, SDK client test | G4 | todo | M9 | contract suite and SDK test green in CI; refresh fix merged |
 | M12 | Finish: docs, switch the hook off, final ledger | none | todo | all above | merged; ledger final |
 
 M7 is independent of M3 to M6. Take it while another PR waits.
@@ -419,22 +418,20 @@ Every code step uses the same frame. It is not repeated below.
 3. Unit test for the copy text; update the screenshot harness if the page is in it.
    P-PREVIEW, P-UI-REVIEW at 390 px and desktop, light and dark. Frame B.
 
-### M11. Real clients
-**Done when:** the check list is posted; every failure Shaked reports is fixed or parked.
+### M11. Client contract suite
+**Done when:** items 1 to 4 are merged and green in CI, with no real client, no person and no LLM call.
 
-1. Post one comment on the ledger issue, titled "Real-client check (owner action OM-1 to OM-4)". For
-   each of the four clients: the recipe from `docs/agents/mcp.md`, then these five requests to type,
-   then "write `<client>: ok` or paste the error here":
-   1. "List my drafts."
-   2. "Turn this text into a thread draft titled MCP test: <three sentences>."
-   3. "Change the second post to say: edited by MCP."
-   4. "Give me a one-time share link for it."
-   5. "Delete that draft." Then, one hour later: "List my drafts." (this checks the refresh).
-2. Add OM-1 to OM-4 to the ledger's Owner actions. Do not wait. Go to M12's items that do not depend on this.
-3. When Shaked reports a failure: read the production runtime logs for `/api/mcp` and `/api/oauth/`
-   around that time (Vercel `get_runtime_logs`). Reproduce it as a failing profile in
-   `tests/api/mcp-clients.test.js` first, then fix it in its own PR (Frame A, Frame B). If the fix
-   would break a rule S-1 to S-6: P-OPUS.
+1. Add the wire-level checks from `.claude/skills/e2e-contract-tests.md` in a new file `tests/api/mcp-contract.test.js`:
+   a spec-following mock client (discovery from `WWW-Authenticate`, endpoints only from metadata,
+   `state`, `iss` and the exact loopback port on the redirect), token fields and `cache-control: no-store`,
+   refresh rotation at the wire level, error bodies. The 2026-07-28 transport stays covered by `tests/api/mcp.test.js`.
+2. Refresh ignores `resource` today (`server/routes/oauth.js`, `rotate` in `server/oauth/tokens.js`).
+   Fix it in its own PR, with a test that a wrong `resource` gets `invalid_target`.
+3. Each tool's `inputSchema` compiles as strict JSON Schema (ajv 8.20.0 and ajv-formats 3.0.1, exact devDependencies).
+4. The official MCP TypeScript SDK client (`@modelcontextprotocol/sdk` 1.32.2, exact devDependency), with its fetch set to the in-process `route()`, runs discovery, registration, authorize with scripted consent, token, initialize, tools/list, one tools/call and refresh, in `tests/api/mcp-sdk-client.test.js`. Own PR, after item 1.
+5. When a client fails in the field: add its profile to the contract suite first, reproduce the failure
+   there, then fix the server in its own PR (Frame A, Frame B). If the fix would break a rule S-1 to S-6: P-OPUS.
+6. No test in this plan calls an LLM, a real client app or a person.
 
 ### M12. Finish
 1. `docs/plans/current.md`: move this plan to "Completed / in place". Update `docs/features/platform-and-auth.md`.
@@ -446,15 +443,8 @@ Every code step uses the same frame. It is not repeated below.
 
 ## 7. What Shaked has to do
 
-Nothing here stops a step. Everything is also in the ledger once M0 is done.
-
-| ID | What to do | Where | What it gives |
-|---|---|---|---|
-| OM-1 | Connect Claude and run the five requests | claude.ai, Settings, Connectors, Add custom connector | Proof that Claude works |
-| OM-2 | Connect Claude Code and run the five requests | Terminal | Proof that Claude Code works (G1) |
-| OM-3 | Connect Codex and run the five requests | Terminal | Proof that Codex works |
-| OM-4 | Connect ChatGPT and run the five requests | chatgpt.com, Settings, Apps and connectors, Developer mode | Proof that ChatGPT works |
-| OM-5 | Optional: old O1 (a GitHub OAuth App for the preview) | GitHub and Vercel | Real-client tests on the preview before production |
+Nothing for the client tests. They are contract tests and need no person. (The earlier manual
+checks OM-1 to OM-5 were removed on 2026-11-13.)
 
 ---
 
@@ -463,7 +453,7 @@ Nothing here stops a step. Everything is also in the ledger once M0 is done.
 - M0 to M12 are `done` (M6 may be `done (no change)`, M7 may be parked by Opus).
 - `npm run test:unit` is green on `main`, including `mcp-clients` and `mcp-coverage`.
 - Production is READY with a passing smoke test that includes the MCP discovery steps.
-- OM-1 to OM-4 are reported `ok`, or each failure has a ledger line with its fix or its reason.
+- The client contract suite is green in CI (no owner action).
 - Rules S-1 to S-6 hold; `tests/api/mcp.test.js` "authentication on /api/mcp" passes unedited.
 
 ---
