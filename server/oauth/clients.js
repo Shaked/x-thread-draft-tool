@@ -5,9 +5,8 @@
 //   client_id is an https URL that serves the client's metadata. The spec's preferred method.
 import { randomBytes } from 'node:crypto'
 import { lookup as dnsLookup } from 'node:dns/promises'
-import { isIP } from 'node:net'
 import { query } from '../db.js'
-import { isPrivateAddress } from '../remote-image.js'
+import { pinnedFetch } from '../remote-image.js'
 
 const CLIENT_PREFIX = 'xtc_'
 const MAX_REDIRECT_URIS = 5
@@ -192,24 +191,12 @@ async function readCapped(response, maxBytes) {
  */
 async function fetchMetadataDocument(clientId) {
   const url = new URL(clientId)
-  const hostname = url.hostname.replace(/^\[(.*)\]$/, '$1')
-  let addresses
-  try {
-    addresses = isIP(hostname) ? [{ address: hostname }] : await lookup(hostname, { all: true })
-  } catch {
-    return null
-  }
-  if (addresses.length === 0 || addresses.some((entry) => isPrivateAddress(entry.address))) return null
 
   let response
   try {
-    response = await fetch(url, {
-      redirect: 'manual',
-      signal: AbortSignal.timeout(METADATA_TIMEOUT_MS),
-      headers: { accept: 'application/json' }
-    })
+    response = await pinnedFetch(url, { resolve: lookup, timeoutMs: METADATA_TIMEOUT_MS, headers: { accept: 'application/json' } })
   } catch {
-    return null
+    return null // DNS failure, a private address, or a network error: no metadata
   }
   if (!response.ok) return null // includes 3xx: redirects are not followed
   const type = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
