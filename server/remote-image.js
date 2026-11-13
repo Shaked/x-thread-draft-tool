@@ -1,9 +1,10 @@
 // Server-side image fetch for POST /api/images/from-url (replaces the browser CORS path).
 // SSRF guard: only http(s); every resolved address must be public; redirects are refused;
-// 10 s timeout; image content type; at most 4 MB.
-// Known limit: DNS rebinding between the resolution check and the fetch is not prevented.
+// 10 s timeout; image content type; at most 4 MB. The connection uses the checked address
+// (pinnedFetch), so a DNS rebind after the check cannot reach a private address.
 import { lookup as dnsLookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
+import { Agent } from 'undici'
 import { HttpError } from './http.js'
 
 const MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024
@@ -67,11 +68,31 @@ function parseRemoteUrl(input) {
   return url
 }
 
-async function assertPublicHost(url) {
-  const hostname = url.hostname.replace(/^\[(.*)\]$/, '$1')
-  const addresses = isIP(hostname) ? [{ address: hostname }] : await lookup(hostname, { all: true })
+class AddressRefusedError extends Error {}
+
+/**
+ * Resolves the host once, refuses if any address is private, and connects only to the first checked
+ * address. TLS (SNI and the certificate) still uses url.hostname. Redirects are returned, not followed.
+ * `resolve` is the caller's own DNS lookup (each caller keeps its test hook).
+ */
+export async function pinnedFetch(url, { resolve, timeoutMs, headers }) {
+  const host = url.hostname.replace(/^\[(.*)\]$/, '$1')
+  const addresses = isIP(host) ? [{ address: host }] : await resolve(host, { all: true })
   if (addresses.length === 0 || addresses.some((entry) => isPrivateAddress(entry.address))) {
-    throw new HttpError(400, 'That address is not allowed')
+    throw new AddressRefusedError('That address is not allowed')
+  }
+  const address = addresses[0].address
+  const family = isIP(address)
+  const dispatcher = new Agent({
+    connect: {
+      lookup: (_name, options, callback) =>
+        options && options.all ? callback(null, [{ address, family }]) : callback(null, address, family)
+    }
+  })
+  try {
+    return await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(timeoutMs), headers, dispatcher })
+  } finally {
+    dispatcher.close().catch(() => {})
   }
 }
 
@@ -102,16 +123,12 @@ async function readImageBody(response) {
 
 export async function fetchRemoteImage(input) {
   const url = parseRemoteUrl(input)
-  await assertPublicHost(url)
 
   let response
   try {
-    response = await fetch(url, {
-      redirect: 'manual',
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { accept: 'image/*' }
-    })
-  } catch {
+    response = await pinnedFetch(url, { resolve: lookup, timeoutMs: TIMEOUT_MS, headers: { accept: 'image/*' } })
+  } catch (err) {
+    if (err instanceof AddressRefusedError) throw new HttpError(400, err.message)
     throw new HttpError(502, 'Could not fetch the image')
   }
   if (response.status >= 300 && response.status < 400) throw new HttpError(400, 'Redirects are not followed')
