@@ -27,7 +27,6 @@ connecting, adds the missing tools, hardens two weak spots, and makes setup one 
 
 A hook prints this card at session start and after every context summary (section 2, "Hook").
 
-<!-- RULES-CARD:START -->
 MCP RUNBOOK RULES CARD (docs/plans/mcp-clients.md). Applies only if you were asked to execute that plan.
 1. Run the Checkpoint (plan section 2) at session start, after every step, on every wake-up, after a context summary, and before every merge.
 2. The ledger issue "MCP clients: run ledger" is your memory. Its first table row "NOW" says where you are. Rewrite it after every step and before you end a turn.
@@ -39,7 +38,6 @@ MCP RUNBOOK RULES CARD (docs/plans/mcp-clients.md). Applies only if you were ask
 8. Never print, paste or commit a secret. Never change GitHub, Vercel or Neon settings.
 9. Security rules of plan section 4 (S-1 to S-6) are not negotiable. A change that breaks one is wrong even if a client then connects.
 10. Run `date -u` for the time. No model names in commits, PR text or code.
-<!-- RULES-CARD:END -->
 
 ---
 

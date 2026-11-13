@@ -6,4 +6,5 @@
 - Session: signed HS256 cookie `xt_session` (HttpOnly, Secure, SameSite=Lax, 30 days). The GitHub token is not stored.
 - Owner-only writes are filtered by the session user id in every query; a non-owner gets 404.
 - Deployment metadata visibility.
+- Settings page (`/settings/tokens`): "Connect an AI app" lists the four clients with copy buttons; "Connected apps" lists and revokes them.
 - MCP connector at `/api/mcp` (OAuth 2.1 with PKCE, rotating refresh tokens). Setup and tools: [docs/agents/mcp.md](../agents/mcp.md).
