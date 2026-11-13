@@ -25,7 +25,9 @@ export async function setupTestDb() {
     pg,
     /** Empties every table; call between tests. */
     async reset() {
-      await pg.exec('truncate share_tokens, drafts, users cascade')
+      // delete (not truncate): every dependent table references users with on delete cascade, and a
+      // delete costs well under 1 ms where a truncate costs 7-30 ms in PGlite, once per test.
+      await pg.exec('delete from users')
     },
     async insertUser(overrides = {}) {
       const user = {

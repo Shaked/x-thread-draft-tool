@@ -37,7 +37,7 @@ function failWhen(pattern) {
 beforeEach(async () => {
   setQueryImpl(passthrough)
   await db.reset()
-  await db.pg.exec('truncate oauth_clients cascade')
+  await db.pg.exec('delete from oauth_clients')
   await db.pg.query("insert into oauth_clients (client_id, kind, client_name) values ($1, 'registered', 'Test'), ($2, 'registered', 'Other')", [
     CLIENT,
     OTHER_CLIENT
