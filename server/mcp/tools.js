@@ -190,6 +190,69 @@ const TOOLS = [
     }
   },
   {
+    name: 'add_post',
+    description: 'Add one post to a draft. Without after_post_id it goes last; with it, the post goes right after that one.' + CONTENT_NOTE,
+    inputSchema: {
+      type: 'object',
+      properties: { id: UUID, text: { type: 'string', maxLength: 280 }, after_post_id: { type: 'string' } },
+      required: ['id', 'text']
+    },
+    run: (args, ctx) =>
+      postEdit(ctx, args.id, (posts) => {
+        const post = { id: randomUUID(), text: args.text, images: [], embeddedTweet: null }
+        if (args.after_post_id === undefined) return { posts: [...posts, post] }
+        const index = posts.findIndex((p) => p.id === args.after_post_id)
+        if (index < 0) return 'after_post_id is not a post in this draft'
+        return { posts: [...posts.slice(0, index + 1), post, ...posts.slice(index + 1)] }
+      })
+  },
+  {
+    name: 'update_post',
+    description: 'Change the text of one post. Its images and embedded tweet stay as they are.' + CONTENT_NOTE,
+    inputSchema: {
+      type: 'object',
+      properties: { id: UUID, post_id: { type: 'string' }, text: { type: 'string', maxLength: 280 } },
+      required: ['id', 'post_id', 'text']
+    },
+    run: (args, ctx) =>
+      postEdit(ctx, args.id, (posts) => {
+        const index = indexOfPost(posts, args.post_id)
+        if (typeof index === 'string') return index
+        return { posts: posts.map((p, i) => (i === index ? { ...p, text: args.text } : p)) }
+      })
+  },
+  {
+    name: 'remove_post',
+    description: 'Remove one post from a draft. A draft keeps at least one post. Images only that post used are deleted.' + CONTENT_NOTE,
+    inputSchema: { type: 'object', properties: { id: UUID, post_id: { type: 'string' } }, required: ['id', 'post_id'] },
+    run: (args, ctx) =>
+      postEdit(ctx, args.id, (posts) => {
+        const index = indexOfPost(posts, args.post_id)
+        if (typeof index === 'string') return index
+        if (posts.length === 1) return 'A draft keeps at least one post.'
+        return { posts: posts.filter((_, i) => i !== index), removedImages: postImageUrls(posts[index]) }
+      })
+  },
+  {
+    name: 'move_post',
+    description: 'Move one post to a new position (1 is the first post).' + CONTENT_NOTE,
+    inputSchema: {
+      type: 'object',
+      properties: { id: UUID, post_id: { type: 'string' }, position: { type: 'integer', minimum: 1 } },
+      required: ['id', 'post_id', 'position']
+    },
+    run: (args, ctx) =>
+      postEdit(ctx, args.id, (posts) => {
+        const index = indexOfPost(posts, args.post_id)
+        if (typeof index === 'string') return index
+        if (args.position > posts.length) return `position must be from 1 to ${posts.length}`
+        const moved = posts.slice()
+        const [post] = moved.splice(index, 1)
+        moved.splice(args.position - 1, 0, post)
+        return { posts: moved }
+      })
+  },
+  {
     name: 'publish_draft',
     description: 'Publish one of your drafts. This deletes its images and clears them from the posts.',
     inputSchema: ID_ONLY,
@@ -226,6 +289,10 @@ const META = {
   add_image_from_url: ['Add image from URL', false, false, false, true],
   publish_draft: ['Publish draft', false, true, true, false],
   delete_draft: ['Delete draft', false, true, true, false],
+  add_post: ['Add post', false, false, false, false],
+  update_post: ['Update post', false, false, true, false],
+  remove_post: ['Remove post', false, true, false, false],
+  move_post: ['Move post', false, false, true, false],
   whoami: ['Who am I', true, false, true, false],
   create_thread_from_text: ['Create thread from text', false, false, false, false],
   remove_image: ['Remove image', false, true, true, false]
@@ -245,6 +312,10 @@ const REST_ROUTES = {
   add_image_from_url: ['POST /images/from-url', 'GET /drafts/:id', 'PATCH /drafts/:id'],
   publish_draft: ['POST /drafts/:id/publish'],
   delete_draft: ['DELETE /drafts/:id'],
+  add_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
+  update_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
+  remove_post: ['GET /drafts/:id', 'PATCH /drafts/:id', 'GET /drafts', 'DELETE /images'],
+  move_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
   whoami: ['GET /auth/me'],
   create_thread_from_text: ['POST /threads/split', 'POST /drafts'],
   remove_image: ['GET /drafts', 'PATCH /drafts/:id', 'DELETE /images']
@@ -374,6 +445,42 @@ async function withDraftUrl(res, origin) {
 
 /** An image entry is a string (older drafts) or an object with a url. Both are supported. */
 const imageUrlOf = (image) => (typeof image === 'string' ? image : image?.url)
+
+/** Index of a post in the draft, or the error text when it is not there. */
+const indexOfPost = (posts, postId) => {
+  const index = posts.findIndex((p) => p.id === postId)
+  return index < 0 ? 'Post not found in this draft' : index
+}
+
+/** Runs a post edit and adds the editor link to the result. */
+async function postEdit(ctx, id, change) {
+  return withDraftUrl(await editPosts(ctx, id, change), ctx.origin)
+}
+
+/** The image urls of one post (string or { url } entries). */
+const postImageUrls = (post) => (post.images ?? []).map(imageUrlOf).filter((url) => typeof url === 'string' && url.length > 0)
+
+/**
+ * Edits the posts of one of the caller's drafts. `change(posts)` returns { posts, removedImages? }
+ * or an error text. A published draft is refused: the post tools never change a published draft.
+ * The REST PATCH is the only writer. Images of removed posts are deleted only when they are the
+ * caller's own and no draft still uses them (same rule as remove_image).
+ */
+async function editPosts(ctx, id, change) {
+  const owned = await fetchOwnedDraft(ctx, id)
+  if (owned.failure) return owned.failure
+  if (owned.draft.is_published) return json({ error: 'This draft is published. Duplicate it to edit.' }, 409)
+  const edited = change(owned.draft.posts)
+  if (typeof edited === 'string') return json({ error: edited }, 422)
+  const patched = await ctx.rest('PATCH', `/drafts/${enc(id)}`, { posts: edited.posts })
+  if (patched.status >= 400) return patched
+  for (const url of edited.removedImages ?? []) {
+    if (isOwnedBlobUrl(url, ctx.caller.uid) && !(await stillReferenced(ctx, url))) {
+      await ctx.rest('DELETE', '/images', { url })
+    }
+  }
+  return patched
+}
 
 /**
  * True when any draft of the caller (published or not, duplicates included) still uses `url`.
