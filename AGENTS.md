@@ -21,6 +21,13 @@ Short on purpose. Read it at the start of every session and after every context 
 - Waiting: never `sleep`-poll and never re-check the same thing in one turn. Schedule one wake-up and
   end the turn.
 
+### End-to-end work and human steps
+- When Shaked asks for something end-to-end, use Opus (Agent tool, model "opus") to design the resolution before you start, and say in your reply that Opus did. Opus does not get the final say on owner-only decisions.
+- An end-to-end test must run without a person. If the test needs a human to sign in to a client, click consent, or type into an app, the test is wrong. Stop, ask Opus to redesign it as an automated test (protocol-level client, Playwright-driven flow, recorded fixture, or a scripted SDK client against the deployed endpoint), and state that Opus did the redesign.
+- A human may set up configuration in GitHub Actions (secrets, environment variables, branch rules). That is acceptable only when no automated route exists. Say which automated route you checked and why it does not work.
+- When a human step is still needed, write it once, in the template below, with the exact steps and the exact reply that unblocks it. Do not restate the whole owner list in each reply. Say what happens if nobody acts (for example, the item stays open and the plan is not finished).
+- Never end a turn with "waiting" or "the finish line is not met" alone. Say what you did, what you could not do, and the one thing that would let you continue.
+
 ### Reporting to Shaked (owner)
 - Number every item: task numbers (for example `Task 34`), ledger items (`O1` to `O15`) and PR numbers (`#76`). Never refer to a step by description alone.
 - When something needs Shaked, answer in this template, with one line on what is done first:
