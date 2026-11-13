@@ -7,7 +7,7 @@ import { HttpError, json, readJson } from '../http.js'
 import { readSession } from '../session.js'
 import { hashToken } from '../tokens.js'
 import { OAuthError, SCOPE, cleanupExpired, insertPair, rotate } from '../oauth/tokens.js'
-import { getClient, isValidRedirectUriList, registerClient } from '../oauth/clients.js'
+import { getClient, isValidRedirectUriList, redirectUriAllowed, registerClient } from '../oauth/clients.js'
 import {
   consentHeaders,
   consentPage,
@@ -177,7 +177,7 @@ async function authorizeGet({ request, url }) {
     return htmlError(400, 'Unknown app', 'This app is not recognized, so nothing was approved. Start again from the app.')
   }
   const redirectUri = params.get('redirect_uri')
-  if (!redirectUri || !client.redirect_uris.includes(redirectUri)) {
+  if (!redirectUri || !redirectUriAllowed(client.redirect_uris, redirectUri)) {
     return htmlError(400, 'Wrong return address', 'The app asked to return to an address it did not register. Nothing was approved.')
   }
 
@@ -286,9 +286,10 @@ async function exchangeCode(form) {
   const redirectUri = form.get('redirect_uri')
   const clientId = form.get('client_id')
   const verifier = form.get('code_verifier')
+  // `resource` is optional (D-2). Absent (null) means the resource the code was issued for.
   const resource = form.get('resource')
-  if (!code || !redirectUri || !clientId || !verifier || !resource) {
-    throw new OAuthError('invalid_request', 'code, redirect_uri, client_id, code_verifier and resource are required')
+  if (!code || !redirectUri || !clientId || !verifier) {
+    throw new OAuthError('invalid_request', 'code, redirect_uri, client_id and code_verifier are required')
   }
   if (!PKCE_VERIFIER.test(verifier)) throw invalidCode()
 
@@ -309,12 +310,12 @@ async function exchangeCode(form) {
     row.client_id === clientId && row.redirect_uri === redirectUri && pkceMatches(verifier, row.code_challenge)
   if (row.used_at) {
     // Only a request that presents the code's bindings (a genuine replay by the legitimate client) revokes.
-    if (bindingsMatch && resource === row.resource) await revokeGrant(row.grant_id)
+    if (bindingsMatch && (resource === null || resource === row.resource)) await revokeGrant(row.grant_id)
     throw invalidCode()
   }
   if (!row.fresh || row.revoked_at) throw invalidCode()
   if (!bindingsMatch) throw invalidCode()
-  if (resource !== row.resource) {
+  if (resource !== null && resource !== row.resource) {
     throw new OAuthError('invalid_target', 'The resource does not match the one the code was issued for', 400)
   }
 
