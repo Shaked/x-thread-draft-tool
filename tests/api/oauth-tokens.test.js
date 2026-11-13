@@ -245,6 +245,22 @@ describe('rotating a refresh token', () => {
     await expect(rotate(pair.refresh_token, CLIENT)).resolves.toMatchObject({ token_type: 'Bearer' })
   })
 
+  it('a refresh with another resource is invalid_target, and the token is not spent', async () => {
+    const pair = await issuePair(await newGrant({ resource: API }))
+    const refused = rotate(pair.refresh_token, CLIENT, `${APP_URL}/api/other`)
+    await expect(refused).rejects.toBeInstanceOf(OAuthError)
+    await expect(refused).rejects.toMatchObject({ code: 'invalid_target', status: 400 })
+    const { rows } = await db.pg.query('select used_at from oauth_tokens where token_hash = $1', [sha256(pair.refresh_token)])
+    expect(rows[0].used_at).toBeNull()
+    await expect(rotate(pair.refresh_token, CLIENT)).resolves.toMatchObject({ token_type: 'Bearer' })
+  })
+
+  it('a refresh with the grant resource, or with no resource, works', async () => {
+    const first = await issuePair(await newGrant({ resource: API }))
+    const second = await rotate(first.refresh_token, CLIENT, API)
+    await expect(rotate(second.refresh_token, CLIENT)).resolves.toMatchObject({ token_type: 'Bearer' })
+  })
+
   it('a revoked grant cannot rotate, and the token is not spent', async () => {
     const grantId = await newGrant()
     const pair = await issuePair(grantId)

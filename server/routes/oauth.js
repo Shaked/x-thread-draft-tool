@@ -352,7 +352,7 @@ async function token({ request }) {
     if (grantType === 'refresh_token') {
       const clientId = form.get('client_id')
       if (!clientId) throw new OAuthError('invalid_request', 'client_id is required')
-      return json(await rotate(form.get('refresh_token'), clientId))
+      return json(await rotate(form.get('refresh_token'), clientId, form.get('resource')))
     }
     return tokenError(400, 'unsupported_grant_type', 'grant_type must be authorization_code or refresh_token')
   } catch (err) {
