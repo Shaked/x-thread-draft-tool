@@ -45,6 +45,33 @@ export function isValidRedirectUriList(value) {
   return Array.isArray(value) && value.length >= 1 && value.length <= MAX_REDIRECT_URIS && value.every(isValidRedirectUri)
 }
 
+/**
+ * True when `requested` may be used with a client that registered `registered`. An exact match
+ * always works. A loopback URI (localhost or 127.0.0.1, http) also matches a registered loopback
+ * URI with the same host, path and query, whatever the port (RFC 8252, section 7.3). Nothing else
+ * matches: https URIs are exact.
+ */
+export function redirectUriAllowed(registered, requested) {
+  if (registered.includes(requested)) return true
+  if (!isValidRedirectUri(requested)) return false
+  const wanted = new URL(requested)
+  if (wanted.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(wanted.hostname)) return false
+  return registered.some((uri) => {
+    let known
+    try {
+      known = new URL(uri)
+    } catch {
+      return false
+    }
+    return (
+      known.protocol === 'http:' &&
+      known.hostname === wanted.hostname &&
+      known.pathname === wanted.pathname &&
+      known.search === wanted.search
+    )
+  })
+}
+
 /** A client_id that is an https URL with a path (the metadata document lives there). */
 function isMetadataUrl(value) {
   if (typeof value !== 'string' || value.length > 2048 || value.includes('#')) return false
