@@ -68,7 +68,7 @@ function parseRemoteUrl(input) {
   return url
 }
 
-export class AddressRefusedError extends Error {}
+class AddressRefusedError extends Error {}
 
 /**
  * Resolves the host once, refuses if any address is private, and connects only to the first checked
