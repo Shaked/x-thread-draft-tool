@@ -312,7 +312,7 @@ Every code step uses the same frame. It is not repeated below.
    | `whoami` | none | `GET /auth/me`; returns the login only | true/false/true/false |
    | `create_thread_from_text` | `text` (required), `title`, `max_chars` | `POST /threads/split`, then `POST /drafts` with the posts (`withPostIds`) | false/false/false/false |
    | `add_image_from_url` | adds optional `postId` | With `postId`: first read the owned draft, refuse an unknown post or one with 4 images, then upload, then `PATCH` the draft with `{ url }` appended to that post | unchanged |
-   | `remove_image` | `draftId`, `url` (both required) | Read the owned draft; `PATCH` it without that url in any post; then `DELETE /images` with `{ url }` | false/true/true/false |
+   | `remove_image` | `draftId`, `url` (both required) | Read the owned draft; `PATCH` it without that url in any post; then `DELETE /images` with `{ url }` only if no other draft of the user (duplicates included) and no remaining post still uses that url. Same check as `deletableImageUrls` in `server/routes/drafts.js`. | false/true/true/false |
 
    `whoami` not checked: confirm in `server/session.js` that the in-process caller satisfies `/auth/me`. If not, P-OPUS.
 2. Give every tool a `rest` field: the list of REST routes it covers, for example `['POST /drafts']`.
@@ -343,7 +343,7 @@ Every code step uses the same frame. It is not repeated below.
    |---|---|---|
    | `add_post` | `id`, `text`, optional `after_post_id` | New post with a fresh id, `images: []`, `embeddedTweet: null`. Without `after_post_id` it goes last. Unknown `after_post_id`: error. |
    | `update_post` | `id`, `post_id`, `text` | Changes `text` only. Images and embedded tweet stay. |
-   | `remove_post` | `id`, `post_id` | Removes the post. Refuse to remove the last post. Its images: delete each with `DELETE /images` after the PATCH succeeds. |
+   | `remove_post` | `id`, `post_id` | Removes the post. Refuse to remove the last post. Its images: after the PATCH succeeds, delete each with `DELETE /images` only if no other draft and no remaining post uses that url (same check as `deletableImageUrls`). |
    | `move_post` | `id`, `post_id`, `position` (1-based) | Moves the post. Out of range: error. |
 
    Hints: all `readOnlyHint: false`, `openWorldHint: false`; `remove_post` `destructiveHint: true`;
