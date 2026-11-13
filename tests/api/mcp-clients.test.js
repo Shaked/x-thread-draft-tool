@@ -322,3 +322,31 @@ describe('authorize and token checks', () => {
     expect(call.result.isError).not.toBe(true)
   })
 })
+
+// ---- legacy clients without the version header (M2) -------------------------------------------
+
+describe('codex without the version header (M2)', () => {
+  it('a POST with no MCP-Protocol-Version header is served as 2025-03-26 after a token is issued', async () => {
+    const clientId = await registerClient({ client_name: 'Codex', redirect_uris: ['http://127.0.0.1:1455/callback'] })
+    const pair = pkce()
+    const code = await approve(clientId, { redirectUri: 'http://127.0.0.1:1455/callback', challenge: pair.challenge })
+    const issued = await exchange({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: 'http://127.0.0.1:1455/callback',
+      client_id: clientId,
+      code_verifier: pair.verifier
+    })
+    expect(issued.status).toBe(200)
+    const { access_token } = await issued.json()
+    const res = await route(
+      new Request(MCP, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${access_token}` },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
+      })
+    )
+    expect(res.status).toBe(200)
+    expect((await res.json()).result.tools.map((t) => t.name)).toContain('list_drafts')
+  })
+})
