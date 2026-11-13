@@ -2,7 +2,7 @@
 // `claude mcp login --no-browser` prints the authorize URL and waits for a loopback redirect.
 // This script makes the same requests a browser would (sign-in with the fake GitHub callback,
 // then the consent form), and sends the approved redirect to Claude Code's real listener.
-// Exits 0 only if Claude Code reports a successful login.
+// Exits 0 only if Claude Code exits 0 and prints its explicit success line.
 import { spawn, execFileSync } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -12,10 +12,12 @@ const PORT = Number(process.env.XT_CLIENT_PORT || 8790)
 const BASE = `http://127.0.0.1:${PORT}`
 const HOME = mkdtempSync(path.join(tmpdir(), 'xt-claude-home-'))
 const env = { ...process.env, HOME, BROWSER: '/bin/true' }
+// Claude Code's own success line. A failure prints something else (for example "Authentication failed").
+const SUCCESS_LINE = /Authenticated with "x-thread"/
 
+// Throws instead of exiting, so the finally block below always stops the child processes.
 function fail(message) {
-  console.error(`FAIL claude-code login: ${message}`)
-  process.exit(1)
+  throw new Error(message)
 }
 
 // A cookie jar for one origin: keeps Set-Cookie values and sends them back.
@@ -67,6 +69,7 @@ const server = spawn('node', ['scripts/dev-api.mjs', '--fake-github'], {
   stdio: ['ignore', 'pipe', 'pipe']
 })
 if (process.env.XT_DEBUG) { server.stdout.on('data', (d) => process.stderr.write('[server] ' + d)); server.stderr.on('data', (d) => process.stderr.write('[server!] ' + d)) }
+let login = null
 try {
   let ready = false
   for (let i = 0; i < 60 && !ready; i++) {
@@ -78,7 +81,8 @@ try {
   execFileSync('claude', ['mcp', 'add', '--transport', 'http', 'x-thread', `${BASE}/api/mcp`], { env, stdio: 'pipe' })
 
   // Claude Code needs a terminal here, so run it under script(1) to get a pseudo-terminal.
-  const login = spawn('script', ['-qfc', 'claude mcp login x-thread --no-browser', '/dev/null'], { env, stdio: ['pipe', 'pipe', 'pipe'] })
+  // -e (--return) makes script exit with the child's exit status, so a failed login fails this test.
+  login = spawn('script', ['-qefc', 'claude mcp login x-thread --no-browser', '/dev/null'], { env, stdio: ['pipe', 'pipe', 'pipe'] })
   let output = ''
   login.stdout.on('data', (d) => (output += d))
   login.stderr.on('data', (d) => (output += d))
@@ -95,7 +99,7 @@ try {
     }
     login.stdout.on('data', check)
     login.stderr.on('data', check)
-  }).catch((e) => fail(e.message))
+  })
 
   const jar = makeJar()
   // 1. The authorize page sends us to sign-in; the sign-in step leaves our origin for GitHub.
@@ -135,8 +139,12 @@ try {
     })
   })
   if (exitCode !== 0) fail(`claude mcp login exited with ${exitCode}: ${output.slice(-400)}`)
-  if (!/success|authenticat/i.test(output)) fail(`no success message: ${output.slice(-400)}`)
+  if (!SUCCESS_LINE.test(output)) fail(`no success line: ${output.slice(-400)}`)
   console.log('PASS claude-code login: real Claude Code completed OAuth against the local connector')
+} catch (err) {
+  console.error(`FAIL claude-code login: ${err.message}`)
+  process.exitCode = 1
 } finally {
+  login?.kill()
   server.kill()
 }
