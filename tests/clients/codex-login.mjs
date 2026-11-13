@@ -1,8 +1,8 @@
 // Real Codex CLI binary (@openai/codex, pinned), real OAuth login against the local connector, with no person.
 // `codex mcp login --no-browser` prints the authorize URL and asks for the callback URL.
 // This script makes the same requests a browser would (sign-in with the fake GitHub callback,
-// then the consent form), and sends the approved redirect to Claude Code's real listener.
-// Exits 0 only if Codex reports a successful login.
+// then the consent form), and sends the approved redirect to Codex's real listener.
+// Exits 0 only if Codex exits 0 and prints its explicit success line.
 import { spawn } from 'node:child_process'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -15,10 +15,12 @@ const HOME = mkdtempSync(path.join(tmpdir(), 'xt-codex-home-'))
 const env = { ...process.env, CODEX_HOME: path.join(HOME, '.codex'), NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost', BROWSER: '/bin/true' }
 mkdirSync(env.CODEX_HOME, { recursive: true })
 writeFileSync(path.join(env.CODEX_HOME, 'config.toml'), `mcp_oauth_credentials_store = "file"\n\n[mcp_servers.x-thread]\nurl = "${BASE}/api/mcp"\n`)
+// Codex's explicit success line. Unverified until the clients job runs it: the log prints Codex's output on failure.
+const SUCCESS_LINE = /Successfully logged in/i
 
+// Throws instead of exiting, so the finally block below always stops the child processes.
 function fail(message) {
-  console.error(`FAIL codex login: ${message}`)
-  process.exit(1)
+  throw new Error(message)
 }
 
 // A cookie jar for one origin: keeps Set-Cookie values and sends them back.
@@ -70,6 +72,7 @@ const server = spawn('node', ['scripts/dev-api.mjs', '--fake-github'], {
   stdio: ['ignore', 'pipe', 'pipe']
 })
 if (process.env.XT_DEBUG) { server.stdout.on('data', (d) => process.stderr.write('[server] ' + d)); server.stderr.on('data', (d) => process.stderr.write('[server!] ' + d)) }
+let login = null
 try {
   let ready = false
   for (let i = 0; i < 60 && !ready; i++) {
@@ -78,16 +81,16 @@ try {
   }
   if (!ready) fail('dev server did not start')
 
-
   // Codex needs a terminal here, so run it under script(1) to get a pseudo-terminal.
-  const login = spawn('script', ['-qfc', `${CODEX} mcp login x-thread --no-browser`, '/dev/null'], { env, stdio: ['pipe', 'pipe', 'pipe'] })
+  // -e (--return) makes script exit with the child's exit status, so a failed login fails this test.
+  login = spawn('script', ['-qefc', `${CODEX} mcp login x-thread --no-browser`, '/dev/null'], { env, stdio: ['pipe', 'pipe', 'pipe'] })
   let output = ''
   login.stdout.on('data', (d) => (output += d))
   login.stderr.on('data', (d) => (output += d))
   const authorizeUrl = await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('no authorize URL printed')), 30000)
     const check = () => {
-      // Claude Code prints the URL twice, the second copy wrapped in colour codes: take the first copy only.
+      // Codex prints the URL twice, the second copy wrapped in colour codes: take the first copy only.
       const esc = String.fromCharCode(27)
       const match = output.match(new RegExp(`http://127\\.0\\.0\\.1:\\d+/api/oauth/authorize\\?[^\\s${esc}]+`))
       if (match) {
@@ -97,7 +100,7 @@ try {
     }
     login.stdout.on('data', check)
     login.stderr.on('data', check)
-  }).catch((e) => fail(e.message))
+  })
 
   const jar = makeJar()
   // 1. The authorize page sends us to sign-in; the sign-in step leaves our origin for GitHub.
@@ -151,8 +154,12 @@ try {
     })
   })
   if (exitCode !== 0) fail(`codex mcp login exited with ${exitCode}: ${output.slice(-400)}`)
-  if (!/success|logged in|authenticat/i.test(output)) fail(`no success message: ${output.slice(-400)}`)
+  if (!SUCCESS_LINE.test(output)) fail(`no success line: ${output.slice(-400)}`)
   console.log('PASS codex login: real Codex CLI completed OAuth against the local connector')
+} catch (err) {
+  console.error(`FAIL codex login: ${err.message}`)
+  process.exitCode = 1
 } finally {
+  login?.kill()
   server.kill()
 }
