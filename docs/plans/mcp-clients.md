@@ -350,7 +350,7 @@ Every code step uses the same frame. It is not repeated below.
    `update_post` and `move_post` `idempotentHint: true`.
 3. Add the M3 item 4 sentence to `INSTRUCTIONS`. Add each tool's `rest` field (`PATCH /drafts/:id`).
 4. Tests: each tool; untouched posts are byte-equal before and after; another user's draft; a
-   published draft; a 281-character text is refused by the REST rule. Frame B.
+   published draft; a 281-character `text` is refused by the MCP argument schema (`maxLength: 280`, `server/mcp/tools.js`). REST does not check post length today (`validPosts` in `server/routes/drafts.js` checks only that `posts` is an array). Whether REST should is a follow-up for P-OPUS, not part of M5. Frame B.
 
 ### M6. Export with numbering
 **Done when:** the numbering the UI offers is available to agents, or the reason it is not is in the ledger.
