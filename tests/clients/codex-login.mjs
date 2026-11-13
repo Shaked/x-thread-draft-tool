@@ -126,7 +126,21 @@ try {
   // 4. The approved redirect is the URL Codex asks for.
   const loopback = new URL(approved.location)
   if (loopback.hostname !== 'localhost' && loopback.hostname !== '127.0.0.1') fail(`unexpected return host ${loopback.host}`)
-  // Codex asks for the callback URL on its terminal: paste the approved redirect back in.
+  // Codex asks for the callback URL on its terminal (hidden input). Wait for that prompt before
+  // writing: input sent earlier can be flushed when the prompt starts reading.
+  const prompted = await new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), 30000)
+    const check = () => {
+      if (/Callback URL/.test(output)) {
+        clearTimeout(timer)
+        resolve(true)
+      }
+    }
+    check()
+    login.stdout.on('data', check)
+    login.stderr.on('data', check)
+  })
+  if (!prompted) fail(`codex did not ask for the callback URL: ${output.slice(-400)}`)
   login.stdin.write(approved.location + '\n')
 
   const exitCode = await new Promise((resolve) => {
