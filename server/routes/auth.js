@@ -10,7 +10,10 @@ const RETURN_COOKIE = 'xt_oauth_return'
 export function safeReturnTo(value) {
   if (typeof value !== 'string' || value.length > 2000) return null
   if (!value.startsWith('/api/oauth/authorize?')) return null
-  if (/[\\\u0000-\u001f]/.test(value)) return null
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i)
+    if (code === 0x5c || code <= 0x1f) return null
+  }
   return value
 }
 function appOrigin() {
@@ -27,8 +30,16 @@ function redirect(location, cookies = []) {
   return new Response(null, { status: 302, headers })
 }
 
-/** GET /api/auth/login: starts the GitHub OAuth flow with a one-time state cookie. */
-export async function login({ url }) {
+/**
+ * GET /api/auth/login: starts the GitHub OAuth flow with a one-time state cookie.
+ * Served on a host other than the canonical app origin (a per-deployment URL), it redirects to the
+ * canonical origin first, so the state cookie and the callback always belong to one host.
+ */
+async function login({ request, url }) {
+  const host = request.headers.get('x-forwarded-host') ?? url.host
+  if (host !== new URL(appOrigin()).host) {
+    return redirect(`${appOrigin()}/api/auth/login`)
+  }
   const state = crypto.randomUUID()
   const returnTo = safeReturnTo(url.searchParams.get('return_to'))
   const params = new URLSearchParams({
@@ -62,7 +73,7 @@ async function exchangeCode(code) {
  * GET /api/auth/callback: verifies state, upserts the user, issues the session cookie.
  * The GitHub access token is used once and never stored.
  */
-export async function callback({ request, url }) {
+async function callback({ request, url }) {
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
   const expected = parseCookies(request)[STATE_COOKIE]
@@ -84,7 +95,7 @@ export async function callback({ request, url }) {
 }
 
 /** GET /api/auth/me: cookie session or bearer token. `user` is null when signed out. */
-export async function me({ request }) {
+async function me({ request }) {
   const caller = await authenticate(request)
   if (!caller) return json({ user: null, auth: null })
   const { rows } = await query('select id, login, name, avatar_url from users where id = $1', [caller.uid])
@@ -92,7 +103,7 @@ export async function me({ request }) {
 }
 
 /** POST /api/auth/logout */
-export async function logout() {
+async function logout() {
   return json({ ok: true }, 200, { 'set-cookie': clearSessionCookie() })
 }
 

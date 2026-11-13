@@ -36,6 +36,21 @@ async function signIn(state = 'state-123') {
 }
 
 describe('GET /api/auth/login', () => {
+  it('redirects a request for another host to the canonical origin, with no state cookie', async () => {
+    const res = await route(apiRequest('/api/auth/login', { headers: { 'x-forwarded-host': 'x-thread-draft-tool-git-x.vercel.app' } }))
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe('https://app.test/api/auth/login')
+    expect(res.headers.get('set-cookie')).toBeNull()
+  })
+
+  it('redirects when the request URL itself is another host', async () => {
+    const other = new Request('https://other.test/api/auth/login')
+    const res = await route(other)
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe('https://app.test/api/auth/login')
+    expect(res.headers.get('set-cookie')).toBeNull()
+  })
+
   it('redirects to GitHub with a state value and sets the state cookie', async () => {
     const res = await route(apiRequest('/api/auth/login'))
 

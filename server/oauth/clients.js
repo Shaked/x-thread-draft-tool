@@ -5,11 +5,10 @@
 //   client_id is an https URL that serves the client's metadata. The spec's preferred method.
 import { randomBytes } from 'node:crypto'
 import { lookup as dnsLookup } from 'node:dns/promises'
-import { isIP } from 'node:net'
 import { query } from '../db.js'
-import { isPrivateAddress } from '../remote-image.js'
+import { pinnedFetch } from '../remote-image.js'
 
-export const CLIENT_PREFIX = 'xtc_'
+const CLIENT_PREFIX = 'xtc_'
 const MAX_REDIRECT_URIS = 5
 const MAX_CLIENT_NAME = 100
 const METADATA_MAX_BYTES = 10 * 1024
@@ -28,7 +27,7 @@ export function setMetadataResolverForTests(fn) {
  * Redirect URIs: https, or http on localhost or 127.0.0.1 (native and CLI clients), with no
  * fragment and no credentials. Matching is exact; see the authorize endpoint.
  */
-export function isValidRedirectUri(value) {
+function isValidRedirectUri(value) {
   if (typeof value !== 'string' || value.length > 2048 || value.includes('#')) return false
   let url
   try {
@@ -45,8 +44,35 @@ export function isValidRedirectUriList(value) {
   return Array.isArray(value) && value.length >= 1 && value.length <= MAX_REDIRECT_URIS && value.every(isValidRedirectUri)
 }
 
+/**
+ * True when `requested` may be used with a client that registered `registered`. An exact match
+ * always works. A loopback URI (localhost or 127.0.0.1, http) also matches a registered loopback
+ * URI with the same host, path and query, whatever the port (RFC 8252, section 7.3). Nothing else
+ * matches: https URIs are exact.
+ */
+export function redirectUriAllowed(registered, requested) {
+  if (registered.includes(requested)) return true
+  if (!isValidRedirectUri(requested)) return false
+  const wanted = new URL(requested)
+  if (wanted.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(wanted.hostname)) return false
+  return registered.some((uri) => {
+    let known
+    try {
+      known = new URL(uri)
+    } catch {
+      return false
+    }
+    return (
+      known.protocol === 'http:' &&
+      known.hostname === wanted.hostname &&
+      known.pathname === wanted.pathname &&
+      known.search === wanted.search
+    )
+  })
+}
+
 /** A client_id that is an https URL with a path (the metadata document lives there). */
-export function isMetadataUrl(value) {
+function isMetadataUrl(value) {
   if (typeof value !== 'string' || value.length > 2048 || value.includes('#')) return false
   let url
   try {
@@ -120,7 +146,7 @@ async function metadataClient(clientId) {
 }
 
 /** Cache lifetime in seconds from Cache-Control: no-store and no-cache mean 0, capped at 24 h. */
-export function cacheTtl(cacheControl) {
+function cacheTtl(cacheControl) {
   const value = (cacheControl || '').toLowerCase()
   if (/\bno-store\b|\bno-cache\b/.test(value)) return 0
   const match = value.match(/max-age=(\d+)/)
@@ -165,24 +191,12 @@ async function readCapped(response, maxBytes) {
  */
 async function fetchMetadataDocument(clientId) {
   const url = new URL(clientId)
-  const hostname = url.hostname.replace(/^\[(.*)\]$/, '$1')
-  let addresses
-  try {
-    addresses = isIP(hostname) ? [{ address: hostname }] : await lookup(hostname, { all: true })
-  } catch {
-    return null
-  }
-  if (addresses.length === 0 || addresses.some((entry) => isPrivateAddress(entry.address))) return null
 
   let response
   try {
-    response = await fetch(url, {
-      redirect: 'manual',
-      signal: AbortSignal.timeout(METADATA_TIMEOUT_MS),
-      headers: { accept: 'application/json' }
-    })
+    response = await pinnedFetch(url, { resolve: lookup, timeoutMs: METADATA_TIMEOUT_MS, headers: { accept: 'application/json' } })
   } catch {
-    return null
+    return null // DNS failure, a private address, or a network error: no metadata
   }
   if (!response.ok) return null // includes 3xx: redirects are not followed
   const type = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()

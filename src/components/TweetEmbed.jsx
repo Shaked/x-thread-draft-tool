@@ -1,22 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
+import { resolvedTheme, THEME_CHANGE_EVENT } from '../utils/theme'
 
 export default function TweetEmbed({ url }) {
   const containerRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  // Bumped when the device scheme changes under the 'system' theme, so the embed re-renders in the new theme.
+  const [themeKey, setThemeKey] = useState(0)
 
   useEffect(() => {
-    if (!url) return
+    const onThemeChange = () => setThemeKey((key) => key + 1)
+    window.addEventListener(THEME_CHANGE_EVENT, onThemeChange)
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, onThemeChange)
+  }, [])
 
-    // Extract tweet ID from URL
-    const tweetIdMatch = url.match(/status\/(\d+)/)
-    if (!tweetIdMatch) {
-      setError('Invalid tweet URL')
-      setLoading(false)
-      return
-    }
+  // The tweet id comes from the URL during render. An invalid URL is shown as an error below, so no effect sets state for it.
+  const tweetId = url ? (url.match(/status\/(\d+)/)?.[1] ?? null) : null
+  const invalidUrl = Boolean(url) && !tweetId
 
-    const tweetId = tweetIdMatch[1]
+  useEffect(() => {
+    if (!url || !tweetId) return
+
     let isMounted = true
 
     // Load Twitter widget script if not already loaded
@@ -48,7 +52,7 @@ export default function TweetEmbed({ url }) {
           id,
           containerRef.current,
           {
-            theme: 'light',
+            theme: resolvedTheme(),
             conversation: 'none',
             cards: 'visible',
             align: 'center'
@@ -80,14 +84,15 @@ export default function TweetEmbed({ url }) {
         containerRef.current.innerHTML = ''
       }
     }
-  }, [url])
+  }, [url, tweetId, themeKey])
 
   if (!url) return null
 
-  if (error) {
+  const shownError = invalidUrl ? 'Invalid tweet URL' : error
+  if (shownError) {
     return (
       <div className="tweet-embed-error">
-        <p>{error}</p>
+        <p>{shownError}</p>
         <a href={url} target="_blank" rel="noopener noreferrer">
           View tweet on X/Twitter
         </a>

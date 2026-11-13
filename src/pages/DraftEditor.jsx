@@ -39,9 +39,6 @@ export default function DraftEditor({ user }) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  useEffect(() => {
-    loadDraft()
-  }, [id, user])
 
   const loadDraft = async () => {
     try {
@@ -95,6 +92,11 @@ export default function DraftEditor({ user }) {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the spinner resets when the draft id changes
+    loadDraft()
+  }, [id, user])
 
   const saveDraft = useCallback(
     async (draftToSave, immediate = false) => {
@@ -267,16 +269,22 @@ export default function DraftEditor({ user }) {
             value={draft.title}
             onChange={(e) => handleTitleChange(e.target.value)}
             className="draft-title-input"
+            aria-label="Draft title"
             placeholder="Untitled Draft"
           />
         ) : (
           <h1 className="draft-title-display">{draft.title}</h1>
         )}
 
-        <div className="header-actions">
-          {!synced && <span className="sync-status syncing">Syncing...</span>}
-          {synced && !saving && <span className="sync-status synced">✓ Saved</span>}
+        <span
+          className={`sync-status ${!synced || saving ? 'syncing' : 'synced'}`}
+          role="status"
+          aria-live="polite"
+        >
+          {!synced || saving ? 'Saving…' : 'Saved'}
+        </span>
 
+        <div className="header-actions">
           <ShareButton draftId={id} />
 
           {isEditMode && <AgentLinkButton draftId={id} />}
@@ -309,7 +317,7 @@ export default function DraftEditor({ user }) {
 
           {isEditMode && !draft.is_published && (
             <div className="editor-hint">
-              <p>💡 Tip: Images are auto-uploaded. Drafts are auto-saved every second.</p>
+              <p>Images upload automatically. Changes save as you type.</p>
             </div>
           )}
 
@@ -326,18 +334,32 @@ export default function DraftEditor({ user }) {
           )}
         </div>
 
-        <button
-          className="sidebar-toggle"
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          title={sidebarCollapsed ? 'Show export panel' : 'Hide export panel'}
-        >
-          {sidebarCollapsed ? '◀' : '▶'}
-        </button>
-
-        <div className={`side-panel ${sidebarCollapsed ? 'collapsed' : ''}`}>
-          <ExportOptions draft={draft} />
-        </div>
+        <SidePanel
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          draft={draft}
+        />
       </div>
     </div>
+  )
+}
+
+// The export panel and its toggle. Kept out of DraftEditor so the editor's own complexity stays within the lint limit.
+function SidePanel({ collapsed, onToggle, draft }) {
+  return (
+    <>
+      <button
+        className="sidebar-toggle"
+        onClick={onToggle}
+        title={collapsed ? 'Show export panel' : 'Hide export panel'}
+        aria-label={collapsed ? 'Show export panel' : 'Hide export panel'}
+      >
+        {collapsed ? '◀' : '▶'}
+      </button>
+
+      <div className={`side-panel ${collapsed ? 'collapsed' : ''}`}>
+        <ExportOptions draft={draft} />
+      </div>
+    </>
   )
 }

@@ -14,7 +14,7 @@ function extensionFor(mime) {
 }
 
 /** POST /api/images?draftId=<uuid>: raw image bytes, owner of the draft only. */
-export async function uploadImage({ request, url }) {
+async function uploadImage({ request, url }) {
   const session = await requireUser(request)
   const draftId = url.searchParams.get('draftId')
   if (!draftId || !UUID_RE.test(draftId)) throw new HttpError(404, 'Draft not found')
@@ -38,7 +38,7 @@ export async function uploadImage({ request, url }) {
 }
 
 /** DELETE /api/images with `{ url }`: only objects under the caller's own prefix. */
-export async function deleteImage({ request }) {
+async function deleteImage({ request }) {
   const session = await requireUser(request)
   const body = await readJson(request, 10_000)
   const target = typeof body?.url === 'string' ? body.url : ''
@@ -53,7 +53,7 @@ export async function deleteImage({ request }) {
 }
 
 /** POST /api/images/from-url { draftId, url }: the server fetches the image (owner only). */
-export async function uploadImageFromUrl({ request }) {
+async function uploadImageFromUrl({ request }) {
   const session = await requireUser(request)
   const body = await readJson(request, 10_000)
   const draftId = typeof body?.draftId === 'string' ? body.draftId : ''

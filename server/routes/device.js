@@ -14,7 +14,7 @@ const MAX_NAME = 100
  * The agent shows the user `user_code` and `verification_uri`, then polls /poll.
  * Needs "Enable Device Flow" on the GitHub OAuth App; no client secret is used.
  */
-export async function startDevice() {
+async function startDevice() {
   const response = await fetch('https://github.com/login/device/code', {
     method: 'POST',
     headers: JSON_HEADERS,
@@ -73,7 +73,7 @@ async function deviceGrant(userId, name, resource) {
  * (`xta_`, 1 hour, bound to `<origin>/api`) and a rotating refresh token (`xtr_`), refreshed at
  * POST /api/oauth/token. The GitHub access token is discarded after the profile is read.
  */
-export async function pollDevice({ request }) {
+async function pollDevice({ request }) {
   const body = await readJson(request, 10_000)
   if (!body || typeof body !== 'object' || typeof body.device_code !== 'string') {
     throw new HttpError(400, 'device_code is required')

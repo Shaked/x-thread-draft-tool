@@ -20,9 +20,19 @@ const token = process.env.XT_TOKEN || ''
 const publicOnly = process.env.XT_SMOKE_PUBLIC === '1'
 const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
 
-function headers(extra = {}) {
+// Routes that never take a token (the server refuses a CI JWT on any route not marked ci: true).
+const PUBLIC_PATHS = new Set([
+  '/api/health',
+  '/llms.txt',
+  '/api/openapi.json',
+  '/.well-known/oauth-protected-resource/api/mcp',
+  '/.well-known/oauth-authorization-server'
+])
+const isPublicPath = (path) => PUBLIC_PATHS.has(path) || path.startsWith('/api/share/')
+
+function headers(extra = {}, path = '') {
   const out = { ...extra }
-  if (token) out.authorization = `Bearer ${token}`
+  if (token && !isPublicPath(path)) out.authorization = `Bearer ${token}`
   if (bypass) out['x-vercel-protection-bypass'] = bypass
   return out
 }
@@ -36,7 +46,7 @@ function redact(text) {
 }
 
 async function call(method, path, { body, expect = [200], accept, raw = false } = {}) {
-  const init = { method, headers: headers(accept ? { accept } : {}) }
+  const init = { method, headers: headers(accept ? { accept } : {}, path) }
   if (body !== undefined) {
     init.body = JSON.stringify(body)
     init.headers['content-type'] = 'application/json'
@@ -82,13 +92,59 @@ await step('openapi', async () => {
   if (typeof doc.openapi !== 'string') throw new Error('no openapi version in document')
 })
 
+// MCP connector, public (no account): the endpoint refuses a request without a token, and its
+// metadata names the resource and the authorization server (plan M9).
+const publicRequest = (path, init = {}) =>
+  fetch(`${base}${path}`, {
+    ...init,
+    headers: { ...(bypass ? { 'x-vercel-protection-bypass': bypass } : {}), ...(init.headers || {}) }
+  })
+
+await step('mcp refuses a request without a token (401 with metadata link)', async () => {
+  const res = await publicRequest('/api/mcp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}'
+  })
+  if (res.status !== 401) throw new Error(`status is ${res.status}, expected 401`)
+  const challenge = res.headers.get('www-authenticate') || ''
+  if (!challenge.includes('/.well-known/oauth-protected-resource/api/mcp')) {
+    throw new Error('www-authenticate does not name the metadata URL')
+  }
+})
+
+await step('mcp metadata: resource ends with /api/mcp', async () => {
+  const doc = await call('GET', '/.well-known/oauth-protected-resource/api/mcp')
+  if (typeof doc.resource !== 'string' || !doc.resource.endsWith('/api/mcp')) {
+    throw new Error('resource does not end with /api/mcp')
+  }
+})
+
+await step('mcp authorization server: S256 and a registration endpoint', async () => {
+  const doc = await call('GET', '/.well-known/oauth-authorization-server')
+  if (!Array.isArray(doc.code_challenge_methods_supported) || !doc.code_challenge_methods_supported.includes('S256')) {
+    throw new Error('S256 is not listed')
+  }
+  if (typeof doc.registration_endpoint !== 'string') throw new Error('no registration_endpoint')
+})
+
+// A bogus hand-made token is refused with the generic message (needs no account). Task 7.9.
+await step('bogus xt_ token is refused (401, invalid or expired)', async () => {
+  const res = await publicRequest('/api/auth/me', { headers: { authorization: `Bearer xt_${'b'.repeat(43)}` } })
+  if (res.status !== 401) throw new Error(`status is ${res.status}, expected 401`)
+  const { error } = await res.json()
+  if (error !== 'Invalid or expired API token') throw new Error(`unexpected message: ${String(error).slice(0, 120)}`)
+})
+
 const accountStep = publicOnly ? async (name) => console.log(`SKIP ${name}: XT_SMOKE_PUBLIC=1`) : step
 
 await accountStep('me (token)', async () => {
   const data = await call('GET', '/api/auth/me')
   if (!data.user) throw new Error('not signed in: check the token')
-  // 'token': a hand-made xt_ token; 'oauth': an access token from the device flow or the connector.
-  if (!['token', 'oauth'].includes(data.auth)) throw new Error(`auth is ${data.auth}, expected a bearer token`)
+  // XT_EXPECT_AUTH: 'ci-oidc' for a CI identity token (the deployed smoke run). Unset: a hand-made
+  // xt_ token ('token') or an access token from the device flow or the connector ('oauth').
+  const expected = process.env.XT_EXPECT_AUTH ? [process.env.XT_EXPECT_AUTH] : ['token', 'oauth']
+  if (!expected.includes(data.auth)) throw new Error(`auth is ${data.auth}, expected ${expected.join(' or ')}`)
 })
 
 await step('split text', async () => {

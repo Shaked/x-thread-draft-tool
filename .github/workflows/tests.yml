@@ -28,6 +28,17 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Lint (ESLint gate)
+        run: npm run lint
+
+      - name: Unused code (knip)
+        run: npm run knip
+
+      - name: Slop scan
+        run: npm run slop
+      - name: Duplicate code (jscpd)
+        run: npm run dup
+
       # Reject any migration that contains a destructive statement (same patterns as the
       # former Supabase deploy guard). Destructive changes need a deliberate, reviewed rewrite.
       - name: Lint database migrations
@@ -138,3 +149,46 @@ jobs:
           path: playwright-report
           retention-days: 14
           if-no-files-found: ignore
+
+  screens:
+    name: UI screenshots (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build the app and start the local servers
+        run: |
+          npm run build
+          npm run dev:api > api.log 2>&1 &
+          npx vite preview --host 127.0.0.1 --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:4173/ && curl -sf -o /dev/null -XPOST http://127.0.0.1:4173/api/dev/token -H 'content-type: application/json' -d '{"login":"ci-probe"}' && break
+            sleep 1
+          done
+
+      - name: Capture screens
+        env:
+          XT_BASE_URL: http://127.0.0.1:4173
+        run: npm run screens
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens
+          path: test-results/screens

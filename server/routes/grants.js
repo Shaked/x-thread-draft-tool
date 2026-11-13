@@ -33,7 +33,7 @@ function toGrant(row) {
 }
 
 /** GET /api/grants: the caller's grants, revoked ones included. Never another user's. */
-export async function listGrants({ request }) {
+async function listGrants({ request }) {
   const user = await requirePersonalUser(request)
   const { rows } = await query(
     `select g.id, c.client_name, c.kind, c.redirect_uris, g.resource, g.scope,
@@ -47,7 +47,7 @@ export async function listGrants({ request }) {
 }
 
 /** DELETE /api/grants/:id: revokes one of the caller's grants. Repeating it is harmless (200). */
-export async function revokeGrant({ request, params }) {
+async function revokeGrant({ request, params }) {
   const user = await requirePersonalUser(request)
   if (!UUID_RE.test(params.id)) throw new HttpError(404, 'Connected app not found')
   const { rows } = await query(

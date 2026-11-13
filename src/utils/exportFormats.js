@@ -34,16 +34,12 @@ export function exportAsFormattedText(tweets) {
 }
 
 /**
- * Formats thread for clipboard copy
+ * Exports thread as plain text with a "i/N" line before each post (the UI's "Copy (Numbered)").
  * @param {Array} tweets - Array of tweet objects
- * @param {boolean} includeNumbers - Whether to include tweet numbers
- * @returns {string} - Formatted text for clipboard
+ * @returns {string} - Numbered plain text
  */
-export function formatForClipboard(tweets, includeNumbers = false) {
-  if (includeNumbers) {
-    return tweets
-      .map((tweet, index) => `${index + 1}. ${tweet.text}`)
-      .join('\n\n');
-  }
-  return exportAsPlainText(tweets);
+export function exportAsNumberedText(tweets) {
+  return tweets
+    .map((tweet, index) => `${index + 1}/${tweets.length}\n${tweet.text}`)
+    .join('\n\n');
 }

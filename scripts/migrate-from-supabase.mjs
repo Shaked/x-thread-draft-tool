@@ -102,26 +102,7 @@ async function loadUrlMap() {
   return new Map(Object.entries(JSON.parse(await readFile(URL_MAP_PATH, 'utf8'))))
 }
 
-async function main() {
-  const source = new pg.Client(sourceConfig(requireEnv('SUPABASE_DB_URL')))
-  const target = APPLY ? new pg.Client({ connectionString: requireEnv('DATABASE_URL_UNPOOLED') }) : null
-  if (APPLY) requireEnv('BLOB_READ_WRITE_TOKEN')
-
-  await source.connect()
-  if (target) await target.connect()
-
-  const stats = {
-    users: { migrated: 0, skippedNoGithub: 0 },
-    drafts: { migrated: 0, alreadyPresent: 0, skippedOrphan: 0, skippedNoUser: [] },
-    images: { moved: 0, reused: 0, failed: [] },
-    tokens: { migrated: 0, skipped: 0 }
-  }
-  const failures = []
-  const urlMap = await loadUrlMap()
-  const userIdMap = new Map() // Supabase user id -> target user id
-
-  try {
-    // 1. Users
+async function migrateUsers({ source, target, userIdMap, stats }) {
     const { rows: authUsers } = await source.query('select id, raw_user_meta_data from auth.users')
     for (const user of authUsers) {
       const profile = githubProfile(user)
@@ -144,6 +125,29 @@ async function main() {
       userIdMap.set(user.id, rows[0].id)
       stats.users.migrated += 1
     }
+}
+
+async function main() {
+  const source = new pg.Client(sourceConfig(requireEnv('SUPABASE_DB_URL')))
+  const target = APPLY ? new pg.Client({ connectionString: requireEnv('DATABASE_URL_UNPOOLED') }) : null
+  if (APPLY) requireEnv('BLOB_READ_WRITE_TOKEN')
+
+  await source.connect()
+  if (target) await target.connect()
+
+  const stats = {
+    users: { migrated: 0, skippedNoGithub: 0 },
+    drafts: { migrated: 0, alreadyPresent: 0, skippedOrphan: 0, skippedNoUser: [] },
+    images: { moved: 0, reused: 0, failed: [] },
+    tokens: { migrated: 0, skipped: 0 }
+  }
+  const failures = []
+  const urlMap = await loadUrlMap()
+  const userIdMap = new Map() // Supabase user id -> target user id
+
+  try {
+    // 1. Users
+    await migrateUsers({ source, target, userIdMap, stats })
 
     // 2. Drafts (images are rewritten before the row is written)
     const { rows: drafts } = await source.query(

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { grantsApi, tokensApi } from '../utils/api'
+import { connectEntries } from '../utils/connectApps'
+import ThemeSetting from '../components/ThemeSetting'
 
 const EXPIRY_OPTIONS = [1, 3, 7]
 
@@ -9,7 +11,24 @@ const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '�
 // The MCP connector and the REST API are the two things an app can be connected to.
 const resourceLabel = (resource) => (resource.endsWith('/api/mcp') ? 'Agent connector' : 'API')
 
-export default function TokensPage() {
+function CopyButton({ text, label }) {
+  const [state, setState] = useState('idle')
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setState('copied')
+    } catch {
+      setState('failed')
+    }
+  }
+  return (
+    <button type="button" className="copy-btn" onClick={copy}>
+      {state === 'copied' ? 'Copied!' : state === 'failed' ? 'Copy failed' : label}
+    </button>
+  )
+}
+
+export default function TokensPage({ deployedAt, deployedAgo, deployCommit }) {
   const [tokens, setTokens] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -48,6 +67,7 @@ export default function TokensPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial token list load on mount, runs once
     load()
     loadGrants()
   }, [])
@@ -106,6 +126,26 @@ export default function TokensPage() {
     <div className="tokens-page">
       <p><Link to="/">← Back to drafts</Link></p>
 
+      <h1>API tokens</h1>
+      <ThemeSetting />
+
+      <section className="connected-apps connect-apps" aria-labelledby="connect-apps-heading">
+        <h2 id="connect-apps-heading">Connect an AI app</h2>
+        <ul className="grant-list connect-app-list">
+          {connectEntries(`${window.location.origin}/api/mcp`).map((entry) => (
+            <li key={entry.id} className="grant-row connect-app-row">
+              <div>
+                <strong>{entry.name}</strong>
+                <div>{entry.hint}</div>
+                <code>{entry.copy}</code>
+              </div>
+              <CopyButton text={entry.copy} label={entry.copyLabel} />
+            </li>
+          ))}
+        </ul>
+        <p>You approve each app once with your GitHub sign-in. Remove it any time below.</p>
+      </section>
+
       <section className="connected-apps" aria-labelledby="connected-apps-heading">
         <h2 id="connected-apps-heading">Connected apps</h2>
         <p>
@@ -117,10 +157,7 @@ export default function TokensPage() {
         {grantsLoading ? (
           <div className="loading">Loading…</div>
         ) : grants.length === 0 ? (
-          <p>
-            No apps are connected. To connect an agent, add this address as its connector:{' '}
-            <code>{`${window.location.origin}/api/mcp`}</code>
-          </p>
+          <p>No apps are connected. To connect one, use Connect an AI app above.</p>
         ) : (
           <ul className="grant-list">
             {grants.map((grant) => {
@@ -153,7 +190,6 @@ export default function TokensPage() {
         )}
       </section>
 
-      <h1>API tokens</h1>
       <p>
         Tokens let agents use the API as you. Each token has the same permissions as your account in
         the app. See <code>/llms.txt</code> for how agents use them.
@@ -181,7 +217,7 @@ export default function TokensPage() {
       {created && (
         <div className="token-created" role="status">
           <p className="token-warning">
-            <strong>Copy this token now.</strong> It won't be shown again.
+            <strong>Copy this token now.</strong> It won&apos;t be shown again.
           </p>
           <code className="token-secret">{created.token}</code>
           <p>
@@ -221,6 +257,10 @@ export default function TokensPage() {
           })}
         </ul>
       )}
+
+      <p className="settings-about">
+        About: last deployed {deployedAt}{deployedAgo}. Version {deployCommit}.
+      </p>
     </div>
   )
 }

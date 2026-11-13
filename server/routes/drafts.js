@@ -1,12 +1,13 @@
-import { query } from '../db.js'
+import { query, transaction } from '../db.js'
 import { HttpError, json, readJson } from '../http.js'
 import { requireUser } from '../session.js'
 import { deleteBlobUrls } from '../blob.js'
 import { imageUrlsFrom, isOwnedBlobUrl } from '../draft-images.js'
-import { exportAsFormattedText, exportAsJSON, exportAsPlainText } from '../../src/utils/exportFormats.js'
+import { exportAsFormattedText, exportAsJSON, exportAsNumberedText, exportAsPlainText } from '../../src/utils/exportFormats.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const COLUMNS = 'id, user_id, title, posts, is_published, published_at, created_at, updated_at'
+const COLUMNS = 'id, user_id, title, posts, is_published, published_at, created_at, updated_at, version'
+const POST_TEXT_MAX = 280
 const EMPTY_POST = () => ({ id: crypto.randomUUID(), text: '', images: [], embeddedTweet: null })
 
 function isUuid(value) {
@@ -37,7 +38,7 @@ function notFound() {
 }
 
 /** POST /api/drafts/:id/duplicate: same copy the editor's Duplicate button makes. */
-export async function duplicateDraft({ request, params }) {
+async function duplicateDraft({ request, params }) {
   const session = await requireUser(request)
   if (!isUuid(params.id)) throw notFound()
   const { rows: sourceRows } = await query(
@@ -55,7 +56,7 @@ export async function duplicateDraft({ request, params }) {
 }
 
 /** GET /api/drafts/:id/export?format=json|text|formatted (public, like GET by id). */
-export async function exportDraft({ url, params }) {
+async function exportDraft({ url, params }) {
   if (!isUuid(params.id)) throw notFound()
   const format = url.searchParams.get('format') ?? 'json'
   const { rows } = await query(`select ${COLUMNS} from drafts where id = $1`, [params.id])
@@ -68,7 +69,9 @@ export async function exportDraft({ url, params }) {
     })
   }
   if (format === 'text' || format === 'formatted') {
-    const body = format === 'text' ? exportAsPlainText(posts) : exportAsFormattedText(posts)
+    const numbered = url.searchParams.get('numbered') === 'true'
+    const body =
+      format === 'text' ? (numbered ? exportAsNumberedText(posts) : exportAsPlainText(posts)) : exportAsFormattedText(posts)
     return new Response(body, { headers: { 'content-type': 'text/plain; charset=utf-8' } })
   }
   throw new HttpError(400, 'format must be json, text or formatted')
@@ -95,7 +98,7 @@ async function deletableImageUrls(uid, id, posts) {
 }
 
 /** GET /api/drafts?published=true|false&limit=1..200 (default 100) */
-export async function listDrafts({ request, url }) {
+async function listDrafts({ request, url }) {
   const session = await requireUser(request)
   const flag = url.searchParams.get('published')
   if (flag !== 'true' && flag !== 'false') throw new HttpError(400, 'published must be true or false')
@@ -112,7 +115,7 @@ export async function listDrafts({ request, url }) {
 }
 
 /** POST /api/drafts */
-export async function createDraft({ request }) {
+async function createDraft({ request }) {
   const session = await requireUser(request)
   const body = requireObject(await readJson(request))
   const title = body.title === undefined ? '' : validTitle(body.title)
@@ -125,7 +128,7 @@ export async function createDraft({ request }) {
 }
 
 /** GET /api/drafts/:id is the only public draft read (share-by-link). */
-export async function getDraft({ params }) {
+async function getDraft({ params }) {
   if (!isUuid(params.id)) throw notFound()
   const { rows } = await query(`select ${COLUMNS} from drafts where id = $1`, [params.id])
   if (!rows[0]) throw notFound()
@@ -133,7 +136,7 @@ export async function getDraft({ params }) {
 }
 
 /** PATCH /api/drafts/:id: owner only; a non-owner gets 404 and the row is untouched. */
-export async function updateDraft({ request, params }) {
+async function updateDraft({ request, params }) {
   const session = await requireUser(request)
   const body = requireObject(await readJson(request))
   if (body.title === undefined && body.posts === undefined) {
@@ -147,6 +150,7 @@ export async function updateDraft({ request, params }) {
     `update drafts
         set title = coalesce($3, title),
             posts = coalesce($4::jsonb, posts),
+            version = version + 1,
             updated_at = now()
       where id = $1 and user_id = $2
       returning ${COLUMNS}`,
@@ -156,8 +160,59 @@ export async function updateDraft({ request, params }) {
   return json({ draft: rows[0] })
 }
 
+/** The If-Match version of a request, or null when the header is absent. */
+function ifMatchVersion(request) {
+  const header = request.headers.get('if-match')
+  if (header === null) return null
+  const match = header.trim().match(/^"?(\d+)"?$/)
+  if (!match) throw new HttpError(400, 'If-Match must be the draft version, for example "3"')
+  return Number(match[1])
+}
+
+const etagHeaders = (version) => ({ etag: `"${version}"` })
+
+/**
+ * PATCH /api/drafts/:id/posts/:postId: changes only the text of one post, and returns the draft.
+ * One transaction with the draft row locked, so no other write can land between the read and the
+ * write. Sending the text the post already has is a 200 with no write (a replay). A stale If-Match
+ * is a 412 with no write.
+ */
+async function patchPostText({ request, params }) {
+  const session = await requireUser(request)
+  const body = requireObject(await readJson(request))
+  if (Object.keys(body).some((key) => key !== 'text')) throw new HttpError(400, 'Only text can be changed here')
+  if (typeof body.text !== 'string' || body.text.length > POST_TEXT_MAX) {
+    throw new HttpError(400, `text must be a string of at most ${POST_TEXT_MAX} characters`)
+  }
+  if (!isUuid(params.id)) throw notFound()
+  const expected = ifMatchVersion(request)
+
+  return transaction(async (q) => {
+    const { rows } = await q(`select ${COLUMNS} from drafts where id = $1 and user_id = $2 for update`, [params.id, session.uid])
+    if (!rows[0]) throw notFound()
+    const draft = rows[0]
+    if (draft.is_published) throw new HttpError(409, 'This draft is published. Duplicate it to edit.')
+    const index = draft.posts.findIndex((post) => post.id === params.postId)
+    if (index < 0) throw new HttpError(404, 'Post not found in this draft')
+    if (draft.posts[index].text === body.text) return json({ draft }, 200, etagHeaders(draft.version))
+    if (expected !== null && expected !== draft.version) {
+      return json({ error: 'The draft changed since you read it', version: draft.version }, 412, etagHeaders(draft.version))
+    }
+    const { rows: updated } = await q(
+      `update drafts
+          set posts = jsonb_set(posts, array[$3::text, 'text'], to_jsonb($4::text)),
+              version = version + 1,
+              updated_at = now()
+        where id = $1 and user_id = $2
+        returning ${COLUMNS}`,
+      [params.id, session.uid, String(index), body.text]
+    )
+    return json({ draft: updated[0] }, 200, etagHeaders(updated[0].version))
+  })
+}
+
 /** POST /api/drafts/:id/publish: deletes the draft's Blob images and clears them from posts. */
-export async function publishDraft({ request, params }) {
+async function publishDraft({ request, params }) {
   const session = await requireUser(request)
   const posts = await ownedPosts(params.id, session.uid)
   await deleteBlobUrls(await deletableImageUrls(session.uid, params.id, posts))
@@ -168,6 +223,7 @@ export async function publishDraft({ request, params }) {
         set posts = $3::jsonb,
             is_published = true,
             published_at = now(),
+            version = version + 1,
             updated_at = now()
       where id = $1 and user_id = $2
       returning ${COLUMNS}`,
@@ -178,7 +234,7 @@ export async function publishDraft({ request, params }) {
 }
 
 /** DELETE /api/drafts/:id */
-export async function deleteDraft({ request, params }) {
+async function deleteDraft({ request, params }) {
   const session = await requireUser(request)
   const posts = await ownedPosts(params.id, session.uid)
   await deleteBlobUrls(await deletableImageUrls(session.uid, params.id, posts))
@@ -187,7 +243,7 @@ export async function deleteDraft({ request, params }) {
 }
 
 /** POST /api/drafts/:id/share-tokens: one-time token for the X-thread or agent link. */
-export async function createShareToken({ request, params }) {
+async function createShareToken({ request, params }) {
   const session = await requireUser(request)
   if (!isUuid(params.id)) throw notFound()
   const { rows } = await query(
@@ -210,5 +266,6 @@ export const draftRoutes = [
   { method: 'POST', path: '/drafts/:id/duplicate', handler: duplicateDraft, ci: true },
   { method: 'GET', path: '/drafts/:id/export', handler: exportDraft, ci: true },
   { method: 'DELETE', path: '/drafts/:id', handler: deleteDraft, ci: true },
-  { method: 'POST', path: '/drafts/:id/share-tokens', handler: createShareToken, ci: true }
+  { method: 'POST', path: '/drafts/:id/share-tokens', handler: createShareToken, ci: true },
+  { method: 'PATCH', path: '/drafts/:id/posts/:postId', handler: patchPostText, ci: true }
 ]

@@ -12,7 +12,8 @@ const WWW_AUTHENTICATE = `Bearer resource_metadata="${APP_URL}/.well-known/oauth
 const MODERN = '2026-07-28'
 const TOOL_NAMES = [
   'list_drafts', 'get_draft', 'create_draft', 'update_draft', 'duplicate_draft', 'export_draft',
-  'split_text', 'create_share_link', 'add_image_from_url', 'publish_draft', 'delete_draft'
+  'split_text', 'create_share_link', 'add_image_from_url', 'publish_draft', 'delete_draft',
+  'whoami', 'create_thread_from_text', 'remove_image', 'add_post', 'update_post', 'remove_post', 'move_post'
 ]
 
 let db
@@ -149,7 +150,7 @@ describe('transport', () => {
     expect(body.error.data.supported).toContain(MODERN)
   })
 
-  it('requires the version header on everything except initialize', async () => {
+  it('treats a request without the version header as 2025-03-26 (legacy), and still refuses an unknown value', async () => {
     const token = await accessToken(alice)
     const request = new Request(MCP, {
       method: 'POST',
@@ -157,8 +158,23 @@ describe('transport', () => {
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
     })
     const { status, body } = await call(request)
-    expect(status).toBe(400)
-    expect(body.error.code).toBe(-32600)
+    expect(status).toBe(200)
+    expect(body.result.tools.map((t) => t.name)).toContain('list_drafts')
+
+    const unknown = await route(legacyPost({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { token, headers: { 'mcp-protocol-version': '2030-01-01' } }))
+    expect((await unknown.json()).error.code).toBe(-32022)
+  })
+
+  it('initialize with 2025-03-26 answers 2025-03-26', async () => {
+    const token = await accessToken(alice)
+    const res = await route(
+      legacyPost(
+        { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 't', version: '1' } } },
+        { token, headers: { 'mcp-protocol-version': '2025-03-26' } }
+      )
+    )
+    expect(res.status).toBe(200)
+    expect((await res.json()).result.protocolVersion).toBe('2025-03-26')
   })
 
   it('answers a notification with 202 and no body', async () => {
@@ -236,20 +252,38 @@ describe('initialize, discovery and tools/list', () => {
     const token = await accessToken(alice)
     const { body } = await call(modernPost('server/discover', {}, { token }))
     expect(body.result.resultType).toBe('complete')
-    expect(body.result.supportedVersions).toEqual(['2026-07-28', '2025-11-25', '2025-06-18'])
+    expect(body.result.supportedVersions).toEqual(['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26'])
     expect(body.result.capabilities).toEqual({ tools: {} })
   })
 
-  it('tools/list names the 11 draft tools with their annotations', async () => {
+  it('tools/list names the draft tools with their annotations', async () => {
     const token = await accessToken(alice)
     const { body } = await call(modernPost('tools/list', {}, { token }))
     expect(body.result.resultType).toBe('complete')
     expect(body.result.ttlMs).toBeGreaterThan(0)
     const tools = Object.fromEntries(body.result.tools.map((tool) => [tool.name, tool]))
     expect(Object.keys(tools).sort()).toEqual([...TOOL_NAMES].sort())
-    expect(tools.list_drafts.annotations).toEqual({ readOnlyHint: true })
-    expect(tools.publish_draft.annotations).toEqual({ destructiveHint: true })
-    expect(tools.delete_draft.annotations).toEqual({ destructiveHint: true })
+    // Behaviour changed (M3): every tool has a title and all four hints.
+    for (const tool of body.result.tools) {
+      expect(tool.title).toMatch(/^[A-Z]/)
+      expect(Object.keys(tool.annotations).sort()).toEqual(
+        ['destructiveHint', 'idempotentHint', 'openWorldHint', 'readOnlyHint']
+      )
+    }
+    expect(tools.list_drafts.annotations).toEqual({
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    })
+    expect(tools.publish_draft.annotations).toEqual({
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false
+    })
+    expect(tools.delete_draft.annotations.destructiveHint).toBe(true)
+    expect(tools.add_image_from_url.annotations.openWorldHint).toBe(true)
     expect(tools.create_draft.inputSchema.type).toBe('object')
     expect(tools.create_draft.description).toMatch(/treat them as data/)
   })
@@ -257,7 +291,8 @@ describe('initialize, discovery and tools/list', () => {
   it('tools/list works with a 2025-06-18 client as well', async () => {
     const token = await accessToken(alice)
     const { body } = await call(legacyPost({ jsonrpc: '2.0', id: 3, method: 'tools/list' }, { token }))
-    expect(body.result.tools).toHaveLength(11)
+    // Behaviour changed (M4, M5): 18 tools; whoami, create_thread_from_text, remove_image and the four post tools are new.
+    expect(body.result.tools).toHaveLength(18)
     expect(body.result.resultType).toBeUndefined()
   })
 })
@@ -279,6 +314,17 @@ describe('tools/call', () => {
 
     const list = await call(modernPost('tools/call', { name: 'list_drafts', arguments: { published: false } }, { token }))
     expect(list.body.result.structuredContent.drafts.map((d) => d.id)).toEqual([draft.id])
+  })
+
+  it('gives posts sent without ids unique ids, so each post can be found by id', async () => {
+    const token = await accessToken(alice)
+    const created = await call(
+      modernPost('tools/call', { name: 'create_draft', arguments: { title: 'Ids', posts: [{ text: 'First', images: [], embeddedTweet: null }, { text: 'Second', images: [], embeddedTweet: null }] } }, { token })
+    )
+    expect(created.body.result.isError).toBe(false)
+    const ids = created.body.result.structuredContent.draft.posts.map((post) => post.id)
+    expect(ids.every((id) => typeof id === 'string' && id.length > 0)).toBe(true)
+    expect(new Set(ids).size).toBe(2)
   })
 
   it('does not show or read another user drafts', async () => {
@@ -318,7 +364,14 @@ describe('tools/call', () => {
     expect(split.body.result.structuredContent.posts.length).toBeGreaterThan(1)
 
     const share = await call(modernPost('tools/call', { name: 'create_share_link', arguments: { id: draft.id } }, { token }))
-    expect(share.body.result.structuredContent.token).toBeTruthy()
+    const shared = share.body.result.structuredContent
+    expect(shared.token).toBeTruthy()
+    // M3: links, not bare tokens. The origin is the request's app origin.
+    expect(shared.preview_url).toBe(`${APP_URL}/x-thread-preview/${shared.token}`)
+    expect(shared.markdown_url).toBe(`${APP_URL}/api/share/${shared.token}.md`)
+
+    const read = await call(modernPost('tools/call', { name: 'get_draft', arguments: { id: draft.id } }, { token }))
+    expect(read.body.result.structuredContent.draft.url).toBe(`${APP_URL}/draft/${draft.id}`)
 
     const deleted = await call(modernPost('tools/call', { name: 'delete_draft', arguments: { id: draft.id } }, { token }))
     expect(deleted.body.result.isError).toBe(false)
@@ -340,5 +393,194 @@ describe('tools/call', () => {
     const token = await accessToken(alice)
     const { body } = await call(modernPost('tools/call', { name: 'nope', arguments: {} }, { token }))
     expect(body.error.code).toBe(-32602)
+  })
+})
+
+// ---- M4: whoami, create_thread_from_text, post-scoped images, remove_image --------------------
+
+describe('M4 tools', () => {
+  async function insertDraft(owner, posts, title = 'Draft') {
+    const { rows } = await db.pg.query('insert into drafts (user_id, title, posts) values ($1, $2, $3::jsonb) returning id', [
+      owner.id,
+      title,
+      JSON.stringify(posts)
+    ])
+    return rows[0].id
+  }
+
+  it('whoami returns the login of the caller', async () => {
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'whoami', arguments: {} }, { token }))
+    expect(res.body.result.structuredContent.login).toBe('alice')
+  })
+
+  it('create_thread_from_text splits the text into posts and returns the draft with its editor link', async () => {
+    const token = await accessToken(alice)
+    const text = 'This is one sentence of the thread. '.repeat(30)
+    const res = await call(modernPost('tools/call', { name: 'create_thread_from_text', arguments: { title: 'T', text } }, { token }))
+    const draft = res.body.result.structuredContent.draft
+    expect(draft.posts.length).toBeGreaterThan(1)
+    expect(draft.posts.every((post) => post.text.length <= 280 && post.id)).toBe(true)
+    expect(draft.url).toBe(`${APP_URL}/draft/${draft.id}`)
+  })
+
+  it('remove_image and add_image_from_url treat another user\'s draft as not found', async () => {
+    const bobDraft = await insertDraft(bob, [{ id: 'p1', text: 'hi', images: [], embeddedTweet: null }], 'Bob')
+    const token = await accessToken(alice)
+    const remove = await call(
+      modernPost('tools/call', { name: 'remove_image', arguments: { draftId: bobDraft, url: 'https://x.test/a.png' } }, { token })
+    )
+    expect(remove.body.result.isError).toBe(true)
+    expect(remove.body.result.content[0].text).toMatch(/not found/i)
+    const add = await call(
+      modernPost(
+        'tools/call',
+        { name: 'add_image_from_url', arguments: { draftId: bobDraft, url: 'https://x.test/a.png', postId: 'p1' } },
+        { token }
+      )
+    )
+    expect(add.body.result.isError).toBe(true)
+    expect(add.body.result.content[0].text).toMatch(/not found/i)
+  })
+
+  it('add_image_from_url refuses an unknown postId before any upload', async () => {
+    const draft = await insertDraft(alice, [{ id: 'p1', text: 'hi', images: [], embeddedTweet: null }])
+    const token = await accessToken(alice)
+    const res = await call(
+      modernPost('tools/call', { name: 'add_image_from_url', arguments: { draftId: draft, url: 'https://x.test/a.png', postId: 'nope' } }, { token })
+    )
+    expect(res.body.result.isError).toBe(true)
+    expect(res.body.result.content[0].text).toMatch(/Post not found/)
+  })
+
+  it('remove_image keeps the file while another draft of the caller still uses it', async () => {
+    const url = 'https://blobs.example/alice/shared.png'
+    const images = [{ url }]
+    const first = await insertDraft(alice, [{ id: 'p1', text: 'a', images, embeddedTweet: null }], 'First')
+    await insertDraft(alice, [{ id: 'p2', text: 'b', images, embeddedTweet: null }], 'Duplicate')
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'remove_image', arguments: { draftId: first, url } }, { token }))
+    expect(res.body.result.structuredContent).toEqual({ removed: true, deleted: false })
+    const { rows } = await db.pg.query('select posts from drafts where id = $1', [first])
+    expect(rows[0].posts[0].images).toEqual([])
+  })
+})
+
+describe('M4 remove_image reference rules (Codex findings on 5c79609)', () => {
+  async function insertDraft(owner, posts, title = 'Draft') {
+    const { rows } = await db.pg.query('insert into drafts (user_id, title, posts) values ($1, $2, $3::jsonb) returning id', [
+      owner.id,
+      title,
+      JSON.stringify(posts)
+    ])
+    return rows[0].id
+  }
+
+  it('keeps the file when another draft stores the same image as a string', async () => {
+    const url = 'https://blobs.example/alice/string.png'
+    const first = await insertDraft(alice, [{ id: 'p1', text: 'a', images: [{ url }], embeddedTweet: null }], 'First')
+    await insertDraft(alice, [{ id: 'p2', text: 'b', images: [url], embeddedTweet: null }], 'String form')
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'remove_image', arguments: { draftId: first, url } }, { token }))
+    expect(res.body.result.structuredContent).toEqual({ removed: true, deleted: false })
+  })
+
+  it('removes a string-form image from the draft and does not try to delete a file the caller does not own', async () => {
+    const url = 'https://images.example/external.png'
+    const draft = await insertDraft(alice, [{ id: 'p1', text: 'a', images: [url], embeddedTweet: null }], 'External')
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'remove_image', arguments: { draftId: draft, url } }, { token }))
+    expect(res.body.result.isError).toBe(false)
+    expect(res.body.result.structuredContent).toEqual({ removed: true, deleted: false })
+    const { rows } = await db.pg.query('select posts from drafts where id = $1', [draft])
+    expect(rows[0].posts[0].images).toEqual([])
+  })
+})
+
+// ---- M5: post tools (add_post, update_post, remove_post, move_post) ---------------------------
+
+describe('M5 post tools', () => {
+  async function insertPosts(owner, posts, { published = false } = {}) {
+    const { rows } = await db.pg.query(
+      'insert into drafts (user_id, title, posts, is_published, published_at) values ($1, $2, $3::jsonb, $4, $5) returning id',
+      [owner.id, 'Posts', JSON.stringify(posts), published, published ? new Date() : null]
+    )
+    return rows[0].id
+  }
+  const postsOf = async (id) => (await db.pg.query('select posts from drafts where id = $1', [id])).rows[0].posts
+  const toolCall = async (token, name, args) =>
+    (await call(modernPost('tools/call', { name, arguments: args }, { token }))).body.result
+
+  const base = () => [
+    { id: 'a', text: 'first', images: [], embeddedTweet: null },
+    { id: 'b', text: 'second', images: [], embeddedTweet: { id: 'x' } },
+    { id: 'c', text: 'third', images: [], embeddedTweet: null }
+  ]
+
+  it('add_post appends by default and inserts after after_post_id', async () => {
+    const draft = await insertPosts(alice, base())
+    const token = await accessToken(alice)
+    await toolCall(token, 'add_post', { id: draft, text: 'last' })
+    let posts = await postsOf(draft)
+    expect(posts.map((p) => p.text)).toEqual(['first', 'second', 'third', 'last'])
+    await toolCall(token, 'add_post', { id: draft, text: 'middle', after_post_id: 'a' })
+    posts = await postsOf(draft)
+    expect(posts.map((p) => p.text)).toEqual(['first', 'middle', 'second', 'third', 'last'])
+    expect(posts[1].images).toEqual([])
+    expect(posts[1].embeddedTweet).toBeNull()
+    const bad = await toolCall(token, 'add_post', { id: draft, text: 'x', after_post_id: 'nope' })
+    expect(bad.isError).toBe(true)
+  })
+
+  it('update_post changes only the text; the other posts stay byte-equal', async () => {
+    const draft = await insertPosts(alice, base())
+    const token = await accessToken(alice)
+    const before = await postsOf(draft)
+    const res = await toolCall(token, 'update_post', { id: draft, post_id: 'b', text: 'edited' })
+    expect(res.isError).toBe(false)
+    const after = await postsOf(draft)
+    expect(after[1]).toEqual({ ...before[1], text: 'edited' })
+    expect(JSON.stringify(after[0])).toBe(JSON.stringify(before[0]))
+    expect(JSON.stringify(after[2])).toBe(JSON.stringify(before[2]))
+  })
+
+  it('remove_post refuses the last post and removes one otherwise', async () => {
+    const draft = await insertPosts(alice, [{ id: 'only', text: 'alone', images: [], embeddedTweet: null }])
+    const token = await accessToken(alice)
+    const last = await toolCall(token, 'remove_post', { id: draft, post_id: 'only' })
+    expect(last.isError).toBe(true)
+    const two = await insertPosts(alice, base())
+    const removed = await toolCall(token, 'remove_post', { id: two, post_id: 'b' })
+    expect(removed.isError).toBe(false)
+    expect((await postsOf(two)).map((p) => p.id)).toEqual(['a', 'c'])
+  })
+
+  it('move_post moves a post and refuses an out-of-range position', async () => {
+    const draft = await insertPosts(alice, base())
+    const token = await accessToken(alice)
+    await toolCall(token, 'move_post', { id: draft, post_id: 'c', position: 1 })
+    expect((await postsOf(draft)).map((p) => p.id)).toEqual(['c', 'a', 'b'])
+    const out = await toolCall(token, 'move_post', { id: draft, post_id: 'c', position: 9 })
+    expect(out.isError).toBe(true)
+  })
+
+  it("another user's draft and a published draft are refused", async () => {
+    const bobDraft = await insertPosts(bob, base())
+    const token = await accessToken(alice)
+    const other = await toolCall(token, 'update_post', { id: bobDraft, post_id: 'a', text: 'mine now' })
+    expect(other.isError).toBe(true)
+    expect(other.content[0].text).toMatch(/not found/i)
+    const published = await insertPosts(alice, base(), { published: true })
+    const pub = await toolCall(token, 'add_post', { id: published, text: 'nope' })
+    expect(pub.isError).toBe(true)
+    expect(pub.content[0].text).toMatch(/published/)
+  })
+
+  it('a 281-character post text is refused by the MCP argument schema', async () => {
+    const draft = await insertPosts(alice, base())
+    const token = await accessToken(alice)
+    const res = await toolCall(token, 'add_post', { id: draft, text: 'a'.repeat(281) })
+    expect(res.isError).toBe(true)
+    expect(res.content[0].text).toMatch(/at most 280/)
   })
 })

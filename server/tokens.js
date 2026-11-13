@@ -15,12 +15,12 @@ export function hashToken(token) {
 }
 
 /** A new random token: `xt_` + 32 random bytes (base64url). Only the hash is kept. */
-export function generateToken() {
+function generateToken() {
   const token = `xt_${randomBytes(32).toString('base64url')}`
   return { token, hash: hashToken(token), prefix: token.slice(0, 10) }
 }
 
-export function isTokenShape(value) {
+function isTokenShape(value) {
   return typeof value === 'string' && TOKEN_SHAPE.test(value)
 }
 
@@ -57,7 +57,7 @@ export async function createApiToken(userId, { name, expiresInDays = MAX_EXPIRY_
 /**
  * Resolves a plaintext token to its owner. Returns null when unknown, expired or revoked.
  * A hand-made token is also refused once it is 7 days old from creation (plan D4), even if
- * its stored expires_at is later (tokens created before the cap; see db/migrations/004_token_cap.sql).
+ * its stored expires_at is later (tokens created before the cap; see db/migrations/006_token_cap.sql).
  * Updates last_used_at at most once every five minutes.
  */
 export async function findUserByToken(token) {

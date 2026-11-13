@@ -3,10 +3,10 @@ import { query, transaction } from '../db.js'
 import { hashToken } from '../tokens.js'
 
 // OAuth tokens (plan Task 7.4). Opaque random strings; only their SHA-256 hashes are stored.
-export const ACCESS_PREFIX = 'xta_'
-export const REFRESH_PREFIX = 'xtr_'
+const ACCESS_PREFIX = 'xta_'
+const REFRESH_PREFIX = 'xtr_'
 export const SCOPE = 'drafts'
-export const ACCESS_TTL_SECONDS = 60 * 60
+const ACCESS_TTL_SECONDS = 60 * 60
 const REFRESH_TTL_DAYS = 90
 const CLEANUP_BATCH = 100
 
@@ -63,6 +63,11 @@ export async function cleanupExpired() {
   } catch (err) {
     console.error('[oauth] token cleanup failed', err)
   }
+  try {
+    await query(`delete from mcp_rate_limits where minute < now() - interval '1 day'`)
+  } catch (err) {
+    console.error('[mcp] rate limit cleanup failed', err)
+  }
 }
 
 /**
@@ -88,12 +93,12 @@ async function revokeGrant(grantId) {
  * client or a revoked grant (none of these spend it), or was already used. Using a spent
  * refresh token revokes the whole grant (reuse detection).
  */
-export async function rotate(refreshToken, clientId) {
+export async function rotate(refreshToken, clientId, resource = null) {
   if (typeof refreshToken !== 'string' || !REFRESH_SHAPE.test(refreshToken)) throw invalidGrant()
   const hash = hashToken(refreshToken)
 
   const { rows: found } = await query(
-    `select t.grant_id, t.used_at, t.expires_at > now() as fresh, g.client_id, g.revoked_at
+    `select t.grant_id, t.used_at, t.expires_at > now() as fresh, g.client_id, g.revoked_at, g.resource
        from oauth_tokens t join oauth_grants g on g.id = t.grant_id
       where t.token_hash = $1 and t.kind = 'refresh'`,
     [hash]
@@ -105,6 +110,10 @@ export async function rotate(refreshToken, clientId) {
     throw invalidGrant()
   }
   if (!row.fresh || row.revoked_at || row.client_id !== clientId) throw invalidGrant()
+  // `resource` is optional on refresh (D-2). When sent, it must be the grant's resource.
+  if (resource !== null && resource !== row.resource) {
+    throw new OAuthError('invalid_target', 'The resource does not match the one the grant was issued for', 400)
+  }
 
   // Spending the old token and issuing its replacement are one transaction: if any part
   // fails, the rollback leaves the old token unspent so the client can retry.

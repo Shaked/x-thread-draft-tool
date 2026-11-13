@@ -20,7 +20,7 @@ token is always `401`, never a fallback to the cookie.
 An access token (`xta_`) lasts 1 hour and is bound to one resource: a token for the REST API
 is refused on `/api/mcp`, and the reverse. It refreshes with a rotating refresh token (`xtr_`,
 90 days unused), at `POST /api/oauth/token` with `grant_type=refresh_token`. Reusing a spent
-refresh token revokes its whole connected app.
+refresh token revokes its whole connected app. A loopback redirect URI (`localhost` or `127.0.0.1`, http) matches a registered one with any port, so a CLI can pick a free port. At the token endpoint `resource` is optional: when it is absent, the resource the code was issued for is used. The MCP connector's tools are listed in `server/mcp/tools.js`; `tests/api/mcp-coverage.test.js` fails when a REST route has neither a tool nor a documented exclusion.
 
 Hand-made `xt_` tokens are personal (they act as the GitHub user who created them), expire after
 7 days at most, and can be revoked at any time. At most 20 are active per user. The plaintext is
@@ -30,10 +30,14 @@ created before the cap) gets a `401` whose message says it expired and points to
 or OAuth.
 
 ### Connect as an MCP connector
+Setup recipes, the tool list and troubleshooting: [mcp.md](./mcp.md).
+
 
 Add `$BASE/api/mcp` as a remote MCP connector. The client discovers the authorization server from
 `$BASE/.well-known/oauth-protected-resource/api/mcp`, you approve once with GitHub sign-in, and the
 client refreshes its access token by itself.
+
+**Sign-in limit on long authorize requests.** If you are signed out, the server keeps your authorize request (`/api/oauth/authorize?...`) across GitHub sign-in only when it is 2,000 characters or shorter. A longer one is dropped: after GitHub sign-in you land on the app's home page, not the consent page. You are signed in by then, so start the connection again from your client and the consent page opens directly. To avoid the extra step, keep `client_id`, `redirect_uri` and `state` short. A registered `client_id` and a `state` of a few dozen characters stay well under the limit.
 
 ### Get a token without a browser (device flow)
 
@@ -130,6 +134,12 @@ curl -s $BASE/api/drafts/DRAFT_ID
 curl -s -X PATCH $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -d '{"posts":[{"id":"p1","text":"Edited","images":[]}]}'
 
+# Change the text of one post (owner). Atomic: a replay of the same text is a 200 with no write.
+# Send If-Match with the draft "version" you read; a stale one is 412 with the current version.
+# Refused: 409 for a published draft, 404 for an unknown post, 400 for text over 280 characters or any other field.
+curl -s -X PATCH $BASE/api/drafts/DRAFT_ID/posts/p1 -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -H 'If-Match: "3"' -d '{"text":"Edited"}'
+
 # Duplicate (owner) → 201 with the copy, titled "<title> (copy)"
 curl -s -X POST $BASE/api/drafts/DRAFT_ID/duplicate -H "Authorization: Bearer $TOKEN"
 
@@ -188,6 +198,8 @@ curl -s $BASE/api/health
 
 ## How to test at each level
 
+The pre-commit hook scans staged files with gitleaks when it is installed locally (`.gitleaks.toml`); CI's `gitleaks` job is the enforcing check.
+
 | Level | Command | Needs network? | Needs secrets? |
 |---|---|---|---|
 | 1. Unit + API | `npm ci && npm run test:unit` | npm registry only | no |
@@ -197,8 +209,7 @@ curl -s $BASE/api/health
 `npm run smoke` creates drafts titled `[smoke] <timestamp>` in the token owner's account and
 deletes them, even if a step fails. It prints PASS/FAIL per step and never prints the token.
 Set `XT_SMOKE_PUBLIC=1` to run only the steps that need no account (account steps print SKIP).
-The automatic deployed smoke test uses it for Preview deployments, whose database branch has no
-smoke-test user; Production deployments and manual runs get the full test.
+The automatic deployed smoke test (`.github/workflows/smoke-deployed.yml`) runs the full test on Preview and Production deployments. It signs in with a GitHub OIDC identity (`auth: ci-oidc`), so it needs no stored token. No long-lived smoke token is stored (the XT_SMOKE_TOKEN* secrets were removed in Task 27).
 
 `/api/dev/token` exists only on the local headless server. It is not part of the Vercel function.
 
@@ -219,6 +230,10 @@ permitted. Use the two stable domains.
 
 **Databases behind previews:** each Preview deployment can get its own Neon branch. If a new
 preview answers 401 to a token that worked before, create a new token on that preview.
+
+Only `main` and the stable branch `claude/lucid-sagan-bbciuo` deploy (`vercel.json` `git.deploymentEnabled`). A PR is put on the stable preview by the runbook's P-PREVIEW (`docs/plans/hardening-finish.md`).
+
+**Neon preview branches:** `.github/workflows/neon-preview-cleanup.yml` runs `scripts/neon-preview-cleanup.mjs`. On each PR push it runs `preflight`: reuse the PR's `preview/<branch>`, or make room when the project is at its branch limit (`branches_limit`, 10 on the free plan), or stop with exit 2. On close it deletes that PR's branch. A daily run deletes merged and closed-unmerged previews after 24 hours. `main`, the default, primary, delete-restricted or protected branches and the stable preview are never deleted.
 
 ## CI identity (GitHub Actions OIDC)
 

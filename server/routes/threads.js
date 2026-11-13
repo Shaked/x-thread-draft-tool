@@ -4,7 +4,7 @@ import { splitIntoThreads } from '../../src/utils/threadSplitter.js'
 const MAX_BODY_BYTES = 100 * 1024
 
 /** POST /api/threads/split { text, max_chars? } (no auth): same splitter as the editor. */
-export async function splitThread({ request }) {
+async function splitThread({ request }) {
   const body = await readJson(request, MAX_BODY_BYTES)
   if (!body || typeof body !== 'object' || typeof body.text !== 'string') {
     throw new HttpError(400, 'text must be a string')

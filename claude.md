@@ -3,7 +3,7 @@
 This file is the primary, actionable map for what to use.
 
 <!-- AUTO-INDEX:START -->
-_Last refreshed: 2026-11-07 18:08:08.396 UTC_
+_Last refreshed: 2026-11-13 15:47:52.686 UTC_
 
 ## Feature Index (auto-generated, use directly)
 - Draft Management: [`docs/features/draft-management.md`](./docs/features/draft-management.md)
@@ -17,6 +17,7 @@ _Last refreshed: 2026-11-07 18:08:08.396 UTC_
 - Skill: Agent Branch, PR and CI Workflow: [`.claude/skills/agent-pr-workflow.md`](./.claude/skills/agent-pr-workflow.md)
 - Skill: Build and Test Workflow: [`.claude/skills/build-and-test.md`](./.claude/skills/build-and-test.md)
 - Skill: Deploy and Release Safety: [`.claude/skills/deploy-and-release.md`](./.claude/skills/deploy-and-release.md)
+- Skill: End-to-end contract tests without real clients or LLMs: [`.claude/skills/e2e-contract-tests.md`](./.claude/skills/e2e-contract-tests.md)
 - Skill: High-Risk Feature Concentration: [`.claude/skills/high-risk-features.md`](./.claude/skills/high-risk-features.md)
 - Skill: JS/TS Quality and Type Safety Direction: [`.claude/skills/js-ts-quality.md`](./.claude/skills/js-ts-quality.md)
 <!-- AUTO-INDEX:END -->

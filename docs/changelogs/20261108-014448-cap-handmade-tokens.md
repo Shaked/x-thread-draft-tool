@@ -1,5 +1,0 @@
-- Caps existing hand-made `xt_` tokens at 7 days from creation (plan D4, Task 7.9). Migration `004_token_cap.sql` moves `expires_at` earlier for active tokens (never later) and is idempotent.
-- The token check also refuses any hand-made token older than 7 days, so the cap holds even before the migration runs.
-- A refused expired token gets a 401 that says it expired and points to `/settings/tokens`, the device flow and OAuth. Unknown or revoked tokens keep the generic 401.
-- Browser sessions, OAuth access tokens and the device flow are unchanged.
-- Tests: old tokens are refused, fresh tokens and browser sessions still work, and the migration is checked for its cap and idempotency.

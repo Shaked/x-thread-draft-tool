@@ -7,7 +7,7 @@ import { HttpError, json, readJson } from '../http.js'
 import { readSession } from '../session.js'
 import { hashToken } from '../tokens.js'
 import { OAuthError, SCOPE, cleanupExpired, insertPair, rotate } from '../oauth/tokens.js'
-import { getClient, isValidRedirectUriList, registerClient } from '../oauth/clients.js'
+import { getClient, isValidRedirectUriList, redirectUriAllowed, registerClient } from '../oauth/clients.js'
 import {
   consentHeaders,
   consentPage,
@@ -65,7 +65,7 @@ async function formBody(request) {
 // ---- Metadata --------------------------------------------------------------------------------
 
 /** GET /.well-known/oauth-protected-resource (also served at .../api/mcp): RFC 9728. */
-export async function protectedResourceMetadata({ request }) {
+async function protectedResourceMetadata({ request }) {
   const base = origin(request)
   return json(
     {
@@ -80,7 +80,7 @@ export async function protectedResourceMetadata({ request }) {
 }
 
 /** GET /.well-known/oauth-authorization-server: RFC 8414, with the MCP-required fields. */
-export async function authorizationServerMetadata({ request }) {
+async function authorizationServerMetadata({ request }) {
   const base = origin(request)
   return json(
     {
@@ -105,7 +105,7 @@ export async function authorizationServerMetadata({ request }) {
 // ---- Registration (RFC 7591, deprecated by the MCP spec, kept for compatibility) ---------------
 
 /** POST /oauth/register: no auth. Only public clients (token_endpoint_auth_method none). */
-export async function register({ request }) {
+async function register({ request }) {
   let body
   try {
     body = await readJson(request, FORM_MAX_BYTES)
@@ -169,7 +169,7 @@ function parseAuthorize(params, base) {
  * GET /oauth/authorize. Unknown client or unregistered redirect URI: an error page, never a
  * redirect. Other problems: redirect with error. No session: sign in first, then come back here.
  */
-export async function authorizeGet({ request, url }) {
+async function authorizeGet({ request, url }) {
   const base = origin(request)
   const params = url.searchParams
   const client = await getClient(params.get('client_id') ?? '')
@@ -177,7 +177,7 @@ export async function authorizeGet({ request, url }) {
     return htmlError(400, 'Unknown app', 'This app is not recognized, so nothing was approved. Start again from the app.')
   }
   const redirectUri = params.get('redirect_uri')
-  if (!redirectUri || !client.redirect_uris.includes(redirectUri)) {
+  if (!redirectUri || !redirectUriAllowed(client.redirect_uris, redirectUri)) {
     return htmlError(400, 'Wrong return address', 'The app asked to return to an address it did not register. Nothing was approved.')
   }
 
@@ -218,7 +218,7 @@ export async function authorizeGet({ request, url }) {
 }
 
 /** POST /oauth/authorize (the consent form). CSRF and session binding: the decision must belong to this session's user. */
-export async function authorizePost({ request }) {
+async function authorizePost({ request }) {
   const base = origin(request)
   const form = await formBody(request)
   const decision = await openDecision(form.get('request'))
@@ -286,9 +286,10 @@ async function exchangeCode(form) {
   const redirectUri = form.get('redirect_uri')
   const clientId = form.get('client_id')
   const verifier = form.get('code_verifier')
+  // `resource` is optional (D-2). Absent (null) means the resource the code was issued for.
   const resource = form.get('resource')
-  if (!code || !redirectUri || !clientId || !verifier || !resource) {
-    throw new OAuthError('invalid_request', 'code, redirect_uri, client_id, code_verifier and resource are required')
+  if (!code || !redirectUri || !clientId || !verifier) {
+    throw new OAuthError('invalid_request', 'code, redirect_uri, client_id and code_verifier are required')
   }
   if (!PKCE_VERIFIER.test(verifier)) throw invalidCode()
 
@@ -309,12 +310,12 @@ async function exchangeCode(form) {
     row.client_id === clientId && row.redirect_uri === redirectUri && pkceMatches(verifier, row.code_challenge)
   if (row.used_at) {
     // Only a request that presents the code's bindings (a genuine replay by the legitimate client) revokes.
-    if (bindingsMatch && resource === row.resource) await revokeGrant(row.grant_id)
+    if (bindingsMatch && (resource === null || resource === row.resource)) await revokeGrant(row.grant_id)
     throw invalidCode()
   }
   if (!row.fresh || row.revoked_at) throw invalidCode()
   if (!bindingsMatch) throw invalidCode()
-  if (resource !== row.resource) {
+  if (resource !== null && resource !== row.resource) {
     throw new OAuthError('invalid_target', 'The resource does not match the one the code was issued for', 400)
   }
 
@@ -343,7 +344,7 @@ async function exchangeCode(form) {
 }
 
 /** POST /oauth/token: authorization_code and refresh_token grants. Public clients only (PKCE). */
-export async function token({ request }) {
+async function token({ request }) {
   const form = await formBody(request)
   const grantType = form.get('grant_type')
   try {
@@ -351,7 +352,7 @@ export async function token({ request }) {
     if (grantType === 'refresh_token') {
       const clientId = form.get('client_id')
       if (!clientId) throw new OAuthError('invalid_request', 'client_id is required')
-      return json(await rotate(form.get('refresh_token'), clientId))
+      return json(await rotate(form.get('refresh_token'), clientId, form.get('resource')))
     }
     return tokenError(400, 'unsupported_grant_type', 'grant_type must be authorization_code or refresh_token')
   } catch (err) {
@@ -361,7 +362,7 @@ export async function token({ request }) {
 }
 
 /** POST /oauth/revoke (RFC 7009): revokes the grant the token belongs to. Always 200. */
-export async function revoke({ request }) {
+async function revoke({ request }) {
   const form = await formBody(request)
   const value = form.get('token')
   if (value) {

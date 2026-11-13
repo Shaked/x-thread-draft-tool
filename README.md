@@ -88,6 +88,8 @@ with GitHub's device flow via `npm run agent:login`, which keeps a short-lived a
 - Agent guide with curl examples: [docs/agents/api.md](./docs/agents/api.md)
 - Local API for development and tests: `npm run dev:api` (http://127.0.0.1:8787), then `npm run smoke`
 
+Connect an AI app over MCP (Claude, Claude Code, Codex, ChatGPT): [docs/agents/mcp.md](./docs/agents/mcp.md).
+
 ## Project Structure
 
 ```
