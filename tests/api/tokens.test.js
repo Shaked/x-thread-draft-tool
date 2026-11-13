@@ -1,10 +1,13 @@
 // @vitest-environment node
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn(async () => {}) }))
 
 import { route } from '../../server/router.js'
-import { createApiToken } from '../../server/tokens.js'
+import { createApiToken, hashToken } from '../../server/tokens.js'
+import { MIGRATIONS_DIR } from '../../scripts/migrate.mjs'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
 
@@ -184,6 +187,144 @@ describe('7-day cap on hand-made tokens (plan D4)', () => {
 
   it('refuses 0 days', async () => {
     await expect(createApiToken(alice.id, { name: 'x', expiresInDays: 0 })).rejects.toMatchObject({ status: 400 })
+  })
+})
+
+describe('existing hand-made tokens are capped at 7 days from creation (Task 7.9)', () => {
+  const CAP_MIGRATION = path.join(MIGRATIONS_DIR, '006_token_cap.sql')
+
+  // A token as it existed before the cap: created `createdAgo` ago (an interval, e.g. '8 days'),
+  // with an expiry `expiresInDays` from now.
+  async function legacyToken(createdAgo, expiresInDays) {
+    const { token, id } = await newToken('legacy')
+    await db.pg.query(
+      "update api_tokens set created_at = now() - $2::interval, expires_at = now() + make_interval(days => $3) where id = $1",
+      [id, createdAgo, expiresInDays]
+    )
+    return { token, id }
+  }
+
+  it('refuses a token older than 7 days with a 401 that says it expired and names the device and OAuth flows', async () => {
+    const { token } = await legacyToken('8 days', 300)
+    const res = await route(apiRequest('/api/auth/me', { headers: bearer(token) }))
+    expect(res.status).toBe(401)
+    const { error } = await res.json()
+    expect(error).toMatch(/expired/)
+    expect(error).toMatch(/7 days/)
+    expect(error).toMatch(/device flow/)
+    expect(error).toMatch(/OAuth/)
+  })
+
+  it('refuses the old token even before the migration has capped its stored expiry', async () => {
+    const { token } = await legacyToken('7 days 1 hour', 300)
+    const res = await route(apiRequest('/api/drafts?published=false', { headers: bearer(token) }))
+    expect(res.status).toBe(401)
+  })
+
+  it('a fresh token works and the browser session is unchanged', async () => {
+    const { token } = await newToken('fresh')
+    const bearerRes = await route(apiRequest('/api/auth/me', { headers: bearer(token) }))
+    expect(bearerRes.status).toBe(200)
+    expect((await bearerRes.json()).auth).toBe('token')
+
+    const cookieRes = await route(apiRequest('/api/auth/me', { cookie: aliceCookie }))
+    expect(cookieRes.status).toBe(200)
+    expect((await cookieRes.json()).auth).toBe('session')
+  })
+
+  it('an unknown token keeps the generic 401 message', async () => {
+    const res = await route(apiRequest('/api/auth/me', { headers: bearer('xt_' + 'b'.repeat(43)) }))
+    expect(res.status).toBe(401)
+    expect((await res.json()).error).toBe('Invalid or expired API token')
+  })
+
+  it('the migration caps a token at 7 days from creation, is idempotent, and keeps a fresh token working', async () => {
+    const legacy = await legacyToken('2 days', 365)
+    const sql = await readFile(CAP_MIGRATION, 'utf8')
+    await db.pg.exec(sql)
+
+    const expiry = async () =>
+      Number(
+        (
+          await db.pg.query(
+            'select extract(epoch from (expires_at - created_at)) as secs from api_tokens where token_hash = $1',
+            [hashToken(legacy.token)]
+          )
+        ).rows[0].secs
+      )
+    expect(await expiry()).toBe(7 * 86400)
+
+    await db.pg.exec(sql)
+    expect(await expiry()).toBe(7 * 86400)
+
+    const res = await route(apiRequest('/api/auth/me', { headers: bearer(legacy.token) }))
+    expect(res.status).toBe(200)
+  })
+
+  it('the migration saves the old expiry in api_token_cap_backup; a second run adds no rows and changes nothing', async () => {
+    const long = await legacyToken('2 days', 365)
+    const forever = await newToken('forever')
+    await db.pg.query('update api_tokens set expires_at = null where id = $1', [forever.id])
+    const sql = await readFile(CAP_MIGRATION, 'utf8')
+    await db.pg.exec(sql)
+
+    const backup = async () =>
+      (await db.pg.query('select token_id, expires_at, capped_at from api_token_cap_backup order by token_id')).rows
+    const first = await backup()
+    const byId = Object.fromEntries(first.map((r) => [r.token_id, r]))
+    expect(first).toHaveLength(2)
+    expect(byId[forever.id].expires_at).toBeNull()
+    const days = (new Date(byId[long.id].expires_at) - Date.now()) / 86400000
+    expect(days).toBeGreaterThan(363)
+    expect(days).toBeLessThan(366)
+
+    await db.pg.exec(sql)
+    expect(await backup()).toEqual(first)
+  })
+
+  it('O10 contract: after the migration the token list (cookie) has no active token valid longer than 7 days', async () => {
+    await legacyToken('1 day', 365)
+    await legacyToken('30 days', 365)
+    const forever = await newToken('forever')
+    await db.pg.query('update api_tokens set expires_at = null where id = $1', [forever.id])
+    await db.pg.exec(await readFile(CAP_MIGRATION, 'utf8'))
+
+    const res = await route(apiRequest('/api/tokens', { cookie: aliceCookie }))
+    expect(res.status).toBe(200)
+    const { tokens } = await res.json()
+    expect(tokens.length).toBeGreaterThanOrEqual(3)
+    for (const t of tokens.filter((x) => !x.revoked_at)) {
+      expect(t.expires_at).not.toBeNull()
+      expect(new Date(t.expires_at) - new Date(t.created_at)).toBeLessThanOrEqual(7 * 86400000)
+    }
+  })
+
+  it('the migration caps a token with no expiry (null expires_at)', async () => {
+    const { id } = await newToken('forever')
+    await db.pg.query('update api_tokens set expires_at = null where id = $1', [id])
+    await db.pg.exec(await readFile(CAP_MIGRATION, 'utf8'))
+    const { rows } = await db.pg.query('select extract(epoch from (expires_at - created_at)) as secs from api_tokens where id = $1', [id])
+    expect(Number(rows[0].secs)).toBe(7 * 86400)
+  })
+
+  it('the migration leaves revoked tokens and already-shorter expiries alone', async () => {
+    const shorter = await newToken('short')
+    await db.pg.query("update api_tokens set expires_at = now() + interval '1 day' where id = $1", [shorter.id])
+    const revoked = await legacyToken('1 day', 300)
+    await db.pg.query('update api_tokens set revoked_at = now() where token_hash = $1', [hashToken(revoked.token)])
+
+    await db.pg.exec(await readFile(CAP_MIGRATION, 'utf8'))
+
+    const { rows } = await db.pg.query(
+      'select extract(epoch from (expires_at - now())) as secs from api_tokens where id = $1',
+      [shorter.id]
+    )
+    expect(Number(rows[0].secs)).toBeLessThan(2 * 86400)
+    const { rows: revokedRows } = await db.pg.query(
+      'select expires_at > now() + interval \'100 days\' as still_long from api_tokens where token_hash = $1',
+      [hashToken(revoked.token)]
+    )
+    expect(revokedRows[0].still_long).toBe(true)
   })
 })
 
