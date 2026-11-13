@@ -4,6 +4,7 @@
 import { resolveAccess } from '../oauth/tokens.js'
 import { runAs } from '../caller-context.js'
 import { callTool, hasTool, listTools } from './tools.js'
+import { RATE_LIMIT_MESSAGE, withinToolRate } from './rate.js'
 
 const LATEST_VERSION = '2026-07-28'
 const SUPPORTED_VERSIONS = [LATEST_VERSION, '2025-11-25', '2025-06-18', '2025-03-26']
@@ -220,6 +221,10 @@ async function dispatch(message, ctx) {
       }
       const args = params.arguments ?? {}
       if (!isPlainObject(args)) throw new RpcError(-32602, 'Invalid params: arguments must be an object')
+      // Over the limit is a tool error (isError), not a JSON-RPC error, so the client can show it.
+      if (!(await withinToolRate(ctx.caller.uid))) {
+        return { content: [{ type: 'text', text: RATE_LIMIT_MESSAGE }], isError: true }
+      }
       return runAs(ctx.caller, () => callTool(params.name, args, { caller: ctx.caller, origin: ctx.origin }))
     }
     default:
