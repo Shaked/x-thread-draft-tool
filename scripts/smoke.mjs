@@ -86,6 +86,42 @@ await step('openapi', async () => {
   if (typeof doc.openapi !== 'string') throw new Error('no openapi version in document')
 })
 
+// MCP connector, public (no account): the endpoint refuses a request without a token, and its
+// metadata names the resource and the authorization server (plan M9).
+const publicRequest = (path, init = {}) =>
+  fetch(`${base}${path}`, {
+    ...init,
+    headers: { ...(bypass ? { 'x-vercel-protection-bypass': bypass } : {}), ...(init.headers || {}) }
+  })
+
+await step('mcp refuses a request without a token (401 with metadata link)', async () => {
+  const res = await publicRequest('/api/mcp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}'
+  })
+  if (res.status !== 401) throw new Error(`status is ${res.status}, expected 401`)
+  const challenge = res.headers.get('www-authenticate') || ''
+  if (!challenge.includes('/.well-known/oauth-protected-resource/api/mcp')) {
+    throw new Error('www-authenticate does not name the metadata URL')
+  }
+})
+
+await step('mcp metadata: resource ends with /api/mcp', async () => {
+  const doc = await call('GET', '/.well-known/oauth-protected-resource/api/mcp')
+  if (typeof doc.resource !== 'string' || !doc.resource.endsWith('/api/mcp')) {
+    throw new Error('resource does not end with /api/mcp')
+  }
+})
+
+await step('mcp authorization server: S256 and a registration endpoint', async () => {
+  const doc = await call('GET', '/.well-known/oauth-authorization-server')
+  if (!Array.isArray(doc.code_challenge_methods_supported) || !doc.code_challenge_methods_supported.includes('S256')) {
+    throw new Error('S256 is not listed')
+  }
+  if (typeof doc.registration_endpoint !== 'string') throw new Error('no registration_endpoint')
+})
+
 const accountStep = publicOnly ? async (name) => console.log(`SKIP ${name}: XT_SMOKE_PUBLIC=1`) : step
 
 await accountStep('me (token)', async () => {
