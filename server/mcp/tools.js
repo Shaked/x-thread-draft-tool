@@ -47,26 +47,28 @@ const TOOLS = [
     annotations: { readOnlyHint: true },
     run: async (args, ctx) => {
       const owned = await fetchOwnedDraft(ctx, args.id)
-      return owned.failure ?? json({ draft: owned.draft })
+      return owned.failure ?? json({ draft: { ...owned.draft, url: editorUrl(ctx.origin, owned.draft.id) } })
     }
   },
   {
     name: 'create_draft',
     description: 'Create a draft. Omit posts for one empty post.' + CONTENT_NOTE,
     inputSchema: { type: 'object', properties: { title: TITLE, posts: POSTS } },
-    run: (args, { rest }) => rest('POST', '/drafts', pick(withPostIds(args), ['title', 'posts']))
+    run: async (args, { rest, origin }) =>
+      withDraftUrl(await rest('POST', '/drafts', pick(withPostIds(args), ['title', 'posts'])), origin)
   },
   {
     name: 'update_draft',
     description: 'Change the title and/or posts of one of your drafts. Omitted fields stay as they are.' + CONTENT_NOTE,
     inputSchema: { type: 'object', properties: { id: UUID, title: TITLE, posts: POSTS }, required: ['id'] },
-    run: (args, { rest }) => rest('PATCH', `/drafts/${enc(args.id)}`, pick(withPostIds(args), ['title', 'posts']))
+    run: async (args, { rest, origin }) =>
+      withDraftUrl(await rest('PATCH', `/drafts/${enc(args.id)}`, pick(withPostIds(args), ['title', 'posts'])), origin)
   },
   {
     name: 'duplicate_draft',
     description: 'Copy one of your drafts. The copy is titled "<title> (copy)".',
     inputSchema: ID_ONLY,
-    run: (args, { rest }) => rest('POST', `/drafts/${enc(args.id)}/duplicate`)
+    run: async (args, { rest, origin }) => withDraftUrl(await rest('POST', `/drafts/${enc(args.id)}/duplicate`), origin)
   },
   {
     name: 'export_draft',
@@ -95,9 +97,18 @@ const TOOLS = [
   },
   {
     name: 'create_share_link',
-    description: 'Create a one-time read link for one of your drafts. The link works once, then returns 410.',
+    description:
+      'Create one-time read links for one of your drafts: preview_url (the X-thread view) and markdown_url. Each link works once in total, then returns 410.',
     inputSchema: ID_ONLY,
-    run: (args, { rest }) => rest('POST', `/drafts/${enc(args.id)}/share-tokens`)
+    run: async (args, { rest, origin }) => {
+      const res = await rest('POST', `/drafts/${enc(args.id)}/share-tokens`)
+      if (res.status >= 400) return res
+      const { token } = await res.json()
+      return json(
+        { token, preview_url: `${origin}/x-thread-preview/${token}`, markdown_url: `${origin}/api/share/${token}.md` },
+        res.status
+      )
+    }
   },
   {
     name: 'add_image_from_url',
@@ -132,10 +143,33 @@ export function hasTool(name) {
 }
 
 /** The tools/list entries (definitions only, no handlers). */
+// Title and the four hints for each tool. ChatGPT and Claude use them to decide what needs a
+// confirmation (plan M3). [title, readOnly, destructive, idempotent, openWorld]
+const META = {
+  list_drafts: ['List drafts', true, false, true, false],
+  get_draft: ['Get draft', true, false, true, false],
+  export_draft: ['Export draft', true, false, true, false],
+  split_text: ['Split text into posts', true, false, true, false],
+  create_draft: ['Create draft', false, false, false, false],
+  duplicate_draft: ['Duplicate draft', false, false, false, false],
+  create_share_link: ['Create share link', false, false, false, false],
+  update_draft: ['Update draft', false, false, true, false],
+  add_image_from_url: ['Add image from URL', false, false, false, true],
+  publish_draft: ['Publish draft', false, true, true, false],
+  delete_draft: ['Delete draft', false, true, true, false]
+}
+
 export function listTools() {
-  return TOOLS.map(({ name, description, inputSchema, annotations }) =>
-    annotations ? { name, description, inputSchema, annotations } : { name, description, inputSchema }
-  )
+  return TOOLS.map(({ name, description, inputSchema }) => {
+    const [title, readOnlyHint, destructiveHint, idempotentHint, openWorldHint] = META[name]
+    return {
+      name,
+      title,
+      description,
+      inputSchema,
+      annotations: { readOnlyHint, destructiveHint, idempotentHint, openWorldHint }
+    }
+  })
 }
 
 /**
@@ -146,7 +180,7 @@ export async function callTool(name, args, { caller, origin }) {
   const tool = TOOL_BY_NAME.get(name)
   const problem = argumentProblem(tool.inputSchema, args)
   if (problem) return toolError(problem)
-  const ctx = { caller, rest: restAs(origin, caller) }
+  const ctx = { caller, origin, rest: restAs(origin, caller) }
   try {
     return await toToolResult(await tool.run(args, ctx))
   } catch (err) {
@@ -231,6 +265,17 @@ function matchesType(type, value) {
         return true
     }
   })
+}
+
+/** The editor link of a draft: the app's /draft/<id> page. */
+const editorUrl = (origin, id) => `${origin}/draft/${id}`
+
+/** Adds the editor link (`url`) to a REST draft response; error responses pass through. */
+async function withDraftUrl(res, origin) {
+  if (res.status >= 400) return res
+  const body = await res.json()
+  if (body.draft) body.draft.url = editorUrl(origin, body.draft.id)
+  return json(body, res.status)
 }
 
 function pick(args, keys) {
