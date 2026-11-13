@@ -189,19 +189,19 @@ The live copy is the ledger's "Steps" table. This is the starting state.
 
 | Step | What | Gap | State | Needs | Done when |
 |---|---|---|---|---|---|
-| M0 | This plan on `main`; ledger issue created | none | todo | none | merged; ledger exists |
-| M1 | OAuth: loopback port, optional `resource`, client-profile tests | G1, G2 | todo | M0 | merged, production READY, smoke green |
-| M2 | Transport: missing version header, `2025-03-26`, Origin log line | G3 | todo | M1 | merged, production READY, smoke green |
-| M3 | Tool titles, annotations, links in results | G5, G6 | todo | M2 | merged, production READY, smoke green |
-| M4 | New tools: `whoami`, `remove_image`, `postId` on `add_image_from_url`, `create_thread_from_text`; coverage test | G7, G8, G9 | todo | M3 | merged, production READY, smoke green |
-| M5 | Post tools: `add_post`, `update_post`, `remove_post`, `move_post` | G8 | todo | M4 | merged, production READY, smoke green |
-| M6 | Export with numbering through REST and MCP | G7 | todo | M5 | merged, or `done (no change)` with the reason |
-| M7 | Pin the checked address in both server-side fetches | G10 | todo | M2 | merged, or parked by Opus |
-| M8 | Tool-call rate limit | G11 | todo | M5 | merged, production READY, smoke green |
-| M9 | `docs/agents/mcp.md`, README, `llms.txt`, smoke steps for MCP discovery | G12 | todo | M5 | merged; smoke shows the new steps PASS on production |
-| M10 | Settings page: "Connect an AI app" with the four recipes | G12 | todo | M9 | merged, look `APPROVE` (P-UI-REVIEW) |
-| M11 | Client contract suite, refresh resource fix, SDK client test | G4 | todo | M9 | contract suite and SDK test green in CI; refresh fix merged |
-| M12 | Finish: docs, switch the hook off, final ledger | none | todo | all above | merged; ledger final |
+| M0 | This plan on `main`; ledger issue created | none | done (#78, ledger #80) | none | merged; ledger exists |
+| M1 | OAuth: loopback port, optional `resource`, client-profile tests | G1, G2 | done (#81) | M0 | merged, production READY, smoke green |
+| M2 | Transport: missing version header, `2025-03-26`, Origin log line | G3 | done (#82) | M1 | merged, production READY, smoke green |
+| M3 | Tool titles, annotations, links in results | G5, G6 | done (#83) | M2 | merged, production READY, smoke green |
+| M4 | New tools: `whoami`, `remove_image`, `postId` on `add_image_from_url`, `create_thread_from_text`; coverage test | G7, G8, G9 | done (#84) | M3 | merged, production READY, smoke green |
+| M5 | Post tools: `add_post`, `update_post`, `remove_post`, `move_post` | G8 | done (#85) | M4 | merged, production READY, smoke green |
+| M6 | Export with numbering through REST and MCP | G7 | done (#86) | M5 | merged, or `done (no change)` with the reason |
+| M7 | Pin the checked address in both server-side fetches | G10 | done (#87) | M2 | merged, or parked by Opus |
+| M8 | Tool-call rate limit | G11 | done (#88) | M5 | merged, production READY, smoke green |
+| M9 | `docs/agents/mcp.md`, README, `llms.txt`, smoke steps for MCP discovery | G12 | done (#89) | M5 | merged; smoke shows the new steps PASS on production |
+| M10 | Settings page: "Connect an AI app" with the four recipes | G12 | done (#90) | M9 | merged, look `APPROVE` (P-UI-REVIEW) |
+| M11 | Client contract suite, refresh resource fix, SDK client test | G4 | done (#92, #98, #99, #100, #101) | M9 | contract suite and SDK test green in CI; refresh fix merged |
+| M12 | Finish: docs, switch the hook off, final ledger | none | done (#91) | all above | merged; ledger final |
 
 M7 is independent of M3 to M6. Take it while another PR waits.
 

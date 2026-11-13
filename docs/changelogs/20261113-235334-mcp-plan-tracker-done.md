@@ -1,0 +1,1 @@
+- The MCP plan tracker (`docs/plans/mcp-clients.md` section 5) marks M0 to M12 done with their PR numbers; `docs/plans/current.md` says all steps are merged (ledger #80, #60).

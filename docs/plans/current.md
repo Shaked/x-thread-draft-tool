@@ -5,7 +5,7 @@
 - Vercel + Neon + Vercel Blob migration implemented (Phases 1–2 and the data-migration script). The data migration and cutover are manual steps; see [vercel-migration.md](./vercel-migration.md).
 - Local pre-commit checks run docs refresh + lint + unit tests.
 - E2E remains gated in GitHub Actions.
-- [mcp-clients.md](./mcp-clients.md): the MCP connector works with Claude, Claude Code, Codex and ChatGPT (in progress: M0 to M10 and M12 merged; M11, the client contract suite, is open; ledger issue #80). Client behaviour is proven by contract tests (M11); no owner action. Setup: [agents/mcp.md](../agents/mcp.md).
+- [mcp-clients.md](./mcp-clients.md): the MCP connector works with Claude, Claude Code, Codex and ChatGPT (all steps M0 to M12 merged; M11, the client contract suite, merged via #92, #98, #99, #100, #101; ledger issue #80, #60). Client behaviour is proven by contract tests (M11); no owner action. Setup: [agents/mcp.md](../agents/mcp.md).
 
 ## Planned next
 - Done except parked items: [post-migration-hardening.md](./post-migration-hardening.md) (Tasks 0–7: audit fixes, CI gates, Codex gate, light UI, OIDC and MCP connector). Parked: 1.2, 2.4, 4, 7.9. Runbook: [hardening-finish.md](./hardening-finish.md).
