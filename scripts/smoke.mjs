@@ -128,6 +128,14 @@ await step('mcp authorization server: S256 and a registration endpoint', async (
   if (typeof doc.registration_endpoint !== 'string') throw new Error('no registration_endpoint')
 })
 
+// A bogus hand-made token is refused with the generic message (needs no account). Task 7.9.
+await step('bogus xt_ token is refused (401, invalid or expired)', async () => {
+  const res = await publicRequest('/api/auth/me', { headers: { authorization: `Bearer xt_${'b'.repeat(43)}` } })
+  if (res.status !== 401) throw new Error(`status is ${res.status}, expected 401`)
+  const { error } = await res.json()
+  if (error !== 'Invalid or expired API token') throw new Error(`unexpected message: ${String(error).slice(0, 120)}`)
+})
+
 const accountStep = publicOnly ? async (name) => console.log(`SKIP ${name}: XT_SMOKE_PUBLIC=1`) : step
 
 await accountStep('me (token)', async () => {

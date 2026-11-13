@@ -1,0 +1,4 @@
+- Migration `006_token_cap.sql` caps active hand-made `xt_` tokens at 7 days from `created_at` (plan D4, Task 7.9), never later, and is idempotent.
+- Old expiries are saved first in `api_token_cap_backup`; the migration fails the build if any active token is still over the cap.
+- `findUserByToken` refuses tokens older than 7 days even before the migration runs; expired tokens get a clear 401.
+- Smoke test checks that a bogus `xt_` token gets 401 "Invalid or expired API token".
