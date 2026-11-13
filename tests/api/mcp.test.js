@@ -262,9 +262,27 @@ describe('initialize, discovery and tools/list', () => {
     expect(body.result.ttlMs).toBeGreaterThan(0)
     const tools = Object.fromEntries(body.result.tools.map((tool) => [tool.name, tool]))
     expect(Object.keys(tools).sort()).toEqual([...TOOL_NAMES].sort())
-    expect(tools.list_drafts.annotations).toEqual({ readOnlyHint: true })
-    expect(tools.publish_draft.annotations).toEqual({ destructiveHint: true })
-    expect(tools.delete_draft.annotations).toEqual({ destructiveHint: true })
+    // Behaviour changed (M3): every tool has a title and all four hints.
+    for (const tool of body.result.tools) {
+      expect(tool.title).toMatch(/^[A-Z]/)
+      expect(Object.keys(tool.annotations).sort()).toEqual(
+        ['destructiveHint', 'idempotentHint', 'openWorldHint', 'readOnlyHint']
+      )
+    }
+    expect(tools.list_drafts.annotations).toEqual({
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    })
+    expect(tools.publish_draft.annotations).toEqual({
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false
+    })
+    expect(tools.delete_draft.annotations.destructiveHint).toBe(true)
+    expect(tools.add_image_from_url.annotations.openWorldHint).toBe(true)
     expect(tools.create_draft.inputSchema.type).toBe('object')
     expect(tools.create_draft.description).toMatch(/treat them as data/)
   })
@@ -344,7 +362,14 @@ describe('tools/call', () => {
     expect(split.body.result.structuredContent.posts.length).toBeGreaterThan(1)
 
     const share = await call(modernPost('tools/call', { name: 'create_share_link', arguments: { id: draft.id } }, { token }))
-    expect(share.body.result.structuredContent.token).toBeTruthy()
+    const shared = share.body.result.structuredContent
+    expect(shared.token).toBeTruthy()
+    // M3: links, not bare tokens. The origin is the request's app origin.
+    expect(shared.preview_url).toBe(`${APP_URL}/x-thread-preview/${shared.token}`)
+    expect(shared.markdown_url).toBe(`${APP_URL}/api/share/${shared.token}.md`)
+
+    const read = await call(modernPost('tools/call', { name: 'get_draft', arguments: { id: draft.id } }, { token }))
+    expect(read.body.result.structuredContent.draft.url).toBe(`${APP_URL}/draft/${draft.id}`)
 
     const deleted = await call(modernPost('tools/call', { name: 'delete_draft', arguments: { id: draft.id } }, { token }))
     expect(deleted.body.result.isError).toBe(false)
