@@ -5,6 +5,18 @@ const ID = { name: 'id', in: 'path', required: true, schema: { type: 'string', f
 const TOKEN_PARAM = { name: 'token', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }
 const UNAUTHORIZED = { description: 'Not signed in or invalid API token', content: errorContent() }
 const NOT_FOUND = { description: 'Not found (also returned for drafts the caller does not own)', content: errorContent() }
+const IF_MATCH = {
+  name: 'If-Match',
+  in: 'header',
+  required: false,
+  description:
+    'The draft version you read as an entity tag, for example "3", or * for any version. Weak tags (W/"3") never match on a write. A malformed value is 400.',
+  schema: { type: 'string' }
+}
+const PRECONDITION_FAILED = {
+  description: 'If-Match does not match the current version. Nothing was written. Body: { error, version } with the current version; the ETag header has it too.',
+  content: errorContent()
+}
 const BAD_REQUEST = { description: 'Invalid input', content: errorContent() }
 const BEARER = [{ bearerAuth: [] }, { cookieAuth: [] }]
 
@@ -62,7 +74,7 @@ export const OPENAPI = {
           published_at: { type: ['string', 'null'], format: 'date-time' },
           created_at: { type: 'string', format: 'date-time' },
           updated_at: { type: 'string', format: 'date-time' },
-          version: { type: 'integer', minimum: 1, description: 'Goes up by one on every write. Send it as If-Match on a per-post PATCH.' }
+          version: { type: 'integer', minimum: 1, description: 'Goes up by one on every write. Send it as the If-Match entity tag on a write.' }
         }
       },
       ApiToken: {
@@ -274,16 +286,16 @@ export const OPENAPI = {
     },
     '/drafts/{id}': {
       get: {
-        summary: 'Read a draft by id (public: anyone with the id)',
+        summary: 'Read a draft by id (public: anyone with the id). The ETag header is the draft version, for example "3".',
         parameters: [ID],
         responses: { ...json({ type: 'object', properties: { draft: draftRef } }), 404: NOT_FOUND }
       },
       patch: {
-        summary: 'Update title and/or posts (owner only)',
+        summary: 'Update title and/or posts (owner only). One transaction; sending what the draft already holds is a 200 with no write; a stale If-Match is 412. Every write bumps version and returns an ETag.',
         security: BEARER,
-        parameters: [ID],
+        parameters: [ID, IF_MATCH],
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { title: { type: 'string', maxLength: 500 }, posts: { type: 'array', items: { $ref: '#/components/schemas/Post' } } } } } } },
-        responses: { ...json({ type: 'object', properties: { draft: draftRef } }), 400: BAD_REQUEST, 401: UNAUTHORIZED, 404: NOT_FOUND }
+        responses: { ...json({ type: 'object', properties: { draft: draftRef } }), 400: BAD_REQUEST, 401: UNAUTHORIZED, 404: NOT_FOUND, 412: PRECONDITION_FAILED }
       },
       delete: {
         summary: 'Delete a draft and its Blob images (owner only)',
@@ -294,10 +306,10 @@ export const OPENAPI = {
     },
     '/drafts/{id}/publish': {
       post: {
-        summary: 'Publish: deletes the draft images and clears them from posts (owner only)',
+        summary: 'Publish: deletes the draft images and clears them from posts (owner only). One transaction; publishing a published draft is a 200 with no write; a stale If-Match is 412.',
         security: BEARER,
-        parameters: [ID],
-        responses: { ...json({ type: 'object', properties: { draft: draftRef } }), 401: UNAUTHORIZED, 404: NOT_FOUND }
+        parameters: [ID, IF_MATCH],
+        responses: { ...json({ type: 'object', properties: { draft: draftRef } }), 400: BAD_REQUEST, 401: UNAUTHORIZED, 404: NOT_FOUND, 412: PRECONDITION_FAILED }
       }
     },
     '/drafts/{id}/duplicate': {
@@ -334,7 +346,7 @@ export const OPENAPI = {
         parameters: [
           ID,
           { name: 'postId', in: 'path', required: true, schema: { type: 'string' } },
-          { name: 'If-Match', in: 'header', required: false, description: 'The draft version you read, for example "3".', schema: { type: 'string' } }
+          IF_MATCH
         ],
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['text'], additionalProperties: false, properties: { text: { type: 'string', maxLength: 280 } } } } } },
         responses: {
@@ -343,7 +355,7 @@ export const OPENAPI = {
           401: UNAUTHORIZED,
           404: NOT_FOUND,
           409: { description: 'The draft is published. Duplicate it to edit.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
-          412: { description: 'The draft changed since If-Match was read. Body has the current version.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } }
+          412: PRECONDITION_FAILED
         }
       }
     },
