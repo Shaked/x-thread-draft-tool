@@ -1,6 +1,7 @@
 // MCP tools for drafts (plan Task 7.6). Each tool calls the existing REST handler in-process
 // through server/router.js, as the token's user, so validation and ownership checks are reused.
 import { route } from '../router.js'
+import { isOwnedBlobUrl } from '../draft-images.js'
 import { json } from '../http.js'
 import { runAs } from '../caller-context.js'
 import { randomUUID } from 'node:crypto'
@@ -169,10 +170,13 @@ const TOOLS = [
     run: async (args, ctx) => {
       const owned = await fetchOwnedDraft(ctx, args.draftId)
       if (owned.failure) return owned.failure
-      const posts = owned.draft.posts.map((post) => ({ ...post, images: (post.images ?? []).filter((i) => i.url !== args.url) }))
+      const posts = owned.draft.posts.map((post) => ({ ...post, images: (post.images ?? []).filter((i) => imageUrlOf(i) !== args.url) }))
       const patched = await ctx.rest('PATCH', `/drafts/${enc(args.draftId)}`, { posts })
       if (patched.status >= 400) return patched
-      if (await stillReferenced(ctx, args.url)) return json({ removed: true, deleted: false })
+      // Only the caller's own files are deleted (DELETE /images refuses others with 403).
+      if (!isOwnedBlobUrl(args.url, ctx.caller.uid) || (await stillReferenced(ctx, args.url))) {
+        return json({ removed: true, deleted: false })
+      }
       const deleted = await ctx.rest('DELETE', '/images', { url: args.url })
       if (deleted.status >= 400) return deleted
       return json({ removed: true, deleted: true })
@@ -361,6 +365,9 @@ async function withDraftUrl(res, origin) {
   return json(body, res.status)
 }
 
+/** An image entry is a string (older drafts) or an object with a url. Both are supported. */
+const imageUrlOf = (image) => (typeof image === 'string' ? image : image?.url)
+
 /**
  * True when any draft of the caller (published or not, duplicates included) still uses `url`.
  * Same question as deletableImageUrls in server/routes/drafts.js. When the caller's drafts cannot
@@ -372,7 +379,7 @@ async function stillReferenced(ctx, url) {
     if (res.status >= 400) return true
     const { drafts } = await res.json()
     if (drafts.length >= 200) return true
-    if (drafts.some((draft) => (draft.posts ?? []).some((post) => (post.images ?? []).some((i) => i.url === url)))) return true
+    if (drafts.some((draft) => (draft.posts ?? []).some((post) => (post.images ?? []).some((i) => imageUrlOf(i) === url)))) return true
   }
   return false
 }

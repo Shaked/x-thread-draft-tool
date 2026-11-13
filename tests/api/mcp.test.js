@@ -465,3 +465,34 @@ describe('M4 tools', () => {
     expect(rows[0].posts[0].images).toEqual([])
   })
 })
+
+describe('M4 remove_image reference rules (Codex findings on 5c79609)', () => {
+  async function insertDraft(owner, posts, title = 'Draft') {
+    const { rows } = await db.pg.query('insert into drafts (user_id, title, posts) values ($1, $2, $3::jsonb) returning id', [
+      owner.id,
+      title,
+      JSON.stringify(posts)
+    ])
+    return rows[0].id
+  }
+
+  it('keeps the file when another draft stores the same image as a string', async () => {
+    const url = 'https://blobs.example/alice/string.png'
+    const first = await insertDraft(alice, [{ id: 'p1', text: 'a', images: [{ url }], embeddedTweet: null }], 'First')
+    await insertDraft(alice, [{ id: 'p2', text: 'b', images: [url], embeddedTweet: null }], 'String form')
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'remove_image', arguments: { draftId: first, url } }, { token }))
+    expect(res.body.result.structuredContent).toEqual({ removed: true, deleted: false })
+  })
+
+  it('removes a string-form image from the draft and does not try to delete a file the caller does not own', async () => {
+    const url = 'https://images.example/external.png'
+    const draft = await insertDraft(alice, [{ id: 'p1', text: 'a', images: [url], embeddedTweet: null }], 'External')
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'remove_image', arguments: { draftId: draft, url } }, { token }))
+    expect(res.body.result.isError).toBe(false)
+    expect(res.body.result.structuredContent).toEqual({ removed: true, deleted: false })
+    const { rows } = await db.pg.query('select posts from drafts where id = $1', [draft])
+    expect(rows[0].posts[0].images).toEqual([])
+  })
+})
