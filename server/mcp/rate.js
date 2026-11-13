@@ -2,7 +2,7 @@
 // One upsert per call; the count is per minute (date_trunc), so the window resets on its own.
 import { query } from '../db.js'
 
-export const TOOL_CALLS_PER_MINUTE = 120
+const TOOL_CALLS_PER_MINUTE = 120
 export const RATE_LIMIT_MESSAGE = 'Rate limit reached: at most 120 tool calls per minute. Wait one minute.'
 
 /** Counts one tool call for the user. Returns true when the call is within the limit. */
