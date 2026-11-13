@@ -10,5 +10,8 @@
     "server/**",
     "api/**",
     "scripts/**"
+  ],
+  "ignoreBinaries": [
+    "script"
   ]
 }
