@@ -197,17 +197,14 @@ const TOOLS = [
       properties: { id: UUID, text: { type: 'string', maxLength: 280 }, after_post_id: { type: 'string' } },
       required: ['id', 'text']
     },
-    run: async (args, ctx) =>
-      withDraftUrl(
-        await editPosts(ctx, args.id, (posts) => {
-          const post = { id: randomUUID(), text: args.text, images: [], embeddedTweet: null }
-          if (args.after_post_id === undefined) return { posts: [...posts, post] }
-          const index = posts.findIndex((p) => p.id === args.after_post_id)
-          if (index < 0) return 'after_post_id is not a post in this draft'
-          return { posts: [...posts.slice(0, index + 1), post, ...posts.slice(index + 1)] }
-        }),
-        ctx.origin
-      )
+    run: (args, ctx) =>
+      postEdit(ctx, args.id, (posts) => {
+        const post = { id: randomUUID(), text: args.text, images: [], embeddedTweet: null }
+        if (args.after_post_id === undefined) return { posts: [...posts, post] }
+        const index = posts.findIndex((p) => p.id === args.after_post_id)
+        if (index < 0) return 'after_post_id is not a post in this draft'
+        return { posts: [...posts.slice(0, index + 1), post, ...posts.slice(index + 1)] }
+      })
   },
   {
     name: 'update_post',
@@ -217,30 +214,24 @@ const TOOLS = [
       properties: { id: UUID, post_id: { type: 'string' }, text: { type: 'string', maxLength: 280 } },
       required: ['id', 'post_id', 'text']
     },
-    run: async (args, ctx) =>
-      withDraftUrl(
-        await editPosts(ctx, args.id, (posts) => {
-          const index = posts.findIndex((p) => p.id === args.post_id)
-          if (index < 0) return 'Post not found in this draft'
-          return { posts: posts.map((p, i) => (i === index ? { ...p, text: args.text } : p)) }
-        }),
-        ctx.origin
-      )
+    run: (args, ctx) =>
+      postEdit(ctx, args.id, (posts) => {
+        const index = indexOfPost(posts, args.post_id)
+        if (typeof index === 'string') return index
+        return { posts: posts.map((p, i) => (i === index ? { ...p, text: args.text } : p)) }
+      })
   },
   {
     name: 'remove_post',
     description: 'Remove one post from a draft. A draft keeps at least one post. Images only that post used are deleted.' + CONTENT_NOTE,
     inputSchema: { type: 'object', properties: { id: UUID, post_id: { type: 'string' } }, required: ['id', 'post_id'] },
-    run: async (args, ctx) =>
-      withDraftUrl(
-        await editPosts(ctx, args.id, (posts) => {
-          const index = posts.findIndex((p) => p.id === args.post_id)
-          if (index < 0) return 'Post not found in this draft'
-          if (posts.length === 1) return 'A draft keeps at least one post.'
-          return { posts: posts.filter((_, i) => i !== index), removedImages: postImageUrls(posts[index]) }
-        }),
-        ctx.origin
-      )
+    run: (args, ctx) =>
+      postEdit(ctx, args.id, (posts) => {
+        const index = indexOfPost(posts, args.post_id)
+        if (typeof index === 'string') return index
+        if (posts.length === 1) return 'A draft keeps at least one post.'
+        return { posts: posts.filter((_, i) => i !== index), removedImages: postImageUrls(posts[index]) }
+      })
   },
   {
     name: 'move_post',
@@ -250,19 +241,16 @@ const TOOLS = [
       properties: { id: UUID, post_id: { type: 'string' }, position: { type: 'integer', minimum: 1 } },
       required: ['id', 'post_id', 'position']
     },
-    run: async (args, ctx) =>
-      withDraftUrl(
-        await editPosts(ctx, args.id, (posts) => {
-          const index = posts.findIndex((p) => p.id === args.post_id)
-          if (index < 0) return 'Post not found in this draft'
-          if (args.position > posts.length) return `position must be from 1 to ${posts.length}`
-          const moved = posts.slice()
-          const [post] = moved.splice(index, 1)
-          moved.splice(args.position - 1, 0, post)
-          return { posts: moved }
-        }),
-        ctx.origin
-      )
+    run: (args, ctx) =>
+      postEdit(ctx, args.id, (posts) => {
+        const index = indexOfPost(posts, args.post_id)
+        if (typeof index === 'string') return index
+        if (args.position > posts.length) return `position must be from 1 to ${posts.length}`
+        const moved = posts.slice()
+        const [post] = moved.splice(index, 1)
+        moved.splice(args.position - 1, 0, post)
+        return { posts: moved }
+      })
   },
   {
     name: 'publish_draft',
@@ -457,6 +445,17 @@ async function withDraftUrl(res, origin) {
 
 /** An image entry is a string (older drafts) or an object with a url. Both are supported. */
 const imageUrlOf = (image) => (typeof image === 'string' ? image : image?.url)
+
+/** Index of a post in the draft, or the error text when it is not there. */
+const indexOfPost = (posts, postId) => {
+  const index = posts.findIndex((p) => p.id === postId)
+  return index < 0 ? 'Post not found in this draft' : index
+}
+
+/** Runs a post edit and adds the editor link to the result. */
+async function postEdit(ctx, id, change) {
+  return withDraftUrl(await editPosts(ctx, id, change), ctx.origin)
+}
 
 /** The image urls of one post (string or { url } entries). */
 const postImageUrls = (post) => (post.images ?? []).map(imageUrlOf).filter((url) => typeof url === 'string' && url.length > 0)
