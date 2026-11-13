@@ -1,4 +1,4 @@
-import { query } from '../db.js'
+import { query, transaction } from '../db.js'
 import { HttpError, json, readJson } from '../http.js'
 import { requireUser } from '../session.js'
 import { deleteBlobUrls } from '../blob.js'
@@ -6,7 +6,8 @@ import { imageUrlsFrom, isOwnedBlobUrl } from '../draft-images.js'
 import { exportAsFormattedText, exportAsJSON, exportAsNumberedText, exportAsPlainText } from '../../src/utils/exportFormats.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const COLUMNS = 'id, user_id, title, posts, is_published, published_at, created_at, updated_at'
+const COLUMNS = 'id, user_id, title, posts, is_published, published_at, created_at, updated_at, version'
+const POST_TEXT_MAX = 280
 const EMPTY_POST = () => ({ id: crypto.randomUUID(), text: '', images: [], embeddedTweet: null })
 
 function isUuid(value) {
@@ -149,6 +150,7 @@ async function updateDraft({ request, params }) {
     `update drafts
         set title = coalesce($3, title),
             posts = coalesce($4::jsonb, posts),
+            version = version + 1,
             updated_at = now()
       where id = $1 and user_id = $2
       returning ${COLUMNS}`,
@@ -156,6 +158,57 @@ async function updateDraft({ request, params }) {
   )
   if (!rows[0]) throw notFound()
   return json({ draft: rows[0] })
+}
+
+/** The If-Match version of a request, or null when the header is absent. */
+function ifMatchVersion(request) {
+  const header = request.headers.get('if-match')
+  if (header === null) return null
+  const match = header.trim().match(/^"?(\d+)"?$/)
+  if (!match) throw new HttpError(400, 'If-Match must be the draft version, for example "3"')
+  return Number(match[1])
+}
+
+const etagHeaders = (version) => ({ etag: `"${version}"` })
+
+/**
+ * PATCH /api/drafts/:id/posts/:postId: changes only the text of one post, and returns the draft.
+ * One transaction with the draft row locked, so no other write can land between the read and the
+ * write. Sending the text the post already has is a 200 with no write (a replay). A stale If-Match
+ * is a 412 with no write.
+ */
+async function patchPostText({ request, params }) {
+  const session = await requireUser(request)
+  const body = requireObject(await readJson(request))
+  if (Object.keys(body).some((key) => key !== 'text')) throw new HttpError(400, 'Only text can be changed here')
+  if (typeof body.text !== 'string' || body.text.length > POST_TEXT_MAX) {
+    throw new HttpError(400, `text must be a string of at most ${POST_TEXT_MAX} characters`)
+  }
+  if (!isUuid(params.id)) throw notFound()
+  const expected = ifMatchVersion(request)
+
+  return transaction(async (q) => {
+    const { rows } = await q(`select ${COLUMNS} from drafts where id = $1 and user_id = $2 for update`, [params.id, session.uid])
+    if (!rows[0]) throw notFound()
+    const draft = rows[0]
+    if (draft.is_published) throw new HttpError(409, 'This draft is published. Duplicate it to edit.')
+    const index = draft.posts.findIndex((post) => post.id === params.postId)
+    if (index < 0) throw new HttpError(404, 'Post not found in this draft')
+    if (draft.posts[index].text === body.text) return json({ draft }, 200, etagHeaders(draft.version))
+    if (expected !== null && expected !== draft.version) {
+      return json({ error: 'The draft changed since you read it', version: draft.version }, 412, etagHeaders(draft.version))
+    }
+    const { rows: updated } = await q(
+      `update drafts
+          set posts = jsonb_set(posts, array[$3::text, 'text'], to_jsonb($4::text)),
+              version = version + 1,
+              updated_at = now()
+        where id = $1 and user_id = $2
+        returning ${COLUMNS}`,
+      [params.id, session.uid, String(index), body.text]
+    )
+    return json({ draft: updated[0] }, 200, etagHeaders(updated[0].version))
+  })
 }
 
 /** POST /api/drafts/:id/publish: deletes the draft's Blob images and clears them from posts. */
@@ -170,6 +223,7 @@ async function publishDraft({ request, params }) {
         set posts = $3::jsonb,
             is_published = true,
             published_at = now(),
+            version = version + 1,
             updated_at = now()
       where id = $1 and user_id = $2
       returning ${COLUMNS}`,
@@ -212,5 +266,6 @@ export const draftRoutes = [
   { method: 'POST', path: '/drafts/:id/duplicate', handler: duplicateDraft, ci: true },
   { method: 'GET', path: '/drafts/:id/export', handler: exportDraft, ci: true },
   { method: 'DELETE', path: '/drafts/:id', handler: deleteDraft, ci: true },
-  { method: 'POST', path: '/drafts/:id/share-tokens', handler: createShareToken, ci: true }
+  { method: 'POST', path: '/drafts/:id/share-tokens', handler: createShareToken, ci: true },
+  { method: 'PATCH', path: '/drafts/:id/posts/:postId', handler: patchPostText, ci: true }
 ]

@@ -61,7 +61,8 @@ export const OPENAPI = {
           is_published: { type: 'boolean' },
           published_at: { type: ['string', 'null'], format: 'date-time' },
           created_at: { type: 'string', format: 'date-time' },
-          updated_at: { type: 'string', format: 'date-time' }
+          updated_at: { type: 'string', format: 'date-time' },
+          version: { type: 'integer', minimum: 1, description: 'Goes up by one on every write. Send it as If-Match on a per-post PATCH.' }
         }
       },
       ApiToken: {
@@ -324,6 +325,26 @@ export const OPENAPI = {
         security: BEARER,
         parameters: [ID],
         responses: { ...json({ type: 'object', properties: { token: { type: 'string', format: 'uuid' } } }, '201'), 401: UNAUTHORIZED, 404: NOT_FOUND }
+      }
+    },
+    '/drafts/{id}/posts/{postId}': {
+      patch: {
+        summary: 'Change the text of one post only (owner only). One transaction: a replay of the same text is a 200 with no write; If-Match with a stale version is 412. Other posts, images and the embedded tweet are unchanged.',
+        security: BEARER,
+        parameters: [
+          ID,
+          { name: 'postId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'If-Match', in: 'header', required: false, description: 'The draft version you read, for example "3".', schema: { type: 'string' } }
+        ],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['text'], additionalProperties: false, properties: { text: { type: 'string', maxLength: 280 } } } } } },
+        responses: {
+          ...json({ type: 'object', properties: { draft: draftRef } }),
+          400: BAD_REQUEST,
+          401: UNAUTHORIZED,
+          404: NOT_FOUND,
+          409: { description: 'The draft is published. Duplicate it to edit.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          412: { description: 'The draft changed since If-Match was read. Body has the current version.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } }
+        }
       }
     },
     '/images': {

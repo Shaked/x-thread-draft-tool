@@ -132,6 +132,12 @@ curl -s $BASE/api/drafts/DRAFT_ID
 curl -s -X PATCH $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -d '{"posts":[{"id":"p1","text":"Edited","images":[]}]}'
 
+# Change the text of one post (owner). Atomic: a replay of the same text is a 200 with no write.
+# Send If-Match with the draft "version" you read; a stale one is 412 with the current version.
+# Refused: 409 for a published draft, 404 for an unknown post, 400 for text over 280 characters or any other field.
+curl -s -X PATCH $BASE/api/drafts/DRAFT_ID/posts/p1 -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -H 'If-Match: "3"' -d '{"text":"Edited"}'
+
 # Duplicate (owner) → 201 with the copy, titled "<title> (copy)"
 curl -s -X POST $BASE/api/drafts/DRAFT_ID/duplicate -H "Authorization: Bearer $TOKEN"
 
