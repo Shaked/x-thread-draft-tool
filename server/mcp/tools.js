@@ -130,7 +130,14 @@ const TOOLS = [
       const uploaded = await ctx.rest('POST', '/images/from-url', pick(args, ['draftId', 'url']))
       if (uploaded.status >= 400) return uploaded
       const { url } = await uploaded.json()
-      const posts = owned.draft.posts.map((post, i) => (i === index ? { ...post, images: [...(post.images ?? []), { url }] } : post))
+      // Re-read after the upload, so edits made while it ran are kept. The window between this read
+      // and the PATCH is short but not zero (REST has no per-post update): a known gap, see the PR.
+      const current = await fetchOwnedDraft(ctx, args.draftId)
+      if (current.failure) return current.failure
+      const currentIndex = current.draft.posts.findIndex((post) => post.id === args.postId)
+      if (currentIndex < 0) return json({ error: 'Post not found in this draft' }, 404)
+      if ((current.draft.posts[currentIndex].images ?? []).length >= 4) return json({ error: 'This post already has 4 images' }, 422)
+      const posts = current.draft.posts.map((post, i) => (i === currentIndex ? { ...post, images: [...(post.images ?? []), { url }] } : post))
       const patched = await ctx.rest('PATCH', `/drafts/${enc(args.draftId)}`, { posts })
       if (patched.status >= 400) return patched
       return json({ url, postId: args.postId })
