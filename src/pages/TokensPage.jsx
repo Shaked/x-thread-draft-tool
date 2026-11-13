@@ -129,11 +129,11 @@ export default function TokensPage({ deployedAt, deployedAgo, deployCommit }) {
       <h1>API tokens</h1>
       <ThemeSetting />
 
-      <section className="connect-apps" aria-labelledby="connect-apps-heading">
+      <section className="connected-apps connect-apps" aria-labelledby="connect-apps-heading">
         <h2 id="connect-apps-heading">Connect an AI app</h2>
-        <ul className="connect-app-list">
+        <ul className="grant-list connect-app-list">
           {connectEntries(`${window.location.origin}/api/mcp`).map((entry) => (
-            <li key={entry.id} className="connect-app-row">
+            <li key={entry.id} className="grant-row connect-app-row">
               <div>
                 <strong>{entry.name}</strong>
                 <div>{entry.hint}</div>
