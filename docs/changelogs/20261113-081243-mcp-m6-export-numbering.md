@@ -1,0 +1,2 @@
+- Export numbering: GET /api/drafts/:id/export?format=text&numbered=true and export_draft numbered=true give the UI's "Copy (Numbered)" output; the UI and REST share exportAsNumberedText.
+- Why: agents could not get the numbered thread the UI offers. Plan: docs/plans/mcp-clients.md (step M6).

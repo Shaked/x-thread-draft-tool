@@ -82,11 +82,13 @@ Tests run without any external service: `npm run test:unit` (React and helper te
 
 Every feature of the app is also available as a JSON API under `/api`, with the same
 permissions as your GitHub account. Create a personal token at `/settings/tokens` (or get one
-with GitHub's device flow via `npm run agent:login`), then use `Authorization: Bearer xt_...`.
+with GitHub's device flow via `npm run agent:login`, which keeps a short-lived access token and refreshes it), then use `Authorization: Bearer xt_...` or the access token.
 
 - Discovery: [`/llms.txt`](./public/llms.txt) and [`/api/openapi.json`](./server/openapi.js)
 - Agent guide with curl examples: [docs/agents/api.md](./docs/agents/api.md)
 - Local API for development and tests: `npm run dev:api` (http://127.0.0.1:8787), then `npm run smoke`
+
+Connect an AI app over MCP (Claude, Claude Code, Codex, ChatGPT): [docs/agents/mcp.md](./docs/agents/mcp.md).
 
 ## Project Structure
 

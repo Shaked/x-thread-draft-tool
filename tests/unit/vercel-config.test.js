@@ -7,8 +7,10 @@ const config = JSON.parse(readFileSync('vercel.json', 'utf8'))
 // Copied from main so a change to the build or routing shows up here.
 const MAIN_BUILD_COMMAND =
   'node scripts/migrate.mjs && VITE_DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" VITE_DEPLOY_COMMIT_SHA="${VERCEL_GIT_COMMIT_SHA:-unknown}" npm run build'
+// Task 7.5 adds the .well-known rewrite for the OAuth metadata URLs (plan 7.5). Any other route change still fails here.
 const MAIN_REWRITES = [
   { source: '/api/:path*', destination: '/api/handler?__path=:path*' },
+  { source: '/.well-known/:path*', destination: '/api/handler?__path=.well-known/:path*' },
   { source: '/((?!api/).*)', destination: '/index.html' },
 ]
 

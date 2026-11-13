@@ -56,22 +56,3 @@ export function splitIntoThreads(text, maxChars = MAX_CHARS) {
 
   return chunks;
 }
-
-/**
- * Validates if text fits within character limit
- * @param {string} text - Text to validate
- * @param {number} maxChars - Maximum characters allowed (default: 280)
- * @returns {boolean} - True if text fits within limit
- */
-export function isValidLength(text, maxChars = MAX_CHARS) {
-  return !text || text.length <= maxChars;
-}
-
-/**
- * Gets character count for text
- * @param {string} text - Text to count
- * @returns {number} - Character count
- */
-export function getCharCount(text) {
-  return text ? text.length : 0;
-}

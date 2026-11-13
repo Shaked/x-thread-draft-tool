@@ -39,15 +39,15 @@ export default function AgentLinkButton({ draftId }) {
         aria-label="Copy one-time agent link"
       >
         <span className="btn-icon">{copied ? '✓' : '🤖'}</span>
-        <span className="btn-text">{copied ? 'Copied!' : busy ? '...' : 'Agent'}</span>
+        <span className="btn-text">{copied ? 'Copied!' : busy ? '...' : 'Agent link'}</span>
       </button>
       {copied && (
-        <div className="share-tooltip">
+        <div className="share-tooltip" role="status" aria-live="polite">
           One-time markdown link copied. It works exactly once.
         </div>
       )}
       {error && (
-        <div className="share-tooltip share-tooltip-error">
+        <div className="share-tooltip share-tooltip-error" role="alert">
           {error}
         </div>
       )}

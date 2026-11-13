@@ -297,7 +297,11 @@ export async function run({
     return { deleted, candidates, exitCode: 0 };
   }
 
-  // preflight
+  // preflight: the preview branch check, see runPreflight.
+  return runPreflight({ opts, client, readJson, neonBranches, limit, select, logCandidates, deleteAll, log, err });
+}
+
+async function runPreflight({ opts, client, readJson, neonBranches, limit, select, logCandidates, deleteAll, log, err }) {
   if (typeof opts.branch !== 'string' || opts.branch.length === 0) {
     throw new Error('preflight needs --branch=<git branch>');
   }

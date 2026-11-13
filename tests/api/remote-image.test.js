@@ -124,3 +124,34 @@ describe('POST /api/images/from-url', () => {
     expect((await fromUrl('https://example.com/a.png', null)).status).toBe(401)
   })
 })
+
+describe('pinned connection (M7, B12)', () => {
+  it('refuses a host whose answer mixes a public and a private address, without fetching', async () => {
+    setResolverForTests(async () => [
+      { address: PUBLIC_IP, family: 4 },
+      { address: '10.9.9.9', family: 4 }
+    ])
+    const res = await fromUrl('https://images.example/cat.png')
+    expect(res.status).toBe(400)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('resolves the host once per fetch and connects through the checked address', async () => {
+    const resolver = vi.fn(async () => [{ address: PUBLIC_IP, family: 4 }])
+    setResolverForTests(resolver)
+    fetch.mockResolvedValueOnce(imageResponse(new Uint8Array([1, 2, 3])))
+    const res = await fromUrl('https://images.example/cat.png')
+    expect(res.status).toBe(201)
+    expect(resolver).toHaveBeenCalledTimes(1)
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('connects through a dispatcher that is pinned to the checked address, with redirects off', async () => {
+    fetch.mockResolvedValueOnce(imageResponse(new Uint8Array([1, 2, 3])))
+    await fromUrl('https://images.example/cat.png')
+    const init = fetch.mock.calls[0][1]
+    expect(init.redirect).toBe('manual')
+    expect(init.dispatcher).toBeDefined()
+    expect(typeof init.dispatcher.close).toBe('function')
+  })
+})

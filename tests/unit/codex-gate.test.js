@@ -15,7 +15,6 @@ const HEAD = CLEAN_SHA;
 const PR = 25;
 
 const codexComment = (body) => ({ user: { login: 'chatgpt-codex-connector[bot]' }, body });
-const actionsComment = (body) => ({ user: { login: 'github-actions[bot]' }, body });
 const humanComment = (body) => ({ user: { login: 'Shaked' }, body });
 
 describe('parseSummaryState', () => {
@@ -421,6 +420,37 @@ describe('runGate: comment findings and the summary flag', () => {
     });
     const result = await gate.runGate({ event, gh });
     expect(result.state).toBe('failure');
+  });
+});
+
+describe('runGate: an outdated P2 thread does not hide the summary-flag fallback (bug B3)', () => {
+  const P2_BODY = '**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Tidy the label**\n\n<!-- codex-code-review-finding:v1 -->';
+  const p2Thread = (oid) => ({
+    isResolved: false,
+    comments: { nodes: [{ author: { login: 'chatgpt-codex-connector' }, body: P2_BODY, path: 'src/a.js', line: 3, url: 'https://example.test/t/1', originalCommit: { oid } }] },
+  });
+  const flagSummary = () =>
+    findingComment(
+      40,
+      `<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 {"code_review":{"commit_sha":"${HEAD}","status":"completed","has_unresolved_findings":true}} -->`,
+    );
+
+  it('fails when the only thread is an old-commit P2 and Codex says this head has unresolved findings', async () => {
+    const gh = fakeGh({
+      listComments: vi.fn(async () => [flagSummary()]),
+      listReviewThreads: vi.fn(async () => [p2Thread(SHA_OLD)]),
+    });
+    const result = await gate.runGate({ event, gh });
+    expect(result.state).toBe('failure');
+  });
+
+  it('passes when the same P2 thread was raised on this head, so the finding is visible', async () => {
+    const gh = fakeGh({
+      listComments: vi.fn(async () => [flagSummary()]),
+      listReviewThreads: vi.fn(async () => [p2Thread(HEAD)]),
+    });
+    const result = await gate.runGate({ event, gh });
+    expect(result.state).toBe('success');
   });
 });
 

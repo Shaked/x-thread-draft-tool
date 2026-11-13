@@ -1,12 +1,13 @@
 // Server-side image fetch for POST /api/images/from-url (replaces the browser CORS path).
 // SSRF guard: only http(s); every resolved address must be public; redirects are refused;
-// 10 s timeout; image content type; at most 4 MB.
-// Known limit: DNS rebinding between the resolution check and the fetch is not prevented.
+// 10 s timeout; image content type; at most 4 MB. The connection uses the checked address
+// (pinnedFetch), so a DNS rebind after the check cannot reach a private address.
 import { lookup as dnsLookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
+import { Agent } from 'undici'
 import { HttpError } from './http.js'
 
-export const MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024
+const MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024
 const TIMEOUT_MS = 10_000
 
 let lookup = dnsLookup
@@ -53,7 +54,7 @@ export function isPrivateAddress(address) {
 }
 
 /** Fetches a public image and returns its bytes and content type, or throws an HttpError. */
-export async function fetchRemoteImage(input) {
+function parseRemoteUrl(input) {
   let url
   try {
     url = new URL(input)
@@ -64,32 +65,38 @@ export async function fetchRemoteImage(input) {
     throw new HttpError(400, 'Only http and https URLs are allowed')
   }
   if (url.username || url.password) throw new HttpError(400, 'URLs with credentials are not allowed')
+  return url
+}
 
-  const hostname = url.hostname.replace(/^\[(.*)\]$/, '$1')
-  const addresses = isIP(hostname) ? [{ address: hostname }] : await lookup(hostname, { all: true })
+class AddressRefusedError extends Error {}
+
+/**
+ * Resolves the host once, refuses if any address is private, and connects only to the first checked
+ * address. TLS (SNI and the certificate) still uses url.hostname. Redirects are returned, not followed.
+ * `resolve` is the caller's own DNS lookup (each caller keeps its test hook).
+ */
+export async function pinnedFetch(url, { resolve, timeoutMs, headers }) {
+  const host = url.hostname.replace(/^\[(.*)\]$/, '$1')
+  const addresses = isIP(host) ? [{ address: host }] : await resolve(host, { all: true })
   if (addresses.length === 0 || addresses.some((entry) => isPrivateAddress(entry.address))) {
-    throw new HttpError(400, 'That address is not allowed')
+    throw new AddressRefusedError('That address is not allowed')
   }
-
-  let response
+  const address = addresses[0].address
+  const family = isIP(address)
+  const dispatcher = new Agent({
+    connect: {
+      lookup: (_name, options, callback) =>
+        options && options.all ? callback(null, [{ address, family }]) : callback(null, address, family)
+    }
+  })
   try {
-    response = await fetch(url, {
-      redirect: 'manual',
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { accept: 'image/*' }
-    })
-  } catch {
-    throw new HttpError(502, 'Could not fetch the image')
+    return await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(timeoutMs), headers, dispatcher })
+  } finally {
+    dispatcher.close().catch(() => {})
   }
-  if (response.status >= 300 && response.status < 400) throw new HttpError(400, 'Redirects are not followed')
-  if (!response.ok) throw new HttpError(502, `Image host returned HTTP ${response.status}`)
+}
 
-  const contentType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
-  if (!contentType.startsWith('image/')) throw new HttpError(415, 'The URL does not point to an image')
-
-  const declared = Number(response.headers.get('content-length') || 0)
-  if (declared > MAX_REMOTE_IMAGE_BYTES) throw new HttpError(413, 'Image must be 4 MB or smaller')
-
+async function readImageBody(response) {
   const chunks = []
   let total = 0
   const reader = response.body.getReader()
@@ -111,5 +118,28 @@ export async function fetchRemoteImage(input) {
     bytes.set(chunk, offset)
     offset += chunk.byteLength
   }
+  return bytes
+}
+
+export async function fetchRemoteImage(input) {
+  const url = parseRemoteUrl(input)
+
+  let response
+  try {
+    response = await pinnedFetch(url, { resolve: lookup, timeoutMs: TIMEOUT_MS, headers: { accept: 'image/*' } })
+  } catch (err) {
+    if (err instanceof AddressRefusedError) throw new HttpError(400, err.message)
+    throw new HttpError(502, 'Could not fetch the image')
+  }
+  if (response.status >= 300 && response.status < 400) throw new HttpError(400, 'Redirects are not followed')
+  if (!response.ok) throw new HttpError(502, `Image host returned HTTP ${response.status}`)
+
+  const contentType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+  if (!contentType.startsWith('image/')) throw new HttpError(415, 'The URL does not point to an image')
+
+  const declared = Number(response.headers.get('content-length') || 0)
+  if (declared > MAX_REMOTE_IMAGE_BYTES) throw new HttpError(413, 'Image must be 4 MB or smaller')
+
+  const bytes = await readImageBody(response)
   return { bytes, contentType }
 }

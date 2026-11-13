@@ -1,0 +1,2 @@
+- MCP M3: every tool has a title and the four annotation hints; share links come as preview_url and markdown_url; draft results carry the editor link (url).
+- Why: ChatGPT and Claude use the hints to decide what needs confirmation, and a bare token is not a link. Plan: docs/plans/mcp-clients.md (step M3).

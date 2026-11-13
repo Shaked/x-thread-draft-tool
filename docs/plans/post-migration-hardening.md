@@ -1,6 +1,8 @@
 # Plan: Keyless agent auth, automated reviews, code quality gates, light UI
 
-Status: **Planned, decisions complete (2026-11-07). Not started.** Task 1.0 is in PR #24.
+Finished via docs/plans/hardening-finish.md.
+
+Status: **Done except the parked tasks (2026-11-12).** Each task's status line names its merged PR. Parked: 1.2 (owner O6), 2.4 (owner O4), 4 (PR #42 skipped, B5), 7.9 (PR #54, owner O8). Task 1.0 is in PR #24.
 
 **Execution (from 2026-11-08):** see [hardening-finish.md](./hardening-finish.md) for the order,
 the remaining decisions (D-1 to D-24) and the procedures used to finish this plan.
@@ -88,7 +90,7 @@ acceptance line is met; paste the acceptance results into the PR description.
 
 ## Task 0 — Clear the audit findings
 
-Status: 0.1 In PR #26. Four PRs, in order: 0.1, 0.3a, 0.2, 0.3b.
+Status: Done. 0.1 PR #26, 0.3a PR #29, 0.2 PR #30, 0.3b PR #34 (React Router 7) and PR #56 (future flags).
 
 ### 0.1 Test tooling major upgrade (fixes all 3 critical)
 **Why:** `vitest`, `@vitest/ui`, `tinypool` critical findings.
@@ -108,7 +110,7 @@ Status: 0.1 In PR #26. Four PRs, in order: 0.1, 0.3a, 0.2, 0.3b.
 **Stop if:** more than 5 test files need edits.
 
 ### 0.2 Production high chain (`zod` via `@vercel/blob`)
-Status: In PR #30.
+Status: Done, PR #30.
 **Why:** 4 high findings reach production through `@vercel/blob`.
 **Files:** `package.json`, `package-lock.json`.
 **Steps:**
@@ -125,7 +127,7 @@ Status: In PR #30.
 **Stop if:** the override needs `@vercel/oidc` 4.x and `@vercel/blob` calls fail.
 
 ### 0.3a Build tooling and vitest 4 (vite 8 stack)
-Status: In PR #29.
+Status: Done, PR #29.
 **Why:** `vite` 5 blocks vitest ≥ 4.1.11 (critical fix) and `vite-plugin-pwa` 0.17 only accepts vite ≤ 5. Removes the tinypool override from 0.1.
 **Files:** `package.json`, `package-lock.json`, `vite.config.js`.
 **Steps:**
@@ -163,18 +165,18 @@ Status: In PR #29.
 ## Task 1 — CI cleanup
 
 ### 1.0 Fix the automatic deployed smoke test
-Status: **In PR #24** (green). Production deployments run the full test with
+Status: **Done in PR #24** (green). Production deployments run the full test with
 `XT_SMOKE_TOKEN_PRODUCTION`; preview deployments run public steps only (`XT_SMOKE_PUBLIC=1`).
 Task 7.1 replaces both tokens with OIDC and restores the full test on previews.
 
 ### 1.1 Run the API tests once
-Status: In PR #28.
+Status: Done, PR #28.
 **Files:** `.github/workflows/tests.yml`.
 **Steps:** delete the `Run API tests` step (`- name: Run API tests` and `run: npm run test:api`).
 **Acceptance:** the `Unit tests (vitest)` job log shows `Test Files  14 passed` once and no second vitest run.
 
 ### 1.2 Remove Supabase leftovers
-Status: blocked until Shaked confirms the Supabase project is deleted (on or after 2026-11-21).
+Status: Parked (owner action O6). Shaked confirms the Supabase project is deleted, on or after 2026-11-21.
 **Files:** delete `.github/workflows/supabase-backup.yml`, `.github/workflows/data-migrate.yml`,
 `scripts/supabase-db-url.sh`, `scripts/migrate-from-supabase.mjs`,
 `tests/api/migrate-from-supabase.test.js`; remove their mentions in `docs/`, `README.md`, `SETUP.md`
@@ -187,7 +189,7 @@ Status: blocked until Shaked confirms the Supabase project is deleted (on or aft
 
 ## Task 2 — Security gates
 
-Status: In PR #36 (2.1–2.3). 2.4 is Shaked's.
+Status: 2.1–2.3 done in PR #36. 2.4 is Shaked's and parked (owner action O4).
 
 ### 2.1 CodeQL
 **Files:** new `.github/workflows/codeql.yml`.
@@ -227,7 +229,7 @@ Enable secret scanning and push protection. Require these checks on `main`:
 
 ## Task 3 — Quality gates
 
-Status: Not started. One PR per sub-task.
+Status: Done. 3.1 PR #75 (replaces #37, which stays open for Shaked to close), 3.2 PR #38, 3.3 PR #39, 3.4 PR #40, 3.5 PR #41. One PR per sub-task.
 
 ### 3.1 ESLint
 **Files:** `package.json`, new `eslint.config.js`, files with real lint errors, `.github/workflows/tests.yml`.
@@ -321,7 +323,7 @@ decides between splitting it and a per-file exception).
 
 ## Task 5 — Codex as the blocking reviewer
 
-Status: 5.1 merged in PR #57 (report in the section below). 5.2 In PR #58 (decision C: no secret, a person comments `@codex review` after pushes).
+Status: 5.1 merged in PR #57 (report in the section below). 5.2 merged in PR #58 (decision C: no secret, a person comments `@codex review` after pushes).
 
 ### 5.1 Spike: when does Codex review (no code)
 Find out, then report to Shaked and wait:
@@ -332,7 +334,7 @@ Find out, then report to Shaked and wait:
    once on a throwaway PR that a comment from `github-actions[bot]` starts a review.
 
 #### 5.1 report (measured 2026-11-08)
-Status: report written, **waiting for Shaked** (decision below).
+Status: report written in PR #57. The decision below was taken as option C (PR #58).
 
 **Q1. Does Codex re-review on push? No.** Measured over every PR with a Codex summary comment
 (28 of 30 sampled PRs between #17 and #53 have one): the summary comment is created once, its
@@ -414,7 +416,7 @@ fixture bodies copied from PRs #23–#25.
 
 ## Task 6 — Light theme and friendlier UI
 
-Status: Not started. One PR per sub-task, in order. Every UI PR attaches before/after
+Status: 6.0 PR #43, 6.1 PR #44, 6.2 PR #45, 6.3a PR #47, 6.3b PR #72, 6.3c PR #73, 6.3d PR #74: all merged. One PR per sub-task, in order. Every UI PR attaches before/after
 screenshots from 6.0 at 390 px and 1280 px width (both themes from 6.2 on).
 
 ### 6.0 Screenshot harness
@@ -494,7 +496,7 @@ should shrink, or cite this task); contrast test passes; no new hard-coded color
 
 ## Task 7 — Keyless auth: GitHub OIDC for CI, MCP connector for agents
 
-Status: Not started. One PR per sub-task, in order. Before 7.5, read the current MCP authorization
+Status: 7.3 PR #48, 7.4 PR #49, 7.5 PR #50, 7.6 PR #51, 7.7 PR #52, 7.8 PR #53 merged. 7.9 parked (PR #54, owner O8). One PR per sub-task, in order. Before 7.5, read the current MCP authorization
 spec: <https://modelcontextprotocol.io/specification/latest/basic/authorization> (version
 2026-07-28 at planning time). Where this plan and the spec disagree, follow the spec and say so in the PR.
 
@@ -513,7 +515,7 @@ spec: <https://modelcontextprotocol.io/specification/latest/basic/authorization>
 - `<origin>` below means `PUBLIC_APP_URL` without a trailing slash.
 
 ### 7.1 GitHub Actions OIDC for the smoke test
-Status: In PR #32 (server verifier, route allowlist, UI test and workflow use OIDC). The smoke workflow still uses XT_SMOKE_TOKEN until the production step.
+Status: Done in PRs #65 and #66. The deployed smoke signs in with OIDC, and the XT_SMOKE_TOKEN fallback was removed in #66 (no `XT_SMOKE_TOKEN` in `.github/` on main).
 **Files:** new `server/oidc-ci.js`, `server/session.js`, `server/github-user.js` (if the upsert
 lives there), new `tests/api/oidc-ci.test.js`, `.github/workflows/smoke-deployed.yml`, `docs/agents/api.md`.
 **Steps:**
@@ -550,6 +552,7 @@ old value was pasted in a chat). The executor then removes or keeps the header i
 **Acceptance:** preview smoke passes after the change.
 
 ### 7.3 Database: OAuth tables
+Status: Done, PR #48.
 **Files:** new `db/migrations/003_oauth.sql`.
 Additive only (the migration lint blocks `drop`, `delete`, `truncate`):
 ```sql
@@ -735,6 +738,7 @@ unknown method errors.
   list drafts, with no token copied. 70 minutes later (access token expired) it still works.
 
 ### 7.7 Device flow and scripts use the short-lived pair
+Status: Done, PR #52.
 **Files:** `server/routes/device.js`, `scripts/agent-login.mjs`, new `scripts/xt-token.mjs`,
 `tests/api/device.test.js`, `docs/agents/api.md`, `public/llms.txt`, `server/openapi.js`, `AGENTS.md`.
 **Steps:**
@@ -753,6 +757,7 @@ needed): `npm run agent:login` once, then `XT_TOKEN=$(node scripts/xt-token.mjs)
 passes twice in a row, the second time after a refresh.
 
 ### 7.8 Settings: Connected apps
+Status: Done, PR #53.
 **Files:** new `server/routes/grants.js`, `server/router.js`, `server/openapi.js`,
 `src/pages/TokensPage.jsx`, new `tests/api/grants.test.js`.
 **Steps:** `GET /api/grants` (session or bearer) lists the user's grants: client name, kind, redirect
@@ -761,6 +766,7 @@ working). The page shows "Connected apps" above "Personal tokens (7 days max)".
 **Acceptance:** after revoking a connected app its next MCP call returns 401 (API test, plus one manual check on the preview).
 
 ### 7.9 Cap existing hand-made tokens (last)
+Status: Parked. PR #54 is open (branch `claude/task-7-9-cap-handmade-tokens`). Owner action O8: Shaked's go or no-go.
 Only after 7.1 runs on Production (the old smoke tokens are no longer used).
 **Files:** new `db/migrations/004_token_cap.sql`:
 ```sql

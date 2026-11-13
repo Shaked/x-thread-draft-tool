@@ -42,7 +42,9 @@ describe('vercel-ignore script on a real git diff', () => {
   it('builds when a production file is moved into docs/', () => {
     const dir = mkdtempSync(join(tmpdir(), 'xt-ignore-'))
     try {
-      const git = (...args) => execFileSync('git', args, { cwd: dir, stdio: 'pipe' }).toString().trim()
+      // A git hook exports GIT_DIR / GIT_INDEX_FILE; without this the test commits into the hooked repo.
+      const cleanEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')))
+      const git = (...args) => execFileSync('git', args, { cwd: dir, stdio: 'pipe', env: cleanEnv }).toString().trim()
       git('init', '-q')
       git('config', 'user.email', 't@example.com')
       git('config', 'user.name', 't')
@@ -56,7 +58,7 @@ describe('vercel-ignore script on a real git diff', () => {
       git('commit', '-qm', 'move')
       const run = spawnSync(process.execPath, [resolve('scripts/vercel-ignore.mjs')], {
         cwd: dir,
-        env: { ...process.env, VERCEL_ENV: 'production', VERCEL_GIT_PREVIOUS_SHA: prev },
+        env: { ...cleanEnv, VERCEL_ENV: 'production', VERCEL_GIT_PREVIOUS_SHA: prev },
         encoding: 'utf8',
       })
       expect(run.status).toBe(1)

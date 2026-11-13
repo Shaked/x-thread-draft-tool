@@ -4,6 +4,18 @@ import { HttpError, cookie, json, parseCookies } from '../http.js'
 import { authenticate, clearSessionCookie, createSession, sessionCookie } from '../session.js'
 
 const STATE_COOKIE = 'xt_oauth_state'
+const RETURN_COOKIE = 'xt_oauth_return'
+
+/** Only the MCP consent page may be a post-sign-in destination (plan 7.5, item 9): no scheme, no `//`. */
+export function safeReturnTo(value) {
+  if (typeof value !== 'string' || value.length > 2000) return null
+  if (!value.startsWith('/api/oauth/authorize?')) return null
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i)
+    if (code === 0x5c || code <= 0x1f) return null
+  }
+  return value
+}
 function appOrigin() {
   return process.env.PUBLIC_APP_URL.replace(/\/$/, '')
 }
@@ -23,21 +35,22 @@ function redirect(location, cookies = []) {
  * Served on a host other than the canonical app origin (a per-deployment URL), it redirects to the
  * canonical origin first, so the state cookie and the callback always belong to one host.
  */
-export async function login({ request, url }) {
+async function login({ request, url }) {
   const host = request.headers.get('x-forwarded-host') ?? url.host
   if (host !== new URL(appOrigin()).host) {
     return redirect(`${appOrigin()}/api/auth/login`)
   }
   const state = crypto.randomUUID()
+  const returnTo = safeReturnTo(url.searchParams.get('return_to'))
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID,
     redirect_uri: callbackUrl(),
     scope: 'read:user',
     state
   })
-  return redirect(`https://github.com/login/oauth/authorize?${params}`, [
-    cookie(STATE_COOKIE, state, { maxAge: 600 })
-  ])
+  const cookies = [cookie(STATE_COOKIE, state, { maxAge: 600 })]
+  if (returnTo) cookies.push(cookie(RETURN_COOKIE, returnTo, { maxAge: 600 }))
+  return redirect(`https://github.com/login/oauth/authorize?${params}`, cookies)
 }
 
 async function exchangeCode(code) {
@@ -60,7 +73,7 @@ async function exchangeCode(code) {
  * GET /api/auth/callback: verifies state, upserts the user, issues the session cookie.
  * The GitHub access token is used once and never stored.
  */
-export async function callback({ request, url }) {
+async function callback({ request, url }) {
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
   const expected = parseCookies(request)[STATE_COOKIE]
@@ -73,11 +86,16 @@ export async function callback({ request, url }) {
   const user = await upsertGithubUser(github)
 
   const token = await createSession(user)
-  return redirect(`${appOrigin()}/`, [sessionCookie(token), cookie(STATE_COOKIE, '', { maxAge: 0 })])
+  const returnTo = safeReturnTo(parseCookies(request)[RETURN_COOKIE])
+  return redirect(`${appOrigin()}${returnTo ?? '/'}`, [
+    sessionCookie(token),
+    cookie(STATE_COOKIE, '', { maxAge: 0 }),
+    cookie(RETURN_COOKIE, '', { maxAge: 0 })
+  ])
 }
 
 /** GET /api/auth/me: cookie session or bearer token. `user` is null when signed out. */
-export async function me({ request }) {
+async function me({ request }) {
   const caller = await authenticate(request)
   if (!caller) return json({ user: null, auth: null })
   const { rows } = await query('select id, login, name, avatar_url from users where id = $1', [caller.uid])
@@ -85,7 +103,7 @@ export async function me({ request }) {
 }
 
 /** POST /api/auth/logout */
-export async function logout() {
+async function logout() {
   return json({ ok: true }, 200, { 'set-cookie': clearSessionCookie() })
 }
 

@@ -2,13 +2,19 @@ import { HttpError, error, json } from './http.js'
 import { authRoutes } from './routes/auth.js'
 import { deviceRoutes } from './routes/device.js'
 import { draftRoutes } from './routes/drafts.js'
+import { grantRoutes } from './routes/grants.js'
 import { imageRoutes } from './routes/images.js'
 import { shareRoutes } from './routes/share.js'
 import { tokenRoutes } from './routes/tokens.js'
 import { threadRoutes } from './routes/threads.js'
 import { openapiRoutes } from './routes/openapi.js'
+import { oauthRoutes } from './routes/oauth.js'
+import { handleMcp } from './mcp/server.js'
 
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE'])
+
+// OAuth endpoints that never use cookies, so the Origin check does not apply to them (plan 7.5).
+const NO_ORIGIN_CHECK = new Set(['/oauth/token', '/oauth/register', '/oauth/revoke'])
 
 function health() {
   return json({ ok: true })
@@ -18,11 +24,16 @@ export const ROUTES = [
   ...authRoutes,
   ...deviceRoutes,
   ...draftRoutes,
+  ...grantRoutes,
   ...imageRoutes,
   ...shareRoutes,
   ...tokenRoutes,
   ...threadRoutes,
+  ...oauthRoutes,
   ...openapiRoutes,
+  // The MCP endpoint (plan 7.6) checks its own Origin and bearer token, so its 401 carries the
+  // WWW-Authenticate header. selfAuth skips the generic CI-token refusal below.
+  { method: 'POST', path: '/mcp', handler: ({ request }) => handleMcp(request), selfAuth: true },
   { method: 'GET', path: '/health', handler: health }
 ]
 
@@ -70,7 +81,8 @@ export async function route(request) {
 
     // Only cookie-authenticated writes need the Origin check. A bearer token cannot be attached
     // cross-site without a CORS preflight, and this API sends no CORS allow headers.
-    if (MUTATING.has(request.method) && request.headers.get('authorization') === null) {
+    const cookieless = request.method === 'POST' && NO_ORIGIN_CHECK.has(path)
+    if (MUTATING.has(request.method) && request.headers.get('authorization') === null && !cookieless) {
       checkOrigin(request)
     }
 
@@ -82,7 +94,7 @@ export async function route(request) {
 
     // CI identity tokens (three-part JWT) are accepted only on routes marked ci: true.
     const bearer = request.headers.get('authorization') ?? ''
-    if (/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(bearer) && !match.ci) {
+    if (/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(bearer) && !match.ci && !match.selfAuth) {
       throw new HttpError(401, 'CI tokens are not accepted on this route')
     }
 

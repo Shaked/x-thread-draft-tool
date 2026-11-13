@@ -26,6 +26,52 @@ export function ciAudience(vercelEnv) {
  * Returns the verified claims, or null. Never throws: every failure is "not a valid CI token".
  * env: process env. Only preview and production deployments accept CI tokens.
  */
+async function verifySignature(token, vercelEnv) {
+  try {
+    const { payload } = await jwtVerify(token, jwks, {
+      issuer: OIDC_ISSUER,
+      audience: ciAudience(vercelEnv),
+      algorithms: ['RS256'],
+      maxTokenAge: MAX_TOKEN_AGE,
+      clockTolerance: '30s',
+      requiredClaims: ['exp', 'iat', 'nbf', 'repository_id', 'workflow_ref', 'job_workflow_ref', 'event_name', 'ref']
+    })
+    return payload
+  } catch (err) {
+    console.warn('[oidc-ci] rejected token', err?.code ?? 'error')
+    return null
+  }
+}
+
+// Each refusal names its check in the log. Values are not logged, only whether they matched.
+function refuse(claims, reason) {
+  console.warn(`[oidc-ci] refused: ${reason} (ref=${claims.ref} event=${claims.event_name})`)
+  return null
+}
+
+function workflowMatches(claims, pinned) {
+  return CI_WORKFLOW_PATHS.some((p) => {
+    const expected = `${REPO}/${p}@${pinned}`
+    return claims.workflow_ref === expected && claims.job_workflow_ref === expected
+  })
+}
+
+// Production deployment_status (no ref): the token is bound to the build that runs on main.
+function isProductionBuild(claims, env, vercelEnv, ref) {
+  return (
+    vercelEnv === 'production' &&
+    ref === '' &&
+    claims.event_name === 'deployment_status' &&
+    claims.sha === env.VERCEL_GIT_COMMIT_SHA &&
+    env.VERCEL_GIT_COMMIT_REF === 'main'
+  )
+}
+
+function isAllowedBranch(claims, env, vercelEnv, ref) {
+  const branchAllowed = vercelEnv === 'preview' && env.CI_OIDC_ALLOW_BRANCHES === '1'
+  return branchAllowed && (ref === '' ? claims.event_name === 'deployment_status' : /^refs\/heads\/[\w./-]+$/.test(ref))
+}
+
 export async function verifyCiToken(token, env = process.env) {
   if (env.CI_OIDC_ENABLED !== '1') return null
   const vercelEnv = env.VERCEL_ENV
@@ -33,26 +79,10 @@ export async function verifyCiToken(token, env = process.env) {
   const repoId = env.CI_OIDC_REPOSITORY_ID
   if (!repoId || !/^\d+$/.test(repoId)) return null
 
-  let claims
-  try {
-    ;({ payload: claims } = await jwtVerify(token, jwks, {
-      issuer: OIDC_ISSUER,
-      audience: ciAudience(vercelEnv),
-      algorithms: ['RS256'],
-      maxTokenAge: MAX_TOKEN_AGE,
-      clockTolerance: '30s',
-      requiredClaims: ['exp', 'iat', 'nbf', 'repository_id', 'workflow_ref', 'job_workflow_ref', 'event_name', 'ref']
-    }))
-  } catch (err) {
-    console.warn('[oidc-ci] rejected token', err?.code ?? 'error')
-    return null
-  }
+  const claims = await verifySignature(token, vercelEnv)
+  if (!claims) return null
 
-  // Each refusal names its check in the log. Values are not logged, only whether they matched.
-  const reject = (reason) => {
-    console.warn(`[oidc-ci] refused: ${reason} (ref=${claims.ref} event=${claims.event_name})`)
-    return null
-  }
+  const reject = (reason) => refuse(claims, reason)
   if (claims.repository_id !== repoId) return reject('repository id does not match the configured id')
   if (!ALLOWED_EVENTS.has(claims.event_name)) return reject('event not allowed')
   if (claims.runner_environment !== undefined && claims.runner_environment !== 'github-hosted') return reject('runner not github-hosted')
@@ -61,23 +91,10 @@ export async function verifyCiToken(token, env = process.env) {
   const ref = typeof claims.ref === 'string' ? claims.ref : ''
   const pinned = ref || claims.sha || ''
   if (!pinned) return reject('no ref or commit sha in token')
-  const matchedWorkflow = CI_WORKFLOW_PATHS.find((p) => {
-    const expected = `${REPO}/${p}@${pinned}`
-    return claims.workflow_ref === expected && claims.job_workflow_ref === expected
-  })
-  if (!matchedWorkflow) return reject(`workflow not an allowed CI workflow (workflow_ref=${claims.workflow_ref})`)
+  if (!workflowMatches(claims, pinned)) return reject(`workflow not an allowed CI workflow (workflow_ref=${claims.workflow_ref})`)
 
   const isMain = ref === 'refs/heads/main'
-  // Production deployment_status (no ref): the token is bound to the build that runs on main.
-  const isProductionBuild =
-    vercelEnv === 'production' &&
-    ref === '' &&
-    claims.event_name === 'deployment_status' &&
-    claims.sha === env.VERCEL_GIT_COMMIT_SHA &&
-    env.VERCEL_GIT_COMMIT_REF === 'main'
-  const branchAllowed = vercelEnv === 'preview' && env.CI_OIDC_ALLOW_BRANCHES === '1'
-  const isBranch = branchAllowed && (ref === '' ? claims.event_name === 'deployment_status' : /^refs\/heads\/[\w./-]+$/.test(ref))
-  if (!isMain && !isBranch && !isProductionBuild) {
+  if (!isMain && !isAllowedBranch(claims, env, vercelEnv, ref) && !isProductionBuild(claims, env, vercelEnv, ref)) {
     return reject(`branch ref not allowed (vercelEnv=${vercelEnv} allowBranchesSet=${env.CI_OIDC_ALLOW_BRANCHES === '1'})`)
   }
 

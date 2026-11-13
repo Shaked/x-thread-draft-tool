@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { draftsApi } from '../utils/api'
+import ThemeSetting from './ThemeSetting'
 
 export default function DraftList({ user }) {
   const [activeTab, setActiveTab] = useState('drafts') // 'drafts' or 'published'
@@ -10,9 +11,6 @@ export default function DraftList({ user }) {
   const [error, setError] = useState(null)
   const navigate = useNavigate()
 
-  useEffect(() => {
-    loadDrafts()
-  }, [user])
 
   const loadDrafts = async () => {
     if (!user) return
@@ -35,6 +33,11 @@ export default function DraftList({ user }) {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the spinner resets when the signed-in user changes
+    loadDrafts()
+  }, [user])
 
   const createNewDraft = async () => {
     try {
@@ -101,9 +104,12 @@ export default function DraftList({ user }) {
     <div className="draft-list-page">
       <div className="draft-list-header">
         <h1>Your Threads</h1>
-        <button className="new-draft-btn" onClick={createNewDraft}>
-          + New Draft
-        </button>
+        <ThemeSetting />
+        {!(activeTab === 'drafts' && !loading && !error && drafts.length === 0) && (
+          <button className="new-draft-btn" onClick={createNewDraft}>
+            New draft
+          </button>
+        )}
         <button className="tab" onClick={() => navigate('/settings/tokens')}>
           API tokens
         </button>
@@ -125,16 +131,16 @@ export default function DraftList({ user }) {
       </div>
 
       {loading ? (
-        <div className="loading">Loading...</div>
+        <div className="loading" role="status" aria-live="polite">Loading your threads…</div>
       ) : error ? (
-        <div className="error">Error: {error}</div>
+        <div className="error" role="alert">Could not load your threads: {error}</div>
       ) : currentList.length === 0 ? (
         <div className="empty-state">
           {activeTab === 'drafts' ? (
             <>
-              <p>No drafts yet. Start by creating your first thread!</p>
+              <p>No drafts yet. Create your first thread to get started.</p>
               <button className="new-draft-btn" onClick={createNewDraft}>
-                Create First Draft
+                Create your first draft
               </button>
             </>
           ) : (
@@ -151,7 +157,7 @@ export default function DraftList({ user }) {
               >
                 <h3>{draft.title}</h3>
                 <div className="draft-meta">
-                  <span>{getPostCount(draft)} posts</span>
+                  <span>{getPostCount(draft)} {getPostCount(draft) === 1 ? 'post' : 'posts'}</span>
                   <span>•</span>
                   <span>
                     {activeTab === 'published'
@@ -167,9 +173,8 @@ export default function DraftList({ user }) {
                     e.stopPropagation()
                     duplicateDraft(draft)
                   }}
-                  title="Duplicate"
                 >
-                  📋
+                  Duplicate
                 </button>
                 <button
                   className="delete-btn"
@@ -177,9 +182,8 @@ export default function DraftList({ user }) {
                     e.stopPropagation()
                     deleteDraft(draft.id)
                   }}
-                  title="Delete"
                 >
-                  🗑️
+                  Delete draft
                 </button>
               </div>
             </div>
