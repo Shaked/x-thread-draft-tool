@@ -16,6 +16,7 @@
     "test:e2e:install": "playwright install --with-deps chromium",
     "lint": "eslint .",
     "knip": "knip",
+    "test:budget": "node scripts/test-budget.mjs",
     "screens": "playwright test --project=screens",
     "slop": "node scripts/slop-scan.mjs",
     "dup": "jscpd",

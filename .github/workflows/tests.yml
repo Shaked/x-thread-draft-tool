@@ -79,8 +79,8 @@ jobs:
             exit 1
           fi
 
-      - name: Run unit tests
-        run: npm run test:unit
+      - name: Run unit and API tests (time budget)
+        run: npm run test:budget
 
   smoke-local:
     name: Smoke test against the local API

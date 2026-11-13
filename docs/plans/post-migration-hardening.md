@@ -294,7 +294,7 @@ Shaked adds `Lint`, `knip`, `dup`, `slop`, `net-lines` to the required checks af
 
 ## Task 4 — Test time budget
 
-Status: Parked. PR #42 is open and skipped (bug B5). Owner go is O11.
+Status: In PR #42. One PR.
 
 **Why:** 10 of 14 files exceed 3 s in CI; each API file boots PGlite and runs every migration.
 **Files:** `vitest.config.js`, new `tests/api/helpers/global-setup.js`, `tests/api/helpers/db.js`,
@@ -313,8 +313,8 @@ new `scripts/test-budget.mjs`, `.github/workflows/tests.yml`, `package.json`.
    each file's `startTime`/`endTime` and the total wall time, fails when a file > 3000 ms or the
    total > 30000 ms, prints the 5 slowest files. Script `"test:budget"`; the CI unit-test step uses it.
 **Acceptance:**
-- In CI: every file ≤ 3 s and total ≤ 30 s (paste the 5 slowest lines from the log).
-- Locally on a 2-vCPU machine: total ≤ 30 s.
+- In CI (3 workers): every file ≤ 5 s (7 s for `migrate.test.js` and `oauth-migration.test.js`), file time includes beforeAll/afterAll hooks, and total ≤ 50 s (O11, decided by Opus 2026-11-13; paste the 5 slowest lines from the log).
+- Locally with the same 3 workers: total ≤ 50 s (O11; the suite grew from 14 to 42 files).
 - Temporarily setting the file limit to 100 ms makes `npm run test:budget` exit 1 (not committed).
 **Stop if:** `migrate.test.js` alone exceeds 3 s after the split (report the number; Shaked
 decides between splitting it and a per-file exception).
