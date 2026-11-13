@@ -244,4 +244,21 @@ describe('MCP post tools', () => {
     expect(conflict.content[0].text).toMatch(/already exists/)
     expect(await rowOf(draft.id)).toEqual(after)
   })
+
+  it('add_post refuses an empty post_id and writes nothing', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    const before = await rowOf(draft.id)
+    const result = await run('add_post', { id: draft.id, text: 'new', post_id: '' })
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toMatch(/post_id/)
+    expect(await rowOf(draft.id)).toEqual(before)
+  })
+
+  it('add_post accepts an id with a slash and update_post can address it', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    expect((await run('add_post', { id: draft.id, text: 'new', post_id: 'a/b' })).isError).toBe(false)
+    const updated = await run('update_post', { id: draft.id, post_id: 'a/b', text: 'edited' })
+    expect(updated.isError).toBe(false)
+    expect((await rowOf(draft.id)).posts[2].text).toBe('edited')
+  })
 })

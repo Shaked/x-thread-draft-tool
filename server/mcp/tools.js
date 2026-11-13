@@ -201,6 +201,7 @@ const TOOLS = [
         after_post_id: { type: 'string' },
         post_id: {
           type: 'string',
+          minLength: 1,
           maxLength: 100,
           description: 'Optional id you choose for the new post. Sending the same id and text again changes nothing; the same id with other text is a conflict.'
         }
@@ -418,10 +419,16 @@ function argumentProblem(schema, args) {
     if (typeof value === 'number' && prop.maximum !== undefined && value > prop.maximum) {
       return `Invalid argument ${key}: must be at most ${prop.maximum}`
     }
-    if (typeof value === 'string' && prop.maxLength !== undefined && value.length > prop.maxLength) {
-      return `Invalid argument ${key}: at most ${prop.maxLength} characters`
-    }
+    const lengthProblem = stringLengthProblem(prop, value)
+    if (lengthProblem) return `Invalid argument ${key}: ${lengthProblem}`
   }
+  return null
+}
+
+function stringLengthProblem(prop, value) {
+  if (typeof value !== 'string') return null
+  if (prop.minLength !== undefined && value.length < prop.minLength) return `at least ${prop.minLength} character`
+  if (prop.maxLength !== undefined && value.length > prop.maxLength) return `at most ${prop.maxLength} characters`
   return null
 }
 
