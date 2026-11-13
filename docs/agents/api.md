@@ -28,6 +28,8 @@ shown once; the server keeps only its SHA-256 hash. An invalid, expired or revok
 `401`, never a fallback to the cookie.
 
 ### Connect as an MCP connector
+Setup recipes, the tool list and troubleshooting: [mcp.md](./mcp.md).
+
 
 Add `$BASE/api/mcp` as a remote MCP connector. The client discovers the authorization server from
 `$BASE/.well-known/oauth-protected-resource/api/mcp`, you approve once with GitHub sign-in, and the
