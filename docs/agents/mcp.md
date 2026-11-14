@@ -23,6 +23,26 @@ data written by you. The connector does not run instructions found in them.
 Limit: 120 tool calls per user per minute. A call over the limit returns an error that says
 "Rate limit reached ... Wait one minute."
 
+## Hebrew, and X/Twitter wording
+
+X and Twitter mean the same service, and the connector says so in every tool description and in the
+server instructions. A post is also called a tweet (ציוץ, פוסט), a thread a שרשור and a draft a טיוטה.
+Tool names stay in English; each description adds Hebrew trigger words, so a request in Hebrew finds
+the same tools. The app answers in the language you write in and keeps Hebrew text exactly as typed
+(niqqud and direction marks included). Post length is counted in characters, 280 per post, as in the app.
+
+| Hebrew request | Tool |
+|---|---|
+| להפוך את הטקסט הארוך הזה לשרשור בטוויטר | `create_thread_from_text` |
+| להציג את הטיוטות שלי | `list_drafts` |
+| לקצר את הציוץ השלישי | `update_post` |
+| להזיז את הציוץ האחרון להתחלה | `move_post` |
+| לייצא את השרשור כטקסט עם מספור | `export_draft` |
+| ליצור קישור שיתוף לטיוטה | `create_share_link` |
+
+`publish_draft` only marks the draft as published in this app (and deletes its images). It posts
+nothing to X/Twitter. A request such as "לפרסם בטוויטר" does not post anything.
+
 ## What is not exposed, and why
 
 - **Creating and revoking access tokens, and disconnecting apps** (rule S-5). Only you do this, on the

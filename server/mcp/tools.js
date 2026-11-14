@@ -270,7 +270,7 @@ const TOOLS = [
   },
   {
     name: 'publish_draft',
-    description: 'Publish one of your drafts. This deletes its images and clears them from the posts.',
+    description: 'Mark one of your drafts as published in this app. It posts nothing to X/Twitter. This deletes its images and clears them from the posts.',
     inputSchema: ID_ONLY,
     annotations: { destructiveHint: true },
     run: (args, { rest }) => rest('POST', `/drafts/${enc(args.id)}/publish`)
@@ -340,13 +340,44 @@ const REST_ROUTES = {
 /** Every REST route the MCP tools call. */
 export const TOOL_REST_ROUTES = [...new Set(Object.values(REST_ROUTES).flat())]
 
+// Trigger words for tool selection (plan Task 13a, D-19, D-20): [English, Hebrew]. X and Twitter are
+// the same service. Written for the model that reads the tool list; the tool names stay ASCII.
+const TRIGGERS = {
+  list_drafts: ['my tweet drafts, saved threads', 'להציג את הטיוטות שלי, רשימת שרשורים, טיוטות שפורסמו'],
+  get_draft: ['open or show a thread', 'לפתוח טיוטה, להציג שרשור'],
+  create_draft: ['new thread, write tweets', 'ליצור טיוטה, שרשור חדש, ציוצים'],
+  update_draft: ['edit a thread or its title', 'לערוך טיוטה, לעדכן שרשור, לשנות כותרת'],
+  duplicate_draft: ['copy a thread', 'לשכפל טיוטה, עותק של שרשור'],
+  export_draft: ['copy a thread as text', 'לייצא טיוטה, להעתיק שרשור כטקסט, מספור ציוצים'],
+  split_text: ['break text into tweets', 'לפצל טקסט לציוצים או לפוסטים'],
+  create_share_link: ['share or preview a thread', 'קישור שיתוף, לשתף טיוטה, תצוגה מקדימה'],
+  add_image_from_url: ['attach a picture to a tweet', 'להוסיף תמונה מקישור לציוץ'],
+  whoami: ['which account is connected', 'מי אני, איזה חשבון מחובר'],
+  create_thread_from_text: ['tweetstorm, turn an article or notes into a thread', 'להפוך טקסט ארוך לשרשור, ליצור שרשור מטקסט'],
+  remove_image: ['delete a picture from a tweet', 'להסיר תמונה מציוץ'],
+  add_post: ['add a tweet', 'להוסיף ציוץ או פוסט לשרשור'],
+  update_post: ['edit or shorten one tweet', 'לערוך ציוץ אחד, לקצר פוסט'],
+  remove_post: ['delete one tweet', 'למחוק ציוץ מהשרשור'],
+  move_post: ['reorder tweets', 'להזיז ציוץ, לשנות את סדר הציוצים'],
+  publish_draft: ['mark a thread published (posts nothing)', 'לסמן טיוטה כפורסמה; לא מפרסם בפועל'],
+  delete_draft: ['delete a thread', 'למחוק טיוטה או שרשור']
+}
+
+/** Base description + the trigger tail; the S-6 content sentence, when the tool has it, stays last. */
+function describe(name, base) {
+  const [en, he] = TRIGGERS[name]
+  const hasNote = base.endsWith(CONTENT_NOTE)
+  const head = hasNote ? base.slice(0, -CONTENT_NOTE.length) : base
+  return `${head} Also: ${en}, on X/Twitter. Hebrew: ${he} (X/טוויטר).${hasNote ? CONTENT_NOTE : ''}`
+}
+
 export function listTools() {
   return TOOLS.map(({ name, description, inputSchema }) => {
     const [title, readOnlyHint, destructiveHint, idempotentHint, openWorldHint] = META[name]
     return {
       name,
       title,
-      description,
+      description: describe(name, description),
       inputSchema,
       annotations: { readOnlyHint, destructiveHint, idempotentHint, openWorldHint }
     }
