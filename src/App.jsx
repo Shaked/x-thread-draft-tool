@@ -8,6 +8,7 @@ import XThreadPreviewPage from './pages/XThreadPreviewPage'
 import TokensPage from './pages/TokensPage'
 import './styles/App.css'
 import { applyTheme, getTheme } from './utils/theme'
+import { clearCachedDrafts } from './utils/draftCache'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -19,7 +20,12 @@ function App() {
   useEffect(() => {
     authApi
       .me()
-      .then((res) => setUser(res.user ?? null))
+      .then((res) => {
+        setUser(res.user ?? null)
+        // Nobody is signed in (a session that ended elsewhere, such as the consent page's sign-out): no
+        // draft text may stay cached in this browser. Only an explicit answer clears it, never an offline error.
+        if (!res.user) clearCachedDrafts()
+      })
       .catch((err) => {
         console.error('Failed to load session:', err)
         setUser(null)

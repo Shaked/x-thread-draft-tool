@@ -104,6 +104,41 @@ test('signed in: the consent page greets the account and copies the same link', 
   }
 })
 
+
+// idb-keyval's default store: database `keyval-store`, object store `keyval`.
+async function plantCachedDraft(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('keyval-store')
+        open.onupgradeneeded = () => open.result.createObjectStore('keyval')
+        open.onsuccess = () => {
+          const tx = open.result.transaction('keyval', 'readwrite')
+          tx.objectStore('keyval').put({ title: 'cached' }, 'draft-planted')
+          tx.oncomplete = () => resolve()
+          tx.onerror = () => reject(tx.error)
+        }
+        open.onerror = () => reject(open.error)
+      })
+  )
+}
+
+async function cachedDraftKeys(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () =>
+      new Promise<string[]>((resolve, reject) => {
+        const open = indexedDB.open('keyval-store')
+        open.onupgradeneeded = () => open.result.createObjectStore('keyval')
+        open.onsuccess = () => {
+          const request = open.result.transaction('keyval', 'readonly').objectStore('keyval').getAllKeys()
+          request.onsuccess = () => resolve((request.result as string[]).filter((key) => String(key).startsWith('draft-')))
+          request.onerror = () => reject(request.error)
+        }
+        open.onerror = () => reject(open.error)
+      })
+  )
+}
+
 test('signed in: "Not you? Sign out" ends the session and shows the sign-in page for the same request', async ({ browser }) => {
   const login = `notyou-${Date.now()}`
   const session = await api.post('/api/dev/session', { data: { login } })
@@ -117,6 +152,10 @@ test('signed in: "Not you? Sign out" ends the session and shows the sign-in page
     await postsFromAppOrigin(ctx)
     await ctx.addCookies([{ name: 'xt_session', value: token!, url: BASE }])
     const page = await ctx.newPage()
+    // A draft cached in this browser by an earlier editing session of this account.
+    await page.goto(`${BASE}/`)
+    await plantCachedDraft(page)
+    expect(await cachedDraftKeys(page)).toEqual(['draft-planted'])
     const query = authorizeQuery()
     await page.goto(`${BASE}/api/oauth/authorize?${query}`)
     await expect(page.getByRole('heading', { name: `Hi @${login}, allow ${CLIENT_NAME} to use` })).toBeVisible()
@@ -125,6 +164,10 @@ test('signed in: "Not you? Sign out" ends the session and shows the sign-in page
     expect(new URL(page.url()).pathname).toBe('/api/oauth/authorize')
     expect(new URL(page.url()).searchParams.get('state')).toBe('copy-check')
     await expect(page.locator('#share-link')).toHaveValue(/state=copy-check/)
+
+    // The consent page cannot clear the browser cache itself; the app does it as soon as it finds nobody signed in.
+    await page.goto(`${BASE}/`)
+    await expect.poll(() => cachedDraftKeys(page)).toEqual([])
 
     // The old cookie value no longer works anywhere.
     const old = await playwrightRequest.newContext({ baseURL: BASE, extraHTTPHeaders: { cookie: `xt_session=${token}` } })

@@ -1,5 +1,5 @@
-import { delMany, keys } from 'idb-keyval'
 import { authApi } from '../utils/api'
+import { clearCachedDrafts } from '../utils/draftCache'
 import Icon from './Icon'
 
 /** Signs out of this browser (the server ends the session), drops the drafts cached here, then reloads. */
@@ -10,13 +10,7 @@ export default function LogoutButton() {
     } catch (err) {
       console.error('Logout error:', err)
     }
-    try {
-      const cached = (await keys()).filter((key) => typeof key === 'string' && key.startsWith('draft-'))
-      await delMany(cached)
-    } catch (err) {
-      // A blocked IndexedDB must never block sign-out.
-      console.error('Clearing cached drafts failed:', err)
-    }
+    await clearCachedDrafts()
     window.location.assign('/')
   }
   return (

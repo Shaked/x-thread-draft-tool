@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SignJWT } from 'jose'
+import { SignJWT, decodeJwt } from 'jose'
 import { route } from '../../server/router.js'
 import { secretKey } from '../../server/session.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
@@ -176,9 +176,9 @@ describe('GET /api/auth/me and POST /api/auth/logout', () => {
     expect((await route(apiRequest('/api/drafts?published=false', { cookie }))).status).toBe(401)
     expect(await (await route(apiRequest('/api/auth/me', { cookie }))).json()).toEqual({ user: null, auth: null })
     expect((await route(apiRequest('/api/auth/logout', { method: 'POST', cookie }))).status).toBe(200)
-    // Signing out twice leaves one row for this session.
-    const { rows } = await db.pg.query('select jti from revoked_sessions')
-    expect(rows.length).toBeGreaterThanOrEqual(1)
+    // Signing out twice leaves exactly one row for this session.
+    const { jti } = decodeJwt(cookie.slice('xt_session='.length))
+    expect((await db.pg.query('select 1 from revoked_sessions where jti = $1', [jti])).rows).toHaveLength(1)
   })
 
   it('revokes only the session that signed out: another session of the same user keeps working', async () => {
