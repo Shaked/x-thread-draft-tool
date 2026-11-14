@@ -15,7 +15,7 @@ Read this at the start of every session and after every context summary.
 - Check a fact before you state it (`date -u`, the PR, the check, the log). Otherwise say "not checked".
 - Smallest change that does the job. One task per PR. Branch from the latest `main`.
 - Never commit with `--no-verify`. Never skip, disable or weaken a test. Never print or commit a secret.
-- Never `sleep`-poll. Schedule one wake-up and end the turn.
+- Never `sleep`-poll or re-check the same thing in one turn. Schedule one wake-up and end the turn.
 - A test must run without a person. If it needs someone to sign in or click, redesign it.
 
 ### Standing permissions (Shaked gave these; never ask for them again)
@@ -30,7 +30,7 @@ Read this at the start of every session and after every context summary.
 - The plan names who executes (default: Haiku). Opus judges every PR before merge.
 - In doubt, ask Opus. Do not guess, and do not ask Shaked a design question.
 - Use Sonnet when Haiku failed the same step twice or the step is too large for it.
-- Opus does not decide owner-only matters: money, secrets, deleting data, product behaviour.
+- Opus does not decide owner-only matters: money, secrets, deleting data, product behaviour the plan does not already decide.
 - Say in your reply which model did what.
 
 ### Trackers
@@ -53,16 +53,17 @@ Read this at the start of every session and after every context summary.
 - Number tasks and PRs (`T2`, `#76`), and add two or three words that say what the item is.
 
 ### Codex review
-- Codex answers in 2 to 3 minutes, as a PR comment. Check after 3 minutes, ask again at 10,
+- After every push, comment `@codex review`. Codex answers in 2 to 3 minutes as a PR comment,
+  not a review, so a missing review means nothing. Check after 3 minutes, ask again at 10,
   treat it as silent at 15.
-- The `Codex review` check stays red while any Codex thread is unresolved. When the fix is on
-  the head, reply on the thread and resolve it.
+- The `Codex review` check stays red while any Codex thread is unresolved, even an outdated
+  one. When the fix is on the head, reply on the thread and resolve it.
 
 ### Repo specifics
-- Merges to `main` are merge commits, never squash. Update a stacked branch by merging `main` into it.
+- Merges to `main` are merge commits, never squash. Update a stacked branch by merging `main` into it, never by rebasing.
 - Every PR adds `docs/changelogs/<UTC YYYYMMDD-HHMMSS>-<slug>.md` (1 to 5 lines).
 - The pre-commit hook runs build and unit tests: `npm ci` once, then commit normally.
-- A test file under `tests/api/` starts with `// @vitest-environment node`.
+- A test file under `tests/api/` starts with `// @vitest-environment node` (the default is jsdom).
 - GitHub work goes through the GitHub MCP tools; `gh` only for search. Every comment ends with
   the Claude Code footer.
 - Deployed checks run in GitHub Actions or with Vercel's fetch tool on

@@ -17,7 +17,7 @@ Start a model with the Agent tool (`model: "haiku"`, `"opus"` or `"sonnet"`). Gi
 
 1. Read `AGENTS.md` first. After T0 merges, read it again.
 2. One task, one branch from the latest `main`, one pull request, one changelog file.
-3. Procedures P-PR, P-CODEX, P-CI, P-MERGE and P-PROD are in [hardening-finish.md](./hardening-finish.md) section 5. Use them unchanged. Where they say "ledger", use epic #111.
+3. Procedures P-PR, P-CODEX, P-CI, P-MERGE and P-PROD are in [hardening-finish.md](./hardening-finish.md) section 5. Use them with three exceptions: where they say "ledger", use epic #111; the pull request body starts `Implements docs/plans/private-drafts-share-links.md T<n>`; Codex silence follows `AGENTS.md` (15 minutes), not the older 30-minute rule.
 4. Before P-MERGE, the judge (Opus) must answer `APPROVE` for the head commit. Record the verdict as one line in the pull request description.
 5. Each task ships on its own. When its pull request passes rule 4 and P-MERGE, merge it at once and run P-PROD (production deployment READY, deployed smoke test green). Do not wait for other tasks, and do not ask Shaked before opening or merging a pull request: he has approved both for every task here.
 6. After each merge, update the task row in the body of #111 (PR number, state `merged`, production checked).
@@ -56,31 +56,32 @@ Do them in this order. T1 and T2 are the urgent ones: T1 closes the open read.
 2. Done when: merged; #111 row T0 says `merged`.
 
 ### T1. Drafts are private
-Files: `server/routes/drafts.js`, `src/pages/DraftEditor.jsx`, `src/components/ShareButton.jsx`, `tests/api/drafts.test.js`, `tests/api/router.test.js`, `server/openapi.js`, `docs/agents/api.md`, `public/llms.txt`, `docs/features/sharing-and-export.md`.
+Files: `server/routes/drafts.js`, `src/pages/DraftEditor.jsx`, `src/components/ShareButton.jsx`, `tests/api/drafts.test.js` (the test "is public" changes on purpose), `tests/api/parity.test.js` and `tests/api/export-numbered.test.js` (both call export without a cookie today; sign in as the owner), `tests/api/router.test.js`, `scripts/smoke.mjs`, `server/openapi.js`, `docs/agents/api.md`, `public/llms.txt`, `docs/features/sharing-and-export.md`.
 1. `getDraft` and `exportDraft`: call `requireUser(request)` and add `and user_id = $2` to the query. No row: 404 `Draft not found`.
-2. `DraftEditor.jsx`: when the API answers 401, show "Sign in to open this draft" with the sign-in button. When it answers 404, show "Draft not found". Remove the code path that shows another person's draft read-only.
+2. `DraftEditor.jsx`: when the API answers 401, show "Sign in to open this draft" with the sign-in button. When it answers 404, show "Draft not found". Remove the code path that shows another person's draft read-only, and remove the `idbGet` fallback for a signed-out visitor. On a 401 or 404, delete `draft-<id>` from IndexedDB, so a cached copy is never shown.
 3. Hide `ShareButton` until T2 replaces it (do not leave a button that copies a dead link).
-4. New test file `tests/api/tenant-isolation.test.js`: for every entry in `ROUTES` whose path contains `:id`, call it as a second user and as nobody against the first user's draft. Expected: 404 or 401, and the draft row is unchanged. A route that is public on purpose (`GET /share/:token`) is listed in the test by name with the reason.
+4. New test file `tests/api/tenant-isolation.test.js`: for every entry in `ROUTES` whose path starts with `/drafts/:id`, call it as a second user and as nobody against the first user's draft. Send each route a valid body (and a real `postId`), because some routes check the body before the owner. Expected: second user 404, nobody 401, and the draft row is unchanged. `/tokens/:id` and `/grants/:id` are skipped: their ids are not draft ids. The test fails when `ROUTES` has a `/drafts/:id` route it does not know.
 5. Update the docs and the OpenAPI text that say a draft is readable by id.
-6. Done when: the new test passes; `npm run test:api` and `npm run smoke` pass; a signed-out `GET /api/drafts/<id>` on the preview site returns 401.
+6. `scripts/smoke.mjs`: new step, a signed-out `GET /api/drafts/<id>` and `/export` expect 401.
+7. Done when, before merge: the new test passes; `npm run test:api` and `npm run smoke` pass. After merge: the deployed smoke test (`smoke-deployed.yml`) for the production deployment of the merge commit passes the new step. Pull request branches are not deployed, so there is no preview check before merge.
 
 ### T2. Share links that expire
 Files: `db/migrations/007_share_expiry.sql`, `server/routes/drafts.js`, `server/routes/share.js`, `server/mcp/tools.js`, `src/components/ShareButton.jsx`, `src/components/XThreadLinkButton.jsx`, `src/components/AgentLinkButton.jsx`, `src/utils/api.js`, `tests/api/share.test.js`, `tests/api/mcp-coverage.test.js`, `scripts/smoke.mjs`, docs as in T1.
 1. Migration 007 (additive, safe to run twice): `alter table share_tokens add column if not exists expires_at timestamptz`, `add column if not exists one_time boolean not null default true`.
-2. `POST /api/drafts/:id/share-tokens` accepts an optional JSON body `{ "expires_in": <seconds>, "one_time": <boolean> }`. `expires_in`: integer, 60 to 604800, default `SHARE_LINK_TTL_SECONDS` from the environment or 3600. `one_time`: default `true`. Out of range: 400. Answer: `{ token, expires_at, one_time }`.
+2. `POST /api/drafts/:id/share-tokens` accepts an optional JSON body `{ "expires_in": <seconds>, "one_time": <boolean> }`. `expires_in`: integer, 60 to 604800, default `SHARE_LINK_TTL_SECONDS` from the environment or 3600. `one_time`: default `true`. Out of range: 400. An empty body means the defaults: parse JSON only when the body text is not empty (`readJson` answers 400 for an empty body, and today's buttons, tests and smoke script send none). Answer: `{ token, expires_at, one_time }`.
 3. `GET /api/share/:token`: the link works only when `coalesce(expires_at, created_at + interval '1 hour') > now()`. A one-time link also needs `used = false` and is consumed in the same `UPDATE` as today. A reusable link only sets `used_at`. Otherwise 410, same page as today, with the text "This link has expired or was already used."
-4. New route `DELETE /api/drafts/:id/share-tokens/:token`: owner only, deletes the row, 204. Not the owner or no row: 404.
-5. MCP: `create_share_link` gets optional `expires_in` and `one_time` and returns `expires_at`. New tool `revoke_share_link { id, token }`. Add both to `META`, `REST_ROUTES` and `TRIGGERS` so the coverage and language tests pass.
+4. New route `DELETE /api/drafts/:id/share-tokens/:token`: owner only, deletes the row, 204. Not the owner, no row, or a `:token` that is not a uuid: 404. Also `DELETE /api/drafts/:id/share-tokens` (no token): deletes every link of that draft, 204. The owner needs this when the link text is lost.
+5. MCP: `create_share_link` gets optional `expires_in` and `one_time` and returns `expires_at`. New tool `revoke_share_link { id, token? }`: without `token` it revokes every link of the draft. Add both to `META`, `REST_ROUTES` and `TRIGGERS` so the coverage and language tests pass.
 6. UI: the "Share" button comes back. It opens a small menu "Link valid for: 15 minutes, 1 hour (default), 1 day, 7 days", creates a reusable link (`one_time: false`) and copies `<origin>/x-thread-preview/<token>`. Tooltip: "Link copied. It stops working in <lifetime>." The other two buttons send no body and say "works once, within 1 hour".
 7. Tests: expiry (set `expires_at` in the past in the test database), reusable link read twice, one-time link read twice, out-of-range `expires_in`, revoke, revoke by another user.
-8. Done when: those tests pass; smoke passes; on the preview site a link made with `expires_in: 60` returns 200, and 410 after 61 seconds (GitHub Actions step, no person).
+8. Done when: those tests pass; smoke passes; after merge, the deployed smoke test for the merge commit passes a new `scripts/smoke.mjs` step: a link made with `expires_in: 60` returns 200, and 410 after 61 seconds.
 
 ### T3. Copy link on the consent and sign-in pages
 Files: `server/oauth/consent.js`, `server/routes/oauth.js`, `tests/api/oauth.test.js`, `tests/api/mcp-clients.test.js`, `tests/e2e/screens.spec.ts`, `docs/agents/mcp.md`.
 1. In `authorizeGet`, build `link = <base>/api/oauth/authorize?<the validated parameters without __path>`.
 2. `consentPage` gets `link`. Under the buttons add: the text "Wrong browser? Copy this link and open it in the browser where you are signed in.", a read-only `<input>` with the escaped link, and a "Copy link" button.
-3. The copy script is one fixed inline string. Compute its SHA-256 once at module load and add `script-src 'sha256-<hash>'` to `consentHeaders`. Nothing else in the policy changes. The page must still work with scripts off (the input can be selected by hand).
-4. No session: instead of the redirect, answer 200 with a new `signInPage({ link, loginUrl })`: the heading "Sign in to continue", a "Continue with GitHub" link to the same `/api/auth/login?return_to=...` address as today, and the same copy-link block.
+3. The copy script is one fixed inline string. Compute its SHA-256 once at module load and add `script-src 'sha256-<hash>'` to `consentHeaders`. Nothing else in the policy changes. The script attaches the click handler with `addEventListener`; no `onclick=` attribute (a hash does not allow inline handlers). The page must still work with scripts off (the input can be selected by hand).
+4. No session: instead of the redirect, answer 200 with a new `signInPage({ link, loginUrl })`: the heading "Sign in to continue", a "Continue with GitHub" link to the same `/api/auth/login?return_to=...` address as today, and the same copy-link block. It uses the same headers as the consent page without `form-action`: `no-store`, `x-frame-options: DENY`, `default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-<hash>'; frame-ancestors 'none'`.
 5. Tests: the policy header contains exactly one script hash and it matches the script; the link in the page equals the request address; a parameter with `"<>&` is escaped; no session gives the sign-in page with the login link; a Playwright test clicks "Copy link" and reads the clipboard.
 6. Done when: tests pass; the screenshot job shows both pages at 390 px wide; Opus has checked that the policy change allows no other script.
 
@@ -88,7 +89,7 @@ Files: `server/oauth/consent.js`, `server/routes/oauth.js`, `tests/api/oauth.tes
 Files: new `server/draft-stats.js`, `server/routes/drafts.js`, `server/mcp/tools.js`, `server/openapi.js`, `server/mcp/skills.js`, `server/mcp/prompts.js`, tests `tests/api/drafts.test.js`, `tests/api/mcp.test.js`, `tests/api/mcp-contract.test.js`, docs.
 1. `server/draft-stats.js` exports `summarize(draft)`: `{ id, title, is_published, updated_at, published_at, version, post_count, total_chars, over_limit_count, image_count }`, and `outline(draft)`: the summary plus `posts: [{ id, index, chars, remaining, over_limit, image_count, preview }]`. `preview` is the first 40 characters. The limit is 280.
 2. REST: `GET /api/drafts?view=summary` returns `{ drafts: [summary] }`. Without `view`, the answer is unchanged. New `GET /api/drafts/:id/outline` (owner only).
-3. MCP: `list_drafts` gets `detail: "summary" | "full"`, default `"summary"`. New read-only tool `get_draft_outline { id }`. Update the tool descriptions: "Use get_draft_outline to count posts and characters. Use get_draft only when you need the text."
+3. MCP: `list_drafts` gets `detail: "summary" | "full"`, default `"summary"`. New read-only tool `get_draft_outline { id }`; add it to `META`, `REST_ROUTES` (`GET /drafts/:id/outline`) and `TRIGGERS` (a tool missing from `TRIGGERS` crashes `listTools`). Update the tool descriptions: "Use get_draft_outline to count posts and characters. Use get_draft only when you need the text."
 4. Update the skill and prompt text that tell the model to call `list_drafts` or `get_draft` for counting.
 5. Done when: tests pass; a test proves the summary answer for a draft with 25 full posts is under 600 bytes.
 
