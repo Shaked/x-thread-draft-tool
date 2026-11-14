@@ -19,9 +19,10 @@ Start a model with the Agent tool (`model: "haiku"`, `"opus"` or `"sonnet"`). Gi
 2. One task, one branch from the latest `main`, one pull request, one changelog file.
 3. Procedures P-PR, P-CODEX, P-CI, P-MERGE and P-PROD are in [hardening-finish.md](./hardening-finish.md) section 5. Use them unchanged. Where they say "ledger", use epic #111.
 4. Before P-MERGE, the judge (Opus) must answer `APPROVE` for the head commit. Record the verdict as one line in the pull request description.
-5. After each merge, update the task row in the body of #111 (PR number, state `merged`).
-6. A test that changes because the behaviour changed on purpose is fine. Say which test and why in the pull request. Never delete an assertion without a replacement.
-7. All checks in sections 5 and 6 run without a person: unit tests, API tests (`npm run test:api`), Playwright, the smoke script.
+5. Each task ships on its own. When its pull request passes rule 4 and P-MERGE, merge it at once and run P-PROD (production deployment READY, deployed smoke test green). Do not wait for other tasks, and do not ask Shaked before opening or merging a pull request: he has approved both for every task here.
+6. After each merge, update the task row in the body of #111 (PR number, state `merged`, production checked).
+7. A test that changes because the behaviour changed on purpose is fine. Say which test and why in the pull request. Never delete an assertion without a replacement.
+8. All checks in sections 5 and 6 run without a person: unit tests, API tests (`npm run test:api`), Playwright, the smoke script.
 
 ## 3. State (checked 2026-11-14 on `main` at `503daee`)
 
@@ -51,9 +52,8 @@ Start a model with the Agent tool (`model: "haiku"`, `"opus"` or `"sonnet"`). Gi
 Do them in this order. T1 and T2 are the urgent ones: T1 closes the open read.
 
 ### T0. Plan and rules on `main`
-1. Open a pull request from `claude/magical-mayer-56qob1` (this file, the index, the changelog).
-2. In the same pull request, replace `AGENTS.md` with the text in section 7.
-3. Done when: merged; #111 row T0 says `merged`.
+1. One pull request from `claude/magical-mayer-56qob1`: this file, the index, the changelog and the new `AGENTS.md`.
+2. Done when: merged; #111 row T0 says `merged`.
 
 ### T1. Drafts are private
 Files: `server/routes/drafts.js`, `src/pages/DraftEditor.jsx`, `src/components/ShareButton.jsx`, `tests/api/drafts.test.js`, `tests/api/router.test.js`, `server/openapi.js`, `docs/agents/api.md`, `public/llms.txt`, `docs/features/sharing-and-export.md`.
@@ -120,73 +120,9 @@ Files: new `src/utils/xLength.js`, `src/utils/threadSplitter.js`, the editor cou
 - `list_drafts` returns summaries; `get_draft_outline` exists (MCP contract tests).
 - Every task row in #111 is `merged` or `dropped`, and #111 is closed.
 
-## 7. New `AGENTS.md` (T0 copies this text)
+## 7. `AGENTS.md`
 
-```markdown
-# Agents
-
-## Using the product as an agent
-
-The app is fully usable through a JSON API with a personal API token. Start with `/llms.txt`
-or `/api/openapi.json`, and read [docs/agents/api.md](./docs/agents/api.md). The tests in
-levels 1 and 2 run in any sandbox, without a person.
-
-## Working in this repo
-
-Read this at the start of every session and after every context summary.
-
-### Work
-- Read the task's plan section in full. Do the next step only.
-- Check a fact before you state it (`date -u`, the PR, the check, the log). Otherwise say "not checked".
-- Smallest change that does the job. One task per PR. Branch from the latest `main`.
-- Never commit with `--no-verify`. Never skip, disable or weaken a test. Never print or commit a secret.
-- Never `sleep`-poll. Schedule one wake-up and end the turn.
-- A test must run without a person. If it needs someone to sign in or click, redesign it.
-
-### Models
-- The plan names who executes (default: Haiku). Opus judges every PR before merge.
-- In doubt, ask Opus. Do not guess, and do not ask Shaked a design question.
-- Use Sonnet when Haiku failed the same step twice or the step is too large for it.
-- Opus does not decide owner-only matters: money, secrets, deleting data, product behaviour.
-- Say in your reply which model did what.
-
-### Trackers
-- One GitHub issue per plan (an epic). It lists the tasks, the decisions with dates, and what
-  is needed from Shaked. Close it when the plan is done. Never reuse it for other work.
-- Record every decision Shaked makes in the epic, with the date. A "continue" is not an approval.
-
-### Talking to Shaked
-- First line: what is done. Then what is not done and why. Then the one thing that unblocks it.
-- Simple technical English. Short sentences. No internal labels (D-14, P-CODEX, O8) unless the
-  same line says what the label means.
-- Ask only what Shaked alone can decide. Decide the rest yourself and say what you chose.
-- Write each question so it can be answered without reading anything else:
-  1. What is being decided, in one sentence, in terms of what a user sees.
-  2. Each option: what happens if Shaked picks it.
-  3. Your recommendation and the reason.
-  4. The exact reply to send ("Reply: keep" or "Reply: merge").
-  5. What happens if nobody answers.
-- When Shaked must do something by hand: what to click, where (link), and what it unblocks.
-  Say which automated route you checked and why it does not work.
-- Number tasks and PRs (`T2`, `#76`), and add two or three words that say what the item is.
-
-### Codex review
-- Codex answers in 2 to 3 minutes, as a PR comment. Check after 3 minutes, ask again at 10,
-  treat it as silent at 15.
-- The `Codex review` check stays red while any Codex thread is unresolved. When the fix is on
-  the head, reply on the thread and resolve it.
-
-### Repo specifics
-- Merges to `main` are merge commits, never squash. Update a stacked branch by merging `main` into it.
-- Every PR adds `docs/changelogs/<UTC YYYYMMDD-HHMMSS>-<slug>.md` (1 to 5 lines).
-- The pre-commit hook runs build and unit tests: `npm ci` once, then commit normally.
-- A test file under `tests/api/` starts with `// @vitest-environment node`.
-- GitHub work goes through the GitHub MCP tools; `gh` only for search. Every comment ends with
-  the Claude Code footer.
-- Deployed checks run in GitHub Actions or with Vercel's fetch tool on
-  `https://x-thread-draft-tool-preview.vercel.app`. Never fetch production with it.
-- Current plan: [docs/plans/private-drafts-share-links.md](./docs/plans/private-drafts-share-links.md), epic #111.
-```
+The new `AGENTS.md` is part of the T0 pull request. Read the file itself.
 
 ## 8. Starting prompt for the executor session
 
@@ -195,5 +131,6 @@ Read AGENTS.md, then docs/plans/private-drafts-share-links.md sections 1 to 4.
 Read epic #111 and find the first task that is not merged. Do that task only, as section 5 says.
 You are the coordinator: give the coding to a Haiku agent, the review to an Opus agent,
 and every doubt to an Opus agent. Use a Sonnet agent when Haiku fails a step twice.
+Open and merge pull requests without asking; each task goes to production when it is ready.
 Do not ask Shaked design questions. Owner-only items go to #111 under "Needs from Shaked".
 ```
