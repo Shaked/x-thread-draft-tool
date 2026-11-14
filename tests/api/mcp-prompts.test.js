@@ -223,7 +223,7 @@ describe.each([MODERN, LEGACY])('prompts, protocol %s', (version) => {
   })
 
   it('Hebrew with niqqud, RLM and U+202B..U+202C reaches the model byte for byte', async () => {
-    const notes = 'בְּרֵאשִׁית צה"ל ג׳ירפה‏ ת״א ‫שלום עולם‬ 😀'
+    const notes = 'בְּרֵאשִׁית צה"ל ג׳ירפה\u200F ת״א \u202Bשלום עולם\u202C 😀'
     const text = textOf(await get(version, 'thread_from_notes', { notes }))
     expect(count(text, notes)).toBe(1)
     expect(Buffer.from(text.split('\n```\n')[1].split('\n')[0], 'utf8').equals(Buffer.from(notes.split('\n')[0], 'utf8'))).toBe(true)
