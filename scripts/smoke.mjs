@@ -212,7 +212,8 @@ if (draft) {
     }
 
     // Lifetimes (T2). No sleep: the server's expires_at shows when each link stops. The short link
-    // is checked by its gap to the default link as well as by the clock, so clock skew cannot fail it.
+    // is checked by its gap to the default link (which holds whatever the clock skew) and by the clock
+    // (which tolerates up to 60 s of skew between this runner and the server).
     await step('share links: 60 s link works now, default is about an hour, a revoked link is 410', async () => {
       const short = await call('POST', `/api/drafts/${draft.id}/share-tokens`, {
         body: { expires_in: 60, one_time: false },
@@ -230,7 +231,8 @@ if (draft) {
       if (!(gap > 3500 && gap < 3700)) throw new Error(`the two links differ by ${gap} s, expected about 3540`)
       if (hour.one_time !== true || short.one_time !== false) throw new Error('one_time does not match the request')
 
-      await call('GET', `/api/share/${short.token}.md`, { raw: true })
+      const read = await call('GET', `/api/share/${short.token}.md`, { expect: [200], raw: true })
+      if (!read.text.includes('Edited smoke post')) throw new Error('the reusable link did not return the draft')
       await call('DELETE', `/api/drafts/${draft.id}/share-tokens/${hour.token}`, { expect: [204] })
       await call('GET', `/api/share/${hour.token}.md`, { expect: [410], raw: true })
     })

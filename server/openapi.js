@@ -339,7 +339,7 @@ export const OPENAPI = {
         summary: 'Create a share link (owner only). Default: works once, expires after 1 hour. Use /share/{token} for the markdown or HTML page. An empty body means the defaults.',
         security: BEARER,
         parameters: [ID],
-        requestBody: { required: false, content: { 'application/json': { schema: { type: 'object', additionalProperties: false, properties: { expires_in: { type: 'integer', minimum: 60, maximum: 604800, default: 3600, description: 'Lifetime in seconds.' }, one_time: { type: 'boolean', default: true, description: 'false: the link can be read until it expires.' } } } } } },
+        requestBody: { required: false, content: { 'application/json': { schema: { type: 'object', properties: { expires_in: { type: 'integer', minimum: 60, maximum: 604800, default: 3600, description: 'Lifetime in seconds.' }, one_time: { type: 'boolean', default: true, description: 'false: the link can be read until it expires.' } } } } } },
         responses: { ...json({ type: 'object', properties: { token: { type: 'string', format: 'uuid' }, expires_at: { type: 'string', format: 'date-time' }, one_time: { type: 'boolean' } } }, '201'), 400: BAD_REQUEST, 401: UNAUTHORIZED, 404: NOT_FOUND }
       },
       delete: {

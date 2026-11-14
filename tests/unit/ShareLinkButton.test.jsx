@@ -45,6 +45,28 @@ describe('ShareLinkButton', () => {
     }
   })
 
+  it('closes the menu on Escape and on a click outside it', async () => {
+    const user = userEvent.setup()
+    render(
+      <div>
+        <ShareLinkButton draftId="draft-1" />
+        <p>elsewhere</p>
+      </div>
+    )
+    const share = screen.getByRole('button', { name: 'Share' })
+
+    await user.click(share)
+    expect(share).toHaveAttribute('aria-expanded', 'true')
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('button', { name: '1 day' })).not.toBeInTheDocument()
+
+    await user.click(share)
+    expect(screen.getByRole('button', { name: '1 day' })).toBeInTheDocument()
+    await user.click(screen.getByText('elsewhere'))
+    expect(screen.queryByRole('button', { name: '1 day' })).not.toBeInTheDocument()
+    expect(share).toHaveAttribute('aria-expanded', 'false')
+  })
+
   it('creates a reusable link for the chosen lifetime, copies it, and says when it stops', async () => {
     createShareTokenMock.mockResolvedValue(TOKEN)
     const user = userEvent.setup()
