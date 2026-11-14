@@ -253,6 +253,13 @@ describe('GET /api/drafts?view=summary', () => {
     expect(full.drafts).toEqual([])
   })
 
+  it('counts emoji with the X rules: 141 emoji is 282, over the limit', async () => {
+    await db.insertDraft(alice.id, { title: 'Emoji', posts: [{ id: 'e1', text: '😀'.repeat(141), images: [], embeddedTweet: null }] })
+    const res = await route(apiRequest('/api/drafts?published=false&view=summary', { cookie: aliceCookie }))
+    const draft = (await res.json()).drafts.find((d) => d.title === 'Emoji')
+    expect(draft).toMatchObject({ total_chars: 282, over_limit_count: 1 })
+  })
+
   it('answers under 600 bytes for a draft of 25 full posts', async () => {
     await db.insertDraft(alice.id, { title: 'Big', posts: fullPosts() })
     const res = await route(apiRequest('/api/drafts?published=false&view=summary', { cookie: aliceCookie }))

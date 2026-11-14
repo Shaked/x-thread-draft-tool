@@ -156,6 +156,18 @@ describe('PATCH /api/drafts/:id/posts/:postId', () => {
     expect(res.status).toBe(400)
   })
 
+  it('a 300-character URL is accepted (X counts it 23)', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    const res = await patchPost(draft.id, 'b', { text: `https://example.com/${'a'.repeat(280)}` })
+    expect(res.status).toBe(200)
+  })
+
+  it('141 CJK characters (X weight 282) are 400', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    const res = await patchPost(draft.id, 'b', { text: '字'.repeat(141) })
+    expect(res.status).toBe(400)
+  })
+
   it('any field other than text is 400 and changes nothing', async () => {
     const draft = await db.insertDraft(alice.id, { posts: POSTS() })
     const before = await rowOf(draft.id)

@@ -123,7 +123,9 @@ describe.each([MODERN, LEGACY])('Hebrew and X/Twitter wording, protocol %s', (ve
     expect(split.posts.length).toBeGreaterThan(1)
     for (const post of split.posts) {
       expect(post.text.length).toBeLessThanOrEqual(280)
-      expect(post.chars).toBe(post.text.length)
+      // X weighs bidi marks 2 (twitter-text v3 config): U+200E, U+200F, U+202A-U+202E.
+      const bidiMarks = [...post.text].filter((ch) => /[‎‏‪-‮]/.test(ch)).length
+      expect(post.chars).toBe(post.text.length + bidiMarks)
     }
     // The splitter breaks only at a space and trims each chunk, so with single spaces in the input the
     // posts joined with one space are exactly the input.

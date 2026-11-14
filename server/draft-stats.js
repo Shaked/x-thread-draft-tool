@@ -1,10 +1,12 @@
+import { xLength } from '../src/utils/xLength.js'
+
 // Small answers about a draft for agents: counts and a short preview per post, never the full text.
-// Length is the plain text length (UTF-16 units, as the editor counts today); T6 switches it to X rules.
+// Length is the X weighted length (src/utils/xLength.js), the same count the editor shows.
 const LIMIT = 280
 const PREVIEW_CHARS = 40
 
 const postsOf = (draft) => (Array.isArray(draft.posts) ? draft.posts : [])
-const charsOf = (post) => (typeof post?.text === 'string' ? post.text : '').length
+const charsOf = (post) => xLength(typeof post?.text === 'string' ? post.text : '')
 const imagesOf = (post) => (Array.isArray(post?.images) ? post.images.length : 0)
 
 /** The draft without its posts: id, title, state and counts. */
