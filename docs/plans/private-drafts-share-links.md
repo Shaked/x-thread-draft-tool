@@ -46,11 +46,12 @@ Start a model with the Agent tool (`model: "haiku"`, `"opus"` or `"sonnet"`). Gi
 | D7 | A shared draft is shown with the existing read-only page `/x-thread-preview/<token>`. The read-only editor view for other people is removed. | Agent (smallest change) |
 | D8 | No text search tool, no drafts as MCP resources, no unpublish. | Agent |
 | D10 | Every signed-in page has a sign-out button. Sign-out ends the session on the server, not only the cookie, and clears drafts cached in the browser. It ends this browser's session only. | Shaked, 2026-11-14 (button, real sign-out); agent (this browser only) |
+| D11 | Signed-in pages share one bar: page actions, a small sign-out button and a hide control. On phones it is a fixed bottom bar at most 44 px high plus the safe area (the Playwright check allows 56 px in total); on wide screens it sits in the page header. The hide choice is kept in the browser only (`xt-bar`). Export is a button with a menu; the round export toggle is removed. See [bottom-bar.md](./bottom-bar.md). | Shaked, 2026-11-14 (bar on every page, smaller, hideable, phones included); agent (layout, Export as a menu on desktop too) |
 | D9 | Image files stay readable by their storage URL. Hiding them is not in this plan. | Agent |
 
 ## 5. Tasks
 
-Do them in this order. T1 and T2 are the urgent ones: T1 closes the open read.
+Do them in this order: T0, T1, T2, T3b-1, T3b-2, T3, T3a, T4 to T7. T3b-1 and T3b-2 (the bottom bar and the Export menu) are written in [bottom-bar.md](./bottom-bar.md) (designed by Fable from measurements on a 390 px phone, 2026-11-14); T3b-1 comes first because it fixes the Share menu, which T2 left unusable on phones. Pull request bodies for them start `Implements docs/plans/private-drafts-share-links.md Task 3 (T3b-1)` and `... Task 3 (T3b-2)`.
 
 ### T0. Plan and rules on `main`
 1. One pull request from `claude/magical-mayer-56qob1`: this file, the index, the changelog and the new `AGENTS.md`.
@@ -88,15 +89,15 @@ Files: `server/oauth/consent.js`, `server/routes/oauth.js`, `tests/api/oauth.tes
 6. Done when: tests pass; the screenshot job shows both pages at 390 px wide; Opus has checked that the policy change allows no other script.
 
 ### T3a. A sign-out button on every signed-in page, and a sign-out that really ends the session
-State today (checked 2026-11-14): the only sign-out button is in the editor (`src/pages/DraftEditor.jsx`). `POST /api/auth/logout` only clears the cookie. The session token itself stays valid for 30 days, so a copy of it still works. Drafts cached in the browser (IndexedDB `draft-<id>`) stay after sign-out.
+State today (after T3b-2): every signed-in page has a sign-out button in the shared bar (`src/components/AppBar.jsx` renders `src/components/LogoutButton.jsx`). `POST /api/auth/logout` only clears the cookie. The session token itself stays valid for 30 days, so a copy of it still works. Drafts cached in the browser (IndexedDB `draft-<id>`) stay after sign-out.
 
-Files: `db/migrations/008_revoked_sessions.sql` (use the next free number), `server/session.js`, `server/routes/auth.js`, `server/oauth/consent.js`, `server/routes/oauth.js`, new `src/components/LogoutButton.jsx`, `src/components/DraftList.jsx`, `src/pages/TokensPage.jsx`, `src/pages/DraftEditor.jsx`, `server/openapi.js` (the new `POST /oauth/logout` route must be in `OPENAPI.paths`), `tests/api/auth.test.js`, `tests/api/oauth.test.js`, `tests/e2e/screens.spec.ts`, `docs/features/`.
+Files: `db/migrations/008_revoked_sessions.sql` (use the next free number), `server/session.js`, `server/routes/auth.js`, `server/oauth/consent.js`, `server/routes/oauth.js`, `src/components/LogoutButton.jsx` (exists since T3b-2), `server/openapi.js` (the new `POST /oauth/logout` route must be in `OPENAPI.paths`), `tests/api/auth.test.js`, `tests/api/oauth.test.js`, `tests/e2e/app-bar.spec.ts`, `docs/features/`.
 1. `createSession` adds a random `jti` to the token. `readSession` refuses a token without `jti` (every browser signs in once more after this ships) and a token whose `jti` is in the new table `revoked_sessions (jti text primary key, expires_at timestamptz not null)`. The check is one query by primary key. `tests/api/helpers/db.js` already uses `createSession`, so test cookies get a `jti`.
 2. `POST /api/auth/logout`: read the session, insert its `jti` with the token's expiry, clear the cookie. Signed out already: still 200. Delete rows whose `expires_at` has passed in the same query.
-3. `LogoutButton.jsx`: calls `authApi.logout()`, deletes every `draft-*` key from IndexedDB, then loads `/`. Use it in the draft list, the settings page and the editor (replace the editor's own button and `handleLogout`).
+3. `LogoutButton.jsx` (exists since T3b-2, shown by `AppBar` on the list, the editor and the settings page): after `authApi.logout()` and before loading `/`, delete every `draft-*` key from IndexedDB (`keys()` and `delMany()` from `idb-keyval`). Do not add the button to any page.
 4. Consent page: next to the greeting from T3 ("Hi @<login>") add "Not you?" and a "Sign out" button. It is a second `<form method="post" action="/api/oauth/logout">` with the signed `request` value; the handler checks `decision.uid` equals the session `uid` (as `authorizePost` does), ends the session as in step 2, and answers 302 to `/api/oauth/authorize?` built only from the fields of the signed decision that are not null or empty, plus `response_type=code` and `code_challenge_method=S256`. A test checks that a request with no `state` or `scope` gives an address without them. That address now shows the sign-in page from T3. The handler reads no unsigned field (an unsigned return address would be an open redirect), and the link is not put inside the signed decision (it would make the token too long). No new script.
 5. Sign-out does not disconnect AI apps or API tokens. The settings page already has that. Say so in the docs, in one sentence.
-6. Tests: after logout the old cookie value gets 401 on `GET /api/drafts`; a token without `jti` is refused; the consent sign-out refuses a `request` value from another session; a Playwright test finds the sign-out button on the list, the editor and the settings page, clicks it and lands on the login page. This Playwright test signs in with a session cookie (`context.addCookies` with a value from `createSession`), not with the bearer header the other screen tests use, because a bearer header is still signed in after logout.
+6. Tests: after logout the old cookie value gets 401 on `GET /api/drafts`; a token without `jti` is refused; the consent sign-out refuses a `request` value from another session; a Playwright test in `tests/e2e/app-bar.spec.ts` opens the list, the editor and the settings page at 390 px, clicks "Sign out" in the bar on each and lands on the login page; with the bar hidden it first clicks "Show toolbar". This Playwright test signs in with a session cookie (`context.addCookies` with a value from `createSession`), not with the bearer header the other screen tests use, because a bearer header is still signed in after logout.
 7. Done when: tests pass; the deployed smoke test passes after merge; Opus has checked that the consent sign-out cannot be triggered from another site.
 
 ### T4. Summaries and outline
@@ -133,6 +134,7 @@ Files: new `src/utils/xLength.js`, `src/utils/threadSplitter.js`, the editor cou
 - A share link stops working after its lifetime and after a revoke (API tests and one deployed check).
 - The consent page and the sign-in page have a working "Copy link" (Playwright).
 - Every signed-in page has a sign-out button, and a signed-out session token is refused by the API (API test and Playwright).
+- On a 390 px phone the bar is at most 56 px high on the list, the editor and the settings page, can be hidden, and the choice survives a reload (Playwright, required job).
 - `list_drafts` returns summaries; `get_draft_outline` exists (MCP contract tests).
 - Every task row in #111 is `merged` or `dropped`, and #111 is closed.
 

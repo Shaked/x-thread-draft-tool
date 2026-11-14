@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { draftsApi } from '../utils/api'
+import { useDismiss } from '../utils/useDismiss'
 
 // The lifetimes the Share menu offers. One hour is the default.
 const LIFETIMES = [
@@ -18,21 +19,7 @@ export default function ShareLinkButton({ draftId }) {
   const container = useRef(null)
 
   // The menu closes on Escape and on a click outside it.
-  useEffect(() => {
-    if (!open) return undefined
-    const onKey = (event) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    const onPointer = (event) => {
-      if (container.current && !container.current.contains(event.target)) setOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('pointerdown', onPointer)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('pointerdown', onPointer)
-    }
-  }, [open])
+  useDismiss(open, container, setOpen)
 
   const share = async (lifetime) => {
     if (busy) return

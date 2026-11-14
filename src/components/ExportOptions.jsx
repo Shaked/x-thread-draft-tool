@@ -1,7 +1,13 @@
+import { useRef, useState } from 'react'
 import { exportAsNumberedText, exportAsPlainText } from '../utils/exportFormats.js'
+import { useDismiss } from '../utils/useDismiss'
 
+/** Export: a button with a menu of copy and download actions for the whole thread. */
 export default function ExportOptions({ draft }) {
   const posts = draft?.posts || []
+  const [open, setOpen] = useState(false)
+  const container = useRef(null)
+  useDismiss(open, container, setOpen)
 
   const exportAsJSON = () => {
     const dataStr = JSON.stringify({
@@ -71,32 +77,44 @@ export default function ExportOptions({ draft }) {
     }
   }
 
-  if (!posts || posts.length === 0) {
-    return (
-      <div className="export-options">
-        <h2>Export Options</h2>
-        <p className="empty-message">No content to export</p>
-      </div>
-    )
-  }
+  const ACTIONS = [
+    ['Copy thread', () => copyToClipboard(false)],
+    ['Copy with numbers', () => copyToClipboard(true)],
+    ['Download Markdown', exportAsMarkdown],
+    ['Download JSON', exportAsJSON]
+  ]
 
   return (
-    <div className="export-options">
-      <h2>Export</h2>
-      <div className="export-actions">
-        <button onClick={exportAsJSON} className="btn btn-secondary">
-          📄 JSON
-        </button>
-        <button onClick={exportAsMarkdown} className="btn btn-secondary">
-          📝 Markdown
-        </button>
-        <button onClick={() => copyToClipboard(false)} className="btn btn-primary">
-          📋 Copy
-        </button>
-        <button onClick={() => copyToClipboard(true)} className="btn btn-secondary">
-          🔢 Copy (Numbered)
-        </button>
-      </div>
+    <div className="share-button-container" ref={container}>
+      <button
+        className="share-btn icon-btn"
+        onClick={() => setOpen(!open)}
+        disabled={posts.length === 0}
+        aria-haspopup="dialog"
+        aria-controls="export-menu"
+        aria-expanded={open}
+        title="Copy or download the whole thread"
+        aria-label="Export"
+      >
+        <span className="btn-icon">⬇</span>
+        <span className="btn-text">Export</span>
+      </button>
+      {open && (
+        <div className="share-menu" id="export-menu" role="group" aria-label="Export">
+          {ACTIONS.map(([label, run]) => (
+            <button
+              key={label}
+              className="share-menu-item"
+              onClick={() => {
+                setOpen(false)
+                run()
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
