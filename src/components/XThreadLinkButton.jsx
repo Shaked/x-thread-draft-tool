@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { draftsApi } from '../utils/api'
+import Icon from './Icon'
 
 export default function XThreadLinkButton({ draftId }) {
   const [copied, setCopied] = useState(false)
@@ -38,7 +39,7 @@ export default function XThreadLinkButton({ draftId }) {
         title="Copy one-time X-thread preview link"
         aria-label="Copy one-time X thread link"
       >
-        <span className="btn-icon">{copied ? '✓' : '𝕏'}</span>
+        <span className="btn-icon">{copied ? '✓' : <Icon name="x" />}</span>
         <span className="btn-text">{copied ? 'Copied!' : busy ? '...' : 'X Thread'}</span>
       </button>
       {copied && (

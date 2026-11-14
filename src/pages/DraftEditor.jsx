@@ -8,6 +8,7 @@ import AgentLinkButton from '../components/AgentLinkButton'
 import XThreadLinkButton from '../components/XThreadLinkButton'
 import ShareLinkButton from '../components/ShareLinkButton'
 import ExportOptions from '../components/ExportOptions'
+import AppBar from '../components/AppBar'
 
 export default function DraftEditor({ user }) {
   const { id } = useParams()
@@ -169,16 +170,6 @@ export default function DraftEditor({ user }) {
     }
   }
 
-  const handleLogout = async () => {
-    try {
-      await authApi.logout()
-    } catch (err) {
-      console.error('Logout error:', err)
-    }
-    // Reload so the app re-reads the (now cleared) session.
-    window.location.assign('/')
-  }
-
   if (loading) {
     return (
       <div className="draft-editor loading-screen">
@@ -227,7 +218,7 @@ export default function DraftEditor({ user }) {
           {!synced || saving ? 'Saving…' : 'Saved'}
         </span>
 
-        <div className="header-actions">
+        <AppBar>
           <ShareLinkButton draftId={id} />
 
           <AgentLinkButton draftId={id} />
@@ -242,14 +233,7 @@ export default function DraftEditor({ user }) {
               <span className="btn-text">Publish</span>
             </button>
           )}
-
-          {user && (
-            <button className="logout-btn icon-btn" onClick={handleLogout} title="Logout" aria-label="Logout">
-              <span className="btn-icon">⏻</span>
-              <span className="btn-text">Logout</span>
-            </button>
-          )}
-        </div>
+        </AppBar>
       </header>
 
       <div className="editor-content">

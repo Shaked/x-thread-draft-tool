@@ -10,7 +10,7 @@
 - Migrations are additive only; the `unit` job in CI fails on destructive SQL in `db/migrations/`.
 
 ## GitHub Actions
-- `.github/workflows/tests.yml`: the `unit` job lints migrations, then runs `npm run test:unit` and `npm run test:api`. E2E is the default gate.
+- `.github/workflows/tests.yml`: the `unit` job lints migrations, then runs `npm run test:unit` and `npm run test:api`. E2E is the default gate. The `chromium` Playwright project starts the local API (`npm run dev:api`, port 8787) and the built app (`vite preview`, port 4173) itself, unless `XT_BASE_URL` points at a deployment. On a laptop an already running preview on port 4173 is reused, so stop it first to test a fresh build.
 - `.github/workflows/supabase-backup.yml`: manual, encrypted backup of Supabase (pre-migration). Kept until Supabase is deleted.
 - `.github/workflows/data-migrate.yml`: manual copy of Supabase data into Neon and Blob. Dry run unless `apply` is set.
 - Removed: `keep-supabase-alive.yml` (Neon Free does not pause) and `supabase-deploy.yml`.
