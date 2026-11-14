@@ -101,6 +101,10 @@ async function roundTrips(spy, request) {
   expect(header).toMatch(/cold;desc="[01]"/)
   const perf = spy.mock.calls.slice(before).filter(([line]) => String(line).startsWith('[perf] '))
   expect(perf).toHaveLength(1)
+  // No credential of any kind reaches a [perf] line.
+  for (const secret of [oauthToken, apiToken, 'Bearer', 'xt_', 'xta_', 'cookie']) {
+    expect(String(perf[0][0])).not.toContain(secret)
+  }
   const q = header.match(/q;desc="(\d+)"/)
   return Number(q[1])
 }
@@ -216,5 +220,6 @@ describe('connection time (plan P1, step 4)', () => {
         return { rows: result.rows, rowCount: result.affectedRows ?? result.rows.length }
       })
     }
-  })
+    // 15 s: if a sandbox drops packets instead of refusing, the 8 s connect timeout still fits.
+  }, 15000)
 })

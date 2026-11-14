@@ -4,7 +4,19 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 const als = new AsyncLocalStorage()
-const RPC_METHOD = /^[A-Za-z_/-]{1,64}$/
+// Only these MCP methods reach the log; anything else a client sends is logged as 'other'.
+const RPC_METHODS = new Set([
+  'initialize',
+  'notifications/initialized',
+  'ping',
+  'tools/list',
+  'tools/call',
+  'prompts/list',
+  'prompts/get',
+  'resources/list',
+  'resources/read',
+  'resources/templates/list'
+])
 let cold = true
 
 const round = (n) => Math.round(n * 10) / 10
@@ -78,6 +90,6 @@ export function noteConnect(ms, fresh) {
 export function noteRpc(method, tool) {
   const store = current()
   if (!store) return
-  store.rpc = RPC_METHOD.test(method) ? method : 'other'
+  store.rpc = RPC_METHODS.has(method) ? method : 'other'
   store.tool = tool ?? null
 }
