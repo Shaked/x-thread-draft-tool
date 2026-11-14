@@ -1273,6 +1273,7 @@ body {
   .app-bar .share-menu, .app-bar .share-tooltip {
     position: fixed; top: auto; left: 8px; right: 8px; bottom: calc(var(--bar-space) + 8px);
     width: auto; max-width: none; margin: 0;
+    max-height: calc(100dvh - var(--bar-space) - 16px); overflow-y: auto;
   }
   .app-bar .share-tooltip { text-align: center; }
 }
