@@ -1280,6 +1280,7 @@ body {
 
 .draft-title-input {
   flex: 1;
+  min-width: 0;
   max-width: 400px;
   min-height: 44px;
   padding: 8px 12px;
@@ -1512,7 +1513,9 @@ body {
     top: auto;
     right: 16px;
     left: 16px;
-    bottom: 140px;
+    bottom: calc(140px + env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 160px - env(safe-area-inset-bottom));
+    overflow-y: auto;
     margin: 0;
   }
 

@@ -46,7 +46,7 @@ Start a model with the Agent tool (`model: "haiku"`, `"opus"` or `"sonnet"`). Gi
 | D7 | A shared draft is shown with the existing read-only page `/x-thread-preview/<token>`. The read-only editor view for other people is removed. | Agent (smallest change) |
 | D8 | No text search tool, no drafts as MCP resources, no unpublish. | Agent |
 | D10 | Every signed-in page has a sign-out button. Sign-out ends the session on the server, not only the cookie, and clears drafts cached in the browser. It ends this browser's session only. | Shaked, 2026-11-14 (button, real sign-out); agent (this browser only) |
-| D11 | Signed-in pages share one bar: page actions, a small sign-out button and a hide control. On phones it is a fixed bottom bar at most 44 px high plus the safe area; on wide screens it sits in the page header. The hide choice is kept in the browser only (`xt-bar`). Export is a button with a menu; the round export toggle is removed. See [bottom-bar.md](./bottom-bar.md). | Shaked, 2026-11-14 (bar on every page, smaller, hideable, phones included); agent (layout, Export as a menu on desktop too) |
+| D11 | Signed-in pages share one bar: page actions, a small sign-out button and a hide control. On phones it is a fixed bottom bar at most 44 px high plus the safe area (the Playwright check allows 56 px in total); on wide screens it sits in the page header. The hide choice is kept in the browser only (`xt-bar`). Export is a button with a menu; the round export toggle is removed. See [bottom-bar.md](./bottom-bar.md). | Shaked, 2026-11-14 (bar on every page, smaller, hideable, phones included); agent (layout, Export as a menu on desktop too) |
 | D9 | Image files stay readable by their storage URL. Hiding them is not in this plan. | Agent |
 
 ## 5. Tasks

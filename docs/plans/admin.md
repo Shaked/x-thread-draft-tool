@@ -36,7 +36,7 @@ Start a model with the Agent tool (`model: "haiku"`, `"opus"` or `"sonnet"`). Gi
 12. Never put a real user's login, name or id in a test, a log line, a pull request or the epic. The only real id in the code is the owner's GitHub id `960015`.
 13. The word "admin" must not appear in anything the app serves to the public: `public/llms.txt`, `GET /api/openapi.json`, the two `.well-known` documents, the MCP `instructions`, the tool list of a normal user, the prompts, the `x-thread-drafts` skill. Test `tests/api/admin-silence.test.js` (A3) checks this.
 
-## 3. State with evidence (code read on `c517f7c`, 2026-11-14 13:15 UTC; `main` is now `94f1067` with T1 and T2 merged)
+## 3. State with evidence (code read on `c517f7c`, 2026-11-14 13:15 UTC; `main` is now `0faddb7` with T1, T2 and P1 merged)
 
 ### 3.1 Identity and sign-in paths today
 
@@ -75,7 +75,7 @@ Start a model with the Agent tool (`model: "haiku"`, `"opus"` or `"sonnet"`). Gi
 |---|---|---|
 | S16 | `main` has migrations 001 to 007 (`007_share_expiry.sql`, T2, merged). T3a takes `008`. The performance plan adds no migration. This plan's migration is `009`. | **checked**: `db/migrations` on `94f1067` (coordinator and Opus), `docs/plans/private-drafts-share-links.md` T3a, performance plan rule 9. A1 step 1 checks the number again before merge. |
 | S17 | `tests/api/oauth-migration.test.js` pins the list of migration files (two places) and the exact column list of `oauth_grants`. The migration lint refuses `drop`, `truncate`, `delete from` and `alter table ... drop`. | **checked**: that test; `.github/workflows/tests.yml` "Lint database migrations". |
-| S18 | After T3a, `readSession` runs one query by primary key on `revoked_sessions`. After P4 of the performance plan, MCP auth and the tool-call count are one statement (`authorizeAndCount` in `server/mcp/rate.js`). After P5, `findUserByToken` is one statement. After P3, `server/blob.js` loads the Blob SDK only when used. P1 adds `tests/api/query-budget.test.js`. | **checked** in the two plan texts; the code is **not checked** (not merged yet). |
+| S18 | After T3a, `readSession` runs one query by primary key on `revoked_sessions`. After P4 of the performance plan, MCP auth and the tool-call count are one statement (`authorizeAndCount` in `server/mcp/rate.js`). After P5, `findUserByToken` is one statement. After P3, `server/blob.js` loads the Blob SDK only when used. P1 (merged, #118) added `tests/api/query-budget.test.js`. | **checked** in the two plan texts; P1 is merged and checked; the rest of the code is **not checked** (not merged yet). |
 | S19 | The deployed smoke test signs in as `ci-smoke` (GitHub Actions identity). It has no OAuth token, so it cannot call MCP tools. | **checked**: `.github/workflows/smoke-deployed.yml`, `scripts/smoke.mjs`. |
 | S20 | `docs/agents/api.md` and `docs/agents/mcp.md` are not served by the app, but `public/llms.txt` links to them on GitHub. Whether the GitHub repository is public is **not checked**. If it is, anyone can read this plan and the admin code; the 404 rule is then a second line of defence, not a secret. | **checked**: `vercel.json`, `public/llms.txt`. |
 | S21 | Whether ChatGPT, Grok and Claude show a confirmation before a tool with `destructiveHint: true` runs. | **not checked**. The plan does not rely on it. |
