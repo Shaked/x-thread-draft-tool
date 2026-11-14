@@ -1,7 +1,8 @@
 import { authApi } from '../utils/api'
+import { clearCachedDrafts } from '../utils/draftCache'
 import Icon from './Icon'
 
-/** Signs out of this browser, then reloads so the app reads the cleared session. */
+/** Signs out of this browser (the server ends the session), drops the drafts cached here, then reloads. */
 export default function LogoutButton() {
   const signOut = async () => {
     try {
@@ -9,6 +10,7 @@ export default function LogoutButton() {
     } catch (err) {
       console.error('Logout error:', err)
     }
+    await clearCachedDrafts()
     window.location.assign('/')
   }
   return (

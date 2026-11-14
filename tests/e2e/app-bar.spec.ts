@@ -10,15 +10,30 @@ const ORIGIN = new URL(BASE).origin
 const PHONE = { width: 390, height: 844 }
 const LAST = 'LAST-POST'
 
+// In the local setup the page is served on :4173 and proxied to the dev API on :8787, whose own origin
+// is the app origin (PUBLIC_APP_URL), so the server's Origin check refuses a cookie POST that carries
+// :4173. In production both are one origin. Sending POSTs with the app origin mirrors that; the server is untouched.
+const APP_ORIGIN = ORIGIN === 'http://127.0.0.1:4173' ? 'http://127.0.0.1:8787' : ORIGIN
+async function postsFromAppOrigin(context: BrowserContext) {
+  await context.route(`${ORIGIN}/api/**`, async (route) => {
+    if (route.request().method() !== 'POST') return route.continue()
+    // Chromium ignores an Origin override on continue(), so the request is sent from here instead.
+    const response = await route.fetch({ headers: { ...route.request().headers(), origin: APP_ORIGIN }, maxRedirects: 0 })
+    return route.fulfill({ response })
+  })
+}
+
 let api: APIRequestContext
 let token = ''
 let draftId = ''
+let login = ''
 
 test.beforeAll(async () => {
   api = await playwrightRequest.newContext({ baseURL: BASE })
-  const login = await api.post('/api/dev/token', { data: { login: `app-bar-${Date.now()}` } })
-  expect(login.ok()).toBeTruthy()
-  token = (await login.json()).token as string
+  login = `app-bar-${Date.now()}`
+  const signedIn = await api.post('/api/dev/token', { data: { login } })
+  expect(signedIn.ok()).toBeTruthy()
+  token = (await signedIn.json()).token as string
 
   // Eight Hebrew posts, so the editor is longer than the screen; the last one is marked.
   const posts = Array.from({ length: 8 }, (_, i) => ({
@@ -241,6 +256,87 @@ test.describe('app bar on phones', () => {
       expect(position).toBe('static')
     } finally {
       await context.close()
+    }
+  })
+
+  // Signs in with a session cookie (a bearer header would stay signed in after sign-out). The same login
+  // is the same user, so the cookie owns the draft made with the bearer token.
+  test('Sign out in the bar ends the session on the server and clears cached drafts, on every page', async ({ browser }) => {
+    for (const pageInfo of pagesFor()) {
+      const dev = await playwrightRequest.newContext({ baseURL: BASE })
+      const session = await dev.post('/api/dev/session', { data: { login } })
+      expect(session.ok()).toBeTruthy()
+      const setCookie = session.headersArray().find((h) => h.name.toLowerCase() === 'set-cookie')?.value ?? ''
+      const cookieValue = setCookie.match(/xt_session=([^;]+)/)?.[1]
+      expect(cookieValue).toBeTruthy()
+      await dev.dispose()
+
+      const { context, page } = await openContext(browser, { signedIn: false })
+      try {
+        await postsFromAppOrigin(context)
+        await context.addCookies([{ name: 'xt_session', value: cookieValue!, url: BASE }])
+        await page.goto(`${BASE}${pageInfo.path}`)
+        await pageInfo.ready(page).waitFor()
+        // A cached draft that sign-out must remove, in the store idb-keyval uses.
+        await page.evaluate(
+          () =>
+            new Promise<void>((resolve, reject) => {
+              const open = indexedDB.open('keyval-store')
+              open.onupgradeneeded = () => open.result.createObjectStore('keyval')
+              open.onsuccess = () => {
+                const tx = open.result.transaction('keyval', 'readwrite')
+                tx.objectStore('keyval').put({ title: 'cached' }, 'draft-sign-out-check')
+                tx.oncomplete = () => resolve()
+                tx.onerror = () => reject(tx.error)
+              }
+              open.onerror = () => reject(open.error)
+            })
+        )
+        if (pageInfo.name === 'editor') {
+          // The editor caches the draft it loaded; wait for that write so it cannot land after sign-out.
+          await expect
+            .poll(() =>
+              page.evaluate(
+                () =>
+                  new Promise<string[]>((resolve) => {
+                    const open = indexedDB.open('keyval-store')
+                    open.onsuccess = () => {
+                      const req = open.result.transaction('keyval', 'readonly').objectStore('keyval').getAllKeys()
+                      req.onsuccess = () => resolve(req.result.map(String))
+                    }
+                  })
+              )
+            )
+            .toContain(`draft-${draftId}`)
+        }
+        if (pageInfo.name === 'settings') {
+          await page.getByRole('button', HIDE).click()
+          await page.getByRole('button', SHOW).click()
+        }
+        await page.getByRole('button', SIGN_OUT).click()
+        await expect(page.getByRole('button', { name: 'Sign in with GitHub' }), pageInfo.name).toBeVisible()
+        const left = await page.evaluate(
+          () =>
+            new Promise<string[]>((resolve, reject) => {
+              const open = indexedDB.open('keyval-store')
+              open.onsuccess = () => {
+                const req = open.result.transaction('keyval', 'readonly').objectStore('keyval').getAllKeys()
+                req.onsuccess = () => resolve(req.result.map(String))
+                req.onerror = () => reject(req.error)
+              }
+              open.onerror = () => reject(open.error)
+            })
+        )
+        expect(left.filter((key) => key.startsWith('draft-')), pageInfo.name).toEqual([])
+
+        // The old cookie value is refused by the server now.
+        const old = await playwrightRequest.newContext({ baseURL: BASE, extraHTTPHeaders: { cookie: `xt_session=${cookieValue}` } })
+        const list = await old.get('/api/drafts')
+        expect(list.status(), pageInfo.name).toBe(401)
+        await old.dispose()
+      } finally {
+        await context.close()
+      }
     }
   })
 

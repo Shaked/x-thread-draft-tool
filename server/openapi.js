@@ -150,6 +150,13 @@ export const OPENAPI = {
         responses: { 302: { description: 'Redirect to the client with code or error' }, 403: { description: 'Wrong account (HTML)' } }
       }
     },
+    '/oauth/logout': {
+      post: {
+        summary: 'Consent page "Not you? Sign out" (form post, browser cookie only). Ends the session, then redirects to the sign-in page for the same request.',
+        requestBody: { required: true, content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } } },
+        responses: { 302: { description: 'Redirect to /api/oauth/authorize built from the signed request' }, 400: { description: 'Request expired (HTML)' }, 403: { description: 'Wrong account (HTML)' } }
+      }
+    },
     '/oauth/token': {
       post: {
         summary: 'Token endpoint: authorization_code (with PKCE) and refresh_token grants',
@@ -197,7 +204,7 @@ export const OPENAPI = {
         }
       }
     },
-    '/auth/logout': { post: { summary: 'Clear the browser session', responses: json({ type: 'object', properties: { ok: { type: 'boolean' } } }) } },
+    '/auth/logout': { post: { summary: 'End this browser session on the server (the cookie is revoked, not only cleared). API tokens and connected AI apps stay; the settings page disconnects them', responses: json({ type: 'object', properties: { ok: { type: 'boolean' } } }) } },
     '/auth/device/start': {
       post: {
         summary: 'Start GitHub device flow for an agent. Show the user the code and URL, then poll.',

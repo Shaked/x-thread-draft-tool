@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SignJWT, decodeJwt } from 'jose'
 import { route } from '../../server/router.js'
+import { secretKey } from '../../server/session.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
 
 let db
@@ -160,5 +162,69 @@ describe('GET /api/auth/me and POST /api/auth/logout', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })
     expect(res.headers.get('set-cookie')).toMatch(/^xt_session=;.*Max-Age=0/)
+  })
+
+  it('logout ends the session on the server: the old cookie value gets 401, a second logout still answers 200', async () => {
+    const user = await db.insertUser({ github_id: 9, login: 'carol' })
+    const cookie = await db.cookieFor(user)
+    expect((await route(apiRequest('/api/drafts?published=false', { cookie }))).status).toBe(200)
+
+    const res = await route(apiRequest('/api/auth/logout', { method: 'POST', cookie }))
+    expect(res.status).toBe(200)
+    expect(res.headers.get('set-cookie')).toMatch(/^xt_session=;.*Max-Age=0/)
+
+    expect((await route(apiRequest('/api/drafts?published=false', { cookie }))).status).toBe(401)
+    expect(await (await route(apiRequest('/api/auth/me', { cookie }))).json()).toEqual({ user: null, auth: null })
+    expect((await route(apiRequest('/api/auth/logout', { method: 'POST', cookie }))).status).toBe(200)
+    // Signing out twice leaves exactly one row for this session.
+    const { jti } = decodeJwt(cookie.slice('xt_session='.length))
+    expect((await db.pg.query('select 1 from revoked_sessions where jti = $1', [jti])).rows).toHaveLength(1)
+  })
+
+  it('revokes only the session that signed out: another session of the same user keeps working', async () => {
+    const user = await db.insertUser({ github_id: 10, login: 'dave' })
+    const first = await db.cookieFor(user)
+    const second = await db.cookieFor(user)
+    await route(apiRequest('/api/auth/logout', { method: 'POST', cookie: first }))
+    expect((await route(apiRequest('/api/drafts?published=false', { cookie: first }))).status).toBe(401)
+    expect((await route(apiRequest('/api/drafts?published=false', { cookie: second }))).status).toBe(200)
+  })
+
+  it('refuses a validly signed session token that has no jti', async () => {
+    const user = await db.insertUser({ github_id: 11, login: 'erin' })
+    const token = await new SignJWT({ uid: user.id, gh: String(user.github_id), login: user.login })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .sign(secretKey())
+    expect((await route(apiRequest('/api/drafts?published=false', { cookie: `xt_session=${token}` }))).status).toBe(401)
+  })
+
+  it('refuses a token whose jti is revoked and accepts one with an unrelated jti', async () => {
+    const user = await db.insertUser({ github_id: 12, login: 'frank' })
+    const sign = (jti) =>
+      new SignJWT({ uid: user.id, gh: String(user.github_id), login: user.login, jti })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(secretKey())
+    await db.pg.query("insert into revoked_sessions (jti, expires_at) values ('revoked-one', now() + interval '1 hour')")
+    expect((await route(apiRequest('/api/drafts?published=false', { cookie: `xt_session=${await sign('revoked-one')}` }))).status).toBe(401)
+    expect((await route(apiRequest('/api/drafts?published=false', { cookie: `xt_session=${await sign('another-one')}` }))).status).toBe(200)
+  })
+
+  it('sign-out removes revoked rows whose time has passed', async () => {
+    const user = await db.insertUser({ github_id: 13, login: 'gina' })
+    await db.pg.query("insert into revoked_sessions (jti, expires_at) values ('old-one', now() - interval '1 day')")
+    await route(apiRequest('/api/auth/logout', { method: 'POST', cookie: await db.cookieFor(user) }))
+    const { rows } = await db.pg.query("select jti from revoked_sessions where jti = 'old-one'")
+    expect(rows).toHaveLength(0)
+  })
+
+  it('a bearer token on logout revokes nothing', async () => {
+    const before = (await db.pg.query('select jti from revoked_sessions')).rows.length
+    const res = await route(apiRequest('/api/auth/logout', { method: 'POST', headers: { authorization: 'Bearer xt_x' } }))
+    expect(res.status).toBe(200)
+    expect((await db.pg.query('select jti from revoked_sessions')).rows).toHaveLength(before)
   })
 })

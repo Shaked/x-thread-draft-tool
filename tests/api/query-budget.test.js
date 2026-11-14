@@ -156,15 +156,15 @@ describe('query budget per flow (plan section 3.2)', () => {
     expect(q).toBe(3)
   })
 
-  it('REST GET /api/drafts with the session cookie: 1', async () => {
+  it('REST GET /api/drafts with the session cookie: 2', async () => {
     const spy = spyPerf()
-    expect(await roundTrips(spy, apiRequest('/api/drafts?published=false', { cookie }))).toBe(1)
+    expect(await roundTrips(spy, apiRequest('/api/drafts?published=false', { cookie }))).toBe(2)
   })
 
-  it('REST PATCH /api/drafts/:id with the cookie and a new title: 4', async () => {
+  it('REST PATCH /api/drafts/:id with the cookie and a new title: 5', async () => {
     const spy = spyPerf()
     const q = await roundTrips(spy, apiRequest(`/api/drafts/${draft.id}`, { method: 'PATCH', cookie, body: { title: 'Changed' } }))
-    expect(q).toBe(4)
+    expect(q).toBe(5)
   })
 })
 

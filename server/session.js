@@ -1,4 +1,6 @@
+import { randomBytes } from 'node:crypto'
 import { SignJWT, jwtVerify } from 'jose'
+import { query } from './db.js'
 import { cookie, parseCookies, HttpError } from './http.js'
 import { findUserByToken, isExpiredApiToken } from './tokens.js'
 import { resolveAccess } from './oauth/tokens.js'
@@ -18,9 +20,9 @@ export function secretKey() {
   return new TextEncoder().encode(secret)
 }
 
-/** Signed HS256 JWT with payload { uid, gh, login }, valid for 30 days. */
+/** Signed HS256 JWT with payload { uid, gh, login, jti }, valid for 30 days. The jti (192 random bits) lets sign-out revoke it. */
 export async function createSession(user) {
-  return new SignJWT({ uid: user.id, gh: String(user.github_id), login: user.login })
+  return new SignJWT({ uid: user.id, gh: String(user.github_id), login: user.login, jti: randomBytes(24).toString('base64url') })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${MAX_AGE_SECONDS}s`)
@@ -31,15 +33,33 @@ export async function createSession(user) {
 export async function readSession(request) {
   const token = parseCookies(request)[SESSION_COOKIE]
   if (!token) return null
+  let payload
   try {
-    const { payload } = await jwtVerify(token, secretKey(), { algorithms: ['HS256'] })
-    // Browser sessions never carry an audience. Consent decisions do (server/oauth/consent.js), so a
-    // consent token copied from the consent page must not work as a session cookie.
-    if (payload.aud !== undefined) return null
-    return payload
+    ;({ payload } = await jwtVerify(token, secretKey(), { algorithms: ['HS256'] }))
   } catch {
     return null
   }
+  // Browser sessions never carry an audience. Consent decisions do (server/oauth/consent.js), so a
+  // consent token copied from the consent page must not work as a session cookie.
+  if (payload.aud !== undefined) return null
+  // A token without a jti predates sign-out revocation and cannot be revoked, so it is refused.
+  if (typeof payload.jti !== 'string' || payload.jti === '') return null
+  // Outside the try: a database error is a server error, never "signed out".
+  const { rows } = await query('select 1 from revoked_sessions where jti = $1', [payload.jti])
+  return rows.length === 0 ? payload : null
+}
+
+/**
+ * Ends a session on the server: its jti is refused from now on, until the token would have expired
+ * anyway. Rows past their expiry are removed in the same statement. `session` comes from readSession.
+ */
+export async function revokeSession(session) {
+  await query(
+    `with expired as (delete from revoked_sessions where expires_at < now())
+     insert into revoked_sessions (jti, expires_at) values ($1, to_timestamp($2))
+     on conflict (jti) do nothing`,
+    [session.jti, session.exp]
+  )
 }
 
 export function sessionCookie(token) {
