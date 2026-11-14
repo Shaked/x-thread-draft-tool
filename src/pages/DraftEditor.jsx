@@ -18,26 +18,9 @@ export default function DraftEditor({ user }) {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [synced, setSynced] = useState(true)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const saveTimeoutRef = useRef(null)
   const lastSavedRef = useRef(null)
-
-  // Collapse sidebar by default on smaller screens
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024 && !sidebarCollapsed) {
-        setSidebarCollapsed(true)
-      }
-    }
-
-    // Check on mount
-    handleResize()
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
 
   const loadDraft = async () => {
     try {
@@ -251,6 +234,8 @@ export default function DraftEditor({ user }) {
 
           <XThreadLinkButton draftId={id} />
 
+          <ExportOptions draft={draft} />
+
           {!draft.is_published && (
             <button className="publish-btn icon-btn" onClick={handlePublish} disabled={saving} title="Publish" aria-label="Publish">
               <span className="btn-icon">📤</span>
@@ -267,7 +252,7 @@ export default function DraftEditor({ user }) {
         </div>
       </header>
 
-      <div className={`editor-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      <div className="editor-content">
         <div className="main-panel">
           <ThreadComposer posts={draft.posts} onPostsChange={handlePostsChange} />
 
@@ -284,12 +269,6 @@ export default function DraftEditor({ user }) {
           )}
 
         </div>
-
-        <SidePanel
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          draft={draft}
-        />
       </div>
     </div>
   )
@@ -334,25 +313,5 @@ function LoadError({ error }) {
         </Link>
       </div>
     </div>
-  )
-}
-
-// The export panel and its toggle. Kept out of DraftEditor so the editor's own complexity stays within the lint limit.
-function SidePanel({ collapsed, onToggle, draft }) {
-  return (
-    <>
-      <button
-        className="sidebar-toggle"
-        onClick={onToggle}
-        title={collapsed ? 'Show export panel' : 'Hide export panel'}
-        aria-label={collapsed ? 'Show export panel' : 'Hide export panel'}
-      >
-        {collapsed ? '◀' : '▶'}
-      </button>
-
-      <div className={`side-panel ${collapsed ? 'collapsed' : ''}`}>
-        <ExportOptions draft={draft} />
-      </div>
-    </>
   )
 }

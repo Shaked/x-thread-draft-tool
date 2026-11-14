@@ -6,7 +6,7 @@
 // Use the built app, not `npm run dev`: in development React StrictMode runs the preview effect
 // twice, and the second request hits the one-use share link and gets 410.
 // Writes test-results/screens/<width>/<name>.png for 390 px and 1280 px wide:
-// login, drafts-empty, drafts-three, editor, preview, share, tokens.
+// login, drafts-empty, drafts-three, editor, editor-export-menu, preview, share, tokens.
 //
 // Signed-in pages use a dev API token (POST /api/dev/token), sent as a bearer header on /api calls.
 // Nothing here is stored; the data is created in the local API.
@@ -49,7 +49,7 @@ async function shoot(
   width: number,
   name: string,
   pagePath: string,
-  options: { token?: string; ready?: (page: Page) => Locator } = {}
+  options: { token?: string; ready?: (page: Page) => Locator; before?: (page: Page) => Promise<void> } = {}
 ) {
   const context = await browser.newContext({
     viewport: { width, height: width < 800 ? 844 : 800 },
@@ -67,6 +67,7 @@ async function shoot(
   const page = await context.newPage()
   await page.goto(`${BASE}${pagePath}`, { waitUntil: 'networkidle' })
   if (options.ready) await options.ready(page).first().waitFor({ timeout: 15_000 })
+  if (options.before) await options.before(page)
   const dir = path.join(OUT, String(width))
   mkdirSync(dir, { recursive: true })
   await page.screenshot({ path: path.join(dir, `${name}.png`), fullPage: true })
@@ -102,6 +103,14 @@ test.describe('screens', () => {
       await shoot(browser, width, 'login', '/')
       await shoot(browser, width, 'drafts-three', '/', { token: owner, ready: (p) => p.getByText('Launch thread') })
       await shoot(browser, width, 'editor', `/draft/${editorId}`, { token: owner, ready: (p) => p.locator('.draft-title-input') })
+      await shoot(browser, width, 'editor-export-menu', `/draft/${editorId}`, {
+        token: owner,
+        ready: (p) => p.locator('.draft-title-input'),
+        before: async (p) => {
+          await p.getByRole('button', { name: 'Export' }).click()
+          await p.getByText('Copy with numbers').waitFor()
+        }
+      })
 
       // Preview page and share page each need their own one-use share token.
       const previewToken = (await apiJson<{ token: string }>(request, owner, 'POST', `/api/drafts/${editorId}/share-tokens`)).token
