@@ -64,13 +64,27 @@ toward the 120 tool calls per minute.
 How to run them: Claude Code shows them as `/mcp__x-thread__<name>` (per its documentation; the
 part after `mcp__` is the name you gave the server). Other apps: not checked.
 
+## Skill
+
+The connector also serves one skill, `x-thread-drafts`, using the MCP skills extension
+(`io.modelcontextprotocol/skills`, SEP-2640). It is one file, a short guide to the draft tools in
+English and Hebrew: the workflow from notes to draft to review to share, the limits of a post, the
+"Hebrew and RTL" rules, and the four prompts by name. It is fixed text written by the server and
+carries no scripts.
+
+- URI: `skill://x-thread-drafts/SKILL.md`. Read it with `resources/read` like any resource;
+  `skills/list` and `skills/get` return its metadata, with a SHA-256 digest and the size in bytes.
+- It needs the same access token as the tools and does not count toward the 120 tool calls per minute.
+- No client is known to load MCP skills yet (checked 2026-11-14). Until one does, the file is only a
+  plain resource: an app that can read resources may show it, and nothing is installed or run for you.
+
 ## What is not exposed, and why
 
 - **Creating and revoking access tokens, and disconnecting apps** (rule S-5). Only you do this, on the
   Settings page. An app cannot grant itself more access.
 - **Raw image upload** (rule D-5). Image bytes do not pass through the AI app. Use
   `add_image_from_url` with a public image URL.
-- **Resources, completions, sampling and UI widgets.** Only tools and the four prompts above.
+- **Other resources, completions, sampling and UI widgets.** Only tools, the four prompts above and the one skill file.
 - **Sign-in and OAuth endpoints**. The connection signs you in with GitHub on its own.
 - **The public share link** (`GET /api/share/:token`). It is meant for a browser, not a tool.
 

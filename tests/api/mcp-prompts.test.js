@@ -84,10 +84,10 @@ describe.each([MODERN, LEGACY])('prompts, protocol %s', (version) => {
 
   it('capabilities declare prompts on discover and initialize', async () => {
     if (version === MODERN) {
-      expect((await rpc(version, 'server/discover')).body.result.capabilities).toEqual({ tools: {}, prompts: {} })
+      expect((await rpc(version, 'server/discover')).body.result.capabilities).toEqual({ tools: {}, prompts: {}, resources: {}, extensions: { 'io.modelcontextprotocol/skills': {} } })
     } else {
       const init = await rpc(version, 'initialize', { protocolVersion: version, capabilities: {}, clientInfo: { name: 't', version: '1' } })
-      expect(init.body.result.capabilities).toEqual({ tools: {}, prompts: {} })
+      expect(init.body.result.capabilities).toEqual({ tools: {}, prompts: {}, resources: {}, extensions: { 'io.modelcontextprotocol/skills': {} } })
     }
   })
 

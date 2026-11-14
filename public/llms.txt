@@ -53,6 +53,7 @@ curl -s -X DELETE $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN"
 
 Requests may be in Hebrew; X and Twitter mean the same service.
 MCP prompts (slash commands): thread_from_notes, tighten_draft, review_before_publish, rewrite_hook; see the MCP connector guide.
+MCP skill (extension io.modelcontextprotocol/skills): skill://x-thread-drafts/SKILL.md, a guide to the draft tools in English and Hebrew; read it with resources/read.
 
 - [MCP connector guide](https://github.com/Shaked/x-thread-draft-tool/blob/main/docs/agents/mcp.md): the tool list, setup for Claude, Claude Code, Codex and ChatGPT, troubleshooting.
 - [OpenAPI 3.1 spec](/api/openapi.json): every endpoint, schema and error code.
