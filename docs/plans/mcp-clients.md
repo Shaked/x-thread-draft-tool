@@ -218,11 +218,11 @@ The live copy is the ledger's "Steps" table. This is the starting state.
 | M10 | Settings page: "Connect an AI app" with the four recipes | G12 | done (#90) | M9 | merged, look `APPROVE` (P-UI-REVIEW) |
 | M11 | Client contract suite, refresh resource fix, SDK client test | G4 | done (#92, #98, #99, #100, #101) | M9 | contract suite and SDK test green in CI; refresh fix merged |
 | M12 | Finish: docs, switch the hook off, final ledger | none | done (#91) | all above | merged; ledger final |
-| M13 | Official-schema conformance test for today's results (tests only) | none | todo | M12 | merged; every current result is valid against both vendored schemas |
-| M13a | Hebrew and X/Twitter trigger text: tool descriptions, server instructions, docs | owner 2026-11-14 (2) | todo | M12 | merged, production READY, smoke green |
-| M14 | Prompts: 4 slash commands, bilingual descriptions | owner 2026-11-14 (1)(2) | todo | M13, M13a | merged, production READY, smoke green |
-| M15 | Skills extension: one skill as `skill://` resources, bilingual triggers | owner 2026-11-14 (1)(2) | todo | M14 | merged, production READY, smoke green |
-| M16 | Finish: current.md, features doc, section 8, ledger | none | todo | M15 | merged; ledger final |
+| M13 | Official-schema conformance test for today's results (tests only) | none | done (#105) | M12 | merged; every current result is valid against both vendored schemas |
+| M13a | Hebrew and X/Twitter trigger text: tool descriptions, server instructions, docs | owner 2026-11-14 (2) | done (#106) | M12 | merged, production READY, smoke green |
+| M14 | Prompts: 4 slash commands, bilingual descriptions | owner 2026-11-14 (1)(2) | done (#107) | M13, M13a | merged, production READY, smoke green |
+| M15 | Skills extension: one skill as `skill://` resources, bilingual triggers | owner 2026-11-14 (1)(2) | done (#108) | M14 | merged, production READY, smoke green |
+| M16 | Finish: current.md, features doc, section 8, ledger | none | done (this PR) | M15 | merged; ledger final |
 
 M7 is independent of M3 to M6. Take it while another PR waits.
 
@@ -523,6 +523,11 @@ Every message includes the D-23 language rule and the counting line: "Keep each 
 ### M16. Finish
 Update `docs/plans/current.md`, `docs/features/platform-and-auth.md` (incl. Hebrew and X/Twitter wording); section 8 → "M0 to M16 and M13a are done; rules S-1 to S-7 hold"; add the D-24 counting follow-up to Follow-ups; final ledger. Frame B.
 
+**Follow-ups (found in M13 to M16, deliberately not done; none blocks the plan)**
+- D-24 counting: the app counts links at their real length, X counts a link as 23. Hebrew presentation forms U+FB1D–U+FB4F are not weighted as X does. The splitter may cut a niqqud mark or a surrogate pair in a word longer than 50 characters.
+- `completion/complete` (argument autocomplete) is not implemented.
+- Client display of prompts and skills in Claude web and desktop, ChatGPT and Codex is not checked.
+
 ## PR order (one task per PR, changelog each)
 PR 0: this plan text + changelog (docs). Then M13 (tests) and M13a (trigger text), either order/parallel; then M14, M15, M16.
 
@@ -540,11 +545,11 @@ checks OM-1 to OM-5 were removed on 2026-11-13.)
 
 ## 8. Finished when
 
-- M0 to M12 are `done` (M6 may be `done (no change)`, M7 may be parked by Opus).
+- M0 to M16 and M13a are done; rules S-1 to S-7 hold.
 - `npm run test:unit` is green on `main`, including `mcp-clients` and `mcp-coverage`.
 - Production is READY with a passing smoke test that includes the MCP discovery steps.
 - The client contract suite is green in CI (no owner action).
-- Rules S-1 to S-6 hold; `tests/api/mcp.test.js` "authentication on /api/mcp" passes unedited.
+- `tests/api/mcp.test.js` "authentication on /api/mcp" passes unedited.
 
 ---
 

@@ -8,3 +8,5 @@
 - Deployment metadata visibility.
 - Settings page (`/settings/tokens`): "Connect an AI app" lists the four clients with copy buttons; "Connected apps" lists and revokes them.
 - MCP connector at `/api/mcp` (OAuth 2.1 with PKCE, rotating refresh tokens). Setup and tools: [docs/agents/mcp.md](../agents/mcp.md).
+
+The MCP connector also offers four slash commands (prompts): `thread_from_notes`, `tighten_draft`, `review_before_publish` and `rewrite_hook`. It serves one skill, `x-thread-drafts` (at `skill://x-thread-drafts/SKILL.md`). Requests may be in Hebrew (עברית), using words such as טיוטה (draft), שרשור (thread) and ציוץ (tweet). X and Twitter (X/טוויטר) are the same service. Publishing a draft in this app posts nothing to X/Twitter.
