@@ -367,9 +367,13 @@ describe('GET /oauth/authorize', () => {
     for (const res of [consent, signIn]) {
       const csp = res.headers.get('content-security-policy')
       const html = await res.text()
-      const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1])
-      expect(scripts).toHaveLength(1)
-      const hash = createHash('sha256').update(scripts[0]).digest('base64')
+      // Exactly one script element of any kind (case-insensitive, with or without attributes), then its exact text.
+      const lower = html.toLowerCase()
+      expect(lower.split('<script').length - 1).toBe(1)
+      const start = lower.indexOf('<script>') + '<script>'.length
+      expect(start).toBeGreaterThan('<script>'.length - 1)
+      const script = html.slice(start, lower.indexOf('</script>', start))
+      const hash = createHash('sha256').update(script).digest('base64')
       expect(csp.match(/'sha256-[^']*'/g)).toEqual([`'sha256-${hash}'`])
       expect(csp).toContain(`script-src 'sha256-${hash}';`)
       expect(csp).not.toMatch(/script-src[^;]*'unsafe-/)
