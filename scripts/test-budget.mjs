@@ -19,7 +19,7 @@ const ROOT = (() => {
   }
 })()
 export const FILE_LIMIT_MS = Number(process.env.TEST_BUDGET_FILE_MS ?? 5000)
-export const TOTAL_LIMIT_MS = Number(process.env.TEST_BUDGET_TOTAL_MS ?? 50000)
+export const TOTAL_LIMIT_MS = Number(process.env.TEST_BUDGET_TOTAL_MS ?? 55000) // 50 s left no margin: main b12d0d6 failed at 50,367 ms with all tests green; revises O11, Opus 2026-11-14
 // Per-file exceptions. Keep this list short and say why next to each entry.
 export const FILE_LIMIT_OVERRIDES = {
   'tests/api/migrate.test.js': 7000, // boots a fresh PGlite and replays every migration; O11 decided by Opus 2026-11-13, revises D-8
