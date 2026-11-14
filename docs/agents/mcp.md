@@ -18,7 +18,7 @@ same limits as the web app.
 
 | Group | Tools | Notes |
 |---|---|---|
-| Read | `list_drafts`, `get_draft`, `export_draft`, `split_text`, `whoami` | No changes. `export_draft` takes `numbered` for numbered text. |
+| Read | `list_drafts`, `get_draft`, `get_draft_outline`, `export_draft`, `split_text`, `whoami` | `list_drafts` returns summaries (no post text) unless you set `detail` to `full`. `get_draft_outline` counts posts and characters per post with a 40-character preview. Use `get_draft` only when you need the text. `export_draft` takes `numbered` for numbered text. |
 | Write drafts | `create_draft`, `update_draft`, `duplicate_draft`, `create_thread_from_text`, `create_share_link` | `create_thread_from_text` turns long text into a draft. `create_share_link` makes a one-time link that expires after 1 hour; set `one_time` false for a link that can be read many times, and `expires_in` (60 to 604800 seconds) for its lifetime. |
 | Posts | `add_post`, `update_post`, `move_post`, `remove_post` | Post ids come from `get_draft`. A published draft cannot be changed. |
 | Images | `add_image_from_url`, `remove_image` | Only http(s) images that are public and 4 MB or smaller. |
@@ -42,6 +42,7 @@ the same tools. The app answers in the language you write in and keeps Hebrew te
 |---|---|
 | להפוך את הטקסט הארוך הזה לשרשור בטוויטר | `create_thread_from_text` |
 | להציג את הטיוטות שלי | `list_drafts` |
+| לספור את הציוצים והתווים בשרשור | `get_draft_outline` |
 | לקצר את הציוץ השלישי | `update_post` |
 | להזיז את הציוץ האחרון להתחלה | `move_post` |
 | לייצא את השרשור כטקסט עם מספור | `export_draft` |

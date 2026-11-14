@@ -17,6 +17,7 @@ const CASES = {
   'POST /drafts/:id/publish': {},
   'POST /drafts/:id/duplicate': {},
   'GET /drafts/:id/export': { search: '?format=text' },
+  'GET /drafts/:id/outline': {},
   'DELETE /drafts/:id': {},
   'POST /drafts/:id/share-tokens': {},
   'DELETE /drafts/:id/share-tokens': {},

@@ -129,6 +129,12 @@ curl -s "$BASE/api/drafts?published=false&limit=50" -H "Authorization: Bearer $T
 curl -s -X POST $BASE/api/drafts -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d '{"title":"Launch","posts":[{"id":"p1","text":"Hello","images":[],"embeddedTweet":null}]}'
 
+# Summaries of the list (no post text): add view=summary. Counts only, so it stays small.
+curl -s "$BASE/api/drafts?published=false&view=summary" -H "Authorization: Bearer $TOKEN"
+
+# Outline (owner only): per post index, chars, remaining, over_limit, image_count and a 40-character preview
+curl -s $BASE/api/drafts/DRAFT_ID/outline -H "Authorization: Bearer $TOKEN"
+
 # Read by id (owner only: another user gets 404, no token or session gets 401)
 curl -s $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN"
 

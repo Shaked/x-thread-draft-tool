@@ -2,6 +2,7 @@ import { query, transaction } from '../db.js'
 import { HttpError, json, readJson, readOptionalJson } from '../http.js'
 import { requireUser } from '../session.js'
 import { deleteBlobUrls } from '../blob.js'
+import { outline, summarize } from '../draft-stats.js'
 import { imageUrlsFrom, isOwnedBlobUrl } from '../draft-images.js'
 import { exportAsFormattedText, exportAsJSON, exportAsNumberedText, exportAsPlainText } from '../../src/utils/exportFormats.js'
 
@@ -124,7 +125,10 @@ async function deletableImageUrls(run, uid, id, posts) {
   return owned.filter((url) => !stillUsed.has(url))
 }
 
-/** GET /api/drafts?published=true|false&limit=1..200 (default 100) */
+/**
+ * GET /api/drafts?published=true|false&limit=1..200 (default 100). view=summary returns counts per
+ * draft instead of the posts (server/draft-stats.js); without view the answer is the full drafts.
+ */
 async function listDrafts({ request, url }) {
   const session = await requireUser(request)
   const flag = url.searchParams.get('published')
@@ -133,11 +137,14 @@ async function listDrafts({ request, url }) {
   const limitParam = url.searchParams.get('limit') ?? '100'
   const limit = Number(limitParam)
   if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new HttpError(400, 'limit must be from 1 to 200')
+  const view = url.searchParams.get('view')
+  if (view !== null && view !== 'summary') throw new HttpError(400, 'view must be summary')
   const order = published ? 'published_at desc' : 'updated_at desc'
   const { rows } = await query(
     `select ${COLUMNS} from drafts where user_id = $1 and is_published = $2 order by ${order} limit $3`,
     [session.uid, published, limit]
   )
+  if (view === 'summary') return json({ drafts: rows.map(summarize) })
   return json({ drafts: rows })
 }
 
@@ -161,6 +168,15 @@ async function getDraft({ request, params }) {
   const { rows } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [params.id, session.uid])
   if (!rows[0]) throw notFound()
   return json({ draft: rows[0] }, 200, etagHeaders(rows[0].version))
+}
+
+/** GET /api/drafts/:id/outline: owner only. Counts and a preview per post, not the full text. */
+async function getDraftOutline({ request, params }) {
+  const session = await requireUser(request)
+  if (!isUuid(params.id)) throw notFound()
+  const { rows } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [params.id, session.uid])
+  if (!rows[0]) throw notFound()
+  return json({ draft: outline(rows[0]) })
 }
 
 /**
@@ -359,6 +375,7 @@ export const draftRoutes = [
   { method: 'GET', path: '/drafts', handler: listDrafts, ci: true },
   { method: 'POST', path: '/drafts', handler: createDraft, ci: true },
   { method: 'GET', path: '/drafts/:id', handler: getDraft, ci: true },
+  { method: 'GET', path: '/drafts/:id/outline', handler: getDraftOutline, ci: true },
   { method: 'PATCH', path: '/drafts/:id', handler: updateDraft, ci: true },
   { method: 'POST', path: '/drafts/:id/publish', handler: publishDraft, ci: true },
   { method: 'POST', path: '/drafts/:id/duplicate', handler: duplicateDraft, ci: true },

@@ -49,7 +49,7 @@ const PROMPTS = [
     arguments: [draftArg, { name: 'max_chars', description: 'Optional: target length per post, 20 to 280.', required: false }],
     build: (v) => ({
       intro:
-        `${v.draftLine} Call \`get_draft\`, then propose shorter text for the posts that need it as before and after` +
+        `${v.draftLine} Call \`get_draft_outline\` to see which posts are over the limit, then \`get_draft\` for their text, then propose shorter text for the posts that need it as before and after` +
         `${v.max_chars ? `, each at most ${v.max_chars} characters` : ''}. ` +
         'After the user agrees, call `update_post` once for each changed post. Never call `update_draft` with posts.',
       values: [],

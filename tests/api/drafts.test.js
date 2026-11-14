@@ -214,3 +214,85 @@ describe('share tokens', () => {
     expect(await json(ok)).toEqual({ token: expect.stringMatching(/^[0-9a-f-]{36}$/), expires_at: expect.any(String), one_time: true })
   })
 })
+
+const fullPosts = (n = 25) => Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, text: 'x'.repeat(280), images: [], embeddedTweet: null }))
+const bytes = (text) => new TextEncoder().encode(text).length
+
+describe('GET /api/drafts?view=summary', () => {
+  it('returns counts per draft and no post text', async () => {
+    const draft = await db.insertDraft(alice.id, {
+      title: 'Counted',
+      posts: [
+        { id: 'a', text: 'hello', images: [{ url: 'https://x.example/1.png' }], embeddedTweet: null },
+        { id: 'b', text: 'y'.repeat(281), images: [], embeddedTweet: null }
+      ]
+    })
+    const res = await route(apiRequest('/api/drafts?published=false&view=summary', { cookie: aliceCookie }))
+    expect(res.status).toBe(200)
+    const { drafts } = await json(res)
+    expect(drafts).toEqual([
+      {
+        id: draft.id,
+        title: 'Counted',
+        is_published: false,
+        updated_at: expect.any(String),
+        published_at: null,
+        version: 1,
+        post_count: 2,
+        total_chars: 5 + 281,
+        over_limit_count: 1,
+        image_count: 1
+      }
+    ])
+    expect(drafts[0].posts).toBeUndefined()
+  })
+
+  it('answers 400 for an unknown view, and keeps the full drafts without it', async () => {
+    expect((await route(apiRequest('/api/drafts?published=false&view=full', { cookie: aliceCookie }))).status).toBe(400)
+    const full = await json(await route(apiRequest('/api/drafts?published=false', { cookie: aliceCookie })))
+    expect(full.drafts).toEqual([])
+  })
+
+  it('answers under 600 bytes for a draft of 25 full posts', async () => {
+    await db.insertDraft(alice.id, { title: 'Big', posts: fullPosts() })
+    const res = await route(apiRequest('/api/drafts?published=false&view=summary', { cookie: aliceCookie }))
+    const text = await res.text()
+    expect(bytes(text)).toBeLessThan(600)
+    expect(JSON.parse(text).drafts[0]).toMatchObject({ post_count: 25, total_chars: 25 * 280, over_limit_count: 0 })
+  })
+})
+
+describe('GET /api/drafts/:id/outline', () => {
+  it('gives each post its index, length, room left and a 40-character preview', async () => {
+    const long = 'a'.repeat(300)
+    const draft = await db.insertDraft(alice.id, {
+      title: 'Outline',
+      posts: [
+        { id: 'first', text: 'Hello there, this is the first post of the thread.', images: [], embeddedTweet: null },
+        { id: 'second', text: long, images: [{ url: 'https://x.example/2.png' }], embeddedTweet: null }
+      ]
+    })
+    const res = await route(apiRequest(`/api/drafts/${draft.id}/outline`, { cookie: aliceCookie }))
+    expect(res.status).toBe(200)
+    const { draft: outline } = await json(res)
+    expect(outline).toMatchObject({ id: draft.id, title: 'Outline', post_count: 2, over_limit_count: 1, image_count: 1 })
+    expect(outline.posts).toEqual([
+      {
+        id: 'first',
+        index: 1,
+        chars: 50,
+        remaining: 230,
+        over_limit: false,
+        image_count: 0,
+        preview: 'Hello there, this is the first post of the thread'.slice(0, 40)
+      },
+      { id: 'second', index: 2, chars: 300, remaining: -20, over_limit: true, image_count: 1, preview: 'a'.repeat(40) }
+    ])
+  })
+
+  it('is owner only: another user gets 404 and no session gets 401', async () => {
+    const draft = await db.insertDraft(alice.id, { title: 'Private' })
+    expect((await route(apiRequest(`/api/drafts/${draft.id}/outline`, { cookie: bobCookie }))).status).toBe(404)
+    expect((await route(apiRequest(`/api/drafts/${draft.id}/outline`))).status).toBe(401)
+  })
+})

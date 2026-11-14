@@ -38,9 +38,10 @@ A post is a tweet (ציוץ, פוסט), a thread is a שרשור, a draft is a �
 
 1. Notes to draft: split or rewrite the notes into posts, then \`create_thread_from_text\` or
    \`create_draft\`. \`split_text\` only shows the split and saves nothing.
-2. Tighten: read the draft with \`get_draft\`, propose shorter text as before and after, and change a post
-   only after the user agrees.
+2. Tighten: call \`get_draft_outline\` to see which posts are over 280 characters, read their text with \`get_draft\`,
+   propose shorter text as before and after, and change a post only after the user agrees.
 3. Review: \`get_draft\` and \`export_draft\` (numbered). List problems and a fix for each.
+   To count posts or characters, use \`get_draft_outline\`, not \`get_draft\`. \`list_drafts\` returns summaries; pass detail full only when you need the posts.
 4. Share: \`create_share_link\` makes read links. By default a link works once and expires after 1 hour; with one_time false it works until it expires. \`revoke_share_link\` stops a link (or all of a draft's links) at once.
 5. Publish: \`publish_draft\` only marks the draft as published in this app. It posts nothing to
    X/Twitter, and it deletes the draft's images. Call it, or \`delete_draft\`, only after the user has
