@@ -14,7 +14,9 @@ import {
   errorHeaders,
   errorPage,
   openDecision,
-  sealDecision
+  sealDecision,
+  signInHeaders,
+  signInPage
 } from '../oauth/consent.js'
 
 const CODE_TTL = "interval '60 seconds'"
@@ -165,9 +167,23 @@ function parseAuthorize(params, base) {
   }
 }
 
+/** This consent address, rebuilt only from validated values, for copying into another browser. */
+function authorizeLink(base, clientId, redirectUri, value, params) {
+  const fields = [
+    ['response_type', 'code'],
+    ['client_id', clientId],
+    ['redirect_uri', redirectUri],
+    ['code_challenge', value.code_challenge],
+    ['code_challenge_method', 'S256']
+  ]
+  if (value.state !== null) fields.push(['state', value.state])
+  if (params.has('resource')) fields.push(['resource', value.resource])
+  return `${base}/api/oauth/authorize?${new URLSearchParams(fields)}`
+}
+
 /**
  * GET /oauth/authorize. Unknown client or unregistered redirect URI: an error page, never a
- * redirect. Other problems: redirect with error. No session: sign in first, then come back here.
+ * redirect. Other problems: redirect with error. No session: a sign-in page, then back here.
  */
 async function authorizeGet({ request, url }) {
   const base = origin(request)
@@ -186,6 +202,7 @@ async function authorizeGet({ request, url }) {
     return redirectTo(redirectUri, { error: parsed.error, error_description: parsed.description, state: params.get('state') }, base)
   }
   const { value } = parsed
+  const link = authorizeLink(base, client.client_id, redirectUri, value, params)
 
   const session = await readSession(request)
   if (!session) {
@@ -193,7 +210,8 @@ async function authorizeGet({ request, url }) {
     const forward = new URLSearchParams(params)
     forward.delete('__path')
     const returnTo = `/api/oauth/authorize?${forward}`
-    return redirect(`${base}/api/auth/login?return_to=${encodeURIComponent(returnTo)}`)
+    const loginUrl = `${base}/api/auth/login?return_to=${encodeURIComponent(returnTo)}`
+    return new Response(signInPage({ link, loginUrl }), { status: 200, headers: signInHeaders() })
   }
 
   const requestToken = await sealDecision({
@@ -211,7 +229,9 @@ async function authorizeGet({ request, url }) {
       clientName: client.client_name,
       unverified: client.kind === 'registered',
       redirectHost: new URL(redirectUri).host,
-      requestToken
+      requestToken,
+      login: session.login,
+      link
     }),
     { status: 200, headers: consentHeaders(redirectOrigin) }
   )

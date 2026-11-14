@@ -312,14 +312,76 @@ describe('GET /oauth/authorize', () => {
     expect(new URL(res.headers.get('location')).searchParams.get('error')).toBe('invalid_target')
   })
 
-  it('sends a signed-out user to sign-in with return_to, without the rewrite parameter', async () => {
+  // The page's read-only link, with the HTML escaping undone.
+  const linkIn = (html) =>
+    (html.match(/id="share-link"[^>]*value="([^"]+)"/)?.[1] ?? '').replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+
+  it('shows a sign-in page to a signed-out user, with the login link (return_to) and the copy link', async () => {
     const clientId = await registerClient()
     const query = authorizeQuery(clientId, { challenge: pkce().challenge, resource: API })
     const res = await get(`/api/oauth/authorize?${query}&__path=oauth/authorize`)
-    expect(res.status).toBe(302)
-    const location = new URL(res.headers.get('location'))
-    expect(location.pathname).toBe('/api/auth/login')
-    expect(location.searchParams.get('return_to')).toBe(`/api/oauth/authorize?${query}`)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('location')).toBeNull()
+    const html = await res.text()
+    expect(html).toContain('Sign in to continue')
+    expect(html).toContain(`href="${APP_URL}/api/auth/login?return_to=${encodeURIComponent(`/api/oauth/authorize?${query}`)}"`)
+    expect(linkIn(html)).toBe(`${APP_URL}/api/oauth/authorize?${query}`)
+  })
+
+  it('escapes the client name and the state in the consent page and its link', async () => {
+    const clientId = await registerClient({ client_name: `"<>&'x` })
+    const query = authorizeQuery(clientId, { challenge: pkce().challenge, state: `"<>&'` })
+    const html = await (await get(`/api/oauth/authorize?${query}`, { cookie: aliceCookie })).text()
+    expect(html).not.toContain('"<>')
+    expect(html).toContain('&#34;&#60;&#62;&#38;&#39;x')
+    expect(linkIn(html)).toBe(`${APP_URL}/api/oauth/authorize?${query}`)
+  })
+
+  it('greets the signed-in account by its login, and escapes a login that contains markup', async () => {
+    const mallory = await db.insertUser({ github_id: 3, login: '<b>x</b>' })
+    const clientId = await registerClient()
+    const query = authorizeQuery(clientId, { challenge: pkce().challenge })
+    const html = await (await get(`/api/oauth/authorize?${query}`, { cookie: await db.cookieFor(mallory) })).text()
+    expect(html).not.toContain('<b>x</b>')
+    expect(html).toContain('<h1>Hi @&#60;b&#62;x&#60;/b&#62;, allow Test Client to use X Thread Draft Tool?</h1>')
+    expect(html).toContain('Hi @&#60;b&#62;x&#60;/b&#62;: click Approve to continue here')
+    const aliceHtml = await (await get(`/api/oauth/authorize?${query}`, { cookie: aliceCookie })).text()
+    expect(aliceHtml).toContain('<h1>Hi @alice, allow Test Client to use X Thread Draft Tool?</h1>')
+  })
+
+  it('the copy link on the consent page is the address of this request', async () => {
+    const clientId = await registerClient()
+    const query = authorizeQuery(clientId, { challenge: pkce().challenge })
+    const html = await (await get(`/api/oauth/authorize?${query}`, { cookie: aliceCookie })).text()
+    expect(linkIn(html)).toBe(`${APP_URL}/api/oauth/authorize?${query}`)
+    expect(html).toContain('>Copy link</button>')
+  })
+
+  it('allows only the copy script, by its hash, on the consent and the sign-in page', async () => {
+    const clientId = await registerClient()
+    const query = authorizeQuery(clientId, { challenge: pkce().challenge })
+    const consent = await get(`/api/oauth/authorize?${query}`, { cookie: aliceCookie })
+    const signIn = await get(`/api/oauth/authorize?${query}`)
+    expect(consent.headers.get('content-security-policy')).toContain("form-action 'self' http://localhost:4000")
+    expect(signIn.headers.get('content-security-policy')).not.toContain('form-action')
+    for (const res of [consent, signIn]) {
+      const csp = res.headers.get('content-security-policy')
+      const html = await res.text()
+      // Exactly one script element of any kind (case-insensitive, with or without attributes), then its exact text.
+      const lower = html.toLowerCase()
+      expect(lower.split('<script').length - 1).toBe(1)
+      const start = lower.indexOf('<script>') + '<script>'.length
+      expect(start).toBeGreaterThan('<script>'.length - 1)
+      const script = html.slice(start, lower.indexOf('</script>', start))
+      const hash = createHash('sha256').update(script).digest('base64')
+      expect(csp.match(/'sha256-[^']*'/g)).toEqual([`'sha256-${hash}'`])
+      expect(csp).toContain(`script-src 'sha256-${hash}';`)
+      expect(csp).not.toMatch(/script-src[^;]*'unsafe-/)
+      expect(html).not.toMatch(/\son[a-z]+\s*=/i)
+      expect(res.headers.get('x-frame-options')).toBe('DENY')
+      expect(res.headers.get('cache-control')).toBe('no-store')
+      expect(csp).toContain("frame-ancestors 'none'")
+    }
   })
 
   it('shows the consent page with security headers and escaped text', async () => {

@@ -19,6 +19,7 @@ import { setBlobImpl } from '../server/blob.js'
 import { route } from '../server/router.js'
 import { upsertGithubUser } from '../server/github-user.js'
 import { createApiToken } from '../server/tokens.js'
+import { createSession, sessionCookie } from '../server/session.js'
 
 if (process.env.VERCEL) {
   console.error('dev-api refuses to run on Vercel (VERCEL is set).')
@@ -91,8 +92,9 @@ if (fakeGithub) {
 }
 
 // --- Dev-only routes ----------------------------------------------------------
+// /api/dev/session answers with a browser session cookie (for Playwright on the consent page); /api/dev/token with a bearer token.
 async function devRoute(request, url) {
-  if (request.method !== 'POST' || url.pathname !== '/api/dev/token') {
+  if (request.method !== 'POST' || !['/api/dev/token', '/api/dev/session'].includes(url.pathname)) {
     return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: { 'content-type': 'application/json' } })
   }
   const body = await request.json().catch(() => ({}))
@@ -100,6 +102,13 @@ async function devRoute(request, url) {
   // Fake negative GitHub ids never collide with real accounts.
   const githubId = -(Math.abs(hash(login)) % 1_000_000_000) - 1
   const user = await upsertGithubUser({ id: githubId, login, name: login, avatar_url: null })
+  if (url.pathname === '/api/dev/session') {
+    const session = await createSession(user)
+    return new Response(JSON.stringify({ user: { id: user.id, login } }), {
+      status: 201,
+      headers: { 'content-type': 'application/json', 'set-cookie': sessionCookie(session) }
+    })
+  }
   const created = await createApiToken(user.id, { name: `dev ${login}`, via: 'web' })
   return new Response(JSON.stringify({ token: created.token, user: { id: user.id, login } }), {
     status: 201,
