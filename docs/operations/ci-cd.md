@@ -14,3 +14,6 @@
 - `.github/workflows/supabase-backup.yml`: manual, encrypted backup of Supabase (pre-migration). Kept until Supabase is deleted.
 - `.github/workflows/data-migrate.yml`: manual copy of Supabase data into Neon and Blob. Dry run unless `apply` is set.
 - Removed: `keep-supabase-alive.yml` (Neon Free does not pause) and `supabase-deploy.yml`.
+
+## Request timing (`[perf]`)
+Every API request logs one line `[perf] {...}` on the function's log and sends a `server-timing` header. The line has `m` (method), `p` (the route template, such as `/drafts/:id`, or `unmatched`; never a real path, id, token, header, body or query), `s` (status), `ms` (total time), `q` (SQL round trips), `db` (ms spent in SQL and connecting), `conn` (new connections opened), `cold` (1 for the first request of a function instance), `region` (`VERCEL_REGION`, the region the function ran in), and for MCP, `rpc` and `tool`. To read it in production, use the Vercel log search for `[perf]` over the last 30 minutes. A high `conn` with `cold` 0 means the pool reconnected after an idle period, and `db` close to `ms` means the database is the slow part. `npm run smoke` prints a `TIME` line per step with the client time and the server header.

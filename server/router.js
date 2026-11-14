@@ -10,6 +10,7 @@ import { threadRoutes } from './routes/threads.js'
 import { openapiRoutes } from './routes/openapi.js'
 import { oauthRoutes } from './routes/oauth.js'
 import { handleMcp } from './mcp/server.js'
+import { measured, setRoute } from './perf.js'
 
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE'])
 
@@ -73,8 +74,8 @@ function checkOrigin(request) {
   if (origin !== appOrigin) throw new HttpError(403, 'Cross-origin request blocked')
 }
 
-/** Dispatches one request. Always resolves to a Response. */
-export async function route(request) {
+/** Dispatches one request. Always resolves to a Response. Exported as `route`, wrapped by perf.js. */
+async function dispatch(request) {
   try {
     const url = new URL(request.url)
     const path = routePath(url)
@@ -91,6 +92,7 @@ export async function route(request) {
 
     const match = candidates.find((entry) => entry.method === request.method)
     if (!match) return error(405, 'Method not allowed')
+    setRoute(match.path)
 
     // CI identity tokens (three-part JWT) are accepted only on routes marked ci: true.
     const bearer = request.headers.get('authorization') ?? ''
@@ -107,3 +109,5 @@ export async function route(request) {
     return error(500, 'Server error')
   }
 }
+
+export const route = measured(dispatch)

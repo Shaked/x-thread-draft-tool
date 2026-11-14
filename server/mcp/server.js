@@ -7,6 +7,7 @@ import { callTool, hasTool, listTools } from './tools.js'
 import { getPrompt, listPrompts } from './prompts.js'
 import { getSkill, listSkillResources, listSkills, readSkillResource } from './skills.js'
 import { RATE_LIMIT_MESSAGE, withinToolRate } from './rate.js'
+import { noteRpc } from '../perf.js'
 
 const LATEST_VERSION = '2026-07-28'
 const SUPPORTED_VERSIONS = [LATEST_VERSION, '2025-11-25', '2025-06-18', '2025-03-26']
@@ -171,6 +172,8 @@ export async function handleMcp(request) {
   const parsed = await readMessage(request)
   if (parsed.response) return parsed.response
   const message = parsed.message
+  // Only the method and a known tool name reach the [perf] line, never the arguments.
+  noteRpc(message.method, message.method === 'tools/call' && hasTool(message.params?.name) ? message.params.name : null)
 
   // A request has an id; a notification does not and gets 202 with no body.
   const id = message.id
