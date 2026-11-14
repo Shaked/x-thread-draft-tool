@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { splitIntoThreads } from '../../src/utils/threadSplitter.js'
-import { buildEmojiRegex, xFitEnd, xLength } from '../../src/utils/xLength.js'
+import { buildEmojiRegex, graphemeWeight, xFitEnd, xLength } from '../../src/utils/xLength.js'
 
 describe('xLength (X weighted length)', () => {
   it('falls back to the u-flag pattern when the v flag is refused (Safari 16 and older)', () => {
@@ -117,5 +117,56 @@ describe('splitIntoThreads with X weighted length', () => {
     const family = '👨‍👩‍👧'
     const end = xFitEnd(family.repeat(10), 5)
     expect(end).toBe(family.length * 2)
+  })
+})
+
+describe('xLength in the old-browser fallback (no v flag)', () => {
+  const refusesV = (source, flags) => {
+    if (flags === 'v') throw new SyntaxError('Invalid regular expression flags')
+    return new RegExp(source, flags)
+  }
+  const fallback = buildEmojiRegex(refusesV)
+  // The fallback's weight for a string: each Intl.Segmenter grapheme weighed with the fallback matcher.
+  const weighFallback = (text) =>
+    [...new Intl.Segmenter().segment(text.normalize('NFC'))].reduce(
+      (sum, { segment }) => sum + graphemeWeight(segment, fallback),
+      0
+    )
+  const ENGLAND = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}'
+
+  it.each([
+    ['👍🏽', 2],
+    ['👨‍👩‍👧', 2],
+    ['🇮🇱', 2],
+    ['1️⃣', 2],
+    ['#️⃣', 2],
+    ['❤️', 2],
+    [ENGLAND, 2],
+    ['a', 1],
+    ['א', 1],
+    ['©', 1],
+    ['1', 1]
+  ])('weighs %j as %i in the fallback and in the normal path', (text, expected) => {
+    expect(weighFallback(text)).toBe(expected)
+    expect(xLength(text)).toBe(expected)
+  })
+
+  it('weighs 100 skin-tone thumbs as 200 in both paths', () => {
+    const text = '👍🏽'.repeat(100)
+    expect(weighFallback(text)).toBe(200)
+    expect(xLength(text)).toBe(200)
+  })
+
+  it.each([
+    'a', 'א', '1', '©', '®', '日本', '😀😀', '👍', '👍🏽', '👍🏽👍🏽', 'a👍🏽b', '👍 👍🏽',
+    '👨‍👩‍👧', '👩🏽‍💻', '🧑‍🤝‍🧑', '🏳️‍🌈', '🇮🇱', '🇺🇸', '🇮🇱🇮', '🇺', '1️⃣', '*️⃣', '0️⃣',
+    '❤️', '❤', '☺️', '☺', '✌🏽', '©️', '\u{1F3FB}', ENGLAND, 'e\u0301', 'שלום 👍🏽'
+  ])('keeps the fallback weight of %j equal to the normal path', (text) => {
+    expect(weighFallback(text)).toBe(xLength(text))
+  })
+
+  it('keeps the \\p{Emoji} prefilter: text without an emoji code point is not an emoji', () => {
+    expect(fallback.test('a')).toBe(false)
+    expect(xLength('abc')).toBe(3)
   })
 })

@@ -15,6 +15,14 @@ const URL_WEIGHT = 23
 // The two alternatives start with different characters, so the pattern is linear (no nested quantifiers).
 const URL_RE = /((?:https?:\/\/|www\.))(?:[^\s()<>]|\([^\s()<>]*\))+/gi
 const URL_TRAILING = new Set(['.', ',', '!', '?', ';', ':', '"', "'"])
+// Fallback for browsers without the v flag. It matches one whole emoji grapheme (a segment from Intl.Segmenter):
+// regional-indicator pairs, keycaps, and pictographic sequences joined by ZWJ, with FE0F, skin tones and tag
+// sequences. As in RGI_Emoji, a bare pictograph such as "©" is not an emoji: it needs FE0F or a skin tone.
+const FALLBACK_PICTOGRAPH =
+  '(?:\\p{Extended_Pictographic}\\uFE0F|(?![\\u{1F3FB}-\\u{1F3FF}])\\p{Emoji_Presentation}\\p{Emoji_Modifier}?|\\p{Extended_Pictographic}\\p{Emoji_Modifier})'
+const FALLBACK_ELEMENT = `${FALLBACK_PICTOGRAPH}(?:[\\u{E0020}-\\u{E007E}]+\\u{E007F})?`
+const FALLBACK_SOURCE = `^(?:\\p{Regional_Indicator}{2}|[#*0-9]\\uFE0F\\u20E3|${FALLBACK_ELEMENT}(?:\\u200D${FALLBACK_ELEMENT})*)$`
+
 /**
  * Emoji matcher. Safari 16 and older throw a SyntaxError on the v flag, so they get a u-flag fallback
  * instead of failing to load this module (and with it the editor). `make` is injectable for the test.
@@ -23,7 +31,7 @@ export function buildEmojiRegex(make = (source, flags) => new RegExp(source, fla
   try {
     return make('^\\p{RGI_Emoji}$', 'v')
   } catch {
-    return make('^\\p{Extended_Pictographic}$', 'u')
+    return make(FALLBACK_SOURCE, 'u')
   }
 }
 
@@ -38,9 +46,10 @@ const codePointWeight = (cp) =>
 // Every RGI emoji contains a code point with the Emoji property, so text without one skips the slow RGI test.
 const EMOJI_CHAR = /\p{Emoji}/u
 
-function graphemeWeight(grapheme) {
+/** Weight of one grapheme. `emojiRegex` is the matcher from buildEmojiRegex (exported for the parity test). */
+export function graphemeWeight(grapheme, emojiRegex = RGI_EMOJI) {
   const g = grapheme.normalize('NFC')
-  if (EMOJI_CHAR.test(g) && RGI_EMOJI.test(g)) return 2
+  if (EMOJI_CHAR.test(g) && emojiRegex.test(g)) return 2
   let weight = 0
   for (const ch of g) weight += codePointWeight(ch.codePointAt(0))
   return weight
