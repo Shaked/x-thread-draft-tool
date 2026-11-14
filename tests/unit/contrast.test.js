@@ -40,6 +40,7 @@ const PAIRS = [
   ['text', 'bg', 4.5],
   ['text', 'surface', 4.5],
   ['muted', 'bg', 4.5],
+  ['text-soft', 'bg', 4.5],
   ['accent-text', 'accent', 4.5],
   ['danger', 'bg', 4.5],
   ['border', 'bg', 3],

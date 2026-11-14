@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { draftsApi } from '../utils/api'
 import { useDismiss } from '../utils/useDismiss'
+import Icon from './Icon'
 
 // The lifetimes the Share menu offers. One hour is the default.
 const LIFETIMES = [
@@ -56,7 +57,7 @@ export default function ShareLinkButton({ draftId }) {
         title="Share a link that stops working after a set time"
         aria-label="Share"
       >
-        <span className="btn-icon">{copied ? '✓' : '🔗'}</span>
+        <span className="btn-icon">{copied ? '✓' : <Icon name="share" />}</span>
         <span className="btn-text">{copied ? 'Copied!' : busy ? '...' : 'Share'}</span>
       </button>
       {open && (

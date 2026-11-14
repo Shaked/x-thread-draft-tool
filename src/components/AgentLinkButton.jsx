@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { draftsApi } from '../utils/api'
+import Icon from './Icon'
 
 export default function AgentLinkButton({ draftId }) {
   const [copied, setCopied] = useState(false)
@@ -38,7 +39,7 @@ export default function AgentLinkButton({ draftId }) {
         title="Copy one-time markdown link for agents"
         aria-label="Copy one-time agent link"
       >
-        <span className="btn-icon">{copied ? '✓' : '🤖'}</span>
+        <span className="btn-icon">{copied ? '✓' : <Icon name="agent" />}</span>
         <span className="btn-text">{copied ? 'Copied!' : busy ? '...' : 'Agent link'}</span>
       </button>
       {copied && (

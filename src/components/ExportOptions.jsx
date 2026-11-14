@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { exportAsNumberedText, exportAsPlainText } from '../utils/exportFormats.js'
 import { useDismiss } from '../utils/useDismiss'
+import Icon from './Icon'
 
 /** Export: a button with a menu of copy and download actions for the whole thread. */
 export default function ExportOptions({ draft }) {
@@ -96,7 +97,7 @@ export default function ExportOptions({ draft }) {
         title="Copy or download the whole thread"
         aria-label="Export"
       >
-        <span className="btn-icon">⬇</span>
+        <span className="btn-icon"><Icon name="export" /></span>
         <span className="btn-text">Export</span>
       </button>
       {open && (

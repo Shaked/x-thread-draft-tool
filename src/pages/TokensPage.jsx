@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { grantsApi, tokensApi } from '../utils/api'
 import { connectEntries } from '../utils/connectApps'
 import ThemeSetting from '../components/ThemeSetting'
+import AppBar from '../components/AppBar'
 
 const EXPIRY_OPTIONS = [1, 3, 7]
 
@@ -124,7 +125,10 @@ export default function TokensPage({ deployedAt, deployedAgo, deployCommit }) {
 
   return (
     <div className="tokens-page">
-      <p><Link to="/">← Back to drafts</Link></p>
+      <div className="settings-top">
+        <Link to="/">← Back to drafts</Link>
+        <AppBar />
+      </div>
 
       <h1>API tokens</h1>
       <ThemeSetting />

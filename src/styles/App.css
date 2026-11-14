@@ -1193,19 +1193,6 @@ body {
   outline-offset: -2px;
 }
 
-@media (max-width: 600px) {
-  .share-tooltip {
-    position: fixed;
-    top: auto;
-    right: 16px;
-    left: 16px;
-    bottom: 140px;
-    margin-top: 0;
-    max-width: none;
-    text-align: center;
-  }
-}
-
 /* Draft Editor Page */
 .draft-editor {
   min-height: 100vh;
@@ -1231,11 +1218,73 @@ body {
   right: 0;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+/* App bar: page actions, sign-out and the hide control. In the page header on wide screens, a fixed bottom bar on phones. */
+:root { --bar-h: 44px; --bar-space: 0px; }
+.app-bar, .app-bar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.app-bar-toggle { display: none; }
+.icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.logout-btn { min-width: 44px; min-height: 44px; padding: 0; justify-content: center; color: var(--text-soft); }
+.logout-btn:hover { background-color: var(--surface-2); border-color: var(--danger); }
+.settings-top { display: flex; align-items: center; justify-content: space-between; }
+
+@media (max-width: 768px) {
+  :root[data-bar='shown'] { --bar-space: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)); }
+  :root[data-bar='hidden'] { --bar-space: calc(24px + env(safe-area-inset-bottom, 0px)); }
+  html { scroll-padding-bottom: var(--bar-space); }
+  .app { padding-bottom: calc(var(--bar-space) + 16px); }
+
+  .app-bar {
+    position: fixed; inset-inline: 0; bottom: 0; z-index: 100;
+    height: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
+    padding: 0 4px env(safe-area-inset-bottom, 0px);
+    gap: 0; align-items: flex-end;
+    background-color: var(--bg); box-shadow: 0 -1px 0 var(--border);
+    transition: background-color 0.2s, box-shadow 0.2s;
+  }
+  .app-bar-actions { flex: 1; min-width: 0; height: var(--bar-h); gap: 0; transition: transform 0.2s, opacity 0.2s, visibility 0.2s; }
+  .app-bar .icon-btn, .app-bar-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; min-width: 40px; height: var(--bar-h); min-height: 0; padding: 0;
+    background: none; border: 0; border-radius: 8px; color: var(--text-strong); cursor: pointer;
+  }
+  .app-bar .btn-text { display: none; }
+  .app-bar .publish-btn, .app-bar .new-draft-btn {
+    width: auto; height: 32px; min-height: 0; align-self: center; padding: 0 14px; margin-inline-start: auto;
+    border-radius: 16px; font-size: 14px;
+  }
+  .app-bar .publish-btn { background-color: var(--success); color: var(--accent-text); }
+  .app-bar .publish-btn .btn-text { display: inline; }
+  .app-bar .publish-btn .btn-icon { display: none; }
+  .app-bar .logout-btn, .app-bar-toggle { color: var(--text-soft); }
+  .app-bar .logout-btn { margin-inline-start: auto; }
+  .app-bar .publish-btn ~ .logout-btn, .app-bar .new-draft-btn ~ .logout-btn { margin-inline-start: 8px; }
+  .app-bar .icon-btn:focus-visible, .app-bar-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+  /* Hidden: the actions slide out and only the tab stays, in the same corner. */
+  .app-bar.is-hidden { background-color: transparent; box-shadow: none; pointer-events: none; padding-bottom: 0; }
+  .app-bar.is-hidden .app-bar-actions { visibility: hidden; opacity: 0; transform: translateY(100%); }
+  .app-bar.is-hidden .app-bar-toggle {
+    pointer-events: auto; width: 44px; height: calc(24px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px);
+    background-color: var(--surface); border: 1px solid var(--border); border-bottom: 0; border-radius: 12px 12px 0 0;
+  }
+  .app-bar.is-hidden .app-bar-toggle .icon { transform: rotate(180deg); }
+
+  /* Menus and messages of bar buttons open as a sheet above the bar. */
+  .app-bar .share-menu, .app-bar .share-tooltip {
+    position: fixed; top: auto; left: 8px; right: 8px; bottom: calc(var(--bar-space) + 8px);
+    width: auto; max-width: none; margin: 0;
+  }
+  .app-bar .share-tooltip { text-align: center; }
+}
+
+@media (max-width: 359px) {
+  .app-bar .publish-btn { width: 40px; padding: 0; }
+  .app-bar .publish-btn .btn-text { display: none; }
+  .app-bar .publish-btn .btn-icon { display: inline; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-bar, .app-bar-actions { transition: none; }
 }
 
 .back-link {
@@ -1328,15 +1377,6 @@ body {
   cursor: not-allowed;
 }
 
-.logout-btn {
-  min-height: 44px;
-}
-
-.logout-btn:hover {
-  background-color: var(--surface-2);
-  border-color: var(--danger);
-}
-
 .editor-content {
   display: grid;
   grid-template-columns: 1fr;
@@ -1422,10 +1462,6 @@ body {
     font-size: 1.6rem;
   }
 
-  .new-draft-btn {
-    width: 100%;
-  }
-
   .draft-tabs {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -1459,68 +1495,6 @@ body {
 
   .back-arrow {
     font-size: 22px;
-  }
-
-  /* Phone: the editor actions move to a sticky bottom bar, as plain text buttons. */
-  .header-actions {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 100;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-    background-color: var(--bg);
-    border-top: 1px solid var(--border);
-  }
-
-  .header-actions > * {
-    flex: 1 1 auto;
-    display: flex;
-    justify-content: center;
-  }
-
-  .header-actions .icon-btn {
-    padding: 0 8px;
-    gap: 0;
-    min-width: 44px;
-    min-height: 44px;
-    justify-content: center;
-    font-size: 14px;
-    white-space: normal;
-    text-align: center;
-  }
-
-  .header-actions .icon-btn .btn-icon {
-    display: none;
-  }
-
-  .header-actions .share-tooltip {
-    position: fixed;
-    top: auto;
-    right: 16px;
-    left: 16px;
-    bottom: 140px;
-    width: auto;
-    margin: 0;
-    max-width: none;
-    text-align: center;
-  }
-
-  .header-actions .share-menu {
-    position: fixed;
-    top: auto;
-    right: 16px;
-    left: 16px;
-    bottom: calc(140px + env(safe-area-inset-bottom));
-    max-height: calc(100dvh - 160px - env(safe-area-inset-bottom));
-    overflow-y: auto;
-    margin: 0;
-  }
-
-  .draft-editor {
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
 
   .image-carousel-container {

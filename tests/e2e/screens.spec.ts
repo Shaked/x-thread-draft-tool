@@ -6,7 +6,8 @@
 // Use the built app, not `npm run dev`: in development React StrictMode runs the preview effect
 // twice, and the second request hits the one-use share link and gets 410.
 // Writes test-results/screens/<width>/<name>.png for 390 px and 1280 px wide:
-// login, drafts-empty, drafts-three, editor, editor-export-menu, preview, share, tokens.
+// login, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens.
+// Under 800 px wide, each shot also writes <name>-viewport.png: what is on the screen, with the fixed bar.
 //
 // Signed-in pages use a dev API token (POST /api/dev/token), sent as a bearer header on /api calls.
 // Nothing here is stored; the data is created in the local API.
@@ -71,6 +72,7 @@ async function shoot(
   const dir = path.join(OUT, String(width))
   mkdirSync(dir, { recursive: true })
   await page.screenshot({ path: path.join(dir, `${name}.png`), fullPage: true })
+  if (width < 800) await page.screenshot({ path: path.join(dir, `${name}-viewport.png`), fullPage: false })
   await context.close()
 }
 
@@ -111,6 +113,17 @@ test.describe('screens', () => {
           await p.getByText('Copy with numbers').waitFor()
         }
       })
+      // The hide control exists on phones only (wide screens have no fixed bar).
+      if (width < 800) {
+        await shoot(browser, width, 'editor-bar-hidden', `/draft/${editorId}`, {
+          token: owner,
+          ready: (p) => p.locator('.draft-title-input'),
+          before: async (p) => {
+            await p.getByRole('button', { name: 'Hide toolbar' }).click()
+            await p.getByRole('button', { name: 'Show toolbar' }).waitFor()
+          }
+        })
+      }
 
       // Preview page and share page each need their own one-use share token.
       const previewToken = (await apiJson<{ token: string }>(request, owner, 'POST', `/api/drafts/${editorId}/share-tokens`)).token
