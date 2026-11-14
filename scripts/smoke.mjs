@@ -257,14 +257,19 @@ if (draft) {
 
     // Timing and encoding of a list read (plan P1). Not a pass or fail step: it never fails the run.
     if (token) {
-      const started = performance.now()
-      const res = await fetch(`${base}/api/drafts?published=false&limit=10`, {
-        headers: headers({ 'accept-encoding': 'gzip, br' }, '/api/drafts')
-      })
-      await res.arrayBuffer()
-      last = { ms: performance.now() - started, server: res.headers.get('server-timing') }
-      console.log(`ENCODING ${res.headers.get('content-encoding') ?? 'none'}`)
-      timing('list drafts')
+      try {
+        const started = performance.now()
+        const res = await fetch(`${base}/api/drafts?published=false&limit=10`, {
+          headers: headers({ 'accept-encoding': 'gzip, br' }, '/api/drafts')
+        })
+        await res.arrayBuffer()
+        last = { ms: performance.now() - started, server: res.headers.get('server-timing') }
+        console.log(`ENCODING ${res.headers.get('content-encoding') ?? 'none'}`)
+        timing('list drafts')
+      } catch (err) {
+        // A network or decoding error here must not fail the smoke run: the probe is informational.
+        console.log(`TIME list drafts unavailable (${err?.name ?? 'error'})`)
+      }
     }
 
     if (copy) await step('copy is a separate draft', async () => {
