@@ -1,0 +1,199 @@
+# Private drafts, timed share links, consent copy link, MCP summaries
+
+Written 2026-11-14 11:45 UTC. Tracker: epic issue #111. For an executor that follows instructions literally.
+
+## 1. Who does what
+
+| Role | Model | Job |
+|---|---|---|
+| Executor | Haiku | Does one task at a time, exactly as written in section 5. |
+| Judge | Opus | Reviews every pull request against the task's "Done when" list before merge. Answers `APPROVE` or `CHANGES` with a numbered list. |
+| Adviser | Opus | Answers every doubt. The executor asks Opus, never guesses and never asks Shaked a design question. |
+| Helper | Sonnet | Takes over one step when Haiku has failed the same step twice, or when a step needs code in more than three files at once. |
+
+Start a model with the Agent tool (`model: "haiku"`, `"opus"` or `"sonnet"`). Give it the task section, the files named in it and the diff. Opus does not decide owner-only matters (money, secrets, deleting data, product behaviour not written here); those go to the epic under "Needs from Shaked".
+
+## 2. Rules
+
+1. Read `AGENTS.md` first. After T0 merges, read it again.
+2. One task, one branch from the latest `main`, one pull request, one changelog file.
+3. Procedures P-PR, P-CODEX, P-CI, P-MERGE and P-PROD are in [hardening-finish.md](./hardening-finish.md) section 5. Use them unchanged. Where they say "ledger", use epic #111.
+4. Before P-MERGE, the judge (Opus) must answer `APPROVE` for the head commit. Record the verdict as one line in the pull request description.
+5. After each merge, update the task row in the body of #111 (PR number, state `merged`).
+6. A test that changes because the behaviour changed on purpose is fine. Say which test and why in the pull request. Never delete an assertion without a replacement.
+7. All checks in sections 5 and 6 run without a person: unit tests, API tests (`npm run test:api`), Playwright, the smoke script.
+
+## 3. State (checked 2026-11-14 on `main` at `503daee`)
+
+- `GET /api/drafts/:id` and `GET /api/drafts/:id/export` need no sign-in. Anyone who has a draft id reads the draft (`server/routes/drafts.js`, `getDraft` and `exportDraft`).
+- The "Share" button copies `/draft/<id>` (`src/components/ShareButton.jsx`).
+- `share_tokens` rows are one-time and never expire (`db/migrations/001_init.sql`, `server/routes/share.js`).
+- The consent page is server HTML with `default-src 'none'`, so no script runs (`server/oauth/consent.js`). With no session, `GET /api/oauth/authorize` redirects straight to GitHub (`server/routes/oauth.js`, `authorizeGet`).
+- MCP `list_drafts` returns every post of every draft. Post edit tools return the whole draft. Character counts are `text.length`.
+- Not checked: whether Grok, ChatGPT or Claude finish the OAuth flow when the consent page is opened in a different browser than the one that started it.
+
+## 4. Decisions (made; do not reopen)
+
+| # | Decision | By |
+|---|---|---|
+| D1 | A "Sign in to continue" page is shown before GitHub. It has the copy-link field. | Shaked, 2026-11-14 |
+| D2 | Share links are rows in `share_tokens` (not stateless signed URLs), so the owner can revoke one. | Shaked, 2026-11-14 ("yes" to the recommended option) |
+| D3 | Default lifetime 3600 seconds. The sharer chooses another value in the UI, the API or MCP. Allowed range: 60 seconds to 7 days (604800). | Shaked (default), agent (range) |
+| D4 | `list_drafts` returns summaries by default. Full posts on request. | Shaked, 2026-11-14 |
+| D5 | The "X Thread" and "Agent link" buttons keep making one-time links. Those links now also expire. | Agent (no behaviour is removed) |
+| D6 | Only the owner reads a draft by id. Anyone else, signed in or not, gets 404 (signed out: 401). | Shaked's request, 2026-11-14 |
+| D7 | A shared draft is shown with the existing read-only page `/x-thread-preview/<token>`. The read-only editor view for other people is removed. | Agent (smallest change) |
+| D8 | No text search tool, no drafts as MCP resources, no unpublish. | Agent |
+| D9 | Image files stay readable by their storage URL. Hiding them is not in this plan. | Agent |
+
+## 5. Tasks
+
+Do them in this order. T1 and T2 are the urgent ones: T1 closes the open read.
+
+### T0. Plan and rules on `main`
+1. Open a pull request from `claude/magical-mayer-56qob1` (this file, the index, the changelog).
+2. In the same pull request, replace `AGENTS.md` with the text in section 7.
+3. Done when: merged; #111 row T0 says `merged`.
+
+### T1. Drafts are private
+Files: `server/routes/drafts.js`, `src/pages/DraftEditor.jsx`, `src/components/ShareButton.jsx`, `tests/api/drafts.test.js`, `tests/api/router.test.js`, `server/openapi.js`, `docs/agents/api.md`, `public/llms.txt`, `docs/features/sharing-and-export.md`.
+1. `getDraft` and `exportDraft`: call `requireUser(request)` and add `and user_id = $2` to the query. No row: 404 `Draft not found`.
+2. `DraftEditor.jsx`: when the API answers 401, show "Sign in to open this draft" with the sign-in button. When it answers 404, show "Draft not found". Remove the code path that shows another person's draft read-only.
+3. Hide `ShareButton` until T2 replaces it (do not leave a button that copies a dead link).
+4. New test file `tests/api/tenant-isolation.test.js`: for every entry in `ROUTES` whose path contains `:id`, call it as a second user and as nobody against the first user's draft. Expected: 404 or 401, and the draft row is unchanged. A route that is public on purpose (`GET /share/:token`) is listed in the test by name with the reason.
+5. Update the docs and the OpenAPI text that say a draft is readable by id.
+6. Done when: the new test passes; `npm run test:api` and `npm run smoke` pass; a signed-out `GET /api/drafts/<id>` on the preview site returns 401.
+
+### T2. Share links that expire
+Files: `db/migrations/007_share_expiry.sql`, `server/routes/drafts.js`, `server/routes/share.js`, `server/mcp/tools.js`, `src/components/ShareButton.jsx`, `src/components/XThreadLinkButton.jsx`, `src/components/AgentLinkButton.jsx`, `src/utils/api.js`, `tests/api/share.test.js`, `tests/api/mcp-coverage.test.js`, `scripts/smoke.mjs`, docs as in T1.
+1. Migration 007 (additive, safe to run twice): `alter table share_tokens add column if not exists expires_at timestamptz`, `add column if not exists one_time boolean not null default true`.
+2. `POST /api/drafts/:id/share-tokens` accepts an optional JSON body `{ "expires_in": <seconds>, "one_time": <boolean> }`. `expires_in`: integer, 60 to 604800, default `SHARE_LINK_TTL_SECONDS` from the environment or 3600. `one_time`: default `true`. Out of range: 400. Answer: `{ token, expires_at, one_time }`.
+3. `GET /api/share/:token`: the link works only when `coalesce(expires_at, created_at + interval '1 hour') > now()`. A one-time link also needs `used = false` and is consumed in the same `UPDATE` as today. A reusable link only sets `used_at`. Otherwise 410, same page as today, with the text "This link has expired or was already used."
+4. New route `DELETE /api/drafts/:id/share-tokens/:token`: owner only, deletes the row, 204. Not the owner or no row: 404.
+5. MCP: `create_share_link` gets optional `expires_in` and `one_time` and returns `expires_at`. New tool `revoke_share_link { id, token }`. Add both to `META`, `REST_ROUTES` and `TRIGGERS` so the coverage and language tests pass.
+6. UI: the "Share" button comes back. It opens a small menu "Link valid for: 15 minutes, 1 hour (default), 1 day, 7 days", creates a reusable link (`one_time: false`) and copies `<origin>/x-thread-preview/<token>`. Tooltip: "Link copied. It stops working in <lifetime>." The other two buttons send no body and say "works once, within 1 hour".
+7. Tests: expiry (set `expires_at` in the past in the test database), reusable link read twice, one-time link read twice, out-of-range `expires_in`, revoke, revoke by another user.
+8. Done when: those tests pass; smoke passes; on the preview site a link made with `expires_in: 60` returns 200, and 410 after 61 seconds (GitHub Actions step, no person).
+
+### T3. Copy link on the consent and sign-in pages
+Files: `server/oauth/consent.js`, `server/routes/oauth.js`, `tests/api/oauth.test.js`, `tests/api/mcp-clients.test.js`, `tests/e2e/screens.spec.ts`, `docs/agents/mcp.md`.
+1. In `authorizeGet`, build `link = <base>/api/oauth/authorize?<the validated parameters without __path>`.
+2. `consentPage` gets `link`. Under the buttons add: the text "Wrong browser? Copy this link and open it in the browser where you are signed in.", a read-only `<input>` with the escaped link, and a "Copy link" button.
+3. The copy script is one fixed inline string. Compute its SHA-256 once at module load and add `script-src 'sha256-<hash>'` to `consentHeaders`. Nothing else in the policy changes. The page must still work with scripts off (the input can be selected by hand).
+4. No session: instead of the redirect, answer 200 with a new `signInPage({ link, loginUrl })`: the heading "Sign in to continue", a "Continue with GitHub" link to the same `/api/auth/login?return_to=...` address as today, and the same copy-link block.
+5. Tests: the policy header contains exactly one script hash and it matches the script; the link in the page equals the request address; a parameter with `"<>&` is escaped; no session gives the sign-in page with the login link; a Playwright test clicks "Copy link" and reads the clipboard.
+6. Done when: tests pass; the screenshot job shows both pages at 390 px wide; Opus has checked that the policy change allows no other script.
+
+### T4. Summaries and outline
+Files: new `server/draft-stats.js`, `server/routes/drafts.js`, `server/mcp/tools.js`, `server/openapi.js`, `server/mcp/skills.js`, `server/mcp/prompts.js`, tests `tests/api/drafts.test.js`, `tests/api/mcp.test.js`, `tests/api/mcp-contract.test.js`, docs.
+1. `server/draft-stats.js` exports `summarize(draft)`: `{ id, title, is_published, updated_at, published_at, version, post_count, total_chars, over_limit_count, image_count }`, and `outline(draft)`: the summary plus `posts: [{ id, index, chars, remaining, over_limit, image_count, preview }]`. `preview` is the first 40 characters. The limit is 280.
+2. REST: `GET /api/drafts?view=summary` returns `{ drafts: [summary] }`. Without `view`, the answer is unchanged. New `GET /api/drafts/:id/outline` (owner only).
+3. MCP: `list_drafts` gets `detail: "summary" | "full"`, default `"summary"`. New read-only tool `get_draft_outline { id }`. Update the tool descriptions: "Use get_draft_outline to count posts and characters. Use get_draft only when you need the text."
+4. Update the skill and prompt text that tell the model to call `list_drafts` or `get_draft` for counting.
+5. Done when: tests pass; a test proves the summary answer for a draft with 25 full posts is under 600 bytes.
+
+### T5. Short results from post edit tools
+Files: `server/mcp/tools.js`, MCP tests.
+1. `add_post`, `update_post`, `remove_post`, `move_post`, `remove_image`, `add_image_from_url` return `{ draft: outline(draft), url }` instead of the full draft. `version` stays in the result, because the next edit needs it.
+2. `create_draft`, `update_draft`, `create_thread_from_text`, `duplicate_draft` return the outline too. `get_draft` is the one tool that returns full text.
+3. Done when: contract tests are updated and pass; Opus confirms no client contract test (M11 suite) lost an assertion.
+
+### T6. Character counts follow the X rules
+Files: new `src/utils/xLength.js`, `src/utils/threadSplitter.js`, the editor counter component, `server/draft-stats.js`, `server/routes/threads.js`, unit tests.
+1. Ask Opus first: use the `twitter-text` package (`parseTweet(text).weightedLength`) or a small local function. Record the answer in #111.
+2. `xLength(text)` returns the X weighted length: a URL counts 23, an emoji counts 2, Latin and Hebrew letters count 1.
+3. Use it in the editor counter, in `splitIntoThreads`, in `chars` of `POST /api/threads/split` and in `draft-stats.js`.
+4. Tests: Hebrew text, a long URL, an emoji with a skin tone, a 280-character Hebrew post that must not be split.
+5. Done when: unit and API tests pass; the Playwright screen test shows the counter for a post with a URL.
+
+### T7. Finish
+1. `docs/agents/mcp.md`, `docs/agents/api.md`, `public/llms.txt`, `docs/features/sharing-and-export.md` describe the final behaviour.
+2. `docs/plans/current.md`: move this plan to "Completed".
+3. Run section 6. Write the evidence in #111, set the plan state to DONE, close #111.
+
+## 6. Finished when
+
+- Signed out, `GET /api/drafts/<id>` and `/export` return 401 on the preview site and on production (smoke test).
+- `tests/api/tenant-isolation.test.js` is in the required unit test job and passes.
+- A share link stops working after its lifetime and after a revoke (API tests and one deployed check).
+- The consent page and the sign-in page have a working "Copy link" (Playwright).
+- `list_drafts` returns summaries; `get_draft_outline` exists (MCP contract tests).
+- Every task row in #111 is `merged` or `dropped`, and #111 is closed.
+
+## 7. New `AGENTS.md` (T0 copies this text)
+
+```markdown
+# Agents
+
+## Using the product as an agent
+
+The app is fully usable through a JSON API with a personal API token. Start with `/llms.txt`
+or `/api/openapi.json`, and read [docs/agents/api.md](./docs/agents/api.md). The tests in
+levels 1 and 2 run in any sandbox, without a person.
+
+## Working in this repo
+
+Read this at the start of every session and after every context summary.
+
+### Work
+- Read the task's plan section in full. Do the next step only.
+- Check a fact before you state it (`date -u`, the PR, the check, the log). Otherwise say "not checked".
+- Smallest change that does the job. One task per PR. Branch from the latest `main`.
+- Never commit with `--no-verify`. Never skip, disable or weaken a test. Never print or commit a secret.
+- Never `sleep`-poll. Schedule one wake-up and end the turn.
+- A test must run without a person. If it needs someone to sign in or click, redesign it.
+
+### Models
+- The plan names who executes (default: Haiku). Opus judges every PR before merge.
+- In doubt, ask Opus. Do not guess, and do not ask Shaked a design question.
+- Use Sonnet when Haiku failed the same step twice or the step is too large for it.
+- Opus does not decide owner-only matters: money, secrets, deleting data, product behaviour.
+- Say in your reply which model did what.
+
+### Trackers
+- One GitHub issue per plan (an epic). It lists the tasks, the decisions with dates, and what
+  is needed from Shaked. Close it when the plan is done. Never reuse it for other work.
+- Record every decision Shaked makes in the epic, with the date. A "continue" is not an approval.
+
+### Talking to Shaked
+- First line: what is done. Then what is not done and why. Then the one thing that unblocks it.
+- Simple technical English. Short sentences. No internal labels (D-14, P-CODEX, O8) unless the
+  same line says what the label means.
+- Ask only what Shaked alone can decide. Decide the rest yourself and say what you chose.
+- Write each question so it can be answered without reading anything else:
+  1. What is being decided, in one sentence, in terms of what a user sees.
+  2. Each option: what happens if Shaked picks it.
+  3. Your recommendation and the reason.
+  4. The exact reply to send ("Reply: keep" or "Reply: merge").
+  5. What happens if nobody answers.
+- When Shaked must do something by hand: what to click, where (link), and what it unblocks.
+  Say which automated route you checked and why it does not work.
+- Number tasks and PRs (`T2`, `#76`), and add two or three words that say what the item is.
+
+### Codex review
+- Codex answers in 2 to 3 minutes, as a PR comment. Check after 3 minutes, ask again at 10,
+  treat it as silent at 15.
+- The `Codex review` check stays red while any Codex thread is unresolved. When the fix is on
+  the head, reply on the thread and resolve it.
+
+### Repo specifics
+- Merges to `main` are merge commits, never squash. Update a stacked branch by merging `main` into it.
+- Every PR adds `docs/changelogs/<UTC YYYYMMDD-HHMMSS>-<slug>.md` (1 to 5 lines).
+- The pre-commit hook runs build and unit tests: `npm ci` once, then commit normally.
+- A test file under `tests/api/` starts with `// @vitest-environment node`.
+- GitHub work goes through the GitHub MCP tools; `gh` only for search. Every comment ends with
+  the Claude Code footer.
+- Deployed checks run in GitHub Actions or with Vercel's fetch tool on
+  `https://x-thread-draft-tool-preview.vercel.app`. Never fetch production with it.
+- Current plan: [docs/plans/private-drafts-share-links.md](./docs/plans/private-drafts-share-links.md), epic #111.
+```
+
+## 8. Starting prompt for the executor session
+
+```
+Read AGENTS.md, then docs/plans/private-drafts-share-links.md sections 1 to 4.
+Read epic #111 and find the first task that is not merged. Do that task only, as section 5 says.
+You are the coordinator: give the coding to a Haiku agent, the review to an Opus agent,
+and every doubt to an Opus agent. Use a Sonnet agent when Haiku fails a step twice.
+Do not ask Shaked design questions. Owner-only items go to #111 under "Needs from Shaked".
+```
