@@ -13,6 +13,7 @@
 - [performance.md](./performance.md): make MCP and REST faster (measure first, then fewer SQL round trips and a lighter cold start). Tasks P0 to P9, epic #114. Not started.
 - [private-drafts-share-links.md](./private-drafts-share-links.md): drafts readable only by their owner, share links that expire (default 1 hour), a copy-link field on the consent and sign-in pages, MCP summaries and outline. Tasks T0 to T7 and T3a, T3b-1, T3b-2, epic #111. In progress: T0 to T2 are in production; T3b-1 is in review.
 - [mobile-width.md](./mobile-width.md): the editor fits a phone once embedded tweets load, and embeds cannot widen the page. Task W1 (epic #125).
+- [mcp-apps.md](./mcp-apps.md): thread and drafts views shown inside Claude and ChatGPT (MCP Apps). Tasks 0 to 9, epic #127. Started; read-only views first, write buttons held, real embedded tweets later (T8).
 - Done except parked items: [post-migration-hardening.md](./post-migration-hardening.md) (Tasks 0–7: audit fixes, CI gates, Codex gate, light UI, OIDC and MCP connector). Parked: 1.2, 2.4, 4, 7.9. Runbook: [hardening-finish.md](./hardening-finish.md).
 - Finish the Supabase → Neon/Blob migration: run `data-migrate.yml` (dry run, then apply), smoke-test Preview and Production, then retire Supabase after 14 days (Phase 4 of [vercel-migration.md](./vercel-migration.md)).
 - Increase regression tests around publish/archive and share-link error paths.
