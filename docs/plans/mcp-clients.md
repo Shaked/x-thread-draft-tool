@@ -471,7 +471,7 @@ M13a does not depend on M13 (like M7).
 3. A failing result is a server bug: report to the orchestrator (P-OPUS); fix in its own PR before M14. Frame B.
 
 ### M13a. Hebrew and X/Twitter trigger text (Task 13a)
-1. New `server/mcp/language.js`: `FORBIDDEN_TEXT = /[​-‏‪-‮⁠-⁩﻿]/` and `isCleanServerText(s)` → true iff `s === s.normalize('NFC')`, `Buffer.from(s,'utf8').toString('utf8') === s` (no lone surrogates), and `!FORBIDDEN_TEXT.test(s)`. Reused by M14/M15.
+1. New `server/mcp/language.js`: `FORBIDDEN_TEXT = /[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/` and `isCleanServerText(s)` → true iff `s === s.normalize('NFC')`, `Buffer.from(s,'utf8').toString('utf8') === s` (no lone surrogates), and `!FORBIDDEN_TEXT.test(s)`. Reused by M14/M15.
 2. `server/mcp/tools.js`: `TRIGGERS = { name: [english, hebrew] }` next to META; `listTools()` builds description = base + ` Also: ${en}, on X/Twitter. Hebrew: ${he} (X/טוויטר).` + CONTENT_NOTE (S-6 sentence stays last; mcp.test.js:288 unchanged). `publish_draft` English becomes: "Mark one of your drafts as published in this app. It posts nothing to X/Twitter. This deletes its images and clears them from the posts." (D-25).
 | Tool | Also | Hebrew |
 |---|---|---|
