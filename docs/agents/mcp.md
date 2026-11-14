@@ -4,6 +4,11 @@ X Thread Draft Tool has an MCP connector at `https://x-thread-draft-tool.vercel.
 An AI app that supports MCP can read and change your drafts through it. You approve the
 connection once, on the sign-in page, and you can disconnect it at any time.
 
+The approval page greets you by your GitHub login and has a read-only link with a Copy link button.
+AI apps often open it in an in-app browser; copy the link and open it in your own browser instead
+(opening it in another browser is supported). A signed-out visitor sees a "Sign in to continue" page
+with the same link field before GitHub.
+
 The connector only sees what you can see in the app. It runs as you, with the same drafts and the
 same limits as the web app.
 

@@ -1,0 +1,4 @@
+- The OAuth approval page greets the signed-in GitHub login and has a read-only link with a Copy link button (for opening it in another browser).
+- A signed-out visitor to the authorize link sees a "Sign in to continue" page with the same copy-link field, instead of a redirect to GitHub.
+- The consent and sign-in pages allow one script, the copy script, by SHA-256 hash. Nothing else runs.
+- Dev API: `POST /api/dev/session` returns a browser session cookie (Playwright only). Test: `tests/e2e/consent-copy.spec.ts`.
