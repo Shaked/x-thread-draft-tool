@@ -13,3 +13,4 @@ This index tracks current implementation and maintenance plans.
 - [Performance: measure, then remove round trips and cold-start work (epic #114)](./performance.md)
 - [Bottom bar, Export menu and sign-out on every page (T3b-1, T3b-2 of the share-links plan)](./bottom-bar.md)
 - [Admin tools for the owner only, over MCP (epic #117)](./admin.md)
+- [Mobile width: the editor fits a phone, embeds cannot widen the page (epic #125)](./mobile-width.md)
