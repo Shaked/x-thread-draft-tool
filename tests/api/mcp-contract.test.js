@@ -315,6 +315,22 @@ describe('contract: summaries and outline', () => {
     const outline = await bodyJson(await mcp(tokens.access_token, 'tools/call', { name: 'get_draft_outline', arguments: { id: draft.id } }))
     expect(outline.result.structuredContent.draft.posts[0]).toMatchObject({ index: 1, chars: 2, remaining: 278 })
   })
+
+  it('a post edit answers with the outline and the version, and get_draft still returns the text (T5)', async () => {
+    const draft = await db.insertDraft(alice.id, { title: 'Short result', posts: [{ id: 'p1', text: 'hi', images: [], embeddedTweet: null }] })
+    const { tokens } = await signIn({ redirectUri: 'http://127.0.0.1/callback' })
+    const edited = await bodyJson(
+      await mcp(tokens.access_token, 'tools/call', { name: 'update_post', arguments: { id: draft.id, post_id: 'p1', text: 'edited' } })
+    )
+    expect(edited.result.isError).not.toBe(true)
+    const { draft: outlined, url } = edited.result.structuredContent
+    expect(outlined).toMatchObject({ id: draft.id, post_count: 1, version: expect.any(Number) })
+    expect(outlined.posts[0]).toMatchObject({ id: 'p1', chars: 6 })
+    expect(outlined.posts[0].text).toBeUndefined()
+    expect(url).toMatch(/\/draft\//)
+    const read = await bodyJson(await mcp(tokens.access_token, 'tools/call', { name: 'get_draft', arguments: { id: draft.id } }))
+    expect(read.result.structuredContent.draft.posts[0].text).toBe('edited')
+  })
 })
 
 describe('contract: tool schemas', () => {

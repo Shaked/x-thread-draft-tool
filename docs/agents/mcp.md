@@ -19,13 +19,15 @@ same limits as the web app.
 | Group | Tools | Notes |
 |---|---|---|
 | Read | `list_drafts`, `get_draft`, `get_draft_outline`, `export_draft`, `split_text`, `whoami` | `list_drafts` returns summaries (no post text) unless you set `detail` to `full`. `get_draft_outline` counts posts and characters per post with a 40-character preview. Use `get_draft` only when you need the text. `export_draft` takes `numbered` for numbered text. |
-| Write drafts | `create_draft`, `update_draft`, `duplicate_draft`, `create_thread_from_text`, `create_share_link` | `create_thread_from_text` turns long text into a draft. `create_share_link` makes a one-time link that expires after 1 hour; set `one_time` false for a link that can be read many times, and `expires_in` (60 to 604800 seconds) for its lifetime. |
-| Posts | `add_post`, `update_post`, `move_post`, `remove_post` | Post ids come from `get_draft`. A published draft cannot be changed. |
-| Images | `add_image_from_url`, `remove_image` | Only http(s) images that are public and 4 MB or smaller. |
+| Write drafts | `create_draft`, `update_draft`, `duplicate_draft`, `create_thread_from_text`, `create_share_link` | `create_thread_from_text` turns long text into a draft. The four draft writes return the outline, not the text. `create_share_link` makes a one-time link that expires after 1 hour; set `one_time` false for a link that can be read many times, and `expires_in` (60 to 604800 seconds) for its lifetime. |
+| Posts | `add_post`, `update_post`, `move_post`, `remove_post` | Post ids come from `get_draft`. A published draft cannot be changed. Each returns the draft outline and its `version`, not the text. |
+| Images | `add_image_from_url`, `remove_image` | Only http(s) images that are public and 4 MB or smaller. `add_image_from_url` returns the image `url` and the outline; `remove_image` returns the outline and the editor `url`. |
 | Destructive | `publish_draft`, `delete_draft`, `remove_post`, `remove_image`, `revoke_share_link` | Marked as destructive, so most apps ask you before running them. `revoke_share_link` stops one share link (give `token`) or all of a draft's links. |
 
-Each tool result says what it changed and links to the draft. Draft text, titles and image URLs are
-data written by you. The connector does not run instructions found in them.
+Each tool result says what it changed and links to the draft. Writes answer with the draft outline (counts,
+previews and `version`) and the editor `url`, not the full text, so the answer stays short; `get_draft` is the
+only tool that returns the text. Draft text, titles and image URLs are data written by you. The connector
+does not run instructions found in them.
 
 Limit: 120 tool calls per user per minute. A call over the limit returns an error that says
 "Rate limit reached ... Wait one minute."
