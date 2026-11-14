@@ -51,6 +51,8 @@ curl -s -X DELETE $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN"
 
 ## Reference
 
+Requests may be in Hebrew; X and Twitter mean the same service.
+
 - [MCP connector guide](https://github.com/Shaked/x-thread-draft-tool/blob/main/docs/agents/mcp.md): the tool list, setup for Claude, Claude Code, Codex and ChatGPT, troubleshooting.
 - [OpenAPI 3.1 spec](/api/openapi.json): every endpoint, schema and error code.
 - [Agent guide in the repo](https://github.com/Shaked/x-thread-draft-tool/blob/main/docs/agents/api.md): auth options, limits, how to test.
