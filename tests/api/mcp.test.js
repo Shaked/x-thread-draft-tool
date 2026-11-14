@@ -307,11 +307,12 @@ describe('tools/call', () => {
     )
     expect(created.body.result.isError).toBe(false)
     const draft = created.body.result.structuredContent.draft
-    expect(draft.user_id).toBe(alice.id)
     expect(draft.title).toBe('Launch')
 
+    // The create result is the outline (T5): the owner check is made on the full draft from get_draft.
     const read = await call(modernPost('tools/call', { name: 'get_draft', arguments: { id: draft.id } }, { token }))
     expect(read.body.result.isError).toBe(false)
+    expect(read.body.result.structuredContent.draft.user_id).toBe(alice.id)
     expect(read.body.result.structuredContent.draft.posts[0].text).toBe('Hello')
 
     const list = await call(modernPost('tools/call', { name: 'list_drafts', arguments: { published: false } }, { token }))
@@ -420,10 +421,13 @@ describe('M4 tools', () => {
     const token = await accessToken(alice)
     const text = 'This is one sentence of the thread. '.repeat(30)
     const res = await call(modernPost('tools/call', { name: 'create_thread_from_text', arguments: { title: 'T', text } }, { token }))
-    const draft = res.body.result.structuredContent.draft
-    expect(draft.posts.length).toBeGreaterThan(1)
-    expect(draft.posts.every((post) => post.text.length <= 280 && post.id)).toBe(true)
-    expect(draft.url).toBe(`${APP_URL}/draft/${draft.id}`)
+    const { draft, url } = res.body.result.structuredContent
+    expect(draft.post_count).toBeGreaterThan(1)
+    expect(draft.posts.every((post) => post.chars <= 280 && post.id)).toBe(true)
+    expect(url).toBe(`${APP_URL}/draft/${draft.id}`)
+    // The post text is read with get_draft, the one tool that returns it (T5).
+    const read = await call(modernPost('tools/call', { name: 'get_draft', arguments: { id: draft.id } }, { token }))
+    expect(read.body.result.structuredContent.draft.posts.every((post) => post.text.length <= 280 && post.id)).toBe(true)
   })
 
   it('remove_image and add_image_from_url treat another user\'s draft as not found', async () => {
@@ -462,7 +466,10 @@ describe('M4 tools', () => {
     await insertDraft(alice, [{ id: 'p2', text: 'b', images, embeddedTweet: null }], 'Duplicate')
     const token = await accessToken(alice)
     const res = await call(modernPost('tools/call', { name: 'remove_image', arguments: { draftId: first, url } }, { token }))
-    expect(res.body.result.structuredContent).toEqual({ removed: true, deleted: false })
+    const { draft: outlined, url: link, ...flags } = res.body.result.structuredContent
+    expect(flags).toEqual({ removed: true, deleted: false })
+    expect(outlined.id).toBeTruthy()
+    expect(link).toBe(`${APP_URL}/draft/${outlined.id}`)
     const { rows } = await db.pg.query('select posts from drafts where id = $1', [first])
     expect(rows[0].posts[0].images).toEqual([])
   })
@@ -484,7 +491,10 @@ describe('M4 remove_image reference rules (Codex findings on 5c79609)', () => {
     await insertDraft(alice, [{ id: 'p2', text: 'b', images: [url], embeddedTweet: null }], 'String form')
     const token = await accessToken(alice)
     const res = await call(modernPost('tools/call', { name: 'remove_image', arguments: { draftId: first, url } }, { token }))
-    expect(res.body.result.structuredContent).toEqual({ removed: true, deleted: false })
+    const { draft: outlined, url: link, ...flags } = res.body.result.structuredContent
+    expect(flags).toEqual({ removed: true, deleted: false })
+    expect(outlined.id).toBeTruthy()
+    expect(link).toBe(`${APP_URL}/draft/${outlined.id}`)
   })
 
   it('removes a string-form image from the draft and does not try to delete a file the caller does not own', async () => {
@@ -493,7 +503,10 @@ describe('M4 remove_image reference rules (Codex findings on 5c79609)', () => {
     const token = await accessToken(alice)
     const res = await call(modernPost('tools/call', { name: 'remove_image', arguments: { draftId: draft, url } }, { token }))
     expect(res.body.result.isError).toBe(false)
-    expect(res.body.result.structuredContent).toEqual({ removed: true, deleted: false })
+    const { draft: outlined, url: link, ...flags } = res.body.result.structuredContent
+    expect(flags).toEqual({ removed: true, deleted: false })
+    expect(outlined.id).toBeTruthy()
+    expect(link).toBe(`${APP_URL}/draft/${outlined.id}`)
     const { rows } = await db.pg.query('select posts from drafts where id = $1', [draft])
     expect(rows[0].posts[0].images).toEqual([])
   })
@@ -629,5 +642,37 @@ describe('summaries and outline over MCP', () => {
     const other = await call(modernPost('tools/call', { name: 'get_draft_outline', arguments: { id: bobDraft.id } }, { token }))
     expect(other.body.result.isError).toBe(true)
     expect(other.body.result.content[0].text).toContain('Draft not found')
+  })
+})
+
+describe('T5 short results from post edit tools', () => {
+  const versionOf = async (id) => (await db.pg.query('select version from drafts where id = $1', [id])).rows[0].version
+
+  it('update_post on a 25-post draft answers under 4000 bytes, with the outline and the version', async () => {
+    const token = await accessToken(alice)
+    const draft = await db.insertDraft(alice.id, { title: 'Long thread', posts: fullPosts() })
+    const res = await route(modernPost('tools/call', { name: 'update_post', arguments: { id: draft.id, post_id: 'p3', text: 'Edited' } }, { token }))
+    const { result } = await res.json()
+    expect(result.isError).toBe(false)
+    expect(bytes(result.content[0].text)).toBeLessThan(4000)
+    const { draft: outlined, url } = result.structuredContent
+    expect(outlined).toMatchObject({ id: draft.id, post_count: 25, version: await versionOf(draft.id) })
+    expect(outlined.posts[2]).toMatchObject({ id: 'p3', index: 3, chars: 6, preview: 'Edited' })
+    expect(url).toBe(`${APP_URL}/draft/${draft.id}`)
+    expect(result.content[0].text).not.toContain('x'.repeat(280))
+    const read = await call(modernPost('tools/call', { name: 'get_draft', arguments: { id: draft.id } }, { token }))
+    expect(read.body.result.structuredContent.draft.posts[2].text).toBe('Edited')
+  })
+
+  it('add_post, move_post and remove_post answer with the outline, the version and the editor link', async () => {
+    const token = await accessToken(alice)
+    const draft = await db.insertDraft(alice.id, { title: 'Three', posts: fullPosts(3) })
+    const added = await call(modernPost('tools/call', { name: 'add_post', arguments: { id: draft.id, text: 'new', post_id: 'n1' } }, { token }))
+    expect(added.body.result.structuredContent.draft).toMatchObject({ post_count: 4, version: await versionOf(draft.id) })
+    const moved = await call(modernPost('tools/call', { name: 'move_post', arguments: { id: draft.id, post_id: 'p1', position: 4 } }, { token }))
+    expect(moved.body.result.structuredContent.draft.posts.map((post) => post.id)).toEqual(['p2', 'p3', 'n1', 'p1'])
+    const removed = await call(modernPost('tools/call', { name: 'remove_post', arguments: { id: draft.id, post_id: 'p2' } }, { token }))
+    expect(removed.body.result.structuredContent.draft).toMatchObject({ post_count: 3, version: await versionOf(draft.id) })
+    expect(removed.body.result.structuredContent.url).toBe(`${APP_URL}/draft/${draft.id}`)
   })
 })
