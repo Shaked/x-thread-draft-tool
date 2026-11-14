@@ -209,4 +209,18 @@ describe('SDK client against the in-process server', () => {
     await exerciseMcp(client, transport)
     await client.close()
   })
+
+  it('prompts: listPrompts, getPrompt, and an unknown name is -32602', async () => {
+    const provider = makeProvider()
+    await signIn(provider)
+    const { client } = await connect(provider)
+    expect(client.getServerCapabilities()?.prompts).toBeTruthy()
+    const { prompts } = await client.listPrompts()
+    expect(prompts.map((p) => p.name)).toEqual(['thread_from_notes', 'tighten_draft', 'review_before_publish', 'rewrite_hook'])
+    const got = await client.getPrompt({ name: 'thread_from_notes', arguments: { notes: 'שלום עולם' } })
+    expect(got.messages[0].role).toBe('user')
+    expect(got.messages[0].content.text).toContain('שלום עולם')
+    await expect(client.getPrompt({ name: 'no_such_prompt' })).rejects.toMatchObject({ code: -32602 })
+    await client.close()
+  })
 })

@@ -4,9 +4,6 @@
 // github.com/modelcontextprotocol/modelcontextprotocol, schema/<version>/schema.json, at main
 // commit 0175d20f8b2c49e0402c37c37ed39ae2be47277e. The files have no $id, so each is registered
 // under its own key. No network in tests; strict mode is off for the spec files only.
-import { readFileSync } from 'node:fs'
-import Ajv2020 from 'ajv/dist/2020'
-import addFormats from 'ajv-formats'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn(async () => {}) }))
@@ -14,27 +11,11 @@ vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn
 import { route } from '../../server/router.js'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { APP_URL, setupTestDb } from './helpers/db.js'
+import { expectValid } from './helpers/mcp-schema.js'
 
 const MCP = `${APP_URL}/api/mcp`
 const MODERN = '2026-07-28'
 const LEGACY = '2025-11-25'
-
-const ajv = new Ajv2020({ strict: false, allErrors: true })
-addFormats(ajv)
-for (const version of [MODERN, LEGACY]) {
-  const file = new URL(`./fixtures/mcp-schema/${version}.schema.json`, import.meta.url)
-  ajv.addSchema(JSON.parse(readFileSync(file, 'utf8')), `mcp-${version}`)
-}
-
-/** Fails with every Ajv error (def, instancePath, message) when `value` is not a valid `def`. */
-function expectValid(version, def, value) {
-  const validate = ajv.getSchema(`mcp-${version}#/$defs/${def}`)
-  if (!validate) throw new Error(`no ${def} in the ${version} schema`)
-  const ok = validate(value)
-  const errors = (validate.errors ?? []).map((e) => `${def} ${e.instancePath || '/'}: ${e.message}`)
-  expect(errors, JSON.stringify(value)).toEqual([])
-  expect(ok).toBe(true)
-}
 
 let db
 let alice

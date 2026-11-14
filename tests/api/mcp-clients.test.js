@@ -200,6 +200,11 @@ describe.each(PROFILES)('client profile: $name', (profile) => {
     expect(init.result.protocolVersion).toBe(profile.version)
     const tools = await mcp(profile.version, tokens.access_token, 'tools/list')
     expect(tools.result.tools.map((t) => t.name)).toContain('list_drafts')
+    if (profile.name === 'claude-code') {
+      // Claude Code lists prompts at connect time and shows them as /mcp__<server>__<name>.
+      const prompts = await mcp(profile.version, tokens.access_token, 'prompts/list')
+      expect(prompts.result.prompts.map((p) => p.name)).toContain('thread_from_notes')
+    }
     const first = await mcp(profile.version, tokens.access_token, 'tools/call', { name: 'list_drafts', arguments: {} })
     expect(first.result.isError).not.toBe(true)
 
