@@ -598,6 +598,23 @@ describe('M5 post tools', () => {
     expect(res.isError).toBe(true)
     expect(res.content[0].text).toMatch(/at most 280/)
   })
+
+  it('a post whose 300-character URL counts 23 is accepted', async () => {
+    const draft = await insertPosts(alice, base())
+    const token = await accessToken(alice)
+    const url = `https://example.com/${'a'.repeat(280)}`
+    expect(url.length).toBeGreaterThan(280)
+    const res = await toolCall(token, 'add_post', { id: draft, text: url })
+    expect(res.isError).toBe(false)
+  })
+
+  it('141 CJK characters (X weight 282) are refused by the MCP argument schema', async () => {
+    const draft = await insertPosts(alice, base())
+    const token = await accessToken(alice)
+    const res = await toolCall(token, 'add_post', { id: draft, text: '字'.repeat(141) })
+    expect(res.isError).toBe(true)
+    expect(res.content[0].text).toMatch(/at most 280 characters as X counts them/)
+  })
 })
 
 const fullPosts = (n = 25) => Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, text: 'x'.repeat(280), images: [], embeddedTweet: null }))

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import ImageUpload from './ImageUpload'
+import { xLength } from '../utils/xLength.js'
 
 const EmojiPicker = lazy(() => import('./EmojiPicker'))
 const TweetEmbed = lazy(() => import('./TweetEmbed'))
@@ -24,7 +25,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   // The stored index can point past the end after a removal; clamp it here rather than in an effect.
   const imageIndex = images.length > 0 ? Math.min(currentImageIndex, images.length - 1) : currentImageIndex
   const embeddedTweet = post?.embeddedTweet || null
-  const charCount = text.length
+  const charCount = xLength(text)
   const isOverLimit = charCount > MAX_CHARS
 
   const detectRTL = (text) => {

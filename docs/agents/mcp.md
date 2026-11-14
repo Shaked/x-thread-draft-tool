@@ -38,7 +38,7 @@ X and Twitter mean the same service, and the connector says so in every tool des
 server instructions. A post is also called a tweet (ציוץ, פוסט), a thread a שרשור and a draft a טיוטה.
 Tool names stay in English; each description adds Hebrew trigger words, so a request in Hebrew finds
 the same tools. The app answers in the language you write in and keeps Hebrew text exactly as typed
-(niqqud and direction marks included). Post length is counted in characters, 280 per post, as in the app.
+(niqqud and direction marks included). Post length uses the X rules, 280 per post, as in the app: a URL counts 23, an emoji counts 2, Hebrew and Latin letters count 1.
 
 | Hebrew request | Tool |
 |---|---|

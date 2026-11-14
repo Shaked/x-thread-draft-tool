@@ -90,6 +90,13 @@ describe('POST /api/threads/split', () => {
     for (const post of posts) expect(post.chars).toBeLessThanOrEqual(100)
   })
 
+  it('counts chars with the X rules: a URL is 23, an emoji is 2', async () => {
+    const text = `see https://example.com/${'a'.repeat(200)} ${'😀'.repeat(3)}`
+    const res = await route(apiRequest('/api/threads/split', { method: 'POST', body: { text } }))
+    const { posts } = await res.json()
+    expect(posts).toEqual([{ text, chars: 4 + 23 + 1 + 6 }])
+  })
+
   it('validates text and max_chars', async () => {
     const noText = await route(apiRequest('/api/threads/split', { method: 'POST', body: { text: 5 } }))
     expect(noText.status).toBe(400)

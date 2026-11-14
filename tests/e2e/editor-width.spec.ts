@@ -41,7 +41,7 @@ test.afterAll(async () => {
   await api.dispose()
 })
 
-async function openEditor(browser: Browser, viewport: { width: number; height: number }) {
+async function openEditor(browser: Browser, viewport: { width: number; height: number }, id = draftId) {
   const context: BrowserContext = await browser.newContext({ viewport, deviceScaleFactor: 2, serviceWorkers: 'block' })
   const bearer = `Bearer ${token}`
   await context.route(`${ORIGIN}/**`, (route) => {
@@ -54,7 +54,7 @@ async function openEditor(browser: Browser, viewport: { width: number; height: n
     route.fulfill({ status: 200, contentType: 'application/javascript', body: WIDGET_STUB })
   )
   const page: Page = await context.newPage()
-  await page.goto(`${BASE}/draft/${draftId}`)
+  await page.goto(`${BASE}/draft/${id}`)
   await page.locator('.draft-title-input').waitFor()
   return { context, page }
 }
@@ -62,6 +62,22 @@ async function openEditor(browser: Browser, viewport: { width: number; height: n
 async function scrollWidth(page: Page) {
   return page.evaluate(() => document.documentElement.scrollWidth)
 }
+
+// The counter uses the X rules: a URL counts 23, so 'see ' + URL + 200 letters shows 27/280 (src/utils/xLength.js).
+test('the post counter counts a URL as 23 characters', async ({ browser }) => {
+  const created = await api.post('/api/drafts', {
+    headers: { authorization: `Bearer ${token}` },
+    data: { title: 'Counter check', posts: [{ id: 'c1', text: `see https://example.com/${'a'.repeat(200)}`, images: [], embeddedTweet: null }] }
+  })
+  expect(created.ok()).toBeTruthy()
+  const id = (await created.json()).draft.id as string
+  const { context, page } = await openEditor(browser, DESKTOP, id)
+  try {
+    await expect(page.locator('.char-counter').first()).toHaveText('27/280')
+  } finally {
+    await context.close()
+  }
+})
 
 test.describe('editor width', () => {
   test('on a 390 px phone the page does not scroll sideways once the embed loads', async ({ browser }) => {

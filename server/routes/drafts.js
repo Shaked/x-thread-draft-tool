@@ -5,6 +5,7 @@ import { deleteBlobUrls } from '../blob.js'
 import { outline, summarize } from '../draft-stats.js'
 import { imageUrlsFrom, isOwnedBlobUrl } from '../draft-images.js'
 import { exportAsFormattedText, exportAsJSON, exportAsNumberedText, exportAsPlainText } from '../../src/utils/exportFormats.js'
+import { xLength } from '../../src/utils/xLength.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const COLUMNS = 'id, user_id, title, posts, is_published, published_at, created_at, updated_at, version'
@@ -231,8 +232,8 @@ async function patchPostText({ request, params }) {
   const session = await requireUser(request)
   const body = requireObject(await readJson(request))
   if (Object.keys(body).some((key) => key !== 'text')) throw new HttpError(400, 'Only text can be changed here')
-  if (typeof body.text !== 'string' || body.text.length > POST_TEXT_MAX) {
-    throw new HttpError(400, `text must be a string of at most ${POST_TEXT_MAX} characters`)
+  if (typeof body.text !== 'string' || body.text.length > 4000 || xLength(body.text) > POST_TEXT_MAX) {
+    throw new HttpError(400, `text must be a string of at most ${POST_TEXT_MAX} characters as X counts them`)
   }
   if (!isUuid(params.id)) throw notFound()
   const expected = ifMatchOf(request)

@@ -4,6 +4,7 @@ import { route } from '../router.js'
 import { isOwnedBlobUrl } from '../draft-images.js'
 import { json } from '../http.js'
 import { outline } from '../draft-stats.js'
+import { xLength } from '../../src/utils/xLength.js'
 import { runAs } from '../caller-context.js'
 import { randomUUID } from 'node:crypto'
 
@@ -11,12 +12,12 @@ const UUID = { type: 'string', format: 'uuid' }
 const TITLE = { type: 'string', maxLength: 500, description: 'Draft title, at most 500 characters.' }
 const POSTS = {
   type: 'array',
-  description: 'Posts in order. Each post text is at most 280 characters.',
+  description: 'Posts in order. Each post text is at most 280 characters as X counts them.',
   items: {
     type: 'object',
     properties: {
       id: { type: 'string' },
-      text: { type: 'string', maxLength: 280 },
+      text: { type: 'string', maxLength: 4000, xMaxLength: 280 },
       images: { type: 'array', maxItems: 4, items: { type: 'object', properties: { url: { type: 'string' } } } },
       embeddedTweet: { type: ['string', 'null'] }
     }
@@ -212,7 +213,7 @@ const TOOLS = [
   },
   {
     name: 'create_thread_from_text',
-    description: 'Turn long text into a thread draft: split it into posts (at most 280 characters each) and create the draft.' + RESULT_NOTE + CONTENT_NOTE,
+    description: 'Turn long text into a thread draft: split it into posts (at most 280 characters each, as X counts them) and create the draft.' + RESULT_NOTE + CONTENT_NOTE,
     inputSchema: {
       type: 'object',
       properties: { text: { type: 'string' }, title: TITLE, max_chars: { type: 'integer', minimum: 20, maximum: 1000 } },
@@ -254,7 +255,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         id: UUID,
-        text: { type: 'string', maxLength: 280 },
+        text: { type: 'string', maxLength: 4000, xMaxLength: 280 },
         after_post_id: { type: 'string' },
         post_id: {
           type: 'string',
@@ -287,7 +288,7 @@ const TOOLS = [
       properties: {
         id: UUID,
         post_id: { type: 'string' },
-        text: { type: 'string', maxLength: 280 },
+        text: { type: 'string', maxLength: 4000, xMaxLength: 280 },
         version: { type: 'integer', minimum: 1, description: 'The draft version from get_draft. The change is refused if the draft changed since.' }
       },
       required: ['id', 'post_id', 'text']
@@ -434,6 +435,9 @@ function describe(name, base) {
   return `${head} Also: ${en}, on X/Twitter. Hebrew: ${he} (X/טוויטר).${hasNote ? CONTENT_NOTE : ''}`
 }
 
+// xMaxLength (X weighted limit) is checked here, not by JSON Schema, so clients get a plain schema without it.
+const publicSchema = (schema) => JSON.parse(JSON.stringify(schema, (key, value) => (key === 'xMaxLength' ? undefined : value)))
+
 export function listTools() {
   return TOOLS.map(({ name, description, inputSchema }) => {
     const [title, readOnlyHint, destructiveHint, idempotentHint, openWorldHint] = META[name]
@@ -441,7 +445,7 @@ export function listTools() {
       name,
       title,
       description: describe(name, description),
-      inputSchema,
+      inputSchema: publicSchema(inputSchema),
       annotations: { readOnlyHint, destructiveHint, idempotentHint, openWorldHint }
     }
   })
@@ -524,6 +528,7 @@ function stringLengthProblem(prop, value) {
   if (typeof value !== 'string') return null
   if (prop.minLength !== undefined && value.length < prop.minLength) return `at least ${prop.minLength} character`
   if (prop.maxLength !== undefined && value.length > prop.maxLength) return `at most ${prop.maxLength} characters`
+  if (prop.xMaxLength !== undefined && xLength(value) > prop.xMaxLength) return `at most ${prop.xMaxLength} characters as X counts them`
   if (prop.pattern !== undefined && !new RegExp(prop.pattern).test(value)) return `must match ${prop.pattern}`
   return null
 }

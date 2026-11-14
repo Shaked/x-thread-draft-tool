@@ -1,0 +1,1 @@
+- T6: docs and OpenAPI give the post limits as 4000 characters, or 280 as X counts them; the emoji matcher falls back to a u-flag pattern on Safari 16 and older.

@@ -1,5 +1,6 @@
 import { HttpError, json, readJson } from '../http.js'
 import { splitIntoThreads } from '../../src/utils/threadSplitter.js'
+import { xLength } from '../../src/utils/xLength.js'
 
 const MAX_BODY_BYTES = 100 * 1024
 
@@ -13,7 +14,7 @@ async function splitThread({ request }) {
   if (!Number.isInteger(maxChars) || maxChars < 20 || maxChars > 1000) {
     throw new HttpError(400, 'max_chars must be an integer from 20 to 1000')
   }
-  const posts = splitIntoThreads(body.text, maxChars).map((text) => ({ text, chars: text.length }))
+  const posts = splitIntoThreads(body.text, maxChars).map((text) => ({ text, chars: xLength(text) }))
   return json({ posts })
 }
 
