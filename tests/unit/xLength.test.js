@@ -40,6 +40,38 @@ describe('xLength (X weighted length)', () => {
   it('counts a post of 141 emoji as 282', () => {
     expect(xLength('😀'.repeat(141))).toBe(282)
   })
+
+  it('ends a URL at a closing paren that closes nothing (Codex review)', () => {
+    expect(xLength(`(https://example.com)${'a'.repeat(280)}`)).toBe(1 + 23 + 1 + 280)
+  })
+
+  it('keeps a balanced paren inside a URL, as in Wikipedia links', () => {
+    expect(xLength('https://en.wikipedia.org/wiki/Foo_(bar)')).toBe(23)
+    expect(xLength('https://en.wikipedia.org/wiki/Foo_(bar) tail')).toBe(23 + 5)
+  })
+
+  it('ends a URL at an angle bracket', () => {
+    expect(xLength(`<https://example.com>${'a'.repeat(10)}`)).toBe(1 + 23 + 1 + 10)
+  })
+
+  it('does not count "https://." as a URL', () => {
+    expect(xLength('https://.')).toBe(9)
+  })
+
+  it('counts a 100 KB URL and a 100 KB hostile paren run quickly (Codex review)', () => {
+    const hostile = [`https://a${'('.repeat(50000)}`, `https://a${'a('.repeat(50000)}`, `https://${'(a'.repeat(50000)}`]
+    for (const text of [`https://example.com/${'a'.repeat(100000)}`, ...hostile]) {
+      const start = performance.now()
+      xLength(text)
+      expect(performance.now() - start).toBeLessThan(500)
+    }
+  })
+
+  it('counts a 100 KB text quickly', () => {
+    const start = performance.now()
+    expect(xLength('a'.repeat(100000))).toBe(100000)
+    expect(performance.now() - start).toBeLessThan(500)
+  })
 })
 
 describe('splitIntoThreads with X weighted length', () => {
@@ -60,6 +92,24 @@ describe('splitIntoThreads with X weighted length', () => {
   it('keeps each chunk within the limit for emoji text', () => {
     const chunks = splitIntoThreads('😀 '.repeat(200))
     expect(chunks.length).toBeGreaterThan(1)
+    for (const chunk of chunks) expect(xLength(chunk)).toBeLessThanOrEqual(280)
+  })
+
+  it('splits a 100 KB text with URLs quickly and keeps each URL whole (Codex review)', () => {
+    const url = `https://example.com/${'a'.repeat(100000)}`
+    const start = performance.now()
+    const chunks = splitIntoThreads(`${'see '.repeat(100)}${url}`)
+    expect(performance.now() - start).toBeLessThan(500)
+    expect(chunks.some((chunk) => chunk.includes(url))).toBe(true)
+    for (const chunk of chunks) expect(xLength(chunk)).toBeLessThanOrEqual(280)
+  })
+
+  it('splits 100 KB of short URLs quickly and loses no word (Codex review)', () => {
+    const text = 'https://a.co/x '.repeat(6500)
+    const start = performance.now()
+    const chunks = splitIntoThreads(text)
+    expect(performance.now() - start).toBeLessThan(500)
+    expect(chunks.join(' ').split(/\s+/)).toEqual(text.trim().split(/\s+/))
     for (const chunk of chunks) expect(xLength(chunk)).toBeLessThanOrEqual(280)
   })
 
