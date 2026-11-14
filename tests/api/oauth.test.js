@@ -8,6 +8,7 @@ import { route } from '../../server/router.js'
 import { resolveAccess } from '../../server/oauth/tokens.js'
 import { setMetadataResolverForTests } from '../../server/oauth/clients.js'
 import { safeReturnTo } from '../../server/routes/auth.js'
+import { sealDecision } from '../../server/oauth/consent.js'
 import { apiRequest, setupTestDb, APP_URL } from './helpers/db.js'
 
 const MCP = `${APP_URL}/api/mcp`
@@ -448,6 +449,97 @@ describe('POST /oauth/authorize', () => {
       origin: 'https://evil.example'
     })
     expect(res.status).toBe(403)
+  })
+})
+
+describe('POST /oauth/logout (consent page: Not you? Sign out)', () => {
+  async function consentFor(cookie, options = {}) {
+    const clientId = await registerClient()
+    const page = await get(`/api/oauth/authorize?${authorizeQuery(clientId, { challenge: pkce().challenge, ...options })}`, { cookie })
+    const html = await page.text()
+    return { clientId, html, requestToken: html.match(/name="request" value="([^"]+)"/)[1] }
+  }
+  const signOut = (requestToken, opts = {}) =>
+    post('/api/oauth/logout', new URLSearchParams({ request: requestToken }).toString(), opts)
+
+  it('the consent page has a second plain form for sign-out with the signed request', async () => {
+    const { html, requestToken } = await consentFor(aliceCookie)
+    expect(html).toContain('<form class="not-you" method="post" action="/api/oauth/logout">')
+    expect(html).toContain('Not you?<button type="submit">Sign out</button>')
+    expect(html.split(`name="request" value="${requestToken}"`)).toHaveLength(3)
+  })
+
+  it('ends the session and redirects to a path on this server, built from the signed request', async () => {
+    const { clientId, requestToken } = await consentFor(aliceCookie, { state: 'keep me&x=1', resource: MCP })
+    const res = await signOut(requestToken, { cookie: aliceCookie })
+    expect(res.status).toBe(302)
+    expect(res.headers.get('set-cookie')).toMatch(/^xt_session=;.*Max-Age=0/)
+    expect(res.headers.get('location').startsWith('/api/oauth/authorize?')).toBe(true)
+    const location = new URL(res.headers.get('location'), APP_URL)
+    expect(location.origin).toBe(APP_URL)
+    expect(location.searchParams.get('client_id')).toBe(clientId)
+    expect(location.searchParams.get('redirect_uri')).toBe(LOCAL_REDIRECT)
+    expect(location.searchParams.get('state')).toBe('keep me&x=1')
+    expect(location.searchParams.get('resource')).toBe(MCP)
+    expect(location.searchParams.get('response_type')).toBe('code')
+    expect(location.searchParams.get('code_challenge_method')).toBe('S256')
+
+    // The old cookie is dead, and the address now shows the sign-in page.
+    expect((await get('/api/drafts?published=false', { cookie: aliceCookie })).status).toBe(401)
+    const next = await get(`${location.pathname}${location.search}`)
+    expect(next.status).toBe(200)
+    expect(await next.text()).toContain('Sign in to continue')
+  })
+
+  it('leaves out state and scope when the signed request has none, and ignores unsigned fields', async () => {
+    const { clientId } = await consentFor(aliceCookie)
+    const sealed = await sealDecision({
+      uid: alice.id,
+      client_id: clientId,
+      redirect_uri: LOCAL_REDIRECT,
+      code_challenge: pkce().challenge,
+      state: null,
+      scope: '',
+      resource: MCP
+    })
+    const body = new URLSearchParams({ request: sealed, redirect_uri: 'https://evil.example/', return_to: 'https://evil.example/', state: 'x', scope: 'y' })
+    const res = await post('/api/oauth/logout', body.toString(), { cookie: aliceCookie })
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location').startsWith('/api/oauth/authorize?')).toBe(true)
+    const location = new URL(res.headers.get('location'), APP_URL)
+    expect(location.searchParams.has('state')).toBe(false)
+    expect(location.searchParams.has('scope')).toBe(false)
+    expect(location.searchParams.get('redirect_uri')).toBe(LOCAL_REDIRECT)
+    expect(res.headers.get('location')).not.toContain('evil')
+  })
+
+  it('refuses a request from another session, a tampered one, one with no session, and a cross-origin post, never redirecting', async () => {
+    const { requestToken } = await consentFor(aliceCookie)
+    const bob = await db.insertUser({ github_id: 2, login: 'bob' })
+    const bobCookie = await db.cookieFor(bob)
+    const other = await signOut(requestToken, { cookie: bobCookie })
+    expect(other.status).toBe(403)
+    expect(other.headers.get('location')).toBeNull()
+    expect((await get('/api/drafts?published=false', { cookie: bobCookie })).status).toBe(200)
+
+    const tampered = await signOut(`${requestToken}x`, { cookie: aliceCookie })
+    expect(tampered.status).toBe(400)
+    expect(tampered.headers.get('location')).toBeNull()
+    expect((await signOut('not.a.jwt', { cookie: aliceCookie })).status).toBe(400)
+    expect((await post('/api/oauth/logout', '', { cookie: aliceCookie })).status).toBe(400)
+
+    const anonymous = await signOut(requestToken)
+    expect(anonymous.status).toBe(403)
+    expect(anonymous.headers.get('location')).toBeNull()
+
+    const cross = await signOut(requestToken, { cookie: aliceCookie, origin: 'https://evil.example' })
+    expect(cross.status).toBe(403)
+    expect((await get('/api/drafts?published=false', { cookie: aliceCookie })).status).toBe(200)
+  })
+
+  it('a consent decision is not a session: it cannot be used as a cookie', async () => {
+    const { requestToken } = await consentFor(aliceCookie)
+    expect((await get('/api/drafts?published=false', { cookie: `xt_session=${requestToken}` })).status).toBe(401)
   })
 })
 

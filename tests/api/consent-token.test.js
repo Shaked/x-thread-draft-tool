@@ -3,11 +3,12 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { openDecision, sealDecision } from '../../server/oauth/consent.js'
 import { createSession, readSession } from '../../server/session.js'
+import { setupTestDb } from './helpers/db.js'
 
 describe('consent decision token size', () => {
-  beforeAll(() => {
-    process.env.SESSION_SECRET = 'test-session-secret-0123456789-abcdefghijklmnop'
-    process.env.PUBLIC_APP_URL = 'https://app.test'
+  // readSession now checks revoked_sessions, so a valid session cookie needs the test database.
+  beforeAll(async () => {
+    await setupTestDb()
   })
 
   it('opens a token built from four maximum-length accepted fields', async () => {

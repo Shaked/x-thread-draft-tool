@@ -1,7 +1,7 @@
 import { query } from '../db.js'
 import { fetchGithubUser, upsertGithubUser } from '../github-user.js'
 import { HttpError, cookie, json, parseCookies } from '../http.js'
-import { authenticate, clearSessionCookie, createSession, sessionCookie } from '../session.js'
+import { authenticate, clearSessionCookie, createSession, readSession, revokeSession, sessionCookie } from '../session.js'
 
 const STATE_COOKIE = 'xt_oauth_state'
 const RETURN_COOKIE = 'xt_oauth_return'
@@ -102,8 +102,10 @@ async function me({ request }) {
   return json({ user: rows[0] ?? null, auth: rows[0] ? caller.via : null })
 }
 
-/** POST /api/auth/logout */
-async function logout() {
+/** POST /api/auth/logout: ends this browser's session on the server (not API tokens or AI apps), then clears the cookie. */
+async function logout({ request }) {
+  const session = await readSession(request)
+  if (session) await revokeSession(session)
   return json({ ok: true }, 200, { 'set-cookie': clearSessionCookie() })
 }
 
