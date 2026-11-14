@@ -1,4 +1,5 @@
 import pg from 'pg'
+import { noteConnect, noteQuery } from './perf.js'
 
 let pool = null
 let impl = null
@@ -18,13 +19,25 @@ function getPool() {
   return pool
 }
 
+/** Times one statement for the [perf] line (perf.js). `fresh` means it opened a connection. */
+async function counted(fresh, run) {
+  const start = performance.now()
+  try {
+    return await run()
+  } finally {
+    noteQuery(performance.now() - start, fresh)
+  }
+}
+
 /**
  * Runs one parameterised statement and resolves to `{ rows }`.
  * Uses a lazily created pool with a single connection per function instance.
  */
 export async function query(text, params = []) {
-  if (impl) return impl(text, params)
-  return getPool().query(text, params)
+  if (impl) return counted(false, () => impl(text, params))
+  // Read before getPool(), which creates the pool: a pool with no idle client opens a new connection.
+  const fresh = pool === null || pool.totalCount === 0
+  return counted(fresh, () => getPool().query(text, params))
 }
 
 /**
@@ -36,29 +49,38 @@ export async function query(text, params = []) {
 export async function transaction(fn) {
   if (impl) {
     const run = implTail.then(async () => {
-      await impl('BEGIN', [])
+      const q = (text, params = []) => counted(false, () => impl(text, params))
+      await q('BEGIN', [])
       try {
-        const result = await fn(impl)
-        await impl('COMMIT', [])
+        const result = await fn(q)
+        await q('COMMIT', [])
         return result
       } catch (err) {
-        await impl('ROLLBACK', []).catch(() => {})
+        await q('ROLLBACK', []).catch(() => {})
         throw err
       }
     })
     implTail = run.catch(() => {})
     return run
   }
-  const client = await getPool().connect()
+  // Read before connect(): an idle pool with no client opens a new connection (the cold path).
+  const fresh = pool === null || pool.totalCount === 0
+  const connectStart = performance.now()
+  let client
+  try {
+    client = await getPool().connect()
+  } finally {
+    noteConnect(performance.now() - connectStart, fresh)
+  }
   let broken = false
   try {
-    await client.query('BEGIN')
-    const result = await fn((text, params = []) => client.query(text, params))
-    await client.query('COMMIT')
+    await counted(false, () => client.query('BEGIN'))
+    const result = await fn((text, params = []) => counted(false, () => client.query(text, params)))
+    await counted(false, () => client.query('COMMIT'))
     return result
   } catch (err) {
     try {
-      await client.query('ROLLBACK')
+      await counted(false, () => client.query('ROLLBACK'))
     } catch {
       broken = true
     }

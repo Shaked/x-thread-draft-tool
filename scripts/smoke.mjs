@@ -45,14 +45,19 @@ function redact(text) {
   return out
 }
 
+// The last request of the current step: its client time and the server's Server-Timing header (plan P1).
+let last = null
+
 async function call(method, path, { body, expect = [200], accept, raw = false } = {}) {
   const init = { method, headers: headers(accept ? { accept } : {}, path) }
   if (body !== undefined) {
     init.body = JSON.stringify(body)
     init.headers['content-type'] = 'application/json'
   }
+  const started = performance.now()
   const response = await fetch(`${base}${path}`, init)
   const text = await response.text()
+  last = { ms: performance.now() - started, server: response.headers.get('server-timing') }
   if (!expect.includes(response.status)) {
     throw new Error(`${method} ${path} returned ${response.status}: ${redact(text).slice(0, 200)}`)
   }
@@ -60,16 +65,25 @@ async function call(method, path, { body, expect = [200], accept, raw = false } 
   return text ? JSON.parse(text) : {}
 }
 
+// One TIME line per step. Printed only; a missing value shows as none and never fails the run.
+function timing(name) {
+  const ms = last ? Math.round(last.ms) : 'none'
+  console.log(`TIME ${name} client_ms=${ms} server=${last?.server ?? 'none'}`)
+}
+
 const results = []
 async function step(name, fn) {
+  last = null
   try {
     const value = await fn()
     console.log(`PASS ${name}`)
     results.push(true)
+    timing(name)
     return value
   } catch (error) {
     console.log(`FAIL ${name}: ${redact(error.message)}`)
     results.push(false)
+    timing(name)
     return undefined
   }
 }
@@ -94,11 +108,15 @@ await step('openapi', async () => {
 
 // MCP connector, public (no account): the endpoint refuses a request without a token, and its
 // metadata names the resource and the authorization server (plan M9).
-const publicRequest = (path, init = {}) =>
-  fetch(`${base}${path}`, {
+const publicRequest = async (path, init = {}) => {
+  const started = performance.now()
+  const res = await fetch(`${base}${path}`, {
     ...init,
     headers: { ...(bypass ? { 'x-vercel-protection-bypass': bypass } : {}), ...(init.headers || {}) }
   })
+  last = { ms: performance.now() - started, server: res.headers.get('server-timing') }
+  return res
+}
 
 await step('mcp refuses a request without a token (401 with metadata link)', async () => {
   const res = await publicRequest('/api/mcp', {
@@ -236,6 +254,18 @@ if (draft) {
       await call('DELETE', `/api/drafts/${draft.id}/share-tokens/${hour.token}`, { expect: [204] })
       await call('GET', `/api/share/${hour.token}.md`, { expect: [410], raw: true })
     })
+
+    // Timing and encoding of a list read (plan P1). Not a pass or fail step: it never fails the run.
+    if (token) {
+      const started = performance.now()
+      const res = await fetch(`${base}/api/drafts?published=false&limit=10`, {
+        headers: headers({ 'accept-encoding': 'gzip, br' }, '/api/drafts')
+      })
+      await res.arrayBuffer()
+      last = { ms: performance.now() - started, server: res.headers.get('server-timing') }
+      console.log(`ENCODING ${res.headers.get('content-encoding') ?? 'none'}`)
+      timing('list drafts')
+    }
 
     if (copy) await step('copy is a separate draft', async () => {
       if (copy.id === draft.id) throw new Error('duplicate returned the same id')
