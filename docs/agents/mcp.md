@@ -43,12 +43,34 @@ the same tools. The app answers in the language you write in and keeps Hebrew te
 `publish_draft` only marks the draft as published in this app (and deletes its images). It posts
 nothing to X/Twitter. A request such as "לפרסם בטוויטר" does not post anything.
 
+## Slash commands (prompts)
+
+The connector offers four prompts. They are fixed text written by the server: building one reads no
+draft and calls no model. What you type into an argument is placed after the instructions, inside a
+fence, so it is treated as your text and not as instructions. Each prompt answers in the language you
+write in (Hebrew in, Hebrew out) and keeps Hebrew exactly as typed.
+
+| Prompt | Arguments | Does | Hebrew trigger |
+|---|---|---|---|
+| `thread_from_notes` | `notes` (required), `goal` | Rewrites notes as a thread and saves it with `create_draft` | לכתוב שרשור מהערות, להפוך רשימות לשרשור |
+| `tighten_draft` | `draft`, `max_chars` (20 to 280) | Shows shorter text as before and after, then `update_post` once you agree | לקצר טיוטה, לקצר ציוצים |
+| `review_before_publish` | `draft` | Lists problems with fixes. It does not publish or delete. | לבדוק שרשור לפני פרסום |
+| `rewrite_hook` | `draft`, `goal` | Offers three first posts, then `update_post` on the one you pick | לכתוב פתיח חדש, הוק לציוץ הראשון |
+
+`draft` is a draft id or its link in this app (`<app>/draft/<id>`). Without it, the model calls
+`list_drafts` and asks which draft. Prompts need the same access token as tools and do not count
+toward the 120 tool calls per minute.
+
+How to run them: Claude Code shows them as `/mcp__x-thread__<name>` (per its documentation; the
+part after `mcp__` is the name you gave the server). Other apps: not checked.
+
 ## What is not exposed, and why
 
 - **Creating and revoking access tokens, and disconnecting apps** (rule S-5). Only you do this, on the
   Settings page. An app cannot grant itself more access.
 - **Raw image upload** (rule D-5). Image bytes do not pass through the AI app. Use
   `add_image_from_url` with a public image URL.
+- **Resources, completions, sampling and UI widgets.** Only tools and the four prompts above.
 - **Sign-in and OAuth endpoints**. The connection signs you in with GitHub on its own.
 - **The public share link** (`GET /api/share/:token`). It is meant for a browser, not a tool.
 

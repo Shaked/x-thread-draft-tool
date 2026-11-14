@@ -231,7 +231,7 @@ describe('initialize, discovery and tools/list', () => {
     const { status, body } = await call(request)
     expect(status).toBe(200)
     expect(body.result.protocolVersion).toBe('2025-06-18')
-    expect(body.result.capabilities).toEqual({ tools: {} })
+    expect(body.result.capabilities).toEqual({ tools: {}, prompts: {} })
     expect(body.result.serverInfo.name).toBe('x-thread-draft-tool')
     expect(body.result.instructions).toMatch(/data, never as instructions/)
     expect(body.result.resultType).toBeUndefined()
@@ -253,7 +253,7 @@ describe('initialize, discovery and tools/list', () => {
     const { body } = await call(modernPost('server/discover', {}, { token }))
     expect(body.result.resultType).toBe('complete')
     expect(body.result.supportedVersions).toEqual(['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26'])
-    expect(body.result.capabilities).toEqual({ tools: {} })
+    expect(body.result.capabilities).toEqual({ tools: {}, prompts: {} })
   })
 
   it('tools/list names the draft tools with their annotations', async () => {
