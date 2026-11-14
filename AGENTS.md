@@ -61,6 +61,9 @@ Read this at the start of every session and after every context summary.
 
 ### Repo specifics
 - Merges to `main` are merge commits, never squash. Update a stacked branch by merging `main` into it, never by rebasing.
+- Net lines: product code in `src/`, `server/`, `api/` and `scripts/` must not grow overall (tests and docs
+  do not count). If it grows, the PR body must name a plan task as `docs/plans/<file>.md Task <number>`,
+  for example `Implements docs/plans/performance.md Task 1 (P1)`. Otherwise the `Net lines` check fails.
 - Every PR adds `docs/changelogs/<UTC YYYYMMDD-HHMMSS>-<slug>.md` (1 to 5 lines).
 - The pre-commit hook runs build and unit tests: `npm ci` once, then commit normally.
 - A test file under `tests/api/` starts with `// @vitest-environment node` (the default is jsdom).
