@@ -14,7 +14,7 @@ const TOOL_NAMES = [
   'list_drafts', 'get_draft', 'create_draft', 'update_draft', 'duplicate_draft', 'export_draft',
   'split_text', 'create_share_link', 'add_image_from_url', 'publish_draft', 'delete_draft',
   'whoami', 'create_thread_from_text', 'remove_image', 'add_post', 'update_post', 'remove_post', 'move_post',
-  'revoke_share_link'
+  'revoke_share_link', 'get_draft_outline'
 ]
 
 let db
@@ -293,8 +293,8 @@ describe('initialize, discovery and tools/list', () => {
     const token = await accessToken(alice)
     const { body } = await call(legacyPost({ jsonrpc: '2.0', id: 3, method: 'tools/list' }, { token }))
     // Behaviour changed (M4, M5): 18 tools; whoami, create_thread_from_text, remove_image and the four post tools are new.
-    // T2 adds revoke_share_link: 19 tools.
-    expect(body.result.tools).toHaveLength(19)
+    // T2 adds revoke_share_link: 19 tools. T4 adds get_draft_outline: 20 tools.
+    expect(body.result.tools).toHaveLength(20)
     expect(body.result.resultType).toBeUndefined()
   })
 })
@@ -584,5 +584,50 @@ describe('M5 post tools', () => {
     const res = await toolCall(token, 'add_post', { id: draft, text: 'a'.repeat(281) })
     expect(res.isError).toBe(true)
     expect(res.content[0].text).toMatch(/at most 280/)
+  })
+})
+
+const fullPosts = (n = 25) => Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, text: 'x'.repeat(280), images: [], embeddedTweet: null }))
+const bytes = (text) => new TextEncoder().encode(text).length
+
+describe('summaries and outline over MCP', () => {
+  it('list_drafts returns summaries by default and the posts with detail full', async () => {
+    const token = await accessToken(alice)
+    const draft = await db.insertDraft(alice.id, { title: 'Two posts', posts: [{ id: 'p1', text: 'hi', images: [], embeddedTweet: null }] })
+
+    const summary = await call(modernPost('tools/call', { name: 'list_drafts', arguments: { published: false } }, { token }))
+    expect(summary.body.result.isError).toBe(false)
+    const [row] = summary.body.result.structuredContent.drafts
+    expect(row).toMatchObject({ id: draft.id, title: 'Two posts', post_count: 1, total_chars: 2 })
+    expect(row.posts).toBeUndefined()
+
+    const full = await call(modernPost('tools/call', { name: 'list_drafts', arguments: { published: false, detail: 'full' } }, { token }))
+    expect(full.body.result.structuredContent.drafts[0].posts[0].text).toBe('hi')
+
+    const bad = await call(modernPost('tools/call', { name: 'list_drafts', arguments: { published: false, detail: 'some' } }, { token }))
+    expect(bad.body.result.isError).toBe(true)
+  })
+
+  it('a draft of 25 full posts answers the list summary in under 600 bytes', async () => {
+    const token = await accessToken(alice)
+    await db.insertDraft(alice.id, { title: 'Long thread', posts: fullPosts() })
+    const res = await route(modernPost('tools/call', { name: 'list_drafts', arguments: { published: false } }, { token }))
+    const { result } = await res.json()
+    expect(result.isError).toBe(false)
+    expect(bytes(result.content[0].text)).toBeLessThan(600)
+  })
+
+  it('get_draft_outline counts the posts for the owner and refuses another user', async () => {
+    const token = await accessToken(alice)
+    const draft = await db.insertDraft(alice.id, { title: 'Count me', posts: fullPosts(3) })
+    const out = await call(modernPost('tools/call', { name: 'get_draft_outline', arguments: { id: draft.id } }, { token }))
+    expect(out.body.result.isError).toBe(false)
+    expect(out.body.result.structuredContent.draft).toMatchObject({ post_count: 3, total_chars: 840, over_limit_count: 0 })
+    expect(out.body.result.structuredContent.draft.posts[2]).toMatchObject({ index: 3, chars: 280, remaining: 0, preview: 'x'.repeat(40) })
+
+    const bobDraft = await db.insertDraft(bob.id, { title: 'Bob only' })
+    const other = await call(modernPost('tools/call', { name: 'get_draft_outline', arguments: { id: bobDraft.id } }, { token }))
+    expect(other.body.result.isError).toBe(true)
+    expect(other.body.result.content[0].text).toContain('Draft not found')
   })
 })

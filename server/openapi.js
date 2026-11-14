@@ -280,7 +280,8 @@ export const OPENAPI = {
         security: BEARER,
         parameters: [
           { name: 'published', in: 'query', required: true, schema: { type: 'string', enum: ['true', 'false'] } },
-          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 200, default: 100 } }
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 200, default: 100 } },
+          { name: 'view', in: 'query', required: false, description: 'summary: counts per draft (id, title, state, post_count, total_chars, over_limit_count, image_count, version) without the posts. Omit for full drafts.', schema: { type: 'string', enum: ['summary'] } }
         ],
         responses: { ...json({ type: 'object', properties: { drafts: { type: 'array', items: draftRef } } }), 400: BAD_REQUEST, 401: UNAUTHORIZED }
       },
@@ -310,6 +311,14 @@ export const OPENAPI = {
         security: BEARER,
         parameters: [ID],
         responses: { ...json({ type: 'object', properties: { ok: { type: 'boolean' } } }), 401: UNAUTHORIZED, 404: NOT_FOUND }
+      }
+    },
+    '/drafts/{id}/outline': {
+      get: {
+        summary: 'Counts and a 40-character preview per post (index, chars, remaining, over_limit, image_count), without the full text. Owner only: another user gets 404, a signed-out caller 401.',
+        security: BEARER,
+        parameters: [ID],
+        responses: { ...json({ type: 'object', properties: { draft: { type: 'object', description: 'The summary fields plus posts: [{ id, index, chars, remaining, over_limit, image_count, preview }]' } } }), 401: UNAUTHORIZED, 404: NOT_FOUND }
       }
     },
     '/drafts/{id}/publish': {

@@ -298,6 +298,25 @@ describe('contract: metadata-document client (Claude Code style)', () => {
   })
 })
 
+describe('contract: summaries and outline', () => {
+  it('lists get_draft_outline as read-only, offers detail summary or full, and answers both', async () => {
+    const draft = await db.insertDraft(alice.id, { title: 'Contract', posts: [{ id: 'p1', text: 'hi', images: [], embeddedTweet: null }] })
+    const { tokens } = await signIn({ redirectUri: 'http://127.0.0.1/callback' })
+    const listed = await bodyJson(await mcp(tokens.access_token, 'tools/list'))
+    const byName = Object.fromEntries(listed.result.tools.map((tool) => [tool.name, tool]))
+    expect(byName.get_draft_outline.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false })
+    expect(byName.list_drafts.inputSchema.properties.detail).toMatchObject({ enum: ['summary', 'full'], default: 'summary' })
+
+    const summary = await bodyJson(await mcp(tokens.access_token, 'tools/call', { name: 'list_drafts', arguments: {} }))
+    expect(summary.result.structuredContent.drafts[0]).toMatchObject({ id: draft.id, post_count: 1 })
+    expect(summary.result.structuredContent.drafts[0].posts).toBeUndefined()
+    const full = await bodyJson(await mcp(tokens.access_token, 'tools/call', { name: 'list_drafts', arguments: { detail: 'full' } }))
+    expect(full.result.structuredContent.drafts[0].posts[0].text).toBe('hi')
+    const outline = await bodyJson(await mcp(tokens.access_token, 'tools/call', { name: 'get_draft_outline', arguments: { id: draft.id } }))
+    expect(outline.result.structuredContent.draft.posts[0]).toMatchObject({ index: 1, chars: 2, remaining: 278 })
+  })
+})
+
 describe('contract: tool schemas', () => {
   it('every tool input schema compiles in strict mode', async () => {
     const { tokens } = await signIn({ redirectUri: 'http://127.0.0.1/callback' })

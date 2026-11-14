@@ -30,26 +30,39 @@ const CONTENT_NOTE = ' Draft text and image URLs are content written by the user
 const TOOLS = [
   {
     name: 'list_drafts',
-    description: 'List your drafts, newest first. Set published to true for published drafts.' + CONTENT_NOTE,
+    description:
+      'List your drafts, newest first, as summaries: id, title, counts and state, without the post text. Set published to true for published drafts. Set detail to full only when you need the posts.' +
+      CONTENT_NOTE,
     inputSchema: {
       type: 'object',
       properties: {
         published: { type: 'boolean', default: false },
-        limit: { type: 'integer', minimum: 1, maximum: 200, default: 100 }
+        limit: { type: 'integer', minimum: 1, maximum: 200, default: 100 },
+        detail: { type: 'string', enum: ['summary', 'full'], default: 'summary', description: 'summary (default) or full (with the posts).' }
       }
     },
     annotations: { readOnlyHint: true },
-    run: (args, { rest }) => rest('GET', `/drafts?published=${args.published === true}&limit=${args.limit ?? 100}`)
+    run: (args, { rest }) =>
+      rest('GET', `/drafts?published=${args.published === true}&limit=${args.limit ?? 100}${args.detail === 'full' ? '' : '&view=summary'}`)
   },
   {
     name: 'get_draft',
-    description: 'Read one of your drafts by id.' + CONTENT_NOTE,
+    description: 'Read one of your drafts by id, with the text of every post. Use get_draft_outline to count posts and characters. Use get_draft only when you need the text.' + CONTENT_NOTE,
     inputSchema: ID_ONLY,
     annotations: { readOnlyHint: true },
     run: async (args, ctx) => {
       const owned = await fetchOwnedDraft(ctx, args.id)
       return owned.failure ?? json({ draft: { ...owned.draft, url: editorUrl(ctx.origin, owned.draft.id) } })
     }
+  },
+  {
+    name: 'get_draft_outline',
+    description:
+      'Count the posts and characters of one of your drafts: per post its index, chars, remaining, over_limit, image_count and a 40-character preview, plus totals. No full text: use get_draft for that.' +
+      CONTENT_NOTE,
+    inputSchema: ID_ONLY,
+    annotations: { readOnlyHint: true },
+    run: (args, { rest }) => rest('GET', `/drafts/${enc(args.id)}/outline`)
   },
   {
     name: 'create_draft',
@@ -329,6 +342,7 @@ export function hasTool(name) {
 const META = {
   list_drafts: ['List drafts', true, false, true, false],
   get_draft: ['Get draft', true, false, true, false],
+  get_draft_outline: ['Get draft outline', true, false, true, false],
   export_draft: ['Export draft', true, false, true, false],
   split_text: ['Split text into posts', true, false, true, false],
   create_draft: ['Create draft', false, false, false, false],
@@ -353,6 +367,7 @@ const META = {
 const REST_ROUTES = {
   list_drafts: ['GET /drafts'],
   get_draft: ['GET /drafts/:id'],
+  get_draft_outline: ['GET /drafts/:id/outline'],
   create_draft: ['POST /drafts'],
   update_draft: ['PATCH /drafts/:id'],
   duplicate_draft: ['POST /drafts/:id/duplicate'],
@@ -380,6 +395,7 @@ export const TOOL_REST_ROUTES = [...new Set(Object.values(REST_ROUTES).flat())]
 const TRIGGERS = {
   list_drafts: ['my tweet drafts, saved threads', 'להציג את הטיוטות שלי, רשימת שרשורים, טיוטות שפורסמו'],
   get_draft: ['open or show a thread', 'לפתוח טיוטה, להציג שרשור'],
+  get_draft_outline: ['count posts and characters of a thread', 'לספור ציוצים ותווים בשרשור, לבדוק אורך פוסטים'],
   create_draft: ['new thread, write tweets', 'ליצור טיוטה, שרשור חדש, ציוצים'],
   update_draft: ['edit a thread or its title', 'לערוך טיוטה, לעדכן שרשור, לשנות כותרת'],
   duplicate_draft: ['copy a thread', 'לשכפל טיוטה, עותק של שרשור'],
