@@ -2,7 +2,7 @@
 
 Epic: #127. State: STARTED.
 
-Written 2026-11-14 UTC. Plan file: `docs/plans/mcp-apps.md`. Tracker: a new epic issue (number set in Task 0). For an executor that follows instructions literally.
+Written 2026-11-14 UTC. Plan file: `docs/plans/mcp-apps.md`. Tracker: epic #127. For an executor that follows instructions literally.
 
 Owner request (Shaked, 2026-11-14): "Render UI components in Claude and in ChatGPT for the tools and use cases we have so far, using MCP Resources / MCP Apps. For example render how the thread looks for a specific draft, or the list of drafts, including embedded tweets and images. Suggest more."
 
@@ -68,21 +68,21 @@ From OpenAI's docs as quoted by search results (developers.openai.com was not re
 | D2 | Views are JS modules under `server/mcp/ui/` that export one HTML string each, built at module load from shared parts (bridge, CSS, render functions). Client functions are real functions in `server/mcp/ui/client.js`, inlined with `Function.prototype.toString()`, so the same code is unit-tested in jsdom and shipped. No runtime file read (same rule as skills, D-17). | Testable, no build step, Vercel bundles it like any module. |
 | D3 | Each view URI carries a content hash: `ui://x-thread/thread.html?v=<sha256 first 12 hex>`. `resources/read` accepts only the exact current URI. | Hosts cache templates; a new HTML gets a new URI, so a stale cached view is never paired with new data. |
 | D4 | `resourceDomains` holds exactly one host, the production Blob store host (`https://<store>.public.blob.vercel-storage.com`), never the wildcard `*.public.blob.vercel-storage.com` (that would let any Vercel customer's file load as a script source). Images on any other host show as a link chip, not as an image. | Images work; script sources stay closed. |
-| D5 | Embedded tweets show as a card with the tweet URL, the "@handle / status id" text and an "Open on X" button (`ui/open-link`). X's `widgets.js` is not loaded (until Q1 says otherwise). | No third-party script, no `frameDomains`, X learns nothing from a view. |
+| D5 | Embedded tweets show as a card with the tweet URL, the "@handle / status id" text and an "Open on X" button (`ui/open-link`). X's `widgets.js` is not loaded (the Q1 default applies unless Shaked changes it). | No third-party script, no `frameDomains`, X learns nothing from a view. |
 | D6 | Views link to the existing tools Shaked named: thread view to `get_draft`, `split_text`, `create_thread_from_text`, `create_draft`; drafts list view to `list_drafts`. No new model-visible tool. | His words: "for the tools we have so far". If the cards are too noisy (a card on every `get_draft` while the model edits), Task 9 lists it for him; the fix is a new `show_thread` tool and unlinking `get_draft`. |
-| D7 | Views are read-only, except opening links (`ui/open-link`) and, in the drafts list, opening one draft's thread view by calling `get_draft` through the host (`tools/call`, a read). Write buttons wait for Q2. | Safe first; the host confirms each link. |
+| D7 | Views are read-only, except opening links (`ui/open-link`) and, in the drafts list, opening one draft's thread view by calling `get_draft` through the host (`tools/call`, a read). Write buttons wait for Q2; the read-only default applies unless Shaked changes it. | Safe first; the host confirms each link. |
 | D8 | `get_draft` results get `_meta["x-thread/outline"]` = `outline(draft)` from `server/draft-stats.js` (counts per post). `list_drafts` results get `_meta["x-thread/editorBase"]` = `<origin>/draft/`. `content` and `structuredContent` do not change. | One source of character counts (it follows private-drafts T6 automatically); no client-side copy of the X counting rules. |
 | D9 | Theme: `hostContext.theme`, then `prefers-color-scheme`. Host `styles.variables` are used when present, with our own light and dark values as fallback. Text direction: `dir="auto"` on every title and post text, `unicode-bidi: plaintext`. | Hebrew, English and mixed text render in the right order in both themes. |
 | D10 | Private-drafts D8 ("no drafts as MCP resources") stands: views are static templates with no user data; user data reaches a view only inside the tool result of the signed-in user. | Same privacy model as the tools. |
-| D11 | Production check: the deployed smoke test cannot call MCP (state, last bullet). Default (until Q3 is answered): a public, read-only `GET /api/mcp/ui-manifest` returns `[{uri, mimeType, sha256, size}]` for each view, no HTML, and the smoke step compares it with the hashes the checked-out commit computes. | Proves production serves this commit's views and URIs, without opening MCP to unsigned requests. |
+| D11 | Production check: the deployed smoke test cannot call MCP (state, last bullet). Default (applies unless Shaked changes Q3): a public, read-only `GET /api/mcp/ui-manifest` returns `[{uri, mimeType, sha256, size}]` for each view, no HTML, and the smoke step compares it with the hashes the checked-out commit computes. | Proves production serves this commit's views and URIs, without opening MCP to unsigned requests. |
 
 ## 5. Tasks
 
-Order: Task 0, 1, 2, 3, 4, 5, 6, then 9. Task 7 is held (Q2: read-only first). Task 8 (real tweets, T8) comes after the card ships (Q1). Start after the current plan's (epic #111) open tasks are merged or after Shaked says to start, because private-drafts T5 also edits `server/mcp/tools.js`.
+Order: Task 0, 1, 2, 3, 4, 5, 6, then 9. Task 7 is held (Q2: read-only first). Task 8 (real tweets, T8) comes after the card ships (Q1). Starts after #111 tasks T5 to T7 for the tasks that edit server/mcp/tools.js (Task 4); other tasks may start earlier.
 
 ### Task 0. Plan on `main` (Haiku, docs only)
 Files: `docs/plans/mcp-apps.md` (this file), `docs/plans/index.md`, `docs/plans/current.md`, `AGENTS.md` ("Current plan" line, only when #111 is closed), changelog.
-1. Open the epic issue: tasks 0 to 9 as rows, decisions D1 to D11 with date, "Needs from Shaked" with Q1 to Q3 from section 7. Put its number in this file's header.
+1. The epic #127 is open; keep its task table up to date.
 2. Done when: merged; the epic row Task 0 says `merged`.
 
 ### Task 1. View plumbing, bridge and a minimal thread view (Sonnet; ships dark)
@@ -168,21 +168,21 @@ Files: new `server/mcp/ui/share.js`, `server/mcp/ui/index.js`, `server/mcp/tools
 Q1. Embedded tweets inside the chat view. What the user sees: a draft post that quotes a tweet shows either a simple card with the link, or the real tweet as on X.
 - A: card with the link and an "Open on X" button. Nothing loads from X.
 - B: the real tweet. The view loads X's script and frame, so X sees that this person viewed that tweet, and some hosts may block it (Claude limits embedded frames for unlisted connectors).
-- Recommendation: A, because it needs no third-party script and works in every host. If nobody answers, A (Task 8 is skipped).
-- Decision (Shaked, 2026-11-14): A first. Shaked wants embedded tweets, so B (real tweets) comes later as Task 8 (T8).
+- Recommendation: A, because it needs no third-party script and works in every host. Default: A first (card), then Task 8 (real tweets) follows after the card version works.
+- Default chosen by the agent, 2026-11-14 (Shaked can change it): A first. Shaked wants embedded tweets, so B (real tweets) comes later as Task 8 (T8).
 
 Q2. Buttons that change things inside the views. What the user sees: the views only show and open links, or they also have "Create share link" and "Stop this link" buttons.
 - A: read-only views first (open links, view a thread from the list).
 - B: add the two share buttons (Task 7). Each click may still show the host's own confirm.
 - Recommendation: A first, then B after you have seen the views. If nobody answers, A (Task 7 is skipped).
-- Decision (Shaked, 2026-11-14): A. Read-only first. Task 7 (write buttons) is held until Shaked says to start it.
+- Default chosen by the agent, 2026-11-14 (Shaked can change it): A. Read-only first. Task 7 (write buttons) is held until Shaked says to start it.
 
 Q3. How a robot checks the views on production. The deployed smoke test cannot sign in to MCP (an MCP sign-in needs a person on the consent page).
 - A: a public address `/api/mcp/ui-manifest` lists each view's name and fingerprint, no HTML and no user data. The smoke test compares it with the commit.
 - B: the MCP server answers `resources/list` and `resources/read` for the static views and the skill file without sign-in. Anyone can read the view code (it holds no user data); the smoke test reads the real MCP answer.
 - C: no production check beyond today's; the views are checked only before merge.
 - Recommendation: A, because it keeps every MCP request signed in and still proves production. If nobody answers, A.
-- Decision (Shaked, 2026-11-14): A, the public hash manifest (`/api/mcp/ui-manifest`, see D11).
+- Default chosen by the agent, 2026-11-14 (Shaked can change it): A, the public hash manifest (`/api/mcp/ui-manifest`, see D11).
 
 One thing Shaked can do by hand (optional, not blocking): after Task 4 is on production, open a chat in Claude (claude.ai, connector "x-thread-draft-tool" on) and in ChatGPT (developer mode connector), ask "show my draft <title>", click "Allow", and say in the epic whether the thread card appeared. Automated route checked: the official `AppBridge` test (Task 1) runs our view in a real browser, but no robot can sign in to claude.ai or chatgpt.com.
 
