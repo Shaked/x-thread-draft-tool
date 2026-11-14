@@ -57,7 +57,7 @@ describe('PATCH /api/drafts/:id', () => {
     expect(res.status).toBe(200)
     expect((await res.json()).draft.version).toBe(2)
     expect(res.headers.get('etag')).toBe('"2"')
-    const got = await route(apiRequest(`/api/drafts/${draft.id}`))
+    const got = await route(apiRequest(`/api/drafts/${draft.id}`, { cookie: aliceCookie }))
     expect(got.headers.get('etag')).toBe('"2"')
   })
 

@@ -286,9 +286,10 @@ export const OPENAPI = {
     },
     '/drafts/{id}': {
       get: {
-        summary: 'Read a draft by id (public: anyone with the id). The ETag header is the draft version, for example "3".',
+        summary: 'Read a draft by id (owner only: another user gets 404, a signed-out caller 401). The ETag header is the draft version, for example "3".',
+        security: BEARER,
         parameters: [ID],
-        responses: { ...json({ type: 'object', properties: { draft: draftRef } }), 404: NOT_FOUND }
+        responses: { ...json({ type: 'object', properties: { draft: draftRef } }), 401: UNAUTHORIZED, 404: NOT_FOUND }
       },
       patch: {
         summary: 'Update title and/or posts (owner only). One transaction; sending what the draft already holds is a 200 with no write; a stale If-Match is 412. Every write bumps version and returns an ETag.',
@@ -322,11 +323,13 @@ export const OPENAPI = {
     },
     '/drafts/{id}/export': {
       get: {
-        summary: 'Export a draft as JSON, plain text, or numbered text. Public, like GET by id.',
+        summary: 'Export a draft as JSON, plain text, or numbered text. Owner only, like GET by id.',
+        security: BEARER,
         parameters: [ID, { name: 'format', in: 'query', required: false, schema: { type: 'string', enum: ['json', 'text', 'formatted'], default: 'json' } }, { name: 'numbered', in: 'query', required: false, description: 'With format=text: put an i/N line before each post.', schema: { type: 'boolean', default: false } }],
         responses: {
           200: { description: 'The exported draft', content: { 'application/json': { schema: { type: 'object' } }, 'text/plain': { schema: { type: 'string' } } } },
           400: BAD_REQUEST,
+          401: UNAUTHORIZED,
           404: NOT_FOUND
         }
       }

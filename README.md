@@ -21,7 +21,7 @@ A modern web app for composing, managing, and exporting Twitter/X threads with c
 - **Published archive** - Mark drafts as published to archive them
 
 ### Sharing & Export
-- **Shareable links** - Anyone with the link can view drafts (read-only)
+- **Private drafts, share links** - A draft opens only for its owner. Other people see it through a one-time link
 - **JSON export** - Download drafts for backup
 - **Markdown export** - Export threads with formatting
 - **Copy to clipboard** - With or without numbering
@@ -169,7 +169,7 @@ The app uses three tables in Neon Postgres (see `db/migrations/001_init.sql`):
 
 ### Shareable Links
 
-Each draft has a unique URL (`/draft/:id`) that can be shared. Anyone with the link can view the draft, but only the owner can edit it.
+Each draft has a unique URL (`/draft/:id`). It opens only for the owner. To show a draft to someone else, use the one-time "X Thread" or "Agent link" buttons.
 
 
 ### One-time X-thread preview links

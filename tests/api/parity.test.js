@@ -45,7 +45,7 @@ describe('POST /api/drafts/:id/duplicate', () => {
 })
 
 describe('GET /api/drafts/:id/export', () => {
-  it('exports json, text and formatted text; public without a cookie', async () => {
+  it('exports json, text and formatted text for the owner', async () => {
     const draft = await db.insertDraft(alice.id, {
       title: 'T',
       posts: [
@@ -53,21 +53,29 @@ describe('GET /api/drafts/:id/export', () => {
         { id: 'b', text: 'Second', images: [] }
       ]
     })
-    const json = await route(apiRequest(`/api/drafts/${draft.id}/export?format=json`))
+    const json = await route(apiRequest(`/api/drafts/${draft.id}/export?format=json`, { cookie: aliceCookie }))
     expect(json.headers.get('content-type')).toContain('application/json')
     expect((await json.json()).posts).toHaveLength(2)
 
-    const text = await route(apiRequest(`/api/drafts/${draft.id}/export?format=text`))
+    const text = await route(apiRequest(`/api/drafts/${draft.id}/export?format=text`, { cookie: aliceCookie }))
     expect(text.headers.get('content-type')).toContain('text/plain')
     expect(await text.text()).toBe('First\n\nSecond')
 
-    const formatted = await route(apiRequest(`/api/drafts/${draft.id}/export?format=formatted`))
+    const formatted = await route(apiRequest(`/api/drafts/${draft.id}/export?format=formatted`, { cookie: aliceCookie }))
     expect(await formatted.text()).toContain('Tweet 1/2 (5 chars):')
+  })
+
+  it('refuses export to another user (404) and to a signed-out visitor (401)', async () => {
+    const draft = await db.insertDraft(alice.id)
+    const other = await route(apiRequest(`/api/drafts/${draft.id}/export?format=text`, { cookie: await db.cookieFor(bob) }))
+    expect(other.status).toBe(404)
+    const anonymous = await route(apiRequest(`/api/drafts/${draft.id}/export?format=text`))
+    expect(anonymous.status).toBe(401)
   })
 
   it('rejects an unknown format with 400', async () => {
     const draft = await db.insertDraft(alice.id)
-    const res = await route(apiRequest(`/api/drafts/${draft.id}/export?format=pdf`))
+    const res = await route(apiRequest(`/api/drafts/${draft.id}/export?format=pdf`, { cookie: aliceCookie }))
     expect(res.status).toBe(400)
   })
 })

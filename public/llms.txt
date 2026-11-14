@@ -38,7 +38,7 @@ curl -s -X PATCH $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -d '{"posts":[{"id":"p1","text":"Edited","images":[]}]}'
 
 # Export as text
-curl -s "$BASE/api/drafts/DRAFT_ID/export?format=text"
+curl -s "$BASE/api/drafts/DRAFT_ID/export?format=text" -H "Authorization: Bearer $TOKEN"
 
 # Create a one-time share link, then read it once (second read returns 410)
 curl -s -X POST $BASE/api/drafts/DRAFT_ID/share-tokens -H "Authorization: Bearer $TOKEN"
@@ -63,6 +63,6 @@ MCP skill (extension io.modelcontextprotocol/skills): skill://x-thread-drafts/SK
 
 - Draft shape: `{ title, posts: [{ id, text, images: [{ url }], embeddedTweet }] }`.
 - Max 280 characters per post (use `/api/threads/split`), max 4 images per post, 4 MB per image.
-- `GET /api/drafts/{id}` is public by id. Lists, writes and deletes need a token or session.
+- Drafts are private. `GET /api/drafts/{id}` and its export return the draft only to its owner (another user gets 404, no token or session 401). Lists, writes and deletes need a token or session too.
 - Share links work exactly once. Image URLs from `/api/images` or `/api/images/from-url` are Vercel Blob URLs.
 - Errors are JSON: `{ "error": "message" }` with an HTTP status.

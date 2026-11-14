@@ -127,8 +127,8 @@ curl -s "$BASE/api/drafts?published=false&limit=50" -H "Authorization: Bearer $T
 curl -s -X POST $BASE/api/drafts -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d '{"title":"Launch","posts":[{"id":"p1","text":"Hello","images":[],"embeddedTweet":null}]}'
 
-# Read by id (public: anyone with the id)
-curl -s $BASE/api/drafts/DRAFT_ID
+# Read by id (owner only: another user gets 404, no token or session gets 401)
+curl -s $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN"
 
 # Update title and/or posts (owner). Atomic; sending what the draft already holds is a 200 with no write.
 # Same If-Match rules as the per-post PATCH below (see "Concurrent edits").
@@ -144,8 +144,8 @@ curl -s -X PATCH $BASE/api/drafts/DRAFT_ID/posts/p1 -H "Authorization: Bearer $T
 # Duplicate (owner) → 201 with the copy, titled "<title> (copy)"
 curl -s -X POST $BASE/api/drafts/DRAFT_ID/duplicate -H "Authorization: Bearer $TOKEN"
 
-# Export (public): format=json (default), text, or formatted
-curl -s "$BASE/api/drafts/DRAFT_ID/export?format=text"
+# Export (owner only): format=json (default), text, or formatted
+curl -s "$BASE/api/drafts/DRAFT_ID/export?format=text" -H "Authorization: Bearer $TOKEN"
 
 # Publish (owner): deletes the draft's images and clears them from posts. Atomic; publishing again is a 200 with no write.
 curl -s -X POST $BASE/api/drafts/DRAFT_ID/publish -H "Authorization: Bearer $TOKEN"
