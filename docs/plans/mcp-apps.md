@@ -78,7 +78,7 @@ From OpenAI's docs as quoted by search results (developers.openai.com was not re
 
 ## 5. Tasks
 
-Order: Task 0, 1, 2, 3, 4, 5, 6, then 9. Task 7 is held (Q2: read-only first). Task 8 (real tweets, T8) comes after the card ships (Q1). Starts after #111 tasks T5 to T7 for the tasks that edit server/mcp/tools.js (Task 4); other tasks may start earlier.
+Order: Task 0, 1, 2, 3, 4, 5, 6, then 9. Task 7 is held (Q2: read-only first). Task 8 (real tweets, T8) comes after the card ships (Q1). Starts after #111 tasks T5 to T7 for the tasks that edit server/mcp/tools.js (Tasks 4 to 6); other tasks may start earlier.
 
 ### Task 0. Plan on `main` (Haiku, docs only)
 Files: `docs/plans/mcp-apps.md` (this file), `docs/plans/index.md`, `docs/plans/current.md`, `AGENTS.md` ("Current plan" line, only when #111 is closed), changelog.
@@ -139,13 +139,13 @@ Files: new `server/mcp/ui/share.js`, `server/mcp/ui/index.js`, `server/mcp/tools
 3. Link `create_share_link`. Tests: Playwright countdown with a fake clock; one-time and reusable fixtures; the token appears only inside the two URLs the result already holds.
 4. Done when: tests pass; production READY and smoke green.
 
-### Task 7. Write actions in the views (Sonnet; held: Q2 decided read-only first, start only when Shaked says so)
+### Task 7. Write actions in the views (Sonnet; held: Q2 default is read-only first, start only when Shaked says so)
 1. Share card: "Stop this link" calls `revoke_share_link` through `callTool` after an in-view "Are you sure?" step. Thread view: "Create share link" (calls `create_share_link` with defaults, then shows the Task 6 card). Nothing that deletes a draft or publishes it.
 2. Hosts may ask the user before a view's tool call; the view shows "Waiting for your OK in the chat" while the call is open.
 3. Tests: Playwright checks each button sends exactly one `tools/call` with the right arguments, and nothing is sent without the confirm step.
 4. Done when: tests pass; production READY and smoke green.
 
-### Task 8. Live embedded tweets (T8, Haiku; after the card ships, per Q1 decision)
+### Task 8. Live embedded tweets (T8, Haiku; after the card ships, per the Q1 default)
 1. Add `https://platform.twitter.com` to `resourceDomains` and `frameDomains` (and the hosts Opus finds `widgets.js` needs; check with a Playwright run that records the requests), load `widgets.js` only when a post has a tweet, keep the D5 card as fallback when it fails or the host blocks frames.
 2. Tests: the D5 card still renders when the script is blocked; no X request when no post has a tweet.
 3. Done when: tests pass; production READY and smoke green.
@@ -174,7 +174,7 @@ Q1. Embedded tweets inside the chat view. What the user sees: a draft post that 
 Q2. Buttons that change things inside the views. What the user sees: the views only show and open links, or they also have "Create share link" and "Stop this link" buttons.
 - A: read-only views first (open links, view a thread from the list).
 - B: add the two share buttons (Task 7). Each click may still show the host's own confirm.
-- Recommendation: A first, then B after you have seen the views. If nobody answers, A (Task 7 is skipped).
+- Recommendation: A first, then B after you have seen the views. Default: A (Task 7 stays held until Shaked asks for write buttons).
 - Default chosen by the agent, 2026-11-14 (Shaked can change it): A. Read-only first. Task 7 (write buttons) is held until Shaked says to start it.
 
 Q3. How a robot checks the views on production. The deployed smoke test cannot sign in to MCP (an MCP sign-in needs a person on the consent page).
