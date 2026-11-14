@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import { splitIntoThreads } from '../../src/utils/threadSplitter.js'
-import { xFitEnd, xLength } from '../../src/utils/xLength.js'
+import { buildEmojiRegex, xFitEnd, xLength } from '../../src/utils/xLength.js'
 
 describe('xLength (X weighted length)', () => {
+  it('falls back to the u-flag pattern when the v flag is refused (Safari 16 and older)', () => {
+    const refusesV = (source, flags) => {
+      if (flags === 'v') throw new SyntaxError('Invalid regular expression flags')
+      return new RegExp(source, flags)
+    }
+    const fallback = buildEmojiRegex(refusesV)
+    expect(fallback.flags).toBe('u')
+    expect(fallback.test('😀')).toBe(true)
+    expect(fallback.test('a')).toBe(false)
+    expect(buildEmojiRegex().flags).toBe('v')
+  })
+
   it.each([
     ['', 0],
     ['abc', 3],

@@ -58,7 +58,7 @@ export const OPENAPI = {
         type: 'object',
         properties: {
           id: { type: 'string' },
-          text: { type: 'string', maxLength: 280 },
+          text: { type: 'string', maxLength: 4000, description: 'At most 280 characters as X counts them (a URL counts 23, an emoji 2).' },
           images: { type: 'array', maxItems: 4, items: { type: 'object', properties: { url: { type: 'string' } } } },
           embeddedTweet: { type: ['string', 'null'] }
         }
@@ -382,7 +382,7 @@ export const OPENAPI = {
           { name: 'postId', in: 'path', required: true, schema: { type: 'string' } },
           IF_MATCH
         ],
-        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['text'], additionalProperties: false, properties: { text: { type: 'string', maxLength: 280 } } } } } },
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['text'], additionalProperties: false, properties: { text: { type: 'string', maxLength: 4000, description: 'At most 280 characters as X counts them (a URL counts 23, an emoji 2).' } } } } } },
         responses: {
           ...json({ type: 'object', properties: { draft: draftRef } }),
           400: BAD_REQUEST,

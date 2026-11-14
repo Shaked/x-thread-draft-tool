@@ -12,7 +12,19 @@
  */
 const URL_WEIGHT = 23
 const URL_RE = /(?:https?:\/\/|www\.)\S*[^\s.,!?)]/gi
-const RGI_EMOJI = new RegExp('^\\p{RGI_Emoji}$', 'v')
+/**
+ * Emoji matcher. Safari 16 and older throw a SyntaxError on the v flag, so they get a u-flag fallback
+ * instead of failing to load this module (and with it the editor). `make` is injectable for the test.
+ */
+export function buildEmojiRegex(make = (source, flags) => new RegExp(source, flags)) {
+  try {
+    return make('^\\p{RGI_Emoji}$', 'v')
+  } catch {
+    return make('^\\p{Extended_Pictographic}$', 'u')
+  }
+}
+
+const RGI_EMOJI = buildEmojiRegex()
 const SEGMENTER = new Intl.Segmenter()
 
 const codePointWeight = (cp) =>
