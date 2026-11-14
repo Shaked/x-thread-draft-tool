@@ -84,8 +84,8 @@ export default function DraftEditor({ user }) {
           return true
         } catch (err) {
           console.error('Save error:', err)
-          // Still save to IndexedDB even if server fails
-          await idbSet(`draft-${id}`, draftToSave)
+          // Still save to IndexedDB even if server fails, except when signed out (sign-out clears this cache)
+          if (err.status !== 401) await idbSet(`draft-${id}`, draftToSave)
           return false
         } finally {
           setSaving(false)

@@ -4,7 +4,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { query, transaction } from '../db.js'
 import { HttpError, json, readJson } from '../http.js'
-import { readSession } from '../session.js'
+import { clearSessionCookie, readSession, revokeSession } from '../session.js'
 import { hashToken } from '../tokens.js'
 import { OAuthError, SCOPE, cleanupExpired, insertPair, rotate } from '../oauth/tokens.js'
 import { getClient, isValidRedirectUriList, redirectUriAllowed, registerClient } from '../oauth/clients.js'
@@ -237,18 +237,47 @@ async function authorizeGet({ request, url }) {
   )
 }
 
-/** POST /oauth/authorize (the consent form). CSRF and session binding: the decision must belong to this session's user. */
-async function authorizePost({ request }) {
-  const base = origin(request)
+/** The signed decision of a consent form post, if it belongs to the signed-in user: `{ decision, session, form }`, else `{ refusal }`. */
+async function ownDecision(request) {
   const form = await formBody(request)
   const decision = await openDecision(form.get('request'))
   if (!decision) {
-    return htmlError(400, 'This request expired', 'Start again from the app that asked for access.')
+    return { refusal: htmlError(400, 'This request expired', 'Start again from the app that asked for access.') }
   }
   const session = await readSession(request)
   if (!session || String(session.uid) !== String(decision.uid)) {
-    return htmlError(403, 'Wrong account', 'Sign in as the account that started this request, then try again.')
+    return { refusal: htmlError(403, 'Wrong account', 'Sign in as the account that started this request, then try again.') }
   }
+  return { decision, session, form }
+}
+
+/**
+ * POST /oauth/logout (the consent page's "Not you? Sign out"): ends this browser's session, then
+ * goes back to the consent address, which now shows the sign-in page. The address is a path on this
+ * server (no host, so it cannot leave it) built only from the signed decision, so no unsigned field can
+ * steer the redirect.
+ */
+async function authorizeLogout({ request }) {
+  const own = await ownDecision(request)
+  if (own.refusal) return own.refusal
+  const { decision, session } = own
+  await revokeSession(session)
+
+  const fields = [['response_type', 'code'], ['code_challenge_method', 'S256']]
+  for (const key of ['client_id', 'redirect_uri', 'code_challenge', 'state', 'scope', 'resource']) {
+    if (typeof decision[key] === 'string' && decision[key] !== '') fields.push([key, decision[key]])
+  }
+  const response = redirect(`/api/oauth/authorize?${new URLSearchParams(fields)}`)
+  response.headers.set('set-cookie', clearSessionCookie())
+  return response
+}
+
+/** POST /oauth/authorize (the consent form). CSRF and session binding: the decision must belong to this session's user. */
+async function authorizePost({ request }) {
+  const base = origin(request)
+  const own = await ownDecision(request)
+  if (own.refusal) return own.refusal
+  const { decision, session, form } = own
 
   if (form.get('decision') !== 'approve') {
     return redirectTo(decision.redirect_uri, { error: 'access_denied', state: decision.state }, base)
@@ -403,6 +432,7 @@ export const oauthRoutes = [
   { method: 'POST', path: '/oauth/register', handler: register },
   { method: 'GET', path: '/oauth/authorize', handler: authorizeGet },
   { method: 'POST', path: '/oauth/authorize', handler: authorizePost },
+  { method: 'POST', path: '/oauth/logout', handler: authorizeLogout },
   { method: 'POST', path: '/oauth/token', handler: token },
   { method: 'POST', path: '/oauth/revoke', handler: revoke }
 ]

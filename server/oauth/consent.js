@@ -70,6 +70,7 @@ button{font:inherit;padding:10px 16px;border-radius:6px;border:0;margin-right:8p
 button.approve{background:#1d4ed8;color:#fff}button.deny{background:#e5e7eb}
 .link-box{margin-top:20px}.link-box p{margin:0 0 8px}.link-box input{width:100%;box-sizing:border-box;font:inherit;padding:8px;border:1px solid #9ca3af;border-radius:6px}
 #copy-note{margin-left:8px}
+.not-you{margin:0 0 12px}.not-you button{background:none;color:#1d4ed8;text-decoration:underline;padding:0;margin:0 0 0 4px}
 .continue{display:inline-block;padding:10px 16px;border-radius:6px;background:#1d4ed8;color:#fff;text-decoration:none}`
 
 function page(title, body) {
@@ -101,6 +102,10 @@ export function consentPage({ clientName, unverified, redirectHost, requestToken
   return page(
     'Allow access',
     `<h1>Hi @${escapeHtml(login)}, allow ${escapeHtml(clientName)} to use X Thread Draft Tool?</h1>
+<form class="not-you" method="post" action="/api/oauth/logout">
+<input type="hidden" name="request" value="${escapeHtml(requestToken)}">
+Not you?<button type="submit">Sign out</button>
+</form>
 ${warning}
 <p>It will be able to read, create, edit, publish, share and delete your drafts.</p>
 <p>After you choose, it sends you back to <strong>${escapeHtml(redirectHost)}</strong>.</p>
