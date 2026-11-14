@@ -2,6 +2,8 @@
 
 Written 2026-11-14 11:45 UTC. Tracker: epic issue #111. For an executor that follows instructions literally.
 
+State: DONE (2026-11-14). T7 merges the final docs and the approval-page smoke step; the orchestrator closes #111.
+
 ## 1. Who does what
 
 | Role | Model | Job |

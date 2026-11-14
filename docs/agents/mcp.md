@@ -2,7 +2,8 @@
 
 X Thread Draft Tool has an MCP connector at `https://x-thread-draft-tool.vercel.app/api/mcp`.
 An AI app that supports MCP can read and change your drafts through it. You approve the
-connection once, on the sign-in page, and you can disconnect it at any time.
+connection once, on the sign-in page, and you can disconnect it at any time. Drafts are private:
+only you can read them, and others see one only through a share link you make.
 
 The approval page greets you by your GitHub login and has a read-only link with a Copy link button.
 AI apps often open it in an in-app browser; copy the link and open it in your own browser instead
@@ -22,7 +23,7 @@ same limits as the web app.
 | Write drafts | `create_draft`, `update_draft`, `duplicate_draft`, `create_thread_from_text`, `create_share_link` | `create_thread_from_text` turns long text into a draft. The four draft writes return the outline, not the text. `create_share_link` makes a one-time link that expires after 1 hour; set `one_time` false for a link that can be read many times, and `expires_in` (60 to 604800 seconds) for its lifetime. |
 | Posts | `add_post`, `update_post`, `move_post`, `remove_post` | Post ids come from `get_draft`. A published draft cannot be changed. Each returns the draft outline and its `version`, not the text. |
 | Images | `add_image_from_url`, `remove_image` | Only http(s) images that are public and 4 MB or smaller. `add_image_from_url` returns the image `url` and the outline; `remove_image` returns the outline and the editor `url`. |
-| Destructive | `publish_draft`, `delete_draft`, `remove_post`, `remove_image`, `revoke_share_link` | Marked as destructive, so most apps ask you before running them. `revoke_share_link` stops one share link (give `token`) or all of a draft's links. |
+| Destructive | `publish_draft`, `delete_draft`, `remove_post`, `remove_image`, `revoke_share_link` | Marked as destructive, so most apps ask you before running them. `revoke_share_link` stops one share link (give `token`) or all of a draft's links. Share links are stored on the server with an expiry time, so each also stops by itself. |
 
 Each tool result says what it changed and links to the draft. Writes answer with the draft outline (counts,
 previews and `version`) and the editor `url`, not the full text, so the answer stays short; `get_draft` is the

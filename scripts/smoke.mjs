@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash, randomBytes } from 'node:crypto'
 // Smoke test against a running deployment or the local dev server. Node 20 only, no dependencies.
 //
 //   XT_BASE_URL=http://127.0.0.1:8787 XT_TOKEN=xt_... node scripts/smoke.mjs
@@ -152,6 +153,48 @@ await step('bogus xt_ token is refused (401, invalid or expired)', async () => {
   if (res.status !== 401) throw new Error(`status is ${res.status}, expected 401`)
   const { error } = await res.json()
   if (error !== 'Invalid or expired API token') throw new Error(`unexpected message: ${String(error).slice(0, 120)}`)
+})
+
+// Approval page (plan T7). Signed out, the authorize address shows the sign-in page: a read-only link
+// with a Copy link field, under the policy from server/oauth/consent.js signInHeaders. No cookie, no redirect.
+await step('approval page: signed-out sign-in page, copy-link field and strict headers', async () => {
+  const reg = await publicRequest('/api/oauth/register', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ client_name: 'Smoke check', redirect_uris: ['http://localhost:4000/cb'] })
+  })
+  if (reg.status !== 201) throw new Error(`register returned ${reg.status}, expected 201`)
+  const { client_id: clientId } = await reg.json()
+
+  const verifier = randomBytes(32).toString('base64url')
+  const query = new URLSearchParams([
+    ['response_type', 'code'],
+    ['client_id', clientId],
+    ['redirect_uri', 'http://localhost:4000/cb'],
+    ['code_challenge', createHash('sha256').update(verifier).digest('base64url')],
+    ['code_challenge_method', 'S256'],
+    ['state', randomBytes(16).toString('base64url')]
+  ]).toString()
+
+  const res = await publicRequest(`/api/oauth/authorize?${query}`, { redirect: 'manual' })
+  const html = await res.text()
+  if (res.status !== 200) throw new Error(`authorize returned ${res.status}, expected 200`)
+  if (!html.includes('Sign in to continue')) throw new Error('no "Sign in to continue" heading')
+  // The server escapes & as &#38; in the attribute, so decode the numeric entities before comparing.
+  const field = html.match(/<input id="share-link"[^>]*value="([^"]*)"/)
+  const link = (field?.[1] ?? '').replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+  if (!link.endsWith(`/api/oauth/authorize?${query}`)) throw new Error('the share-link field does not hold this authorize query')
+
+  // The one inline script must be the one that script-src allows by its hash.
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1] ?? ''
+  const hash = `'sha256-${createHash('sha256').update(script).digest('base64')}'`
+  const csp = res.headers.get('content-security-policy') || ''
+  const scriptSrc = csp.split(';').map((d) => d.trim()).find((d) => d.startsWith('script-src ')) || ''
+  if (!scriptSrc.includes(hash)) throw new Error('script-src does not allow the inline script by hash')
+  if (scriptSrc.includes("'unsafe-inline'")) throw new Error("script-src allows 'unsafe-inline'")
+  if (!csp.includes("frame-ancestors 'none'")) throw new Error("content-security-policy has no frame-ancestors 'none'")
+  if (res.headers.get('x-frame-options') !== 'DENY') throw new Error('x-frame-options is not DENY')
+  if (!(res.headers.get('cache-control') || '').includes('no-store')) throw new Error('cache-control has no no-store')
 })
 
 const accountStep = publicOnly ? async (name) => console.log(`SKIP ${name}: XT_SMOKE_PUBLIC=1`) : step

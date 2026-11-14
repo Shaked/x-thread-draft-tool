@@ -185,6 +185,7 @@ curl -s $BASE/api/share/SHARE_TOKEN.md
 curl -s $BASE/api/share/SHARE_TOKEN.html
 
 # Stop one link, or every link of the draft (owner). Both answer 204; a stopped link answers 410.
+Each link is a row on the server with an `expires_at`: it stops at that time, or at once when revoked.
 curl -s -X DELETE $BASE/api/drafts/DRAFT_ID/share-tokens/SHARE_TOKEN -H "Authorization: Bearer $TOKEN"
 curl -s -X DELETE $BASE/api/drafts/DRAFT_ID/share-tokens -H "Authorization: Bearer $TOKEN"
 ```

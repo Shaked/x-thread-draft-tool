@@ -1,0 +1,3 @@
+- T7 (private-drafts-share-links): final docs for drafts privacy, share-link expiry and revoke, MCP summaries and outline, and sign-out.
+- scripts/smoke.mjs: new public step checks the signed-out approval page (copy-link field, CSP script hash, frame and cache headers).
+- Plan private-drafts-share-links.md is DONE; current.md and index.md list it under Completed.
