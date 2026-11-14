@@ -45,6 +45,7 @@ Start a model with the Agent tool (`model: "haiku"`, `"opus"` or `"sonnet"`). Gi
 | D6 | Only the owner reads a draft by id. Anyone else, signed in or not, gets 404 (signed out: 401). | Shaked's request, 2026-11-14 |
 | D7 | A shared draft is shown with the existing read-only page `/x-thread-preview/<token>`. The read-only editor view for other people is removed. | Agent (smallest change) |
 | D8 | No text search tool, no drafts as MCP resources, no unpublish. | Agent |
+| D10 | Every signed-in page has a sign-out button. Sign-out ends the session on the server, not only the cookie, and clears drafts cached in the browser. It ends this browser's session only. | Shaked, 2026-11-14 (button, real sign-out); agent (this browser only) |
 | D9 | Image files stay readable by their storage URL. Hiding them is not in this plan. | Agent |
 
 ## 5. Tasks
@@ -85,6 +86,18 @@ Files: `server/oauth/consent.js`, `server/routes/oauth.js`, `tests/api/oauth.tes
 5. Tests: the policy header contains exactly one script hash and it matches the script; the link in the page equals the request address; a parameter with `"<>&` is escaped; no session gives the sign-in page with the login link; a Playwright test clicks "Copy link" and reads the clipboard.
 6. Done when: tests pass; the screenshot job shows both pages at 390 px wide; Opus has checked that the policy change allows no other script.
 
+### T3a. A sign-out button on every signed-in page, and a sign-out that really ends the session
+State today (checked 2026-11-14): the only sign-out button is in the editor (`src/pages/DraftEditor.jsx`). `POST /api/auth/logout` only clears the cookie. The session token itself stays valid for 30 days, so a copy of it still works. Drafts cached in the browser (IndexedDB `draft-<id>`) stay after sign-out.
+
+Files: `db/migrations/008_revoked_sessions.sql` (use the next free number), `server/session.js`, `server/routes/auth.js`, `server/oauth/consent.js`, `server/routes/oauth.js`, new `src/components/LogoutButton.jsx`, `src/components/DraftList.jsx`, `src/pages/TokensPage.jsx`, `src/pages/DraftEditor.jsx`, `tests/api/auth.test.js`, `tests/e2e/screens.spec.ts`, `docs/features/`.
+1. `createSession` adds a random `jti` to the token. `readSession` refuses a token without `jti` (every browser signs in once more after this ships) and a token whose `jti` is in the new table `revoked_sessions (jti text primary key, expires_at timestamptz not null)`.
+2. `POST /api/auth/logout`: read the session, insert its `jti` with the token's expiry, clear the cookie. Signed out already: still 200. Delete rows whose `expires_at` has passed in the same query.
+3. `LogoutButton.jsx`: calls `authApi.logout()`, deletes every `draft-*` key from IndexedDB, then loads `/`. Use it in the draft list, the settings page and the editor (replace the editor's own button and `handleLogout`).
+4. Consent page: add the line "Signed in as @<login>." and a "Sign out" button. It is a second `<form method="post" action="/api/oauth/logout">` with the signed `request` value; the handler checks the decision belongs to this session, ends the session as in step 2 and redirects to the same authorize address, which now shows the sign-in page from T3. No new script.
+5. Sign-out does not disconnect AI apps or API tokens. The settings page already has that. Say so in the docs, in one sentence.
+6. Tests: after logout the old cookie value gets 401 on `GET /api/drafts`; a token without `jti` is refused; the consent sign-out refuses a `request` value from another session; a Playwright test finds the sign-out button on the list, the editor and the settings page, clicks it and lands on the login page.
+7. Done when: tests pass; the deployed smoke test passes after merge; Opus has checked that the consent sign-out cannot be triggered from another site.
+
 ### T4. Summaries and outline
 Files: new `server/draft-stats.js`, `server/routes/drafts.js`, `server/mcp/tools.js`, `server/openapi.js`, `server/mcp/skills.js`, `server/mcp/prompts.js`, tests `tests/api/drafts.test.js`, `tests/api/mcp.test.js`, `tests/api/mcp-contract.test.js`, docs.
 1. `server/draft-stats.js` exports `summarize(draft)`: `{ id, title, is_published, updated_at, published_at, version, post_count, total_chars, over_limit_count, image_count }`, and `outline(draft)`: the summary plus `posts: [{ id, index, chars, remaining, over_limit, image_count, preview }]`. `preview` is the first 40 characters. The limit is 280.
@@ -118,6 +131,7 @@ Files: new `src/utils/xLength.js`, `src/utils/threadSplitter.js`, the editor cou
 - `tests/api/tenant-isolation.test.js` is in the required unit test job and passes.
 - A share link stops working after its lifetime and after a revoke (API tests and one deployed check).
 - The consent page and the sign-in page have a working "Copy link" (Playwright).
+- Every signed-in page has a sign-out button, and a signed-out session token is refused by the API (API test and Playwright).
 - `list_drafts` returns summaries; `get_draft_outline` exists (MCP contract tests).
 - Every task row in #111 is `merged` or `dropped`, and #111 is closed.
 
