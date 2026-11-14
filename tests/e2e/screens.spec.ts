@@ -6,13 +6,15 @@
 // Use the built app, not `npm run dev`: in development React StrictMode runs the preview effect
 // twice, and the second request hits the one-use share link and gets 410.
 // Writes test-results/screens/<width>/<name>.png for 390 px and 1280 px wide:
-// login, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens.
+// login, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens,
+// consent-signed-out and consent (the OAuth approval pages, plan T3).
 // Under 800 px wide, each shot also writes <name>-viewport.png: what is on the screen, with the fixed bar.
 //
 // Signed-in pages use a dev API token (POST /api/dev/token), sent as a bearer header on /api calls.
 // Nothing here is stored; the data is created in the local API.
 
 import { expect, test, type Browser, type APIRequestContext, type Locator, type Page } from '@playwright/test'
+import { createHash, randomBytes } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 
@@ -132,6 +134,47 @@ test.describe('screens', () => {
       await shoot(browser, width, 'share', `/api/share/${shareToken}.html`, { ready: (p) => p.getByText('Opening post') })
 
       await shoot(browser, width, 'tokens', '/settings/tokens', { token: owner, ready: (p) => p.locator('.tokens-page') })
+    })
+
+    // The OAuth approval pages (server HTML, plan T3): signed out, and signed in with a browser session.
+    test(`captures the approval pages at ${width}px`, async ({ browser, request }) => {
+      const redirect = 'http://localhost:4000/cb'
+      const registered = await request.post(`${BASE}/api/oauth/register`, { data: { client_name: 'Grok', redirect_uris: [redirect] } })
+      expect(registered.status()).toBe(201)
+      const clientId = (await registered.json()).client_id as string
+      const challenge = createHash('sha256').update(randomBytes(48).toString('base64url')).digest('base64url')
+      const query = new URLSearchParams({
+        response_type: 'code',
+        client_id: clientId,
+        redirect_uri: redirect,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        state: 'screens'
+      }).toString()
+      const dir = path.join(OUT, String(width))
+      mkdirSync(dir, { recursive: true })
+      const height = width < 800 ? 844 : 800
+
+      const signedOut = await browser.newContext({ viewport: { width, height }, serviceWorkers: 'block' })
+      const outPage = await signedOut.newPage()
+      await outPage.goto(`${BASE}/api/oauth/authorize?${query}`)
+      await outPage.getByRole('heading', { name: 'Sign in to continue' }).waitFor()
+      await outPage.screenshot({ path: path.join(dir, 'consent-signed-out.png'), fullPage: true })
+      await signedOut.close()
+
+      const login = `screens-consent-${width}-${Date.now()}`
+      const session = await request.post(`${BASE}/api/dev/session`, { data: { login } })
+      expect(session.ok()).toBeTruthy()
+      const cookie = session.headersArray().find((h) => h.name.toLowerCase() === 'set-cookie')?.value ?? ''
+      const sessionToken = cookie.match(/xt_session=([^;]+)/)?.[1]
+      expect(sessionToken).toBeTruthy()
+      const signedIn = await browser.newContext({ viewport: { width, height }, serviceWorkers: 'block' })
+      await signedIn.addCookies([{ name: 'xt_session', value: sessionToken!, url: BASE }])
+      const inPage = await signedIn.newPage()
+      await inPage.goto(`${BASE}/api/oauth/authorize?${query}`)
+      await inPage.getByRole('button', { name: 'Approve' }).waitFor()
+      await inPage.screenshot({ path: path.join(dir, 'consent.png'), fullPage: true })
+      await signedIn.close()
     })
   }
 })
