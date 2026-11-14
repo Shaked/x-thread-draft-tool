@@ -179,6 +179,13 @@ if (draft) {
       if (data.draft.posts[0].text !== 'Edited smoke post') throw new Error('edit not visible')
     })
 
+    await step('signed-out read and export of a draft are refused (401)', async () => {
+      for (const path of [`/api/drafts/${draft.id}`, `/api/drafts/${draft.id}/export?format=text`]) {
+        const res = await publicRequest(path)
+        if (res.status !== 401) throw new Error(`${path} returned ${res.status} without a token, expected 401`)
+      }
+    })
+
     const copy = await step('duplicate', async () => {
       const data = await call('POST', `/api/drafts/${draft.id}/duplicate`, { expect: [201] })
       created.push(data.draft.id)

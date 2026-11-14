@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { draftsApi, authApi } from '../utils/api'
-import { isOwner, normalizeImages } from '../utils/images'
-import { set as idbSet, get as idbGet } from 'idb-keyval'
+import { normalizeImages } from '../utils/images'
+import { set as idbSet, del as idbDel } from 'idb-keyval'
 import ThreadComposer from '../components/ThreadComposer'
-import ShareButton from '../components/ShareButton'
 import AgentLinkButton from '../components/AgentLinkButton'
 import XThreadLinkButton from '../components/XThreadLinkButton'
 import ExportOptions from '../components/ExportOptions'
@@ -45,30 +44,8 @@ export default function DraftEditor({ user }) {
       setLoading(true)
       setError(null)
 
-      let data
-      try {
-        data = await draftsApi.get(id)
-      } catch (fetchError) {
-        // If not found and user is not logged in, check IndexedDB
-        if (!user) {
-          const localDraft = await idbGet(`draft-${id}`)
-          if (localDraft) {
-            // Normalize images for backward compatibility
-            const normalizedDraft = {
-              ...localDraft,
-              posts: localDraft.posts?.map(post => ({
-                ...post,
-                images: normalizeImages(post.images || [])
-              })) || []
-            }
-            setDraft(normalizedDraft)
-            setIsEditMode(false)
-            setLoading(false)
-            return
-          }
-        }
-        throw fetchError
-      }
+      // The server returns a draft only to its owner: 401 when signed out, 404 for anyone else.
+      const data = await draftsApi.get(id)
 
       // Normalize images for backward compatibility
       const normalizedData = {
@@ -80,14 +57,18 @@ export default function DraftEditor({ user }) {
       }
 
       setDraft(normalizedData)
-      setIsEditMode(user && isOwner(data, user.id))
+      setIsEditMode(true)
       lastSavedRef.current = JSON.stringify(normalizedData)
 
       // Save to IndexedDB for offline access
       await idbSet(`draft-${id}`, data)
     } catch (err) {
       console.error('Error loading draft:', err)
-      setError(err.message || 'Failed to load draft')
+      // A copy kept in this browser must never show for a draft the server refuses.
+      if (err.status === 401 || err.status === 404) {
+        await idbDel(`draft-${id}`).catch(() => {})
+      }
+      setError({ status: err.status, message: err.message || 'Failed to load draft' })
     } finally {
       setLoading(false)
     }
@@ -228,19 +209,7 @@ export default function DraftEditor({ user }) {
     )
   }
 
-  if (error) {
-    return (
-      <div className="draft-editor error-screen">
-        <div className="error">
-          <h2>Error</h2>
-          <p>{error}</p>
-          <Link to="/" className="btn btn-primary">
-            Back to Home
-          </Link>
-        </div>
-      </div>
-    )
-  }
+  if (error) return <LoadError error={error} />
 
   if (!draft) {
     return (
@@ -285,8 +254,6 @@ export default function DraftEditor({ user }) {
         </span>
 
         <div className="header-actions">
-          <ShareButton draftId={id} />
-
           {isEditMode && <AgentLinkButton draftId={id} />}
 
           {isEditMode && <XThreadLinkButton draftId={id} />}
@@ -327,11 +294,6 @@ export default function DraftEditor({ user }) {
             </div>
           )}
 
-          {!isEditMode && user && (
-            <div className="view-only-notice">
-              <p>You are viewing this draft in read-only mode.</p>
-            </div>
-          )}
         </div>
 
         <SidePanel
@@ -339,6 +301,48 @@ export default function DraftEditor({ user }) {
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
           draft={draft}
         />
+      </div>
+    </div>
+  )
+}
+
+// The screen for a draft that did not load. Kept out of DraftEditor so the editor's complexity stays within the lint limit.
+function LoadError({ error }) {
+  if (error.status === 401) {
+    return (
+      <div className="draft-editor error-screen">
+        <div className="error">
+          <h2>Sign in to open this draft</h2>
+          <p>Drafts are private. Sign in with the account that owns this draft.</p>
+          <button className="btn btn-primary" onClick={() => authApi.login()}>
+            Sign in with GitHub
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (error.status === 404) {
+    return (
+      <div className="draft-editor error-screen">
+        <div className="error">
+          <h2>Draft not found</h2>
+          <Link to="/" className="btn btn-primary">
+            Back to Home
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="draft-editor error-screen">
+      <div className="error">
+        <h2>Error</h2>
+        <p>{error.message}</p>
+        <Link to="/" className="btn btn-primary">
+          Back to Home
+        </Link>
       </div>
     </div>
   )

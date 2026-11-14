@@ -24,10 +24,11 @@ describe('GET /api/drafts/:id/export numbered text', () => {
       'insert into drafts (user_id, title, posts) values ($1, $2, $3::jsonb) returning id',
       [alice.id, 'T', JSON.stringify(posts)]
     )
-    const numbered = await route(apiRequest(`/api/drafts/${rows[0].id}/export?format=text&numbered=true`, { method: 'GET' }))
+    const cookie = await db.cookieFor(alice)
+    const numbered = await route(apiRequest(`/api/drafts/${rows[0].id}/export?format=text&numbered=true`, { method: 'GET', cookie }))
     expect(numbered.status).toBe(200)
     expect(await numbered.text()).toBe('1/2\nfirst post\n\n2/2\nsecond')
-    const plain = await route(apiRequest(`/api/drafts/${rows[0].id}/export?format=text`, { method: 'GET' }))
+    const plain = await route(apiRequest(`/api/drafts/${rows[0].id}/export?format=text`, { method: 'GET', cookie }))
     expect(await plain.text()).toBe('first post\n\nsecond')
   })
 })

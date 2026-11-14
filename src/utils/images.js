@@ -1,10 +1,5 @@
 import { imagesApi } from './api.js'
 
-// Helper function to check if user owns a draft
-export const isOwner = (draft, userId) => {
-  return draft?.user_id === userId
-}
-
 // Upload an image file for a draft. Resolves to the public Blob URL.
 export const uploadImage = (file, draftId) => imagesApi.upload(file, draftId)
 

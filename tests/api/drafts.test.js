@@ -87,17 +87,25 @@ describe('POST /api/drafts', () => {
 })
 
 describe('GET /api/drafts/:id', () => {
-  it('is public: anyone with the id can read the draft', async () => {
-    const draft = await db.insertDraft(alice.id, { title: 'shared' })
-    const res = await route(apiRequest(`/api/drafts/${draft.id}`))
+  it('is private: the owner reads the draft', async () => {
+    const draft = await db.insertDraft(alice.id, { title: 'mine' })
+    const res = await route(apiRequest(`/api/drafts/${draft.id}`, { cookie: aliceCookie }))
     expect(res.status).toBe(200)
-    expect((await json(res)).draft).toMatchObject({ id: draft.id, title: 'shared', user_id: alice.id })
+    expect((await json(res)).draft).toMatchObject({ id: draft.id, title: 'mine', user_id: alice.id })
+  })
+
+  it('another signed-in user gets 404, and a signed-out visitor gets 401', async () => {
+    const draft = await db.insertDraft(alice.id, { title: 'mine' })
+    const other = await route(apiRequest(`/api/drafts/${draft.id}`, { cookie: bobCookie }))
+    expect(other.status).toBe(404)
+    expect(await json(other)).toEqual({ error: 'Draft not found' })
+    expect((await route(apiRequest(`/api/drafts/${draft.id}`))).status).toBe(401)
   })
 
   it('returns 404 for an invalid UUID and for a missing draft', async () => {
-    expect((await route(apiRequest('/api/drafts/not-a-uuid'))).status).toBe(404)
+    expect((await route(apiRequest('/api/drafts/not-a-uuid', { cookie: aliceCookie }))).status).toBe(404)
     const missing = '00000000-0000-4000-8000-000000000000'
-    expect((await route(apiRequest(`/api/drafts/${missing}`))).status).toBe(404)
+    expect((await route(apiRequest(`/api/drafts/${missing}`, { cookie: aliceCookie }))).status).toBe(404)
   })
 })
 

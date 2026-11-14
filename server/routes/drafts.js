@@ -77,11 +77,12 @@ async function duplicateDraft({ request, params }) {
   return json({ draft: rows[0] }, 201, etagHeaders(rows[0].version))
 }
 
-/** GET /api/drafts/:id/export?format=json|text|formatted (public, like GET by id). */
-async function exportDraft({ url, params }) {
+/** GET /api/drafts/:id/export?format=json|text|formatted (owner only, like GET by id). */
+async function exportDraft({ request, url, params }) {
+  const session = await requireUser(request)
   if (!isUuid(params.id)) throw notFound()
   const format = url.searchParams.get('format') ?? 'json'
-  const { rows } = await query(`select ${COLUMNS} from drafts where id = $1`, [params.id])
+  const { rows } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [params.id, session.uid])
   if (!rows[0]) throw notFound()
   const draft = rows[0]
   const posts = Array.isArray(draft.posts) ? draft.posts : []
@@ -149,10 +150,11 @@ async function createDraft({ request }) {
   return json({ draft: rows[0] }, 201, etagHeaders(rows[0].version))
 }
 
-/** GET /api/drafts/:id is the only public draft read (share-by-link). */
-async function getDraft({ params }) {
+/** GET /api/drafts/:id: owner only. Another user, or nobody (401), never reads a draft by id. */
+async function getDraft({ request, params }) {
+  const session = await requireUser(request)
   if (!isUuid(params.id)) throw notFound()
-  const { rows } = await query(`select ${COLUMNS} from drafts where id = $1`, [params.id])
+  const { rows } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [params.id, session.uid])
   if (!rows[0]) throw notFound()
   return json({ draft: rows[0] }, 200, etagHeaders(rows[0].version))
 }
