@@ -17,7 +17,7 @@ Start a model with the Agent tool (`model: "haiku"`, `"opus"` or `"sonnet"`). Gi
 
 1. Read `AGENTS.md` first. After T0 merges, read it again.
 2. One task, one branch from the latest `main`, one pull request, one changelog file.
-3. Procedures P-PR, P-CODEX, P-CI, P-MERGE and P-PROD are in [hardening-finish.md](./hardening-finish.md) section 5. Use them with three exceptions: where they say "ledger", use epic #111; the pull request body starts `Implements docs/plans/private-drafts-share-links.md T<n>`; Codex silence follows `AGENTS.md` (15 minutes), not the older 30-minute rule.
+3. Procedures P-PR, P-CODEX, P-CI, P-MERGE and P-PROD are in [hardening-finish.md](./hardening-finish.md) section 5. Use them with three exceptions: where they say "ledger", use epic #111; the pull request body starts `Implements docs/plans/private-drafts-share-links.md Task <n> (T<n>)` (T2 is `Task 2 (T2)`, T3a is `Task 3 (T3a)`), because the `Net lines` check passes a pull request whose product code grows only when the body names a plan task as `docs/plans/<file>.md Task <number>`; Codex silence follows `AGENTS.md` (15 minutes), not the older 30-minute rule.
 4. Before P-MERGE, the judge (Opus) must answer `APPROVE` for the head commit. Record the verdict as one line in the pull request description.
 5. Each task ships on its own. When its pull request passes rule 4 and P-MERGE, merge it at once and run P-PROD (production deployment READY, deployed smoke test green). Do not wait for other tasks, and do not ask Shaked before opening or merging a pull request: he has approved both for every task here.
 6. After each merge, update the task row in the body of #111 (PR number, state `merged`, production checked).
