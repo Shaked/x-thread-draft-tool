@@ -1069,6 +1069,13 @@ body {
   border-radius: 8px;
   padding: 15px;
   background-color: var(--surface);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.tweet-embed :is(.twitter-tweet, iframe) {
+  min-width: 0 !important;
+  max-width: 100% !important;
 }
 
 .tweet-embed-loading,
@@ -1214,8 +1221,6 @@ body {
   width: 100vw;
   box-sizing: border-box;
   margin: 0 -20px;
-  left: 0;
-  right: 0;
 }
 
 /* App bar: page actions, sign-out and the hide control. In the page header on wide screens, a fixed bottom bar on phones. */
@@ -1445,6 +1450,29 @@ body {
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
+  .app:has(> .draft-editor) {
+    padding-inline: 0;
+  }
+
+  .editor-content {
+    padding: 12px 0;
+  }
+
+  .thread-composer {
+    padding: 12px 6px;
+    border-radius: 0;
+  }
+
+  .tweet-embed {
+    padding: 0;
+    border: 0;
+    min-height: 260px;
+  }
+
+  .tweet-embed-loading {
+    min-height: 260px;
+  }
+
   .login-container {
     padding: 30px 20px;
   }
@@ -1471,7 +1499,8 @@ body {
   .editor-header {
     gap: 8px;
     padding: 8px 12px;
-    margin: 0 -12px;
+    margin: 0;
+    width: auto;
   }
 
   .draft-title-input {
