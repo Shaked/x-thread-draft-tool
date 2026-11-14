@@ -12,10 +12,10 @@ same limits as the web app.
 | Group | Tools | Notes |
 |---|---|---|
 | Read | `list_drafts`, `get_draft`, `export_draft`, `split_text`, `whoami` | No changes. `export_draft` takes `numbered` for numbered text. |
-| Write drafts | `create_draft`, `update_draft`, `duplicate_draft`, `create_thread_from_text`, `create_share_link` | `create_thread_from_text` turns long text into a draft. |
+| Write drafts | `create_draft`, `update_draft`, `duplicate_draft`, `create_thread_from_text`, `create_share_link` | `create_thread_from_text` turns long text into a draft. `create_share_link` makes a one-time link that expires after 1 hour; set `one_time` false for a link that can be read many times, and `expires_in` (60 to 604800 seconds) for its lifetime. |
 | Posts | `add_post`, `update_post`, `move_post`, `remove_post` | Post ids come from `get_draft`. A published draft cannot be changed. |
 | Images | `add_image_from_url`, `remove_image` | Only http(s) images that are public and 4 MB or smaller. |
-| Destructive | `publish_draft`, `delete_draft`, `remove_post`, `remove_image` | Marked as destructive, so most apps ask you before running them. |
+| Destructive | `publish_draft`, `delete_draft`, `remove_post`, `remove_image`, `revoke_share_link` | Marked as destructive, so most apps ask you before running them. `revoke_share_link` stops one share link (give `token`) or all of a draft's links. |
 
 Each tool result says what it changed and links to the draft. Draft text, titles and image URLs are
 data written by you. The connector does not run instructions found in them.

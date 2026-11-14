@@ -43,7 +43,7 @@ export default function AgentLinkButton({ draftId }) {
       </button>
       {copied && (
         <div className="share-tooltip" role="status" aria-live="polite">
-          One-time markdown link copied. It works exactly once.
+          One-time markdown link copied. It works once, within 1 hour.
         </div>
       )}
       {error && (

@@ -1,5 +1,5 @@
 import { query, transaction } from '../db.js'
-import { HttpError, json, readJson } from '../http.js'
+import { HttpError, json, readJson, readOptionalJson } from '../http.js'
 import { requireUser } from '../session.js'
 import { deleteBlobUrls } from '../blob.js'
 import { imageUrlsFrom, isOwnedBlobUrl } from '../draft-images.js'
@@ -35,6 +35,10 @@ function validPosts(posts) {
 
 function notFound() {
   return new HttpError(404, 'Draft not found')
+}
+
+function shareLinkNotFound() {
+  return new HttpError(404, 'Share link not found')
 }
 
 /**
@@ -284,19 +288,71 @@ async function deleteDraft({ request, params }) {
   return json({ ok: true })
 }
 
-/** POST /api/drafts/:id/share-tokens: one-time token for the X-thread or agent link. */
+const SHARE_TTL_MIN = 60
+const SHARE_TTL_MAX = 604800
+const SHARE_TTL_DEFAULT = 3600
+
+/** The default lifetime of a new share link: SHARE_LINK_TTL_SECONDS when it is a valid number, else one hour. */
+function defaultShareTtl() {
+  const configured = Number(process.env.SHARE_LINK_TTL_SECONDS)
+  return Number.isInteger(configured) && configured >= SHARE_TTL_MIN && configured <= SHARE_TTL_MAX ? configured : SHARE_TTL_DEFAULT
+}
+
+/** The optional body of POST /drafts/:id/share-tokens. An empty body means the defaults. */
+async function shareLinkOptions(request) {
+  const body = await readOptionalJson(request)
+  if (body === undefined) return { expiresIn: defaultShareTtl(), oneTime: true }
+  requireObject(body)
+  const expiresIn = body.expires_in === undefined ? defaultShareTtl() : body.expires_in
+  if (!Number.isInteger(expiresIn) || expiresIn < SHARE_TTL_MIN || expiresIn > SHARE_TTL_MAX) {
+    throw new HttpError(400, `expires_in must be a whole number of seconds from ${SHARE_TTL_MIN} to ${SHARE_TTL_MAX}`)
+  }
+  if (body.one_time !== undefined && typeof body.one_time !== 'boolean') throw new HttpError(400, 'one_time must be true or false')
+  return { expiresIn, oneTime: body.one_time ?? true }
+}
+
+/**
+ * POST /api/drafts/:id/share-tokens: a share link for the X-thread or agent link, or a reusable one.
+ * Body (optional): { expires_in: 60..604800 seconds, one_time: true | false }.
+ */
 async function createShareToken({ request, params }) {
   const session = await requireUser(request)
   if (!isUuid(params.id)) throw notFound()
+  const { expiresIn, oneTime } = await shareLinkOptions(request)
   const { rows } = await query(
-    `insert into share_tokens (draft_id, created_by)
-     select $1::uuid, $2::uuid
+    `insert into share_tokens (draft_id, created_by, one_time, expires_at)
+     select $1::uuid, $2::uuid, $3::boolean, now() + ($4::integer * interval '1 second')
       where exists (select 1 from drafts where id = $1::uuid and user_id = $2::uuid)
-     returning token`,
-    [params.id, session.uid]
+     returning token, expires_at, one_time`,
+    [params.id, session.uid, oneTime, expiresIn]
   )
   if (!rows[0]) throw notFound()
-  return json({ token: rows[0].token }, 201)
+  return json({ token: rows[0].token, expires_at: rows[0].expires_at, one_time: rows[0].one_time }, 201)
+}
+
+/** DELETE /api/drafts/:id/share-tokens/:token: owner only. The link stops working at once. */
+async function revokeShareToken({ request, params }) {
+  const session = await requireUser(request)
+  if (!isUuid(params.id) || !isUuid(params.token)) throw shareLinkNotFound()
+  const { rows } = await query(
+    `delete from share_tokens s
+      using drafts d
+      where s.token = $1 and s.draft_id = $2 and d.id = s.draft_id and d.user_id = $3
+     returning s.token`,
+    [params.token, params.id, session.uid]
+  )
+  if (!rows[0]) throw shareLinkNotFound()
+  return new Response(null, { status: 204 })
+}
+
+/** DELETE /api/drafts/:id/share-tokens: owner only. Every share link of the draft stops working. */
+async function revokeAllShareTokens({ request, params }) {
+  const session = await requireUser(request)
+  if (!isUuid(params.id)) throw notFound()
+  const { rows } = await query('select 1 from drafts where id = $1 and user_id = $2', [params.id, session.uid])
+  if (!rows[0]) throw notFound()
+  await query('delete from share_tokens where draft_id = $1', [params.id])
+  return new Response(null, { status: 204 })
 }
 
 export const draftRoutes = [
@@ -309,5 +365,7 @@ export const draftRoutes = [
   { method: 'GET', path: '/drafts/:id/export', handler: exportDraft, ci: true },
   { method: 'DELETE', path: '/drafts/:id', handler: deleteDraft, ci: true },
   { method: 'POST', path: '/drafts/:id/share-tokens', handler: createShareToken, ci: true },
+  { method: 'DELETE', path: '/drafts/:id/share-tokens', handler: revokeAllShareTokens, ci: true },
+  { method: 'DELETE', path: '/drafts/:id/share-tokens/:token', handler: revokeShareToken, ci: true },
   { method: 'PATCH', path: '/drafts/:id/posts/:postId', handler: patchPostText, ci: true }
 ]

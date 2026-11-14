@@ -86,7 +86,7 @@ Errors are JSON: `{ "error": "message" }`.
 | 403 | Refused (for example, creating a token with a bearer token, managing API tokens with an OAuth access token, or a foreign origin with a cookie) |
 | 404 | Not found, or not yours (writes never reveal that another user's draft exists) |
 | 409 | Token limit reached |
-| 410 | One-time share link already used |
+| 410 | Share link expired, stopped, already used, or unknown |
 | 413 / 415 | Too large / wrong content type (images) |
 | 502 | GitHub or the image host failed |
 
@@ -162,16 +162,26 @@ curl -s $BASE/api/threads/split -H 'content-type: application/json' \
 # → { "posts": [{ "text": "...", "chars": 123 }, ...] }
 ```
 
-### One-time share links
+### Share links
 
 ```bash
-# Create (owner) → { token }
+# Create (owner) → { token, expires_at, one_time }. No body: one-time, expires in 1 hour.
 curl -s -X POST $BASE/api/drafts/DRAFT_ID/share-tokens -H "Authorization: Bearer $TOKEN"
 
-# Read once as markdown (default) or HTML; the second read returns 410
+# Options, all optional: expires_in is 60 to 604800 seconds; one_time false means readable until it expires
+curl -s -X POST $BASE/api/drafts/DRAFT_ID/share-tokens -H "Authorization: Bearer $TOKEN" \
+  -H "content-type: application/json" -d '{"expires_in":86400,"one_time":false}'
+
+# Read as markdown (default) or HTML. A one-time link answers 410 on the second read.
 curl -s $BASE/api/share/SHARE_TOKEN.md
 curl -s $BASE/api/share/SHARE_TOKEN.html
+
+# Stop one link, or every link of the draft (owner). Both answer 204; a stopped link answers 410.
+curl -s -X DELETE $BASE/api/drafts/DRAFT_ID/share-tokens/SHARE_TOKEN -H "Authorization: Bearer $TOKEN"
+curl -s -X DELETE $BASE/api/drafts/DRAFT_ID/share-tokens -H "Authorization: Bearer $TOKEN"
 ```
+
+The default lifetime is 1 hour. The server reads `SHARE_LINK_TTL_SECONDS` (60 to 604800) for the default, if it is set.
 
 ### Images
 

@@ -40,9 +40,13 @@ curl -s -X PATCH $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN" \
 # Export as text
 curl -s "$BASE/api/drafts/DRAFT_ID/export?format=text" -H "Authorization: Bearer $TOKEN"
 
-# Create a one-time share link, then read it once (second read returns 410)
+# Create a share link (one-time, expires in 1 hour by default), then read it once (second read returns 410)
 curl -s -X POST $BASE/api/drafts/DRAFT_ID/share-tokens -H "Authorization: Bearer $TOKEN"
 curl -s $BASE/api/share/SHARE_TOKEN.md
+
+# A reusable link that expires in one day, and how to stop a link
+curl -s -X POST $BASE/api/drafts/DRAFT_ID/share-tokens -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" -d '{"expires_in":86400,"one_time":false}'
+curl -s -X DELETE $BASE/api/drafts/DRAFT_ID/share-tokens/SHARE_TOKEN -H "Authorization: Bearer $TOKEN"
 
 # Publish (deletes the draft's images) and delete
 curl -s -X POST $BASE/api/drafts/DRAFT_ID/publish -H "Authorization: Bearer $TOKEN"
@@ -64,5 +68,5 @@ MCP skill (extension io.modelcontextprotocol/skills): skill://x-thread-drafts/SK
 - Draft shape: `{ title, posts: [{ id, text, images: [{ url }], embeddedTweet }] }`.
 - Max 280 characters per post (use `/api/threads/split`), max 4 images per post, 4 MB per image.
 - Drafts are private. `GET /api/drafts/{id}` and its export return the draft only to its owner (another user gets 404, no token or session 401). Lists, writes and deletes need a token or session too.
-- Share links work exactly once. Image URLs from `/api/images` or `/api/images/from-url` are Vercel Blob URLs.
+- Share links work once by default and expire 1 hour after creation (`expires_in` sets 60 seconds to 7 days; `one_time` false makes a reusable link). Owners can stop a link with DELETE. Image URLs from `/api/images` or `/api/images/from-url` are Vercel Blob URLs.
 - Errors are JSON: `{ "error": "message" }` with an HTTP status.

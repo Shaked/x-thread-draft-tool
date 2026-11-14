@@ -75,8 +75,9 @@ export const draftsApi = {
     return request(`/drafts/${encodeURIComponent(id)}`, { method: 'DELETE' })
   },
 
-  async createShareToken(id) {
-    const data = await request(`/drafts/${encodeURIComponent(id)}/share-tokens`, { method: 'POST' })
+  /** Returns the token. No options: a one-time link that expires in an hour (the server default). */
+  async createShareToken(id, options) {
+    const data = await request(`/drafts/${encodeURIComponent(id)}/share-tokens`, { method: 'POST', body: options })
     return data.token
   }
 }

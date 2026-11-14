@@ -6,6 +6,7 @@ import { set as idbSet, del as idbDel } from 'idb-keyval'
 import ThreadComposer from '../components/ThreadComposer'
 import AgentLinkButton from '../components/AgentLinkButton'
 import XThreadLinkButton from '../components/XThreadLinkButton'
+import ShareLinkButton from '../components/ShareLinkButton'
 import ExportOptions from '../components/ExportOptions'
 
 export default function DraftEditor({ user }) {
@@ -17,7 +18,6 @@ export default function DraftEditor({ user }) {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [synced, setSynced] = useState(true)
-  const [isEditMode, setIsEditMode] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const saveTimeoutRef = useRef(null)
@@ -57,7 +57,6 @@ export default function DraftEditor({ user }) {
       }
 
       setDraft(normalizedData)
-      setIsEditMode(true)
       lastSavedRef.current = JSON.stringify(normalizedData)
 
       // Save to IndexedDB for offline access
@@ -81,7 +80,7 @@ export default function DraftEditor({ user }) {
 
   const saveDraft = useCallback(
     async (draftToSave, immediate = false) => {
-      if (!user || !isEditMode) return
+      if (!user) return
 
       const saveFn = async () => {
         try {
@@ -122,23 +121,23 @@ export default function DraftEditor({ user }) {
         saveTimeoutRef.current = setTimeout(saveFn, 1000)
       }
     },
-    [id, user, isEditMode]
+    [id, user]
   )
 
   useEffect(() => {
-    if (!draft || !isEditMode) return
+    if (!draft) return
 
     // Auto-save on changes
     const currentState = JSON.stringify(draft)
     if (currentState !== lastSavedRef.current) {
       saveDraft(draft, false)
     }
-  }, [draft, isEditMode, saveDraft])
+  }, [draft, saveDraft])
 
   useEffect(() => {
     // Save before unload
     const handleBeforeUnload = () => {
-      if (draft && isEditMode) {
+      if (draft) {
         saveDraft(draft, true)
       }
     }
@@ -150,21 +149,17 @@ export default function DraftEditor({ user }) {
         clearTimeout(saveTimeoutRef.current)
       }
     }
-  }, [draft, isEditMode, saveDraft])
+  }, [draft, saveDraft])
 
   const handleTitleChange = (newTitle) => {
-    if (!isEditMode) return
     setDraft({ ...draft, title: newTitle })
   }
 
   const handlePostsChange = (newPosts) => {
-    if (!isEditMode) return
     setDraft({ ...draft, posts: newPosts })
   }
 
   const handlePublish = async () => {
-    if (!isEditMode) return
-
     const confirmed = window.confirm(
       'Mark this draft as published? This will delete all uploaded images and move the draft to your Published list.'
     )
@@ -232,18 +227,14 @@ export default function DraftEditor({ user }) {
           <span className="back-text">Back</span>
         </Link>
 
-        {isEditMode ? (
-          <input
-            type="text"
-            value={draft.title}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            className="draft-title-input"
-            aria-label="Draft title"
-            placeholder="Untitled Draft"
-          />
-        ) : (
-          <h1 className="draft-title-display">{draft.title}</h1>
-        )}
+        <input
+          type="text"
+          value={draft.title}
+          onChange={(e) => handleTitleChange(e.target.value)}
+          className="draft-title-input"
+          aria-label="Draft title"
+          placeholder="Untitled Draft"
+        />
 
         <span
           className={`sync-status ${!synced || saving ? 'syncing' : 'synced'}`}
@@ -254,11 +245,13 @@ export default function DraftEditor({ user }) {
         </span>
 
         <div className="header-actions">
-          {isEditMode && <AgentLinkButton draftId={id} />}
+          <ShareLinkButton draftId={id} />
 
-          {isEditMode && <XThreadLinkButton draftId={id} />}
+          <AgentLinkButton draftId={id} />
 
-          {isEditMode && !draft.is_published && (
+          <XThreadLinkButton draftId={id} />
+
+          {!draft.is_published && (
             <button className="publish-btn icon-btn" onClick={handlePublish} disabled={saving} title="Publish" aria-label="Publish">
               <span className="btn-icon">📤</span>
               <span className="btn-text">Publish</span>
@@ -276,13 +269,9 @@ export default function DraftEditor({ user }) {
 
       <div className={`editor-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <div className="main-panel">
-          <ThreadComposer
-            posts={draft.posts}
-            onPostsChange={handlePostsChange}
-            readOnly={!isEditMode}
-          />
+          <ThreadComposer posts={draft.posts} onPostsChange={handlePostsChange} />
 
-          {isEditMode && !draft.is_published && (
+          {!draft.is_published && (
             <div className="editor-hint">
               <p>Images upload automatically. Changes save as you type.</p>
             </div>

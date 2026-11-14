@@ -19,6 +19,8 @@ const CASES = {
   'GET /drafts/:id/export': { search: '?format=text' },
   'DELETE /drafts/:id': {},
   'POST /drafts/:id/share-tokens': {},
+  'DELETE /drafts/:id/share-tokens': {},
+  'DELETE /drafts/:id/share-tokens/:token': {},
   'PATCH /drafts/:id/posts/:postId': { body: { text: 'hacked' } }
 }
 
@@ -58,7 +60,16 @@ describe('tenant isolation on /drafts/:id routes', () => {
       title: 'alice draft',
       posts: [{ id: POST_ID, text: 'hello', images: [], embeddedTweet: null }]
     })
-    const path = entry.path.replace('/:postId', `/${POST_ID}`).replace('/:id', `/${draft.id}`) + (spec.search ?? '')
+    // A real share link of alice's, so a revoke by bob has a row to (wrongly) delete.
+    const { rows: link } = await db.pg.query(
+      'insert into share_tokens (draft_id, created_by) values ($1, $2) returning token',
+      [draft.id, alice.id]
+    )
+    const path =
+      entry.path
+        .replace('/:postId', `/${POST_ID}`)
+        .replace('/:token', `/${link[0].token}`)
+        .replace('/:id', `/${draft.id}`) + (spec.search ?? '')
     const send = (cookie) => route(apiRequest(`/api${path}`, { method: entry.method, body: spec.body, cookie }))
 
     const before = await db.pg.query('select * from drafts where id = $1', [draft.id])
