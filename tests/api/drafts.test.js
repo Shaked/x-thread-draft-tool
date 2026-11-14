@@ -210,6 +210,7 @@ describe('share tokens', () => {
 
     const ok = await route(apiRequest(`/api/drafts/${draft.id}/share-tokens`, { method: 'POST', cookie: aliceCookie }))
     expect(ok.status).toBe(201)
-    expect(await json(ok)).toEqual({ token: expect.stringMatching(/^[0-9a-f-]{36}$/) })
+    // T2: the answer also carries the expiry and whether the link is one-time (the default).
+    expect(await json(ok)).toEqual({ token: expect.stringMatching(/^[0-9a-f-]{36}$/), expires_at: expect.any(String), one_time: true })
   })
 })

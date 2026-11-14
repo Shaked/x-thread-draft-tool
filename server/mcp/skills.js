@@ -41,7 +41,7 @@ A post is a tweet (ציוץ, פוסט), a thread is a שרשור, a draft is a �
 2. Tighten: read the draft with \`get_draft\`, propose shorter text as before and after, and change a post
    only after the user agrees.
 3. Review: \`get_draft\` and \`export_draft\` (numbered). List problems and a fix for each.
-4. Share: \`create_share_link\` makes one-time read links. Each link works once in total, then returns 410.
+4. Share: \`create_share_link\` makes read links. By default a link works once and expires after 1 hour; with one_time false it works until it expires. \`revoke_share_link\` stops a link (or all of a draft's links) at once.
 5. Publish: \`publish_draft\` only marks the draft as published in this app. It posts nothing to
    X/Twitter, and it deletes the draft's images. Call it, or \`delete_draft\`, only after the user has
    confirmed in a later message.

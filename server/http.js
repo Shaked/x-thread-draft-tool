@@ -51,7 +51,7 @@ export function cookie(
   return parts.join('; ')
 }
 
-export async function readJson(request, maxBytes = 1_000_000) {
+async function readText(request, maxBytes) {
   const length = Number(request.headers.get('content-length') || 0)
   if (length > maxBytes) throw new HttpError(413, 'Request body too large')
 
@@ -59,6 +59,22 @@ export async function readJson(request, maxBytes = 1_000_000) {
   if (new TextEncoder().encode(text).byteLength > maxBytes) {
     throw new HttpError(413, 'Request body too large')
   }
+  return text
+}
+
+export async function readJson(request, maxBytes = 1_000_000) {
+  const text = await readText(request, maxBytes)
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new HttpError(400, 'Invalid JSON body')
+  }
+}
+
+/** Like readJson, but for a route whose body is optional: an empty body is `undefined`. */
+export async function readOptionalJson(request, maxBytes = 1_000_000) {
+  const text = await readText(request, maxBytes)
+  if (text.trim() === '') return undefined
   try {
     return JSON.parse(text)
   } catch {

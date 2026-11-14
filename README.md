@@ -21,7 +21,7 @@ A modern web app for composing, managing, and exporting Twitter/X threads with c
 - **Published archive** - Mark drafts as published to archive them
 
 ### Sharing & Export
-- **Private drafts, share links** - A draft opens only for its owner. Other people see it through a one-time link
+- **Private drafts, share links** - A draft opens only for its owner. Other people see it through a share link that expires (1 hour by default, up to 7 days) or works once
 - **JSON export** - Download drafts for backup
 - **Markdown export** - Export threads with formatting
 - **Copy to clipboard** - With or without numbering
@@ -151,9 +151,11 @@ The app uses three tables in Neon Postgres (see `db/migrations/001_init.sql`):
 - `updated_at` - Timestamp
 
 ### `share_tokens`
-- `token` - UUID (primary key); one-time share link
+- `token` - UUID (primary key); share link
 - `draft_id`, `created_by` - Draft and owner
-- `used`, `used_at` - Set atomically on first use
+- `expires_at` - When the link stops working (no value: one hour after `created_at`)
+- `one_time` - true: the link works once; false: it works until it expires or is revoked
+- `used`, `used_at` - Set atomically on first use (`used` only for one-time links)
 
 ### Post Object Structure
 ```json
@@ -169,12 +171,12 @@ The app uses three tables in Neon Postgres (see `db/migrations/001_init.sql`):
 
 ### Shareable Links
 
-Each draft has a unique URL (`/draft/:id`). It opens only for the owner. To show a draft to someone else, use the one-time "X Thread" or "Agent link" buttons.
+Each draft has a unique URL (`/draft/:id`). It opens only for the owner. To show a draft to someone else, use the **Share** button (a reusable link with a chosen lifetime), or the "X Thread" or "Agent link" buttons (one-time links that stop after 1 hour).
 
 
-### One-time X-thread preview links
+### X-thread preview links
 
-The **X Thread** button generates a one-time-use share token and copies a URL like:
+The **X Thread** button generates a one-time share token that stops after 1 hour, and copies a URL like:
 
 `https://<your-app-domain>/x-thread-preview/<token>`
 
@@ -182,8 +184,9 @@ Why this shape: some edge gateway/CDN paths force `.html` URLs to `text/plain` r
 
 Behavior:
 - First successful open consumes the token and renders the styled HTML thread preview.
-- Any later open returns an expired/invalid response (`410 Gone`).
-- Agent links copy `/api/share/<token>.md` (markdown). The same link works once.
+- Any later open, or any open after the link expires, returns an expired/invalid response (`410 Gone`).
+- Agent links copy `/api/share/<token>.md` (markdown). The same rules apply.
+- The **Share** button copies a reusable `/x-thread-preview/<token>` link that stops after 15 minutes, 1 hour (default), 1 day or 7 days.
 
 ### Published Feature
 

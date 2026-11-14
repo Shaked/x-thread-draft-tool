@@ -1,18 +1,18 @@
 import { query } from '../db.js'
 import { extractTokenAndFormat, htmlResponse, renderHtml, renderMarkdown, textResponse } from '../share/render.js'
 
-const EXPIRED_HTML = '<h1>Link expired or invalid</h1><p>One-time links can only be opened once.</p>'
+const EXPIRED_TEXT = 'This link has expired or was already used.'
+const EXPIRED_HTML = `<h1>Link expired or invalid</h1><p>${EXPIRED_TEXT}</p>`
 
 function gone(format) {
-  return format === 'html'
-    ? htmlResponse(EXPIRED_HTML, 410)
-    : textResponse('Link expired or invalid', 410)
+  return format === 'html' ? htmlResponse(EXPIRED_HTML, 410) : textResponse(`Link expired or invalid. ${EXPIRED_TEXT}`, 410)
 }
 
 /**
  * GET /api/share/:token[.md|.html] (public).
- * The token is consumed in one atomic UPDATE, so a link works exactly once even under
- * concurrent requests.
+ * A link works only before expires_at (a row with none expires one hour after creation). A one-time
+ * link is consumed in one atomic UPDATE, so it works exactly once even under concurrent requests.
+ * A reusable link (one_time false) only records the read time.
  */
 async function getShare({ url, path }) {
   const pathUrl = new URL(url.href)
@@ -23,7 +23,13 @@ async function getShare({ url, path }) {
   }
 
   const consumed = await query(
-    'update share_tokens set used = true, used_at = now() where token = $1 and used = false returning draft_id',
+    `update share_tokens
+        set used = case when one_time then true else used end,
+            used_at = now()
+      where token = $1
+        and coalesce(expires_at, created_at + interval '1 hour') > now()
+        and (one_time = false or used = false)
+      returning draft_id`,
     [token]
   )
   if (!consumed.rows[0]) return gone(format)

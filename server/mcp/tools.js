@@ -100,16 +100,49 @@ const TOOLS = [
   {
     name: 'create_share_link',
     description:
-      'Create one-time read links for one of your drafts: preview_url (the X-thread view) and markdown_url. Each link works once in total, then returns 410.',
-    inputSchema: ID_ONLY,
+      'Create read links for one of your drafts: preview_url (the X-thread view) and markdown_url. By default a link works once and expires after 1 hour. Set one_time to false for a link that can be read many times; expires_in sets its lifetime in seconds (60 to 604800). Returns expires_at. Use revoke_share_link to stop a link.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: UUID,
+        expires_in: { type: 'integer', minimum: 60, maximum: 604800, description: 'Lifetime in seconds, from 60 to 604800 (7 days). Default 3600.' },
+        one_time: { type: 'boolean', default: true, description: 'true: the link works once. false: it can be read until it expires.' }
+      },
+      required: ['id']
+    },
     run: async (args, { rest, origin }) => {
-      const res = await rest('POST', `/drafts/${enc(args.id)}/share-tokens`)
+      const res = await rest('POST', `/drafts/${enc(args.id)}/share-tokens`, pick(args, ['expires_in', 'one_time']))
       if (res.status >= 400) return res
-      const { token } = await res.json()
+      const { token, expires_at: expiresAt, one_time: oneTime } = await res.json()
       return json(
-        { token, preview_url: `${origin}/x-thread-preview/${token}`, markdown_url: `${origin}/api/share/${token}.md` },
+        {
+          token,
+          expires_at: expiresAt,
+          one_time: oneTime,
+          preview_url: `${origin}/x-thread-preview/${token}`,
+          markdown_url: `${origin}/api/share/${token}.md`
+        },
         res.status
       )
+    }
+  },
+  {
+    name: 'revoke_share_link',
+    description:
+      'Stop share links of one of your drafts. Give token to stop one link; omit it to stop every link of the draft. A stopped link returns 410.',
+    inputSchema: {
+      type: 'object',
+      properties: { id: UUID, token: { type: 'string', format: 'uuid', description: 'The link to stop. Omit to stop all links of the draft.' } },
+      required: ['id']
+    },
+    annotations: { destructiveHint: true },
+    run: async (args, { rest }) => {
+      const res =
+        args.token === undefined
+          ? await rest('DELETE', `/drafts/${enc(args.id)}/share-tokens`)
+          : await rest('DELETE', `/drafts/${enc(args.id)}/share-tokens/${enc(args.token)}`)
+      if (res.status >= 400) return res
+      return json({ ok: true })
     }
   },
   {
@@ -301,6 +334,7 @@ const META = {
   create_draft: ['Create draft', false, false, false, false],
   duplicate_draft: ['Duplicate draft', false, false, false, false],
   create_share_link: ['Create share link', false, false, false, false],
+  revoke_share_link: ['Revoke share link', false, true, true, false],
   update_draft: ['Update draft', false, false, true, false],
   add_image_from_url: ['Add image from URL', false, false, false, true],
   publish_draft: ['Publish draft', false, true, true, false],
@@ -325,6 +359,7 @@ const REST_ROUTES = {
   export_draft: ['GET /drafts/:id/export'],
   split_text: ['POST /threads/split'],
   create_share_link: ['POST /drafts/:id/share-tokens'],
+  revoke_share_link: ['DELETE /drafts/:id/share-tokens/:token', 'DELETE /drafts/:id/share-tokens'],
   add_image_from_url: ['POST /images/from-url', 'GET /drafts/:id', 'PATCH /drafts/:id'],
   publish_draft: ['POST /drafts/:id/publish'],
   delete_draft: ['DELETE /drafts/:id'],
@@ -351,6 +386,7 @@ const TRIGGERS = {
   export_draft: ['copy a thread as text', 'לייצא טיוטה, להעתיק שרשור כטקסט, מספור ציוצים'],
   split_text: ['break text into tweets', 'לפצל טקסט לציוצים או לפוסטים'],
   create_share_link: ['share or preview a thread', 'קישור שיתוף, לשתף טיוטה, תצוגה מקדימה'],
+  revoke_share_link: ['stop a share link', 'לבטל קישור שיתוף, לנטרל קישור'],
   add_image_from_url: ['attach a picture to a tweet', 'להוסיף תמונה מקישור לציוץ'],
   whoami: ['which account is connected', 'מי אני, איזה חשבון מחובר'],
   create_thread_from_text: ['tweetstorm, turn an article or notes into a thread', 'להפוך טקסט ארוך לשרשור, ליצור שרשור מטקסט'],

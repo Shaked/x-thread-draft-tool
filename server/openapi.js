@@ -336,10 +336,25 @@ export const OPENAPI = {
     },
     '/drafts/{id}/share-tokens': {
       post: {
-        summary: 'Create a one-time share token (owner only). Use /share/{token} for the markdown or HTML page.',
+        summary: 'Create a share link (owner only). Default: works once, expires after 1 hour. Use /share/{token} for the markdown or HTML page. An empty body means the defaults.',
         security: BEARER,
         parameters: [ID],
-        responses: { ...json({ type: 'object', properties: { token: { type: 'string', format: 'uuid' } } }, '201'), 401: UNAUTHORIZED, 404: NOT_FOUND }
+        requestBody: { required: false, content: { 'application/json': { schema: { type: 'object', additionalProperties: false, properties: { expires_in: { type: 'integer', minimum: 60, maximum: 604800, default: 3600, description: 'Lifetime in seconds.' }, one_time: { type: 'boolean', default: true, description: 'false: the link can be read until it expires.' } } } } } },
+        responses: { ...json({ type: 'object', properties: { token: { type: 'string', format: 'uuid' }, expires_at: { type: 'string', format: 'date-time' }, one_time: { type: 'boolean' } } }, '201'), 400: BAD_REQUEST, 401: UNAUTHORIZED, 404: NOT_FOUND }
+      },
+      delete: {
+        summary: 'Stop every share link of the draft (owner only). Each one then returns 410.',
+        security: BEARER,
+        parameters: [ID],
+        responses: { 204: { description: 'All links of the draft are stopped' }, 401: UNAUTHORIZED, 404: NOT_FOUND }
+      }
+    },
+    '/drafts/{id}/share-tokens/{token}': {
+      delete: {
+        summary: 'Stop one share link (owner only). The link then returns 410.',
+        security: BEARER,
+        parameters: [ID, TOKEN_PARAM],
+        responses: { 204: { description: 'The link is stopped' }, 401: UNAUTHORIZED, 404: NOT_FOUND }
       }
     },
     '/drafts/{id}/posts/{postId}': {
@@ -387,12 +402,12 @@ export const OPENAPI = {
     },
     '/share/{token}': {
       get: {
-        summary: 'Consume a one-time share link. Works exactly once; later calls get 410. Append .md, .html or ?format=html|md.',
+        summary: 'Read a share link. A one-time link works once; a reusable link works until it expires or is stopped. Otherwise 410. Append .md, .html or ?format=html|md.',
         parameters: [TOKEN_PARAM],
         responses: {
           200: { description: 'Markdown (default) or HTML', content: { 'text/markdown': { schema: { type: 'string' } }, 'text/html': { schema: { type: 'string' } } } },
           400: BAD_REQUEST,
-          410: { description: 'Already used or unknown', content: { 'text/markdown': { schema: { type: 'string' } } } }
+          410: { description: 'Expired, stopped, already used or unknown', content: { 'text/markdown': { schema: { type: 'string' } } } }
         }
       }
     },
