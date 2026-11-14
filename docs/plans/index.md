@@ -9,3 +9,4 @@ This index tracks current implementation and maintenance plans.
 - [Hardening finish runbook (end-to-end execution of the hardening plan)](./hardening-finish.md)
 - [Hardening finish, part 2 (remaining steps, bug fixes, tracker)](./hardening-finish-part2.md)
 - [MCP for Claude Code, Claude, Codex and ChatGPT (client compatibility, missing tools, hardening, setup)](./mcp-clients.md)
+- [Private drafts, timed share links, consent copy link, MCP summaries (epic #111)](./private-drafts-share-links.md)
