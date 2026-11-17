@@ -16,6 +16,8 @@
 - A token acts as the GitHub user who created it. It can read and change only that user's drafts.
 - Revoke a hand-made token with `DELETE /api/tokens/{id}`.
 - An invalid, expired or revoked token returns 401. It never falls back to a cookie.
+- Sign-out: `POST /api/auth/logout` ends the browser session on the server at once. It does not revoke API tokens or connected apps.
+- The approval page greets you by login, has a "Copy link" field for another browser, and a "Not you? Sign out" button.
 
 ## Quickstart
 
@@ -66,7 +68,8 @@ MCP skill (extension io.modelcontextprotocol/skills): skill://x-thread-drafts/SK
 ## Rules
 
 - Draft shape: `{ title, posts: [{ id, text, images: [{ url }], embeddedTweet }] }`.
-- Max 280 characters per post (use `/api/threads/split`), max 4 images per post, 4 MB per image.
+- Max 280 characters per post, counted as X counts them (a URL 23, an emoji 2, Hebrew and Latin letters 1; use `/api/threads/split`). The write endpoints refuse more than 4000 raw characters. Max 4 images per post, 4 MB per image.
+- Summaries: `GET /api/drafts?published=false&view=summary` lists counts without post text; `GET /api/drafts/{id}/outline` counts posts and characters per post (owner only).
 - Drafts are private. `GET /api/drafts/{id}` and its export return the draft only to its owner (another user gets 404, no token or session 401). Lists, writes and deletes need a token or session too.
-- Share links work once by default and expire 1 hour after creation (`expires_in` sets 60 seconds to 7 days; `one_time` false makes a reusable link). Owners can stop a link with DELETE. Image URLs from `/api/images` or `/api/images/from-url` are Vercel Blob URLs.
+- Share links work once by default and expire 1 hour after creation (`expires_in` sets 60 seconds to 7 days; `one_time` false makes a reusable link). Owners can stop a link with DELETE (`/api/drafts/{id}/share-tokens/{token}`, or all of a draft's links at `/api/drafts/{id}/share-tokens`). Image URLs from `/api/images` or `/api/images/from-url` are Vercel Blob URLs.
 - Errors are JSON: `{ "error": "message" }` with an HTTP status.

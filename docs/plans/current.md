@@ -6,12 +6,12 @@
 - Local pre-commit checks run docs refresh + lint + unit tests.
 - E2E remains gated in GitHub Actions.
 - [mcp-clients.md](./mcp-clients.md): the MCP connector works with Claude, Claude Code, Codex and ChatGPT. All steps M0 to M16, and M13a, are merged (M13 #105, M13a #106, M14 #107, M15 #108, M16 this PR). The four slash commands (prompts), the `x-thread-drafts` skill, and the Hebrew and X/Twitter wording are live. M11, the client contract suite, merged via #92, #98, #99, #100, #101. Client behaviour is proven by contract tests (M11); no owner action. Ledger issues #60 and #80. Setup: [agents/mcp.md](../agents/mcp.md).
+- [private-drafts-share-links.md](./private-drafts-share-links.md): DONE. Drafts readable only by their owner, share links that expire (default 1 hour), a copy-link field on the consent and sign-in pages, MCP summaries and outline. Tasks T0 to T7 and T3a, T3b-1, T3b-2, epic #111.
 
 ## Planned next
 - [bottom-bar.md](./bottom-bar.md): one slim bar on every signed-in page, an Export menu, Share working on phones (T3b-1, T3b-2). Part of the share-links plan, epic #111.
 - [admin.md](./admin.md): admin tools only for the owner, through the MCP: users, statistics, suspend, delete. Tasks A0 to A10, epic #117. Starts after epics #111 and #114.
 - [performance.md](./performance.md): make MCP and REST faster (measure first, then fewer SQL round trips and a lighter cold start). Tasks P0 to P9, epic #114. Not started.
-- [private-drafts-share-links.md](./private-drafts-share-links.md): drafts readable only by their owner, share links that expire (default 1 hour), a copy-link field on the consent and sign-in pages, MCP summaries and outline. Tasks T0 to T7 and T3a, T3b-1, T3b-2, epic #111. In progress: T0 to T2 are in production; T3b-1 is in review.
 - [mobile-width.md](./mobile-width.md): the editor fits a phone once embedded tweets load, and embeds cannot widen the page. Task W1 (epic #125).
 - [mcp-apps.md](./mcp-apps.md): thread and drafts views shown inside Claude and ChatGPT (MCP Apps). Tasks 0 to 9, epic #127. Started; read-only views first, write buttons held, real embedded tweets later (T8).
 - Done except parked items: [post-migration-hardening.md](./post-migration-hardening.md) (Tasks 0–7: audit fixes, CI gates, Codex gate, light UI, OIDC and MCP connector). Parked: 1.2, 2.4, 4, 7.9. Runbook: [hardening-finish.md](./hardening-finish.md).
