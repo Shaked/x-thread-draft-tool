@@ -15,6 +15,7 @@ This index tracks current implementation and maintenance plans.
 - [Mobile width: the editor fits a phone, embeds cannot widen the page (epic #125)](./mobile-width.md)
 - [MCP Apps: thread and drafts views inside Claude and ChatGPT (epic #127)](./mcp-apps.md)
 - [MCP default use: AI apps save threads as drafts without being told (epic #132)](./mcp-default-use.md)
+- [Settings menu: left menu, version info, tokens page redesign, changelog (epic #135)](./settings-menu.md)
 
 ## Completed
 
