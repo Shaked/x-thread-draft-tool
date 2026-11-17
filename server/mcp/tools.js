@@ -212,6 +212,12 @@ const TOOLS = [
     }
   },
   {
+    name: 'app_version',
+    description: 'The version of this app: commit, deploy time, schema.',
+    inputSchema: { type: 'object', properties: {} },
+    run: async (args, { rest }) => rest('GET', '/version')
+  },
+  {
     name: 'create_thread_from_text',
     description: 'Save a thread as a draft: split text into posts (at most 280 characters each, as X counts them) and create it. Use it when the user asks to write, draft or rewrite a thread, even without naming drafts; give the draft url, not only the posts as text. It publishes nothing; delete_draft undoes it.' + RESULT_NOTE + CONTENT_NOTE,
     inputSchema: {
@@ -370,6 +376,7 @@ const META = {
   remove_post: ['Remove post', false, true, false, false],
   move_post: ['Move post', false, false, true, false],
   whoami: ['Who am I', true, false, true, false],
+  app_version: ['App version', true, false, true, false],
   create_thread_from_text: ['Create thread from text', false, false, false, false],
   remove_image: ['Remove image', false, true, true, false]
 }
@@ -395,6 +402,7 @@ const REST_ROUTES = {
   remove_post: ['GET /drafts/:id', 'PATCH /drafts/:id', 'GET /drafts', 'DELETE /images'],
   move_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
   whoami: ['GET /auth/me'],
+  app_version: ['GET /version'],
   create_thread_from_text: ['POST /threads/split', 'POST /drafts'],
   remove_image: ['GET /drafts', 'PATCH /drafts/:id', 'DELETE /images']
 }
@@ -417,6 +425,7 @@ const TRIGGERS = {
   revoke_share_link: ['stop a share link', 'לבטל קישור שיתוף, לנטרל קישור'],
   add_image_from_url: ['attach a picture to a tweet', 'להוסיף תמונה מקישור לציוץ'],
   whoami: ['which account is connected', 'מי אני, איזה חשבון מחובר'],
+  app_version: ['which version of the app is live', 'איזו גרסה של האפליקציה פועלת, מתי עודכנה'],
   create_thread_from_text: ['write a tweetstorm', 'לכתוב שרשור, שרשור מטקסט'],
   remove_image: ['delete a picture from a tweet', 'להסיר תמונה מציוץ'],
   add_post: ['add a tweet', 'להוסיף ציוץ או פוסט לשרשור'],

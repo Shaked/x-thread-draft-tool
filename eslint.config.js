@@ -40,7 +40,7 @@ export default [
   // Browser React app.
   {
     files: ['src/**/*.{js,jsx}'],
-    languageOptions: { globals: globals.browser },
+    languageOptions: { globals: { ...globals.browser, __BUILD_INFO__: 'readonly' } },
     plugins: { react, 'react-hooks': reactHooks },
     settings: { react: { version: 'detect' } },
     rules: {

@@ -5,7 +5,8 @@ vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn
 
 import { route } from '../../server/router.js'
 import { issuePair } from '../../server/oauth/tokens.js'
-import { APP_URL, setupTestDb } from './helpers/db.js'
+import { getVersion } from '../../server/version.js'
+import { APP_URL, apiRequest, setupTestDb } from './helpers/db.js'
 
 const MCP = `${APP_URL}/api/mcp`
 const WWW_AUTHENTICATE = `Bearer resource_metadata="${APP_URL}/.well-known/oauth-protected-resource/api/mcp", scope="drafts"`
@@ -14,7 +15,7 @@ const TOOL_NAMES = [
   'list_drafts', 'get_draft', 'create_draft', 'update_draft', 'duplicate_draft', 'export_draft',
   'split_text', 'create_share_link', 'add_image_from_url', 'publish_draft', 'delete_draft',
   'whoami', 'create_thread_from_text', 'remove_image', 'add_post', 'update_post', 'remove_post', 'move_post',
-  'revoke_share_link', 'get_draft_outline'
+  'revoke_share_link', 'get_draft_outline', 'app_version'
 ]
 
 let db
@@ -294,7 +295,8 @@ describe('initialize, discovery and tools/list', () => {
     const { body } = await call(legacyPost({ jsonrpc: '2.0', id: 3, method: 'tools/list' }, { token }))
     // Behaviour changed (M4, M5): 18 tools; whoami, create_thread_from_text, remove_image and the four post tools are new.
     // T2 adds revoke_share_link: 19 tools. T4 adds get_draft_outline: 20 tools.
-    expect(body.result.tools).toHaveLength(20)
+    // V1 (settings-menu.md Task 1) adds app_version: 21 tools.
+    expect(body.result.tools).toHaveLength(21)
     expect(body.result.resultType).toBeUndefined()
   })
 })
@@ -415,6 +417,20 @@ describe('M4 tools', () => {
     const token = await accessToken(alice)
     const res = await call(modernPost('tools/call', { name: 'whoami', arguments: {} }, { token }))
     expect(res.body.result.structuredContent.login).toBe('alice')
+  })
+
+  it('app_version returns the same object as GET /api/version', async () => {
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'app_version', arguments: {} }, { token }))
+    const rest = await (await route(apiRequest('/api/version'))).json()
+    expect(res.body.result.structuredContent).toEqual(rest)
+  })
+
+  it('serverInfo carries the commit as build metadata when known', async () => {
+    const { commit_short: short } = await getVersion()
+    const res = await call(modernPost('server/discover', {}, { token: await accessToken(alice) }))
+    const version = res.body.result._meta['io.modelcontextprotocol/serverInfo'].version
+    expect(version).toBe(short ? `0.1.0+${short}` : '0.1.0')
   })
 
   it('create_thread_from_text splits the text into posts and returns the draft with its editor link', async () => {

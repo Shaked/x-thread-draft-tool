@@ -24,6 +24,7 @@ const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
 // Routes that never take a token (the server refuses a CI JWT on any route not marked ci: true).
 const PUBLIC_PATHS = new Set([
   '/api/health',
+  '/api/version',
   '/llms.txt',
   '/api/openapi.json',
   '/.well-known/oauth-protected-resource/api/mcp',
@@ -95,6 +96,18 @@ const created = []
 await step('health', async () => {
   const data = await call('GET', '/api/health')
   if (data.ok !== true) throw new Error('ok is not true')
+})
+
+await step('version', async () => {
+  const data = await call('GET', '/api/version')
+  for (const key of ['commit', 'commit_short', 'deployed_at', 'environment', 'schema']) {
+    if (!(key in data)) throw new Error(`no ${key} in /api/version`)
+  }
+  if (typeof data.schema !== 'string') throw new Error('schema is not a string')
+  if (process.env.DEPLOY_ENV === 'Production') {
+    if (typeof data.commit !== 'string') throw new Error('commit is not a string')
+    if (typeof data.deployed_at !== 'string' || Number.isNaN(Date.parse(data.deployed_at))) throw new Error('deployed_at is not an ISO time')
+  }
 })
 
 await step('llms.txt', async () => {

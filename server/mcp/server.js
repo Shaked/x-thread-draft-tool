@@ -8,12 +8,14 @@ import { getPrompt, listPrompts } from './prompts.js'
 import { getSkill, listSkillResources, listSkills, readSkillResource } from './skills.js'
 import { RATE_LIMIT_MESSAGE, withinToolRate } from './rate.js'
 import { noteRpc } from '../perf.js'
+import { getVersion } from '../version.js'
 
 const LATEST_VERSION = '2026-07-28'
 const SUPPORTED_VERSIONS = [LATEST_VERSION, '2025-11-25', '2025-06-18', '2025-03-26']
 const LEGACY_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26']
 
-const SERVER_INFO = { name: 'x-thread-draft-tool', version: '0.1.0' }
+const SERVER_NAME = 'x-thread-draft-tool'
+const BASE_VERSION = '0.1.0'
 const CAPABILITIES = { tools: {}, prompts: {}, resources: {}, extensions: { 'io.modelcontextprotocol/skills': {} } }
 const INSTRUCTIONS =
   'Drafts are X thread drafts: posts of up to 280 characters, with optional images. ' +
@@ -203,6 +205,12 @@ export async function handleMcp(request) {
   }
 }
 
+/** serverInfo with the commit as semver build metadata (0.1.0+8a1f0c2) when it is known. */
+async function serverInfo() {
+  const { commit_short: short } = await getVersion()
+  return { name: SERVER_NAME, version: short ? `${BASE_VERSION}+${short}` : BASE_VERSION }
+}
+
 async function dispatch(message, ctx) {
   const params = isPlainObject(message.params) ? message.params : {}
   switch (message.method) {
@@ -210,7 +218,7 @@ async function dispatch(message, ctx) {
       return {
         supportedVersions: SUPPORTED_VERSIONS,
         capabilities: CAPABILITIES,
-        _meta: { 'io.modelcontextprotocol/serverInfo': SERVER_INFO },
+        _meta: { 'io.modelcontextprotocol/serverInfo': await serverInfo() },
         instructions: INSTRUCTIONS,
         ttlMs: DISCOVER_TTL_MS,
         cacheScope: 'public'
@@ -219,7 +227,7 @@ async function dispatch(message, ctx) {
       return {
         protocolVersion: negotiateLegacy(params.protocolVersion),
         capabilities: CAPABILITIES,
-        serverInfo: SERVER_INFO,
+        serverInfo: await serverInfo(),
         instructions: INSTRUCTIONS
       }
     case 'ping':

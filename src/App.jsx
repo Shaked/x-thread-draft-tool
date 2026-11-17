@@ -33,8 +33,10 @@ function App() {
       .finally(() => setLoading(false))
   }, [])
 
-  const deployedAtRaw = import.meta.env.VITE_DEPLOYED_AT
-  const deployCommitRaw = import.meta.env.VITE_DEPLOY_COMMIT_SHA
+  // Vite defines __BUILD_INFO__ (vite.config.js); vitest and plain tooling do not.
+  const buildInfo = typeof __BUILD_INFO__ === 'undefined' ? null : __BUILD_INFO__
+  const deployedAtRaw = buildInfo?.deployed_at
+  const deployCommitRaw = buildInfo?.commit
   const deployCommit = deployCommitRaw ? deployCommitRaw.slice(0, 12) : 'unknown'
   const { deployedAt, deployedAgo } = (() => {
     if (!deployedAtRaw) return { deployedAt: 'unknown', deployedAgo: '' }
