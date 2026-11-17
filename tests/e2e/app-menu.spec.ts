@@ -217,3 +217,43 @@ test('with reduced motion the drawer does not animate', async ({ browser }) => {
     await context.close()
   }
 })
+
+for (const size of SIZES) {
+  test(`dark theme: the drawer opens and is separated from the page at ${size.name} px`, async ({ browser }) => {
+    const { context, page } = await open(browser, size)
+    try {
+      await page.addInitScript(() => localStorage.setItem('xt-theme', 'dark'))
+      await page.goto(`${BASE}/`)
+      await page.getByRole('heading', { name: 'Your Threads' }).waitFor()
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+      await openMenu(page)
+      const colours = await page.evaluate(() => ({
+        page: getComputedStyle(document.body).backgroundColor,
+        drawer: getComputedStyle(document.querySelector('#app-menu')!).backgroundColor,
+        border: getComputedStyle(document.querySelector('#app-menu')!).borderInlineEndColor
+      }))
+      expect(colours.drawer).not.toBe(colours.page)
+      expect(colours.border).not.toBe(colours.drawer)
+    } finally {
+      await context.close()
+    }
+  })
+}
+
+test('no menu button on the login page or the shared preview', async ({ browser }) => {
+  const shared = await api.post(`/api/drafts/${draftId}/share-tokens`, { headers: { authorization: `Bearer ${token}` } })
+  expect(shared.ok()).toBeTruthy()
+  const shareToken = (await shared.json()).token as string
+  const context = await browser.newContext({ viewport: SIZES[0], serviceWorkers: 'block' })
+  const page = await context.newPage()
+  try {
+    await page.goto(`${BASE}/`)
+    await expect(page.getByRole('button', { name: 'Sign in with GitHub' })).toBeVisible()
+    await expect(hamburger(page)).toHaveCount(0)
+    await page.goto(`${BASE}/x-thread-preview/${shareToken}`)
+    await expect(page.locator('body')).toContainText('Post 1 for the menu check')
+    await expect(hamburger(page)).toHaveCount(0)
+  } finally {
+    await context.close()
+  }
+})

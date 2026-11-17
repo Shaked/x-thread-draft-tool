@@ -1,12 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Link } from 'react-router-dom'
+import { MemoryRouter, Link, useNavigate } from 'react-router-dom'
 import AppMenu from '../../src/components/AppMenu.jsx'
 import { authApi } from '../../src/utils/api'
 
 vi.mock('../../src/utils/api', () => ({ authApi: { logout: vi.fn() } }))
 vi.mock('../../src/utils/draftCache', () => ({ clearCachedDrafts: vi.fn().mockResolvedValue(undefined) }))
+
+function Nav() {
+  const navigate = useNavigate()
+  return (
+    <>
+      <button type="button" onClick={() => navigate('/b')}>to b</button>
+      <button type="button" onClick={() => navigate(-1)}>back</button>
+    </>
+  )
+}
 
 function renderMenu() {
   return render(
@@ -66,6 +76,35 @@ describe('AppMenu', () => {
     expect(document.getElementById('app-menu')).toBeNull()
     await open()
     await user.click(document.querySelector('.app-menu-scrim'))
+    expect(document.getElementById('app-menu')).toBeNull()
+  })
+
+  it('closes on a route change and stays closed when going back', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/a']}>
+        <div id="root">
+          <AppMenu />
+          <Link to="/elsewhere">Elsewhere</Link>
+          <Nav />
+        </div>
+      </MemoryRouter>
+    )
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    expect(document.getElementById('app-menu')).not.toBeNull()
+    await user.click(screen.getByRole('button', { name: 'to b' }))
+    expect(document.getElementById('app-menu')).toBeNull()
+    expect(document.getElementById('root')).not.toHaveAttribute('inert')
+    await user.click(screen.getByRole('button', { name: 'back' }))
+    expect(document.getElementById('app-menu')).toBeNull()
+    expect(document.getElementById('root')).not.toHaveAttribute('inert')
+  })
+
+  it('closes when a link outside the drawer changes the route', async () => {
+    const user = userEvent.setup()
+    renderMenu()
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    await user.click(screen.getByRole('link', { name: 'Elsewhere' }))
     expect(document.getElementById('app-menu')).toBeNull()
   })
 

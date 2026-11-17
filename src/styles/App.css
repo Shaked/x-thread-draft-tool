@@ -1667,12 +1667,12 @@ body {
   display: flex; flex-direction: column; box-sizing: border-box;
   width: min(320px, calc(100vw - 48px)); height: 100dvh; overflow-y: auto;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
-  background: var(--bg); color: var(--text); border-inline-end: 1px solid var(--border);
+  background: var(--surface); color: var(--text); border-inline-end: 1px solid var(--border);
   box-shadow: 0 0 24px rgba(0, 0, 0, 0.3);
   animation: app-menu-slide 0.2s;
 }
 .app-menu-head { display: flex; align-items: center; justify-content: space-between; padding-inline-start: 8px; }
-.app-menu-head h2 { margin: 0; font-size: 1.1rem; }
+.app-menu-head h2 { margin: 0; font-size: 1rem; }
 .app-menu-list { list-style: none; margin: 8px 0; padding: 0; }
 .app-menu-item {
   display: flex; align-items: center; box-sizing: border-box; width: 100%; min-height: 44px; padding: 0 8px;
@@ -1681,7 +1681,9 @@ body {
 }
 .app-menu-item:hover { background: var(--surface-2); }
 .app-menu-section { padding: 0 8px; }
+.app-menu-label { padding: 8px 8px 0; color: var(--text-soft); font-size: 14px; }
 .app-menu .theme-setting { margin: 8px 0; }
+.app-menu .theme-setting legend { color: var(--text-soft); }
 .app-menu .theme-segments { display: flex; flex-direction: column; }
 .app-menu .theme-segment + .theme-segment { border-left: 0; border-top: 1px solid var(--border); }
 .app-menu-signout { margin-top: auto; }

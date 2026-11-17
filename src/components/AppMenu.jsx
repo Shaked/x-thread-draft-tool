@@ -11,11 +11,13 @@ export default function AppMenu() {
   // The menu is open only on the page it was opened on, so a route change closes it.
   const { pathname } = useLocation()
   const [openAt, setOpenAt] = useState(null)
+  // A route change clears the state, so going back to the old path does not reopen the menu.
+  if (openAt !== null && openAt !== pathname) setOpenAt(null)
   const open = openAt === pathname
   const setOpen = useCallback((next) => setOpenAt(next ? pathname : null), [pathname])
   const button = useRef(null)
   const layer = useRef(null)
-  
+
   const close = () => setOpen(false)
 
   useDismiss(open, layer, setOpen)
@@ -67,7 +69,7 @@ export default function AppMenu() {
             <div className="app-menu-scrim" onClick={close} />
             <nav id="app-menu" className="app-menu" role="dialog" aria-modal="true" aria-labelledby="app-menu-title">
               <div className="app-menu-head">
-                <h2 id="app-menu-title">Menu</h2>
+                <h2 id="app-menu-title">X Thread Draft Tool</h2>
                 <button type="button" className="menu-btn" aria-label="Close menu" title="Close menu" onClick={close}>
                   <Icon name="close" />
                 </button>
@@ -78,6 +80,7 @@ export default function AppMenu() {
                     Drafts
                   </Link>
                 </li>
+                <li className="app-menu-label">Settings</li>
                 <li className="app-menu-section">
                   <ThemeSetting />
                 </li>
