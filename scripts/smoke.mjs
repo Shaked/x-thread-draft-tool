@@ -186,7 +186,11 @@ await step('approval page: signed-out sign-in page, copy-link field and strict h
   if (!link.endsWith(`/api/oauth/authorize?${query}`)) throw new Error('the share-link field does not hold this authorize query')
 
   // The one inline script must be the one that script-src allows by its hash.
-  const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1] ?? ''
+  // Tags are found on a lower-cased copy with indexOf, not with a tag regexp (so <SCRIPT> is also seen).
+  const lower = html.toLowerCase()
+  const open = lower.indexOf('<script>')
+  const close = open === -1 ? -1 : lower.indexOf('</script>', open)
+  const script = open === -1 || close === -1 ? '' : html.slice(open + '<script>'.length, close)
   const hash = `'sha256-${createHash('sha256').update(script).digest('base64')}'`
   const csp = res.headers.get('content-security-policy') || ''
   const scriptSrc = csp.split(';').map((d) => d.trim()).find((d) => d.startsWith('script-src ')) || ''
