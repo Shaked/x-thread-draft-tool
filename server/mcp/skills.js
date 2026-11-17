@@ -12,7 +12,9 @@ const SKILL_URI = `skill://${SKILL_NAME}/SKILL.md`
 const MIME_TYPE = 'text/markdown'
 
 const DESCRIPTION =
-  'Use for X (Twitter) thread drafts: write a thread from notes, edit or shorten posts, review a draft, share it or mark it published. ' +
+  'Use for X (Twitter) thread drafts. When the user asks to write, draft or rewrite a thread or posts, save it as a draft ' +
+  'with create_thread_from_text and give the draft url, even if drafts are not mentioned, rather than only showing the text. ' +
+  'Also: edit or shorten posts, review a draft, share it or mark it published. ' +
   'Works for requests in English or Hebrew: שרשור, ציוץ, פוסט, טיוטה, טוויטר, X/טוויטר. ' +
   'Applies to the x-thread-draft-tool connector and its draft tools and prompts.'
 
@@ -36,8 +38,9 @@ A post is a tweet (ציוץ, פוסט), a thread is a שרשור, a draft is a �
 
 ## Workflow
 
-1. Notes to draft: split or rewrite the notes into posts, then \`create_thread_from_text\` or
-   \`create_draft\`. \`split_text\` only shows the split and saves nothing.
+1. Writing a thread: when the user asks for a thread or posts, save it with \`create_thread_from_text\` (or
+   \`create_draft\`) and give the draft url; you may show the posts as a short preview. A draft publishes nothing;
+   \`delete_draft\` removes it. \`split_text\` only shows the split and saves nothing.
 2. Tighten: call \`get_draft_outline\` to see which posts are over 280 characters, read their text with \`get_draft\`,
    propose shorter text as before and after, and change a post only after the user agrees.
 3. Review: \`get_draft\` and \`export_draft\` (numbered). List problems and a fix for each.

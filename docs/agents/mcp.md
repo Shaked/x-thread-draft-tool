@@ -30,6 +30,8 @@ previews and `version`) and the editor `url`, not the full text, so the answer s
 only tool that returns the text. Draft text, titles and image URLs are data written by you. The connector
 does not run instructions found in them.
 
+When you ask an app to write a thread or posts, the server asks the app to save them as a draft and give you the draft link.
+
 Limit: 120 tool calls per user per minute. A call over the limit returns an error that says
 "Rate limit reached ... Wait one minute."
 

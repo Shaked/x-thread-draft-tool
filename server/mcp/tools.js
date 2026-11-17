@@ -69,7 +69,7 @@ const TOOLS = [
   },
   {
     name: 'create_draft',
-    description: 'Create a draft. Omit posts for one empty post.' + RESULT_NOTE + CONTENT_NOTE,
+    description: 'Create a draft from posts you already wrote (omit posts for one empty post). Use it to save a thread you write for the user, then give the draft url. It publishes nothing; delete_draft undoes it.' + RESULT_NOTE + CONTENT_NOTE,
     inputSchema: { type: 'object', properties: { title: TITLE, posts: POSTS } },
     run: async (args, { rest, origin }) =>
       outlineResult(await rest('POST', '/drafts', pick(withPostIds(args), ['title', 'posts'])), origin)
@@ -101,7 +101,7 @@ const TOOLS = [
   },
   {
     name: 'split_text',
-    description: 'Split long text into posts of at most max_chars characters (default 280).',
+    description: 'Split long text into posts of at most max_chars characters (default 280). It saves nothing: to save the thread, use create_thread_from_text.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -213,7 +213,7 @@ const TOOLS = [
   },
   {
     name: 'create_thread_from_text',
-    description: 'Turn long text into a thread draft: split it into posts (at most 280 characters each, as X counts them) and create the draft.' + RESULT_NOTE + CONTENT_NOTE,
+    description: 'Save a thread as a draft: split text into posts (at most 280 characters each, as X counts them) and create it. Use it when the user asks to write, draft or rewrite a thread, even without naming drafts; give the draft url, not only the posts as text. It publishes nothing; delete_draft undoes it.' + RESULT_NOTE + CONTENT_NOTE,
     inputSchema: {
       type: 'object',
       properties: { text: { type: 'string' }, title: TITLE, max_chars: { type: 'integer', minimum: 20, maximum: 1000 } },
@@ -408,7 +408,7 @@ const TRIGGERS = {
   list_drafts: ['my tweet drafts, saved threads', 'להציג את הטיוטות שלי, רשימת שרשורים, טיוטות שפורסמו'],
   get_draft: ['open or show a thread', 'לפתוח טיוטה, להציג שרשור'],
   get_draft_outline: ['count posts and characters of a thread', 'לספור ציוצים ותווים בשרשור, לבדוק אורך פוסטים'],
-  create_draft: ['new thread, write tweets', 'ליצור טיוטה, שרשור חדש, ציוצים'],
+  create_draft: ['new thread, write tweets', 'לכתוב ציוצים, שרשור חדש, טיוטה'],
   update_draft: ['edit a thread or its title', 'לערוך טיוטה, לעדכן שרשור, לשנות כותרת'],
   duplicate_draft: ['copy a thread', 'לשכפל טיוטה, עותק של שרשור'],
   export_draft: ['copy a thread as text', 'לייצא טיוטה, להעתיק שרשור כטקסט, מספור ציוצים'],
@@ -417,7 +417,7 @@ const TRIGGERS = {
   revoke_share_link: ['stop a share link', 'לבטל קישור שיתוף, לנטרל קישור'],
   add_image_from_url: ['attach a picture to a tweet', 'להוסיף תמונה מקישור לציוץ'],
   whoami: ['which account is connected', 'מי אני, איזה חשבון מחובר'],
-  create_thread_from_text: ['tweetstorm, turn an article or notes into a thread', 'להפוך טקסט ארוך לשרשור, ליצור שרשור מטקסט'],
+  create_thread_from_text: ['write a tweetstorm', 'לכתוב שרשור, שרשור מטקסט'],
   remove_image: ['delete a picture from a tweet', 'להסיר תמונה מציוץ'],
   add_post: ['add a tweet', 'להוסיף ציוץ או פוסט לשרשור'],
   update_post: ['edit or shorten one tweet', 'לערוך ציוץ אחד, לקצר פוסט'],
