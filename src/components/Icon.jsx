@@ -5,6 +5,8 @@ const PATHS = {
   x: 'M5 4l14 16M19 4L5 20',
   export: 'M12 4v11M8 11l4 4 4-4M5 20h14',
   signout: 'M10 4H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 8l4 4-4 4M19 12H9',
+  menu: 'M4 7h16M4 12h16M4 17h16',
+  close: 'M6 6l12 12M18 6L6 18',
   chevron: 'M6 9l6 6 6-6'
 }
 

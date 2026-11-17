@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { draftsApi } from '../utils/api'
-import ThemeSetting from './ThemeSetting'
+import AppMenu from './AppMenu'
 import AppBar from './AppBar'
 
 export default function DraftList({ user }) {
@@ -104,8 +104,10 @@ export default function DraftList({ user }) {
   return (
     <div className="draft-list-page">
       <div className="draft-list-header">
-        <h1>Your Threads</h1>
-        <ThemeSetting />
+        <div className="page-title">
+          <AppMenu />
+          <h1>Your Threads</h1>
+        </div>
         <AppBar>
           {!(activeTab === 'drafts' && !loading && !error && drafts.length === 0) && (
             <button className="new-draft-btn" onClick={createNewDraft}>
@@ -113,9 +115,6 @@ export default function DraftList({ user }) {
             </button>
           )}
         </AppBar>
-        <button className="tab" onClick={() => navigate('/settings/tokens')}>
-          API tokens
-        </button>
       </div>
 
       <div className="draft-tabs">

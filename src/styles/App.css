@@ -1649,3 +1649,47 @@ body {
 .copy-btn { min-height: 44px; min-width: 44px; padding: 8px 12px; font-size: 16px; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: inherit; cursor: pointer; }
 .copy-btn:hover { background-color: var(--border-soft); }
 .connect-app-row > div { flex: 1 1 16rem; min-width: 0; }
+
+/* Menu: a button in each signed-in page header and a left drawer (settings-menu.md M6 to M11). */
+.page-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.menu-btn {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 40px; height: 40px; padding: 0; background: none; border: 0; border-radius: 8px;
+  color: var(--text-strong); cursor: pointer;
+}
+.menu-btn:focus-visible, .app-menu-item:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.app-menu-scrim {
+  position: fixed; inset: 0; z-index: 200; background: rgba(0, 0, 0, 0.5);
+  animation: app-menu-fade 0.2s;
+}
+.app-menu {
+  position: fixed; inset-block: 0; inset-inline-start: 0; z-index: 200;
+  display: flex; flex-direction: column; box-sizing: border-box;
+  width: min(320px, calc(100vw - 48px)); height: 100dvh; overflow-y: auto;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg); color: var(--text); border-inline-end: 1px solid var(--border);
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.3);
+  animation: app-menu-slide 0.2s;
+}
+.app-menu-head { display: flex; align-items: center; justify-content: space-between; padding-inline-start: 8px; }
+.app-menu-head h2 { margin: 0; font-size: 1.1rem; }
+.app-menu-list { list-style: none; margin: 8px 0; padding: 0; }
+.app-menu-item {
+  display: flex; align-items: center; box-sizing: border-box; width: 100%; min-height: 44px; padding: 0 8px;
+  background: none; border: 0; border-radius: 8px; color: var(--text-strong); font: inherit; text-align: start;
+  text-decoration: none; cursor: pointer;
+}
+.app-menu-item:hover { background: var(--surface-2); }
+.app-menu-section { padding: 0 8px; }
+.app-menu .theme-setting { margin: 8px 0; }
+.app-menu .theme-segments { display: flex; flex-direction: column; }
+.app-menu .theme-segment + .theme-segment { border-left: 0; border-top: 1px solid var(--border); }
+.app-menu-signout { margin-top: auto; }
+html.menu-open { overflow: hidden; }
+@keyframes app-menu-slide { from { transform: translateX(-100%); } }
+@keyframes app-menu-fade { from { opacity: 0; } }
+[dir='rtl'] .app-menu { animation-name: app-menu-slide-rtl; }
+@keyframes app-menu-slide-rtl { from { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .app-menu, .app-menu-scrim { animation: none; }
+}

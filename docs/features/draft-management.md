@@ -14,3 +14,7 @@ Sign out ends this browser's session on the server (the old cookie value stops w
 - **Wide screens (769 px and wider):** no fixed bar. The same actions sit in the page header.
 - **Hide:** the chevron at the end of the phone bar hides the actions. A small tab stays in the same corner to bring them back. The choice is kept in this browser only (`localStorage` key `xt-bar`) and holds on every signed-in page after a reload.
 - The login page and shared previews (`/x-thread-preview/<token>`) have no bar.
+
+## The menu
+
+Every signed-in page has a menu button at the start of its header. It opens a left drawer (closed on load) with Drafts, Theme (Light, Dark, Match device), API tokens and apps, and Sign out. Escape, a press on the dark area, a drawer link and a route change close it. While it is open the page behind cannot be focused and does not scroll; focus returns to the menu button on close. The phone bottom bar keeps its own Sign out.
