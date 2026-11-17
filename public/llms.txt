@@ -63,6 +63,7 @@ MCP skill (extension io.modelcontextprotocol/skills): skill://x-thread-drafts/SK
 
 - [MCP connector guide](https://github.com/Shaked/x-thread-draft-tool/blob/main/docs/agents/mcp.md): the tool list, setup for Claude, Claude Code, Codex and ChatGPT, troubleshooting.
 - [OpenAPI 3.1 spec](/api/openapi.json): every endpoint, schema and error code.
+- [Version](/api/version): the live commit, deploy time and database schema (public, no token); MCP tool `app_version`.
 - [Agent guide in the repo](https://github.com/Shaked/x-thread-draft-tool/blob/main/docs/agents/api.md): auth options, limits, how to test.
 
 ## Rules

@@ -1,8 +1,20 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { readFileSync } from 'node:fs'
+
+// scripts/build-info.mjs writes this file first in `npm run build`; it is absent before the first build.
+function readBuildInfo() {
+  try {
+    const text = readFileSync(new URL('./server/generated/build-info.js', import.meta.url), 'utf8')
+    return JSON.parse(text.replace(/^export default /, ''))
+  } catch {
+    return null // slop-ok: no build yet (dev, tests): the client shows "unknown"
+  }
+}
 
 export default defineConfig({
+  define: { __BUILD_INFO__: JSON.stringify(readBuildInfo()) },
   plugins: [
     react(),
     VitePWA({

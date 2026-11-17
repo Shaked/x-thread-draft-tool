@@ -24,6 +24,7 @@ const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
 // Routes that never take a token (the server refuses a CI JWT on any route not marked ci: true).
 const PUBLIC_PATHS = new Set([
   '/api/health',
+  '/api/version',
   '/llms.txt',
   '/api/openapi.json',
   '/.well-known/oauth-protected-resource/api/mcp',
@@ -95,6 +96,21 @@ const created = []
 await step('health', async () => {
   const data = await call('GET', '/api/health')
   if (data.ok !== true) throw new Error('ok is not true')
+})
+
+await step('version', async () => {
+  const data = await call('GET', '/api/version')
+  // An unbuilt local server (CI runs dev:api without a build) returns null for these: a string or null is fine.
+  for (const key of ['commit', 'commit_short', 'deployed_at', 'environment', 'schema']) {
+    if (!(key in data)) throw new Error(`no ${key} in /api/version`)
+    if (data[key] !== null && typeof data[key] !== 'string') throw new Error(`${key} is not a string or null`)
+  }
+  if (process.env.DEPLOY_ENV === 'Production') {
+    if (!data.commit) throw new Error('commit is empty')
+    if (!data.commit_short) throw new Error('commit_short is empty')
+    if (!data.schema) throw new Error('schema is empty')
+    if (!data.deployed_at || !/Z$/.test(data.deployed_at) || Number.isNaN(Date.parse(data.deployed_at))) throw new Error('deployed_at is not a UTC ISO time')
+  }
 })
 
 await step('llms.txt', async () => {

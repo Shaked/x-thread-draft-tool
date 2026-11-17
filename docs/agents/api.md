@@ -214,6 +214,8 @@ curl -s -X DELETE $BASE/api/images -H "Authorization: Bearer $TOKEN" \
 curl -s $BASE/llms.txt
 curl -s $BASE/api/openapi.json
 curl -s $BASE/api/health
+# Live commit, deploy time and database schema (public, no token)
+curl -s $BASE/api/version
 ```
 
 ## How to test at each level

@@ -109,6 +109,21 @@ export const OPENAPI = {
   },
   paths: {
     '/health': { get: { summary: 'Health check', responses: json({ type: 'object', properties: { ok: { type: 'boolean' } } }) } },
+    '/version': {
+      get: {
+        summary: 'The running version: commit, deploy time and database schema (public)',
+        responses: json({
+          type: 'object',
+          properties: {
+            commit: { type: ['string', 'null'], example: '8a1f0c2d9e3b4a5c6d7e8f901234567890abcdef' },
+            commit_short: { type: ['string', 'null'], example: '8a1f0c2' },
+            deployed_at: { type: ['string', 'null'], format: 'date-time' },
+            environment: { type: 'string', example: 'production' },
+            schema: { type: ['string', 'null'], example: '008_revoked_sessions' }
+          }
+        })
+      }
+    },
     '/openapi.json': { get: { summary: 'This document', responses: json({ type: 'object' }) } },
     '/.well-known/oauth-protected-resource': {
       get: { servers: [{ url: '/' }], summary: 'Protected resource metadata (RFC 9728), MCP resource at /api/mcp', responses: json({ type: 'object' }) }

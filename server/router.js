@@ -9,6 +9,7 @@ import { tokenRoutes } from './routes/tokens.js'
 import { threadRoutes } from './routes/threads.js'
 import { openapiRoutes } from './routes/openapi.js'
 import { oauthRoutes } from './routes/oauth.js'
+import { versionRoutes } from './version.js'
 import { handleMcp } from './mcp/server.js'
 import { measured, setRoute } from './perf.js'
 
@@ -32,6 +33,7 @@ export const ROUTES = [
   ...threadRoutes,
   ...oauthRoutes,
   ...openapiRoutes,
+  ...versionRoutes,
   // The MCP endpoint (plan 7.6) checks its own Origin and bearer token, so its 401 carries the
   // WWW-Authenticate header. selfAuth skips the generic CI-token refusal below.
   { method: 'POST', path: '/mcp', handler: ({ request }) => handleMcp(request), selfAuth: true },
