@@ -41,7 +41,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Audit dependencies
+      # Owner decision 2026-11-17: dev-only picomatch ReDoS GHSA-fc5q-39xc-vjpf has no patch on npm. TODO(2026-12-17): restore the full gate (no --omit=dev) once picomatch > 4.0.7 ships.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit all dependencies (report only)
+        continue-on-error: true
         run: npm audit --audit-level=high
 
   gitleaks:
