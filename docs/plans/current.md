@@ -14,6 +14,7 @@
 - [performance.md](./performance.md): make MCP and REST faster (measure first, then fewer SQL round trips and a lighter cold start). Tasks P0 to P9, epic #114. Not started.
 - [mobile-width.md](./mobile-width.md): the editor fits a phone once embedded tweets load, and embeds cannot widen the page. Task W1 (epic #125).
 - [mcp-apps.md](./mcp-apps.md): thread and drafts views shown inside Claude and ChatGPT (MCP Apps). Tasks 0 to 9, epic #127. Started; read-only views first, write buttons held, real embedded tweets later (T8).
+- [mcp-default-use.md](./mcp-default-use.md): AI apps save a written thread as a draft by default, through the MCP text. Tasks D1 to D4, epic #132. Started with D1 (server text and tests).
 - Done except parked items: [post-migration-hardening.md](./post-migration-hardening.md) (Tasks 0–7: audit fixes, CI gates, Codex gate, light UI, OIDC and MCP connector). Parked: 1.2, 2.4, 4, 7.9. Runbook: [hardening-finish.md](./hardening-finish.md).
 - Finish the Supabase → Neon/Blob migration: run `data-migrate.yml` (dry run, then apply), smoke-test Preview and Production, then retire Supabase after 14 days (Phase 4 of [vercel-migration.md](./vercel-migration.md)).
 - Increase regression tests around publish/archive and share-link error paths.
