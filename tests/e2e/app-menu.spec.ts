@@ -257,3 +257,48 @@ test('no menu button on the login page or the shared preview', async ({ browser 
     await context.close()
   }
 })
+
+for (const size of SIZES) {
+  test(`the version line is inside the open drawer, above the bar, and opens /about at ${size.name} px`, async ({ browser }) => {
+    const { context, page } = await open(browser, size)
+    try {
+      await page.goto(`${BASE}/`)
+      await page.getByRole('heading', { name: 'Your Threads' }).waitFor()
+      await openMenu(page)
+      const line = drawer(page).locator('.app-menu-version')
+      await expect(line).toContainText('Version ')
+      await expect(line).toContainText('deployed ')
+      // Wait for the 0.2 s slide to end, then measure the line and hit-test its middle in the same frame.
+      await expect.poll(() => drawer(page).evaluate((el) => el.getAnimations().length)).toBe(0)
+      const measured = await line.evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+        return { bottom: r.bottom, height: r.height, innerHeight: window.innerHeight, inDrawer: !!hit?.closest('#app-menu') }
+      })
+      expect(measured.height).toBeGreaterThan(0)
+      expect(measured.bottom).toBeLessThanOrEqual(measured.innerHeight)
+      // The middle of the line is the drawer, not the scrim or the bottom bar behind it.
+      expect(measured.inDrawer).toBe(true)
+
+      await line.click()
+      await expect(page).toHaveURL(/\/about$/)
+      await expect(drawer(page)).toHaveCount(0)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test(`/about loads for a signed-in user at ${size.name} px`, async ({ browser }) => {
+    const { context, page } = await open(browser, size)
+    try {
+      await page.goto(`${BASE}/about`)
+      await expect(page.getByRole('heading', { name: 'About', level: 1 })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'This app' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Server' })).toBeVisible()
+      // Locally the server may answer with a null commit: the page still renders its details.
+      await expect(page.locator('#about-server-heading ~ .about-version')).toContainText('Commit')
+    } finally {
+      await context.close()
+    }
+  })
+}

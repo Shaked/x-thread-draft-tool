@@ -4,6 +4,7 @@ import { grantsApi, tokensApi } from '../utils/api'
 import { connectEntries } from '../utils/connectApps'
 import AppBar from '../components/AppBar'
 import AppMenu from '../components/AppMenu'
+import CopyButton from '../components/CopyButton'
 
 const EXPIRY_OPTIONS = [1, 3, 7]
 
@@ -12,24 +13,7 @@ const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : 'â
 // The MCP connector and the REST API are the two things an app can be connected to.
 const resourceLabel = (resource) => (resource.endsWith('/api/mcp') ? 'Agent connector' : 'API')
 
-function CopyButton({ text, label }) {
-  const [state, setState] = useState('idle')
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setState('copied')
-    } catch {
-      setState('failed')
-    }
-  }
-  return (
-    <button type="button" className="copy-btn" onClick={copy}>
-      {state === 'copied' ? 'Copied!' : state === 'failed' ? 'Copy failed' : label}
-    </button>
-  )
-}
-
-export default function TokensPage({ deployedAt, deployedAgo, deployCommit }) {
+export default function TokensPage() {
   const [tokens, setTokens] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -263,10 +247,6 @@ export default function TokensPage({ deployedAt, deployedAgo, deployCommit }) {
           })}
         </ul>
       )}
-
-      <p className="settings-about">
-        About: last deployed {deployedAt}{deployedAgo}. Version {deployCommit}.
-      </p>
     </div>
   )
 }

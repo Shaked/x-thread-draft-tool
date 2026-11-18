@@ -6,6 +6,7 @@ import DraftList from './components/DraftList'
 import DraftEditor from './pages/DraftEditor'
 import XThreadPreviewPage from './pages/XThreadPreviewPage'
 import TokensPage from './pages/TokensPage'
+import AboutPage from './pages/AboutPage'
 import './styles/App.css'
 import { applyTheme, getTheme } from './utils/theme'
 import { clearCachedDrafts } from './utils/draftCache'
@@ -32,53 +33,6 @@ function App() {
       })
       .finally(() => setLoading(false))
   }, [])
-
-  // Vite defines __BUILD_INFO__ (vite.config.js); vitest and plain tooling do not.
-  const buildInfo = typeof __BUILD_INFO__ === 'undefined' ? null : __BUILD_INFO__
-  const deployedAtRaw = buildInfo?.deployed_at
-  const deployCommitRaw = buildInfo?.commit
-  const deployCommit = deployCommitRaw ? deployCommitRaw.slice(0, 12) : 'unknown'
-  const { deployedAt, deployedAgo } = (() => {
-    if (!deployedAtRaw) return { deployedAt: 'unknown', deployedAgo: '' }
-
-    const deployedDate = new Date(deployedAtRaw)
-
-    if (Number.isNaN(deployedDate.getTime())) return { deployedAt: 'unknown', deployedAgo: '' }
-
-    const deployedAtFormatted = deployedDate.toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'medium'
-    })
-
-    const now = new Date()
-    const diffMs = now.getTime() - deployedDate.getTime()
-    const diffSeconds = Math.floor(diffMs / 1000)
-
-    const intervals = [
-      { label: 'year', seconds: 60 * 60 * 24 * 365 },
-      { label: 'month', seconds: 60 * 60 * 24 * 30 },
-      { label: 'day', seconds: 60 * 60 * 24 },
-      { label: 'hour', seconds: 60 * 60 },
-      { label: 'minute', seconds: 60 },
-      { label: 'second', seconds: 1 }
-    ]
-
-    for (const interval of intervals) {
-      const value = Math.floor(diffSeconds / interval.seconds)
-      if (value >= 1) {
-        const suffix = value === 1 ? '' : 's'
-        return {
-          deployedAt: deployedAtFormatted,
-          deployedAgo: ` (${value} ${interval.label}${suffix} ago)`
-        }
-      }
-    }
-
-    return {
-      deployedAt: deployedAtFormatted,
-      deployedAgo: ' (just now)'
-    }
-  })()
 
   if (loading) {
     return (
@@ -108,7 +62,11 @@ function App() {
           />
           <Route
             path="/settings/tokens"
-            element={user ? <TokensPage deployedAt={deployedAt} deployedAgo={deployedAgo} deployCommit={deployCommit} /> : <LoginPage />}
+            element={user ? <TokensPage /> : <LoginPage />}
+          />
+          <Route
+            path="/about"
+            element={user ? <AboutPage /> : <LoginPage />}
           />
           <Route
             path="/x-thread-preview/:token"
