@@ -192,7 +192,7 @@ One thing Shaked can do by hand (optional, not blocking): after Task 4 is on pro
 2. Draft text inside a host page is an injection surface. Mitigation: rules 9 and 10, XSS fixtures, grep test, Opus line review, one exact image host (a wildcard Blob host would also open `script-src`).
 3. No robot sees a real render, and a card on every `get_draft` may be noisy while the model edits. Mitigation: Task 2 smoke, Playwright with both hosts, Shaked's optional check, D6 fallback (`show_thread` tool).
 4. Collision with open work: private-drafts T5 to T7 touch `server/mcp/tools.js` and the counting rules. Start after them, or merge `main` in before each task.
-5. Size and test budget: views are inlined code; keep each under 64 KB and the new tests inside the 55 s budget.
+5. Size and test budget: views are inlined code; keep each under 64 KB and the new tests inside the 70 s budget.
 
 Sources: modelcontextprotocol/ext-apps `specification/2026-01-26/apps.mdx` and README (raw.githubusercontent.com); claude.com/docs/connectors/building/mcp-apps (getting-started, quickstart, troubleshooting); search summaries of developers.openai.com/apps-sdk/mcp-apps-in-chatgpt, sunpeak.ai migration guide, community.openai.com Android report.
 
