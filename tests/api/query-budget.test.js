@@ -135,9 +135,9 @@ describe('query budget per flow (plan section 3.2)', () => {
     expect(await roundTrips(spy, toolCall('get_draft', { id: draft.id }))).toBe(3)
   })
 
-  it('MCP add_post: 7', async () => {
+  it('MCP add_post: 4', async () => {
     const spy = spyPerf()
-    expect(await roundTrips(spy, toolCall('add_post', { id: draft.id, text: 'A new post' }))).toBe(7)
+    expect(await roundTrips(spy, toolCall('add_post', { id: draft.id, text: 'A new post' }))).toBe(4)
   })
 
   it('MCP update_post: 6', async () => {
@@ -145,9 +145,19 @@ describe('query budget per flow (plan section 3.2)', () => {
     expect(await roundTrips(spy, toolCall('update_post', { id: draft.id, post_id: 'p3', text: 'Edited' }))).toBe(6)
   })
 
-  it('MCP remove_post of the post with an image: 9', async () => {
+  it('MCP move_post: 4', async () => {
     const spy = spyPerf()
-    expect(await roundTrips(spy, toolCall('remove_post', { id: draft.id, post_id: 'p2' }))).toBe(9)
+    expect(await roundTrips(spy, toolCall('move_post', { id: draft.id, post_id: 'p3', position: 1 }))).toBe(4)
+  })
+
+  it('MCP remove_post without an image: 4', async () => {
+    const spy = spyPerf()
+    expect(await roundTrips(spy, toolCall('remove_post', { id: draft.id, post_id: 'p3' }))).toBe(4)
+  })
+
+  it('MCP remove_post of the post with an image: 6', async () => {
+    const spy = spyPerf()
+    expect(await roundTrips(spy, toolCall('remove_post', { id: draft.id, post_id: 'p2' }))).toBe(6)
   })
 
   it('REST GET /api/drafts with an xt_ token: 3', async () => {
@@ -161,10 +171,10 @@ describe('query budget per flow (plan section 3.2)', () => {
     expect(await roundTrips(spy, apiRequest('/api/drafts?published=false', { cookie }))).toBe(2)
   })
 
-  it('REST PATCH /api/drafts/:id with the cookie and a new title: 5', async () => {
+  it('REST PATCH /api/drafts/:id with the cookie and a new title: 2', async () => {
     const spy = spyPerf()
     const q = await roundTrips(spy, apiRequest(`/api/drafts/${draft.id}`, { method: 'PATCH', cookie, body: { title: 'Changed' } }))
-    expect(q).toBe(5)
+    expect(q).toBe(2)
   })
 })
 
