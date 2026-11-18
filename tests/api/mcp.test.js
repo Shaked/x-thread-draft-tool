@@ -419,11 +419,16 @@ describe('M4 tools', () => {
     expect(res.body.result.structuredContent.login).toBe('alice')
   })
 
-  it('app_version returns the same object as GET /api/version', async () => {
+  it('app_version returns GET /api/version plus the 5 newest changelog entries (settings-menu.md Task 5)', async () => {
     const token = await accessToken(alice)
     const res = await call(modernPost('tools/call', { name: 'app_version', arguments: {} }, { token }))
+    const { changelog, ...version } = res.body.result.structuredContent
     const rest = await (await route(apiRequest('/api/version'))).json()
-    expect(res.body.result.structuredContent).toEqual(rest)
+    expect(version).toEqual(rest)
+    const restToken = await accessToken(alice, `${APP_URL}/api`)
+    const newest = await (await route(apiRequest('/api/changelog?limit=5', { headers: { authorization: `Bearer ${restToken}` } }))).json()
+    expect(changelog).toEqual(newest.entries)
+    expect(changelog).toHaveLength(5)
   })
 
   it('serverInfo carries the commit as build metadata when known', async () => {

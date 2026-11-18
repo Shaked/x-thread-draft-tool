@@ -213,9 +213,16 @@ const TOOLS = [
   },
   {
     name: 'app_version',
-    description: 'The version of this app: commit, deploy time, schema.',
+    description: 'The version of this app: commit, deploy time, schema. Also changelog: the 5 newest changes.',
     inputSchema: { type: 'object', properties: {} },
-    run: async (args, { rest }) => rest('GET', '/version')
+    run: async (args, { rest }) => {
+      const version = await rest('GET', '/version')
+      if (version.status >= 400) return version
+      const changes = await rest('GET', '/changelog?limit=5')
+      if (changes.status >= 400) return changes
+      const { entries } = await changes.json()
+      return json({ ...(await version.json()), changelog: entries })
+    }
   },
   {
     name: 'create_thread_from_text',
@@ -402,7 +409,7 @@ const REST_ROUTES = {
   remove_post: ['GET /drafts/:id', 'PATCH /drafts/:id', 'GET /drafts', 'DELETE /images'],
   move_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
   whoami: ['GET /auth/me'],
-  app_version: ['GET /version'],
+  app_version: ['GET /version', 'GET /changelog'],
   create_thread_from_text: ['POST /threads/split', 'POST /drafts'],
   remove_image: ['GET /drafts', 'PATCH /drafts/:id', 'DELETE /images']
 }

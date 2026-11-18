@@ -216,6 +216,8 @@ curl -s $BASE/api/openapi.json
 curl -s $BASE/api/health
 # Live commit, deploy time and database schema (public, no token)
 curl -s $BASE/api/version
+# What changed, newest first (signed in; limit 1 to 50, next is the before for the next page)
+curl -s "$BASE/api/changelog?limit=5" -H "Authorization: Bearer $TOKEN"
 ```
 
 ## How to test at each level
