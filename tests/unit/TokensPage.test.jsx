@@ -68,6 +68,18 @@ describe('TokensPage', () => {
     expect(screen.queryByText(/Copy this token now/)).toBeNull()
   })
 
+  it('when Copy fails, the token box says to select the token above and copy it', async () => {
+    writeText.mockRejectedValueOnce(new Error('denied'))
+    tokensApi.create.mockResolvedValue({ id: 'tok3', name: 'Claude agent', prefix: 'xt_pat_TEST', token: SECRET, expires_in_days: 7 })
+    renderPage()
+    await user.type(await screen.findByLabelText('Token name'), 'Claude agent')
+    await user.click(screen.getByRole('button', { name: 'Create token' }))
+    await user.click(await screen.findByRole('button', { name: 'Copy' }))
+
+    expect(await screen.findByText('Select the token above and copy it.')).toBeInTheDocument()
+    expect(screen.getByText(SECRET)).toBeInTheDocument()
+  })
+
   it('Revoke asks for confirmation and calls tokensApi.revoke with the token id', async () => {
     tokensApi.list.mockResolvedValue({ tokens: [ACTIVE] })
     renderPage()

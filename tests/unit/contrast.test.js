@@ -47,7 +47,9 @@ const PAIRS = [
   ['accent-text', 'accent', 4.5],
   ['danger', 'bg', 4.5],
   ['border', 'bg', 3],
-  ['focus', 'bg', 3]
+  ['focus', 'bg', 3],
+  ['warning', 'bg', 4.5],
+  ['warning', 'surface', 4.5]
 ]
 
 describe('colour contrast', () => {

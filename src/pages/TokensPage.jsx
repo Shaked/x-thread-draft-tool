@@ -21,6 +21,7 @@ export default function TokensPage() {
   const [name, setName] = useState('')
   const [days, setDays] = useState(7)
   const [created, setCreated] = useState(null)
+  const [copyFailed, setCopyFailed] = useState(false)
   const [grants, setGrants] = useState([])
   const [grantsLoading, setGrantsLoading] = useState(true)
   const [grantsError, setGrantsError] = useState(null)
@@ -77,6 +78,7 @@ export default function TokensPage() {
     try {
       const result = await tokensApi.create({ name: name.trim(), expires_in_days: days })
       setCreated(result)
+      setCopyFailed(false)
       setName('')
       await load()
     } catch (err) {
@@ -140,7 +142,8 @@ export default function TokensPage() {
               <strong>Copy this token now.</strong> It won&apos;t be shown again.
             </p>
             <code className="token-secret">{created.token}</code>
-            <CopyButton key={created.token} text={created.token} />
+            <CopyButton key={created.token} text={created.token} onFail={() => setCopyFailed(true)} />
+            {copyFailed && <p className="token-warning">Select the token above and copy it.</p>}
           </div>
         )}
 
