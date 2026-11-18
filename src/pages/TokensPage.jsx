@@ -21,7 +21,6 @@ export default function TokensPage() {
   const [name, setName] = useState('')
   const [days, setDays] = useState(7)
   const [created, setCreated] = useState(null)
-  const [copied, setCopied] = useState(false)
   const [grants, setGrants] = useState([])
   const [grantsLoading, setGrantsLoading] = useState(true)
   const [grantsError, setGrantsError] = useState(null)
@@ -75,7 +74,6 @@ export default function TokensPage() {
     if (!name.trim() || busy) return
     setBusy(true)
     setError(null)
-    setCopied(false)
     try {
       const result = await tokensApi.create({ name: name.trim(), expires_in_days: days })
       setCreated(result)
@@ -85,15 +83,6 @@ export default function TokensPage() {
       setError(err.message)
     } finally {
       setBusy(false)
-    }
-  }
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(created.token)
-      setCopied(true)
-    } catch {
-      setError('Copy failed. Select the token and copy it manually.')
     }
   }
 
@@ -117,9 +106,77 @@ export default function TokensPage() {
         <AppBar />
       </div>
 
-      <h1>API tokens</h1>
+      <h1>API tokens and apps</h1>
 
-      <section className="connected-apps connect-apps" aria-labelledby="connect-apps-heading">
+      <section className="settings-card" aria-labelledby="tokens-heading">
+        <h2 id="tokens-heading">Your API tokens</h2>
+        <p>
+          Tokens let agents use the API as you. Each token has the same permissions as your account in
+          the app. See <code>/llms.txt</code> for how agents use them.
+        </p>
+
+        <form className="tokens-form" onSubmit={handleCreate}>
+          <input
+            type="text"
+            placeholder="Token name, e.g. Claude agent"
+            value={name}
+            maxLength={100}
+            onChange={(e) => setName(e.target.value)}
+            aria-label="Token name"
+          />
+          <select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Expires after">
+            {EXPIRY_OPTIONS.map((option) => (
+              <option key={option} value={option}>{option} days</option>
+            ))}
+          </select>
+          <button type="submit" className="new-draft-btn" disabled={busy || !name.trim()}>
+            {busy ? 'Creating…' : 'Create token'}
+          </button>
+        </form>
+
+        {created && (
+          <div className="token-created" role="status">
+            <p className="token-warning">
+              <strong>Copy this token now.</strong> It won&apos;t be shown again.
+            </p>
+            <code className="token-secret">{created.token}</code>
+            <CopyButton key={created.token} text={created.token} />
+          </div>
+        )}
+
+        {error && <div className="error" role="alert">{error}</div>}
+
+        {loading ? (
+          <div className="loading">Loading…</div>
+        ) : tokens.length === 0 ? (
+          <p className="token-empty">No tokens yet. Create one above to let an agent use the API as you.</p>
+        ) : (
+          <ul className="token-list">
+            {tokens.map((token) => {
+              const revoked = !!token.revoked_at
+              return (
+                <li key={token.id} className="token-row">
+                  <div>
+                    <strong>{token.name}</strong> <code>{token.prefix}…</code>
+                    <div>
+                      Created {formatDate(token.created_at)} via {token.created_via} ·
+                      last used {formatDate(token.last_used_at)} ·
+                      {revoked ? ' revoked' : ` expires ${formatDate(token.expires_at)}`}
+                    </div>
+                  </div>
+                  {!revoked && (
+                    <button type="button" className="delete-btn" onClick={() => handleRevoke(token.id)}>
+                      Revoke
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="settings-card" aria-labelledby="connect-apps-heading">
         <h2 id="connect-apps-heading">Connect an AI app</h2>
         <ul className="grant-list connect-app-list">
           {connectEntries(`${window.location.origin}/api/mcp`).map((entry) => (
@@ -136,7 +193,7 @@ export default function TokensPage() {
         <p>You approve each app once with your GitHub sign-in. Remove it any time below.</p>
       </section>
 
-      <section className="connected-apps" aria-labelledby="connected-apps-heading">
+      <section className="settings-card" aria-labelledby="connected-apps-heading">
         <h2 id="connected-apps-heading">Connected apps</h2>
         <p>
           Apps and agents you have signed in with. Revoking one signs it out right away. You can
@@ -147,7 +204,7 @@ export default function TokensPage() {
         {grantsLoading ? (
           <div className="loading">Loading…</div>
         ) : grants.length === 0 ? (
-          <p>No apps are connected. To connect one, use Connect an AI app above.</p>
+          <p className="token-empty">No apps are connected. To connect one, use Connect an AI app above.</p>
         ) : (
           <ul className="grant-list">
             {grants.map((grant) => {
@@ -179,74 +236,6 @@ export default function TokensPage() {
           </ul>
         )}
       </section>
-
-      <p>
-        Tokens let agents use the API as you. Each token has the same permissions as your account in
-        the app. See <code>/llms.txt</code> for how agents use them.
-      </p>
-
-      <form className="tokens-form" onSubmit={handleCreate}>
-        <input
-          type="text"
-          placeholder="Token name, e.g. Claude agent"
-          value={name}
-          maxLength={100}
-          onChange={(e) => setName(e.target.value)}
-          aria-label="Token name"
-        />
-        <select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Expires after">
-          {EXPIRY_OPTIONS.map((option) => (
-            <option key={option} value={option}>{option} days</option>
-          ))}
-        </select>
-        <button type="submit" className="new-draft-btn" disabled={busy || !name.trim()}>
-          {busy ? 'Creating…' : 'Create token'}
-        </button>
-      </form>
-
-      {created && (
-        <div className="token-created" role="status">
-          <p className="token-warning">
-            <strong>Copy this token now.</strong> It won&apos;t be shown again.
-          </p>
-          <code className="token-secret">{created.token}</code>
-          <p>
-            <button type="button" onClick={handleCopy}>{copied ? 'Copied!' : 'Copy'}</button>
-          </p>
-        </div>
-      )}
-
-      {error && <div className="error" role="alert">{error}</div>}
-
-      <h2>Your tokens</h2>
-      {loading ? (
-        <div className="loading">Loading…</div>
-      ) : tokens.length === 0 ? (
-        <p>No tokens yet.</p>
-      ) : (
-        <ul className="token-list">
-          {tokens.map((token) => {
-            const revoked = !!token.revoked_at
-            return (
-              <li key={token.id} className="token-row">
-                <div>
-                  <strong>{token.name}</strong> <code>{token.prefix}…</code>
-                  <div>
-                    Created {formatDate(token.created_at)} via {token.created_via} ·
-                    last used {formatDate(token.last_used_at)} ·
-                    {revoked ? ' revoked' : ` expires ${formatDate(token.expires_at)}`}
-                  </div>
-                </div>
-                {!revoked && (
-                  <button type="button" className="delete-btn" onClick={() => handleRevoke(token.id)}>
-                    Revoke
-                  </button>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      )}
     </div>
   )
 }

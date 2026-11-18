@@ -22,6 +22,9 @@ const BASE = process.env.XT_BASE_URL ?? 'http://localhost:4173'
 const ORIGIN = new URL(BASE).origin
 const WIDTHS = [390, 1280]
 const OUT = path.join('test-results', 'screens')
+// The dev API checks the Origin of cookie POSTs against its own address; the preview (4173) is proxied to it.
+// A POST sent from the preview origin is therefore re-sent with the API origin (same trick as app-menu.spec.ts).
+const APP_ORIGIN = ORIGIN === 'http://127.0.0.1:4173' || ORIGIN === 'http://localhost:4173' ? 'http://127.0.0.1:8787' : ORIGIN
 
 async function devToken(request: APIRequestContext, login: string): Promise<string> {
   const res = await request.post(`${BASE}/api/dev/token`, { data: { login } })
@@ -39,6 +42,14 @@ async function apiJson<T>(request: APIRequestContext, token: string, method: 'GE
   return (await res.json()) as T
 }
 
+async function sessionCookie(request: APIRequestContext, login: string): Promise<string> {
+  const res = await request.post(`${BASE}/api/dev/session`, { data: { login } })
+  expect(res.ok()).toBeTruthy()
+  const cookie = res.headersArray().find((h) => h.name.toLowerCase() === 'set-cookie')?.value.match(/xt_session=([^;]+)/)?.[1]
+  expect(cookie).toBeTruthy()
+  return cookie!
+}
+
 function threePosts(imageUrl: string) {
   return [
     { id: 'p1', text: 'Opening post: what this thread is about and why it matters.', images: [], embeddedTweet: null },
@@ -52,7 +63,7 @@ async function shoot(
   width: number,
   name: string,
   pagePath: string,
-  options: { token?: string; theme?: 'dark'; ready?: (page: Page) => Locator; before?: (page: Page) => Promise<void> } = {}
+  options: { token?: string; cookie?: string; theme?: 'dark'; ready?: (page: Page) => Locator; before?: (page: Page) => Promise<void> } = {}
 ) {
   const context = await browser.newContext({
     viewport: { width, height: width < 800 ? 844 : 800 },
@@ -65,6 +76,15 @@ async function shoot(
         return route.continue({ headers: { ...route.request().headers(), authorization: bearer } })
       }
       return route.continue()
+    })
+  }
+  if (options.cookie) {
+    // Creating a token needs a browser session (cookie), so POSTs go out with the API origin.
+    await context.addCookies([{ name: 'xt_session', value: options.cookie, url: BASE }])
+    await context.route(`${ORIGIN}/api/**`, async (route) => {
+      if (route.request().method() !== 'POST') return route.continue()
+      const response = await route.fetch({ headers: { ...route.request().headers(), origin: APP_ORIGIN }, maxRedirects: 0 })
+      return route.fulfill({ response })
     })
   }
   const page = await context.newPage()
@@ -145,7 +165,18 @@ test.describe('screens', () => {
         await shoot(browser, width, 'menu-open-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.locator('.draft-title-input'), before: openMenu })
       }
 
-      await shoot(browser, width, 'tokens', '/settings/tokens', { token: owner, ready: (p) => p.locator('.tokens-page') })
+      // The API tokens page (settings-menu.md M12), light and dark; then after a token is created, so the one-time box shows.
+      const tokensReady = (p: Page) => p.locator('.tokens-page')
+      const cookie = await sessionCookie(request, `screens-tokens-${width}-${run}`)
+      const createToken = async (p: Page) => {
+        await p.getByLabel('Token name').fill('Screens check')
+        await p.getByRole('button', { name: 'Create token' }).click()
+        await p.locator('.token-secret').waitFor()
+      }
+      await shoot(browser, width, 'tokens', '/settings/tokens', { token: owner, ready: tokensReady })
+      await shoot(browser, width, 'tokens-dark', '/settings/tokens', { token: owner, theme: 'dark', ready: tokensReady })
+      await shoot(browser, width, 'tokens-created', '/settings/tokens', { cookie, ready: tokensReady, before: createToken })
+      await shoot(browser, width, 'tokens-created-dark', '/settings/tokens', { cookie, theme: 'dark', ready: tokensReady, before: createToken })
     })
 
     // The OAuth approval pages (server HTML, plan T3): signed out, and signed in with a browser session.
