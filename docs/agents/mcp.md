@@ -38,7 +38,8 @@ Limit: 120 tool calls per user per minute. A call over the limit returns an erro
 ## Hebrew, and X/Twitter wording
 
 X and Twitter mean the same service, and the connector says so in every tool description and in the
-server instructions. A post is also called a tweet (ציוץ, פוסט), a thread a שרשור and a draft a טיוטה.
+server instructions. The connector also tells apps to save a thread or posts you ask for as a draft by default; see
+[Make your AI app save threads as drafts](#make-your-ai-app-save-threads-as-drafts) for a paste-in text. A post is also called a tweet (ציוץ, פוסט), a thread a שרשור and a draft a טיוטה.
 Tool names stay in English; each description adds Hebrew trigger words, so a request in Hebrew finds
 the same tools. The app answers in the language you write in and keeps Hebrew text exactly as typed
 (niqqud and direction marks included). Post length uses the X rules, 280 per post, as in the app: a URL counts 23, an emoji counts 2, Hebrew and Latin letters count 1.
@@ -123,6 +124,32 @@ client's current documentation. Check the app's own settings page if a step diff
 **ChatGPT**
 1. Turn on Developer mode in the settings.
 2. Create a connector, paste the URL, and choose OAuth for authentication.
+
+## Make your AI app save threads as drafts
+
+The server tells AI apps to save a thread or posts you ask for as a draft, even when you do not
+mention drafts. Some apps still only show the text. If yours does, paste one of these texts into
+the app's own instructions. Each one is a plain sentence, and it publishes nothing.
+
+English:
+
+> When I ask you to write, draft or rewrite a thread or posts for X/Twitter, save it as a draft with
+> the x-thread-draft-tool connector (create_thread_from_text) and give me the draft link. You can
+> also show the posts as text. Do not mark a draft as published unless I ask.
+
+Hebrew:
+
+> כשאני מבקש לכתוב, לנסח או לשכתב שרשור או ציוצים ל-X/טוויטר, שמור אותם כטיוטה דרך המחבר
+> x-thread-draft-tool (create_thread_from_text) ותן לי את הקישור לטיוטה. אפשר להציג גם את הציוצים
+> כטקסט. אל תסמן טיוטה כפורסמה בלי שאבקש.
+
+Where to paste it (the steps were read on 2026-11-17 and not checked against each app's current docs):
+
+- ChatGPT: Settings, Personalization, Custom instructions; or the instructions of a project.
+- Claude: Settings, Profile, the personal preferences field; or the instructions of a project.
+- Claude Code: `CLAUDE.md` in the project, or `~/.claude/CLAUDE.md`.
+- Codex: `AGENTS.md` in the project, or `~/.codex/AGENTS.md`.
+- Grok: its custom instructions setting (not checked).
 
 ## Disconnect
 

@@ -1,0 +1,1 @@
+- Docs: `docs/agents/mcp.md` has a new section with paste-in text (English and Hebrew) so AI apps save threads as drafts; `public/llms.txt` links to it (epic #132, `docs/plans/mcp-default-use.md` Task 2).
