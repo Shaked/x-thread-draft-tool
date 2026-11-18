@@ -4,7 +4,6 @@
 // (pinnedFetch), so a DNS rebind after the check cannot reach a private address.
 import { lookup as dnsLookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
-import { Agent } from 'undici'
 import { HttpError } from './http.js'
 
 const MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024
@@ -83,6 +82,7 @@ export async function pinnedFetch(url, { resolve, timeoutMs, headers }) {
   }
   const address = addresses[0].address
   const family = isIP(address)
+  const { Agent } = await import('undici')
   const dispatcher = new Agent({
     connect: {
       lookup: (_name, options, callback) =>

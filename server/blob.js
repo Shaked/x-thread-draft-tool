@@ -1,10 +1,10 @@
-import { put, del } from '@vercel/blob'
 import { setBlobKeyFunction, isBlobUrl } from './draft-images.js'
 
 // The Vercel Blob implementation by default. The local dev server swaps in a filesystem one.
+// The SDK is loaded on first use, so routes that never touch images do not pay for it at cold start.
 let impl = {
-  put: (pathname, body, options) => put(pathname, body, options),
-  del: (urls) => del(urls)
+  put: async (pathname, body, options) => (await import('@vercel/blob')).put(pathname, body, options),
+  del: async (urls) => (await import('@vercel/blob')).del(urls)
 }
 
 /** Replaces the storage backend. `key(url)` maps a URL to its storage key, or null. */
