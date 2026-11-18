@@ -65,6 +65,31 @@ const etagHeaders = (version) => ({ etag: `"${version}"` })
 const staleResponse = (draft) =>
   json({ error: 'The draft changed since you read it', version: draft.version }, 412, etagHeaders(draft.version))
 
+/**
+ * The If-Match tag a write checks in its WHERE: null for no check (no header, or `*`), -1 for a tag
+ * that never matches a version (a weak tag, or a number beyond int range), else the version.
+ */
+function tagOf(expected) {
+  if (expected === null || expected.any === true) return null
+  return expected.weak || !(Number.isSafeInteger(expected.version) && expected.version <= 2147483647) ? -1 : expected.version
+}
+
+/**
+ * The loop of the PATCH routes (plan P6, P7). `write()` runs the one UPDATE and resolves to its row,
+ * or undefined when it changed nothing. `answer(last)` reads the draft after such a write: it returns
+ * the answer, throws, or returns undefined to ask for another try. `last` is true when no try is left:
+ * a tag was sent, or this was the third try. Without a tag the UPDATE is retried, never a 412.
+ * PGlite cannot reproduce the race behind the retry.
+ */
+async function writeOrAnswer(tag, write, answer) {
+  for (let attempt = 1; ; attempt++) {
+    const row = await write()
+    if (row) return json({ draft: row }, 200, etagHeaders(row.version))
+    const response = await answer(tag !== null || attempt >= 3)
+    if (response) return response
+  }
+}
+
 /** POST /api/drafts/:id/duplicate: same copy the editor's Duplicate button makes. */
 async function duplicateDraft({ request, params }) {
   const session = await requireUser(request)
@@ -194,45 +219,42 @@ async function updateDraft({ request, params }) {
   const title = body.title === undefined ? null : validTitle(body.title)
   const posts = body.posts === undefined ? null : JSON.stringify(validPosts(body.posts))
   if (!isUuid(params.id)) throw notFound()
-  const expected = ifMatchOf(request)
+  const tag = tagOf(ifMatchOf(request))
 
-  // -1 never equals a version: a weak tag or a number beyond int range never matches a write. null: no check.
-  const tag =
-    expected === null || expected.any === true
-      ? null
-      : expected.weak || !(Number.isSafeInteger(expected.version) && expected.version <= 2147483647)
-        ? -1
-        : expected.version
   // Without a tag the UPDATE can skip the row because the body looked like a replay, then another
-  // write lands before the SELECT and the SELECT sees a real change. Such a request must never be a
-  // 412, so it runs the UPDATE again (at most 3 tries). PGlite cannot reproduce this race.
-  for (let attempt = 1; ; attempt++) {
-    const { rows } = await query(
-      `update drafts
-        set title = coalesce($3, title),
-            posts = coalesce($4::jsonb, posts),
-            version = version + 1,
-            updated_at = now()
-      where id = $1 and user_id = $2
-        and not (($3::text is null or title = $3::text) and ($4::jsonb is null or posts = $4::jsonb))
-        and ($5::int is null or version = $5::int)
-      returning ${COLUMNS}`,
-    [params.id, session.uid, title, posts, tag]
-    )
-    if (rows[0]) return json({ draft: rows[0] }, 200, etagHeaders(rows[0].version))
-    // No write: not the owner, a replay, or a stale tag. This statement never writes.
-    const { rows: found } = await query(
-    `select ${COLUMNS},
-            ($3::text is null or title = $3::text) as same_title,
-            ($4::jsonb is null or posts = $4::jsonb) as same_posts
-       from drafts where id = $1 and user_id = $2`,
-    [params.id, session.uid, title, posts]
-    )
-    if (!found[0]) throw notFound()
-    const { same_title: sameTitle, same_posts: samePosts, ...draft } = found[0]
-    if (sameTitle && samePosts) return json({ draft }, 200, etagHeaders(draft.version))
-    if (tag !== null || attempt >= 3) return staleResponse(draft)
-  }
+  // write lands before the SELECT and the SELECT sees a real change (see writeOrAnswer).
+  return writeOrAnswer(
+    tag,
+    async () =>
+      (
+        await query(
+          `update drafts
+            set title = coalesce($3, title),
+                posts = coalesce($4::jsonb, posts),
+                version = version + 1,
+                updated_at = now()
+          where id = $1 and user_id = $2
+            and not (($3::text is null or title = $3::text) and ($4::jsonb is null or posts = $4::jsonb))
+            and ($5::int is null or version = $5::int)
+          returning ${COLUMNS}`,
+          [params.id, session.uid, title, posts, tag]
+        )
+      ).rows[0],
+    async (last) => {
+      // No write: not the owner, a replay, or a stale tag. This statement never writes.
+      const { rows: found } = await query(
+        `select ${COLUMNS},
+                ($3::text is null or title = $3::text) as same_title,
+                ($4::jsonb is null or posts = $4::jsonb) as same_posts
+           from drafts where id = $1 and user_id = $2`,
+        [params.id, session.uid, title, posts]
+      )
+      if (!found[0]) throw notFound()
+      const { same_title: sameTitle, same_posts: samePosts, ...draft } = found[0]
+      if (sameTitle && samePosts) return json({ draft }, 200, etagHeaders(draft.version))
+      return last ? staleResponse(draft) : undefined
+    }
+  )
 }
 
 /**
@@ -249,49 +271,44 @@ async function patchPostText({ request, params }) {
     throw new HttpError(400, `text must be a string of at most ${POST_TEXT_MAX} characters as X counts them`)
   }
   if (!isUuid(params.id)) throw notFound()
-  const expected = ifMatchOf(request)
+  const tag = tagOf(ifMatchOf(request))
 
-  // -1 never equals a version: a weak tag or a number beyond int range never matches a write. null: no check.
-  const tag =
-    expected === null || expected.any === true
-      ? null
-      : expected.weak || !(Number.isSafeInteger(expected.version) && expected.version <= 2147483647)
-        ? -1
-        : expected.version
   // The post is found by its id and compared as JSON, the same way the JavaScript checks below
   // compare it (`===` on a string), so the UPDATE and the answer agree. The first post with the id
-  // is the one changed, as findIndex does. Without a tag the UPDATE can skip the row because the text
-  // looked the same, then another write lands before the SELECT and the SELECT sees a real change.
-  // Such a request must never be a 412, so it runs the UPDATE again (at most 3 tries). PGlite cannot
-  // reproduce this race.
-  for (let attempt = 1; ; attempt++) {
-    const { rows } = await query(
-      `update drafts
-          set posts = jsonb_set(posts,
-                array[(select (e.ord - 1)::text from jsonb_array_elements(posts) with ordinality e(p, ord)
-                        where e.p->'id' = to_jsonb($3::text) order by e.ord limit 1), 'text'],
-                to_jsonb($4::text)),
-              version = version + 1,
-              updated_at = now()
-        where id = $1 and user_id = $2 and not is_published
-          and exists (select 1 from jsonb_array_elements(posts) e(p) where e.p->'id' = to_jsonb($3::text))
-          and (select e.p->'text' from jsonb_array_elements(posts) with ordinality e(p, ord)
-                where e.p->'id' = to_jsonb($3::text) order by e.ord limit 1) is distinct from to_jsonb($4::text)
-          and ($5::int is null or version = $5::int)
-        returning ${COLUMNS}`,
-      [params.id, session.uid, params.postId, body.text, tag]
-    )
-    if (rows[0]) return json({ draft: rows[0] }, 200, etagHeaders(rows[0].version))
-    // No write: not the owner, published, no such post, a replay, or a stale tag. This statement never writes.
-    const { rows: found } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [params.id, session.uid])
-    if (!found[0]) throw notFound()
-    const draft = found[0]
-    if (draft.is_published) throw new HttpError(409, 'This draft is published. Duplicate it to edit.')
-    const index = draft.posts.findIndex((post) => post.id === params.postId)
-    if (index < 0) throw new HttpError(404, 'Post not found in this draft')
-    if (draft.posts[index].text === body.text) return json({ draft }, 200, etagHeaders(draft.version))
-    if (tag !== null || attempt >= 3) return staleResponse(draft)
-  }
+  // is the one changed, as findIndex does. Retries: see writeOrAnswer.
+  return writeOrAnswer(
+    tag,
+    async () =>
+      (
+        await query(
+          `update drafts
+            set posts = jsonb_set(posts,
+                  array[(select (e.ord - 1)::text from jsonb_array_elements(posts) with ordinality e(p, ord)
+                          where e.p->'id' = to_jsonb($3::text) order by e.ord limit 1), 'text'],
+                  to_jsonb($4::text)),
+                version = version + 1,
+                updated_at = now()
+          where id = $1 and user_id = $2 and not is_published
+            and exists (select 1 from jsonb_array_elements(posts) e(p) where e.p->'id' = to_jsonb($3::text))
+            and (select e.p->'text' from jsonb_array_elements(posts) with ordinality e(p, ord)
+                  where e.p->'id' = to_jsonb($3::text) order by e.ord limit 1) is distinct from to_jsonb($4::text)
+            and ($5::int is null or version = $5::int)
+          returning ${COLUMNS}`,
+          [params.id, session.uid, params.postId, body.text, tag]
+        )
+      ).rows[0],
+    async (last) => {
+      // No write: not the owner, published, no such post, a replay, or a stale tag. This statement never writes.
+      const { rows: found } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [params.id, session.uid])
+      if (!found[0]) throw notFound()
+      const draft = found[0]
+      if (draft.is_published) throw new HttpError(409, 'This draft is published. Duplicate it to edit.')
+      const index = draft.posts.findIndex((post) => post.id === params.postId)
+      if (index < 0) throw new HttpError(404, 'Post not found in this draft')
+      if (draft.posts[index].text === body.text) return json({ draft }, 200, etagHeaders(draft.version))
+      return last ? staleResponse(draft) : undefined
+    }
+  )
 }
 
 /**

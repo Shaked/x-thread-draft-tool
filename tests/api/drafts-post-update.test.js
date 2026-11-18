@@ -108,13 +108,12 @@ describe('PATCH /api/drafts/:id/posts/:postId', () => {
     expect((await rowOf(draft.id)).version).toBe(before.version + 1)
   })
 
-  it('a failure after the one UPDATE leaves the row unchanged (there is no COMMIT any more, plan P7)', async () => {
+  it('a failed write has no fallback and leaves no partial change (there is no COMMIT any more, plan P7)', async () => {
     const draft = await db.insertDraft(alice.id, { posts: POSTS() })
     const before = await rowOf(draft.id)
 
-    // The replay path: the UPDATE skips the row, then the read that answers it fails.
-    failOn = (text) => text.startsWith('select') && text.includes('from drafts where id')
-    const failed = await patchPost(draft.id, 'b', { text: 'second' })
+    failOn = (text) => text.startsWith('update drafts')
+    const failed = await patchPost(draft.id, 'b', { text: 'edited' })
     failOn = null
     expect(failed.status).toBe(500)
     expect(await rowOf(draft.id)).toEqual(before)
