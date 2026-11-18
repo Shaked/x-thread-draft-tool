@@ -3,18 +3,8 @@ import { Link } from 'react-router-dom'
 import AppBar from '../components/AppBar'
 import AppMenu from '../components/AppMenu'
 import CopyButton from '../components/CopyButton'
+import { reloadToNewest } from '../utils/reloadToNewest'
 import { formatVersion, localBuildInfo, utcText } from '../utils/version'
-
-// Reloads to the newest build. A waiting service worker is told to update first (the app registers one, main.jsx).
-async function reloadToNewest() {
-  try {
-    const registration = await navigator.serviceWorker?.getRegistration()
-    await registration?.update()
-  } catch {
-    // No service worker or no network: a plain reload still loads whatever the server has now.
-  }
-  window.location.reload()
-}
 
 function VersionDetails({ info }) {
   const version = formatVersion(info, new Date())
@@ -89,7 +79,7 @@ export default function AboutPage() {
         {newer && (
           <div className="about-newer" role="status">
             <p>A newer version is live. Reload to update.</p>
-            <button type="button" className="copy-btn" onClick={reloadToNewest}>
+            <button type="button" className="copy-btn" onClick={() => reloadToNewest()}>
               Reload
             </button>
           </div>
