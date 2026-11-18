@@ -70,12 +70,6 @@ body {
   margin: 0 auto;
 }
 
-.settings-about {
-  margin-top: 32px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
 .draft-title-input {
   display: flex;
   justify-content: center;
@@ -1657,7 +1651,7 @@ body {
   width: 40px; height: 40px; padding: 0; background: none; border: 0; border-radius: 8px;
   color: var(--text-strong); cursor: pointer;
 }
-.menu-btn:focus-visible, .app-menu-item:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.menu-btn:focus-visible, .app-menu-item:focus-visible, .app-menu-version:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .app-menu-scrim {
   position: fixed; inset: 0; z-index: 200; background: rgba(0, 0, 0, 0.5);
   animation: app-menu-fade 0.2s;
@@ -1687,6 +1681,8 @@ body {
 .app-menu .theme-segments { display: flex; flex-direction: column; }
 .app-menu .theme-segment + .theme-segment { border-left: 0; border-top: 1px solid var(--border); }
 .app-menu-signout { margin-top: auto; }
+.app-menu-version { display: block; padding: 8px; color: var(--text-soft); font-size: 12px; text-decoration: none; }
+.app-menu-version:hover { text-decoration: underline; }
 html.menu-open { overflow: hidden; }
 @keyframes app-menu-slide { from { transform: translateX(-100%); } }
 @keyframes app-menu-fade { from { opacity: 0; } }
@@ -1695,3 +1691,11 @@ html.menu-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .app-menu, .app-menu-scrim { animation: none; }
 }
+
+.about-version { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.about-details { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.about-details dt { color: var(--text-soft); }
+.about-details dd { margin: 0; overflow-wrap: anywhere; }
+.about-utc, .about-ago { color: var(--text-soft); }
+.about-newer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
+.about-newer p { margin: 0; }

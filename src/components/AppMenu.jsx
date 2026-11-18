@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
+import { formatVersion, localBuildInfo, utcText } from '../utils/version'
 import { useDismiss } from '../utils/useDismiss'
 import Icon from './Icon'
 import { signOut } from './LogoutButton'
@@ -19,6 +20,8 @@ export default function AppMenu() {
   const layer = useRef(null)
 
   const close = () => setOpen(false)
+  const build = localBuildInfo()
+  const version = formatVersion(build, new Date())
 
   useDismiss(open, layer, setOpen)
 
@@ -93,6 +96,9 @@ export default function AppMenu() {
               <button type="button" className="app-menu-item app-menu-signout" onClick={signOut}>
                 Sign out
               </button>
+              <Link to="/about" className="app-menu-version" onClick={close} title={utcText(build?.deployed_at)}>
+                Version {version.short} · deployed {version.ago}
+              </Link>
             </nav>
           </div>,
           document.body
