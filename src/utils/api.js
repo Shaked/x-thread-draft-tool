@@ -127,3 +127,11 @@ export const grantsApi = {
     return request(`/grants/${encodeURIComponent(id)}`, { method: 'DELETE' })
   }
 }
+
+/** The changelog (settings-menu.md M14): `{ entries, next }`, newest first. Pass `next` as `before` for older entries. */
+export const changelogApi = {
+  list({ before } = {}) {
+    const query = before ? `?limit=20&before=${encodeURIComponent(before)}` : '?limit=20'
+    return request(`/changelog${query}`)
+  }
+}

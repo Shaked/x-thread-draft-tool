@@ -53,6 +53,13 @@ describe('AppMenu', () => {
     expect(button).toHaveFocus()
   })
 
+  it('lists the changelog under Settings, after API tokens', async () => {
+    const user = userEvent.setup()
+    renderMenu()
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    expect(screen.getByRole('link', { name: 'Changelog' })).toHaveAttribute('href', '/changelog')
+  })
+
   it('closes when the close button, a drawer link or the scrim is used', async () => {
     const user = userEvent.setup()
     renderMenu()

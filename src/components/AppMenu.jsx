@@ -92,6 +92,11 @@ export default function AppMenu() {
                     API tokens and apps
                   </Link>
                 </li>
+                <li>
+                  <Link to="/changelog" className="app-menu-item" onClick={close}>
+                    Changelog
+                  </Link>
+                </li>
               </ul>
               <button type="button" className="app-menu-item app-menu-signout" onClick={signOut}>
                 Sign out

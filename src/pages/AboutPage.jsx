@@ -85,6 +85,10 @@ export default function AboutPage() {
           </div>
         )}
       </section>
+
+      <p className="about-changes">
+        <Link to="/changelog">See what changed</Link>
+      </p>
     </div>
   )
 }

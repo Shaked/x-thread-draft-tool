@@ -6,7 +6,7 @@
 // Use the built app, not `npm run dev`: in development React StrictMode runs the preview effect
 // twice, and the second request hits the one-use share link and gets 410.
 // Writes test-results/screens/<width>/<name>.png for 390 px and 1280 px wide:
-// login, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens,
+// login, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens, changelog,
 // consent-signed-out and consent (the OAuth approval pages, plan T3).
 // Under 800 px wide, each shot also writes <name>-viewport.png: what is on the screen, with the fixed bar.
 //
@@ -177,6 +177,13 @@ test.describe('screens', () => {
       await shoot(browser, width, 'tokens-dark', '/settings/tokens', { token: owner, theme: 'dark', ready: tokensReady })
       await shoot(browser, width, 'tokens-created', '/settings/tokens', { cookie, ready: tokensReady, before: createToken })
       await shoot(browser, width, 'tokens-created-dark', '/settings/tokens', { cookie, theme: 'dark', ready: tokensReady, before: createToken })
+
+      // The changelog page (settings-menu.md Task 6): light at both widths, dark on phones.
+      const changelogReady = (p: Page) => p.locator('.changelog-entry').first()
+      await shoot(browser, width, 'changelog', '/changelog', { token: owner, ready: changelogReady })
+      if (width < 800) {
+        await shoot(browser, width, 'changelog-dark', '/changelog', { token: owner, theme: 'dark', ready: changelogReady })
+      }
     })
 
     // The OAuth approval pages (server HTML, plan T3): signed out, and signed in with a browser session.
