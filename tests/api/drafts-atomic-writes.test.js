@@ -123,6 +123,15 @@ describe('PATCH /api/drafts/:id', () => {
     expect(await rowOf(draft.id)).toEqual(before)
   })
 
+  it('a huge If-Match number is 412 with the current version and writes nothing', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    const before = await rowOf(draft.id)
+    const res = await patchDraft(draft.id, { title: 'x' }, '"99999999999"')
+    expect(res.status).toBe(412)
+    expect((await res.json()).version).toBe(1)
+    expect(await rowOf(draft.id)).toEqual(before)
+  })
+
   it('a replay is 200 with a weak or a mismatching tag too, and writes nothing', async () => {
     const draft = await db.insertDraft(alice.id, { title: 'Same', posts: POSTS() })
     const before = await rowOf(draft.id)
