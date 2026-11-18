@@ -124,6 +124,38 @@ export const OPENAPI = {
         })
       }
     },
+    '/changelog': {
+      get: {
+        summary: 'What changed, newest first: id, UTC date, title and a short summary per change. Signed in only. Pages with limit and before.',
+        security: BEARER,
+        parameters: [
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 50, default: 20 } },
+          { name: 'before', in: 'query', required: false, description: 'The `next` id of the previous page. Unknown ids are 400.', schema: { type: 'string' } }
+        ],
+        responses: {
+          ...json({
+            type: 'object',
+            properties: {
+              entries: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', example: '20261118-084900-changelog-api' },
+                    date: { type: ['string', 'null'], format: 'date-time' },
+                    title: { type: ['string', 'null'] },
+                    summary: { type: 'string' }
+                  }
+                }
+              },
+              next: { type: ['string', 'null'], description: 'Pass as before to get the next page; null at the end.' }
+            }
+          }),
+          400: BAD_REQUEST,
+          401: UNAUTHORIZED
+        }
+      }
+    },
     '/openapi.json': { get: { summary: 'This document', responses: json({ type: 'object' }) } },
     '/.well-known/oauth-protected-resource': {
       get: { servers: [{ url: '/' }], summary: 'Protected resource metadata (RFC 9728), MCP resource at /api/mcp', responses: json({ type: 'object' }) }
