@@ -62,6 +62,7 @@ MCP prompts (slash commands): thread_from_notes, tighten_draft, review_before_pu
 MCP skill (extension io.modelcontextprotocol/skills): skill://x-thread-drafts/SKILL.md, a guide to the draft tools in English and Hebrew; read it with resources/read.
 
 - [MCP connector guide](https://github.com/Shaked/x-thread-draft-tool/blob/main/docs/agents/mcp.md): the tool list, setup for Claude, Claude Code, Codex and ChatGPT, troubleshooting.
+- [Make your AI app save threads as drafts](https://github.com/Shaked/x-thread-draft-tool/blob/main/docs/agents/mcp.md#make-your-ai-app-save-threads-as-drafts): paste-in text in English and Hebrew. English text: "When I ask you to write, draft or rewrite a thread or posts for X/Twitter, save it as a draft with the x-thread-draft-tool connector (create_thread_from_text) and give me the draft link. You can also show the posts as text. Do not mark a draft as published unless I ask."
 - [OpenAPI 3.1 spec](/api/openapi.json): every endpoint, schema and error code.
 - [Version](/api/version): the live commit, deploy time and database schema (public, no token); MCP tool `app_version`.
 - [Agent guide in the repo](https://github.com/Shaked/x-thread-draft-tool/blob/main/docs/agents/api.md): auth options, limits, how to test.
