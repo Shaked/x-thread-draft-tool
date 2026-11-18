@@ -65,7 +65,7 @@ async function openMenu(page: Page) {
 const pages = () => [
   { name: 'list', path: '/', ready: (p: Page) => p.getByRole('heading', { name: 'Your Threads' }) },
   { name: 'editor', path: `/draft/${draftId}`, ready: (p: Page) => p.locator('.draft-title-input') },
-  { name: 'settings', path: '/settings/tokens', ready: (p: Page) => p.getByRole('heading', { name: 'API tokens', level: 1 }) }
+  { name: 'settings', path: '/settings/tokens', ready: (p: Page) => p.getByRole('heading', { name: 'API tokens and apps', level: 1 }) }
 ]
 
 for (const size of SIZES) {
@@ -302,3 +302,29 @@ for (const size of SIZES) {
     }
   })
 }
+
+test('API tokens page at 390 px: no horizontal overflow, a 44 px Create button, and a created token shows once in the one-time box', async ({ browser }) => {
+  const dev = await playwrightRequest.newContext({ baseURL: BASE })
+  const session = await dev.post('/api/dev/session', { data: { login } })
+  const cookie = session.headersArray().find((h) => h.name.toLowerCase() === 'set-cookie')?.value.match(/xt_session=([^;]+)/)?.[1]
+  await dev.dispose()
+  expect(cookie).toBeTruthy()
+  const { context, page } = await open(browser, SIZES[0], { cookie })
+  try {
+    await page.goto(`${BASE}/settings/tokens`)
+    await expect(page.getByRole('heading', { name: 'API tokens and apps', level: 1 })).toBeVisible()
+    const scrollWidth = () => page.evaluate(() => document.documentElement.scrollWidth)
+    expect(await scrollWidth()).toBeLessThanOrEqual(390)
+    const create = page.getByRole('button', { name: 'Create token' })
+    expect((await create.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+
+    await page.getByLabel('Token name').fill(`Menu check ${Date.now()}`)
+    await create.click()
+    await expect(page.locator('.token-secret')).toBeVisible()
+    await expect(page.getByText(/Copy this token now/)).toBeVisible()
+    expect(await scrollWidth()).toBeLessThanOrEqual(390)
+    expect((await page.getByRole('button', { name: 'Copy', exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44)
+  } finally {
+    await context.close()
+  }
+})

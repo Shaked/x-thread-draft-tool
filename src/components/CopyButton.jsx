@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 /** A button that copies `text` to the clipboard and says whether it worked. */
-export default function CopyButton({ text, label = 'Copy' }) {
+export default function CopyButton({ text, label = 'Copy', onFail }) {
   const [state, setState] = useState('idle')
   const copy = async () => {
     try {
@@ -9,6 +9,7 @@ export default function CopyButton({ text, label = 'Copy' }) {
       setState('copied')
     } catch {
       setState('failed')
+      onFail?.()
     }
   }
   return (
