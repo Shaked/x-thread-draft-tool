@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { PASTE_IN } from '../../src/utils/connectApps.js'
 import TokensPage from '../../src/pages/TokensPage.jsx'
 import { grantsApi, tokensApi } from '../../src/utils/api'
 
@@ -143,5 +144,18 @@ describe('TokensPage', () => {
     expect(await screen.findByText('Connect an AI app')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Copy address' })).toHaveLength(2)
     expect(screen.getAllByRole('button', { name: 'Copy command' })).toHaveLength(2)
+  })
+
+  it('Use with AI apps shows each paste-in text in its own block, and each Copy button writes its own text', async () => {
+    renderPage()
+    expect(await screen.findByRole('heading', { name: 'Use with AI apps' })).toBeInTheDocument()
+    expect(screen.getByText(PASTE_IN.en).tagName).toBe('BLOCKQUOTE')
+    expect(screen.getByText(PASTE_IN.he).tagName).toBe('BLOCKQUOTE')
+
+    await user.click(screen.getByRole('button', { name: 'Copy English text' }))
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(PASTE_IN.en))
+    await user.click(screen.getByRole('button', { name: 'Copy Hebrew text' }))
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(PASTE_IN.he))
+    expect(writeText).toHaveBeenCalledTimes(2)
   })
 })

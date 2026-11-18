@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { grantsApi, tokensApi } from '../utils/api'
-import { connectEntries } from '../utils/connectApps'
+import { connectEntries, PASTE_IN, PASTE_PLACES } from '../utils/connectApps'
 import AppBar from '../components/AppBar'
 import AppMenu from '../components/AppMenu'
 import CopyButton from '../components/CopyButton'
@@ -194,6 +194,28 @@ export default function TokensPage() {
           ))}
         </ul>
         <p>You approve each app once with your GitHub sign-in. Remove it any time below.</p>
+      </section>
+
+      <section className="settings-card ai-apps-card" aria-labelledby="ai-apps-heading">
+        <h2 id="ai-apps-heading">Use with AI apps</h2>
+        <p>
+          Some apps only show a thread as text. If yours does, paste one of these texts into the app&apos;s own
+          instructions. Each one is a plain sentence, and it publishes nothing.
+        </p>
+        <h3>English</h3>
+        <blockquote lang="en" dir="auto">{PASTE_IN.en}</blockquote>
+        <CopyButton text={PASTE_IN.en} label="Copy English text" />
+        <h3>Hebrew</h3>
+        <blockquote lang="he" dir="auto">{PASTE_IN.he}</blockquote>
+        <CopyButton text={PASTE_IN.he} label="Copy Hebrew text" />
+        <h3>Where to paste it</h3>
+        <ul className="paste-places">
+          {PASTE_PLACES.map((place) => (
+            <li key={place.name}>
+              <strong>{place.name}:</strong> {place.where}
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="settings-card" aria-labelledby="connected-apps-heading">
