@@ -237,9 +237,9 @@ async function updateDraft({ request, params }) {
 
 /**
  * PATCH /api/drafts/:id/posts/:postId: changes only the text of one post, and returns the draft.
- * One transaction with the draft row locked, so no other write can land between the read and the
- * write. Sending the text the post already has is a 200 with no write (a replay). A stale If-Match
- * is a 412 with no write.
+ * One UPDATE that re-checks its WHERE on the newest row (owner, not published, the post exists,
+ * its text differs, the If-Match). Sending the text the post already has is a 200 with no write (a
+ * replay). A stale If-Match is a 412 with no write.
  */
 async function patchPostText({ request, params }) {
   const session = await requireUser(request)
@@ -251,26 +251,47 @@ async function patchPostText({ request, params }) {
   if (!isUuid(params.id)) throw notFound()
   const expected = ifMatchOf(request)
 
-  return transaction(async (q) => {
-    const { rows } = await q(`select ${COLUMNS} from drafts where id = $1 and user_id = $2 for update`, [params.id, session.uid])
-    if (!rows[0]) throw notFound()
-    const draft = rows[0]
+  // -1 never equals a version: a weak tag or a number beyond int range never matches a write. null: no check.
+  const tag =
+    expected === null || expected.any === true
+      ? null
+      : expected.weak || !(Number.isSafeInteger(expected.version) && expected.version <= 2147483647)
+        ? -1
+        : expected.version
+  // The post is found by its id and compared as JSON, the same way the JavaScript checks below
+  // compare it (`===` on a string), so the UPDATE and the answer agree. The first post with the id
+  // is the one changed, as findIndex does. Without a tag the UPDATE can skip the row because the text
+  // looked the same, then another write lands before the SELECT and the SELECT sees a real change.
+  // Such a request must never be a 412, so it runs the UPDATE again (at most 3 tries). PGlite cannot
+  // reproduce this race.
+  for (let attempt = 1; ; attempt++) {
+    const { rows } = await query(
+      `update drafts
+          set posts = jsonb_set(posts,
+                array[(select (e.ord - 1)::text from jsonb_array_elements(posts) with ordinality e(p, ord)
+                        where e.p->'id' = to_jsonb($3::text) order by e.ord limit 1), 'text'],
+                to_jsonb($4::text)),
+              version = version + 1,
+              updated_at = now()
+        where id = $1 and user_id = $2 and not is_published
+          and exists (select 1 from jsonb_array_elements(posts) e(p) where e.p->'id' = to_jsonb($3::text))
+          and (select e.p->'text' from jsonb_array_elements(posts) with ordinality e(p, ord)
+                where e.p->'id' = to_jsonb($3::text) order by e.ord limit 1) is distinct from to_jsonb($4::text)
+          and ($5::int is null or version = $5::int)
+        returning ${COLUMNS}`,
+      [params.id, session.uid, params.postId, body.text, tag]
+    )
+    if (rows[0]) return json({ draft: rows[0] }, 200, etagHeaders(rows[0].version))
+    // No write: not the owner, published, no such post, a replay, or a stale tag. This statement never writes.
+    const { rows: found } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [params.id, session.uid])
+    if (!found[0]) throw notFound()
+    const draft = found[0]
     if (draft.is_published) throw new HttpError(409, 'This draft is published. Duplicate it to edit.')
     const index = draft.posts.findIndex((post) => post.id === params.postId)
     if (index < 0) throw new HttpError(404, 'Post not found in this draft')
     if (draft.posts[index].text === body.text) return json({ draft }, 200, etagHeaders(draft.version))
-    if (!preconditionHolds(expected, draft.version)) return staleResponse(draft)
-    const { rows: updated } = await q(
-      `update drafts
-          set posts = jsonb_set(posts, array[$3::text, 'text'], to_jsonb($4::text)),
-              version = version + 1,
-              updated_at = now()
-        where id = $1 and user_id = $2
-        returning ${COLUMNS}`,
-      [params.id, session.uid, String(index), body.text]
-    )
-    return json({ draft: updated[0] }, 200, etagHeaders(updated[0].version))
-  })
+    if (tag !== null || attempt >= 3) return staleResponse(draft)
+  }
 }
 
 /**

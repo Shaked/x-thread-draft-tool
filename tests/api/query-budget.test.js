@@ -140,9 +140,9 @@ describe('query budget per flow (plan section 3.2)', () => {
     expect(await roundTrips(spy, toolCall('add_post', { id: draft.id, text: 'A new post' }))).toBe(4)
   })
 
-  it('MCP update_post: 6', async () => {
+  it('MCP update_post: 3', async () => {
     const spy = spyPerf()
-    expect(await roundTrips(spy, toolCall('update_post', { id: draft.id, post_id: 'p3', text: 'Edited' }))).toBe(6)
+    expect(await roundTrips(spy, toolCall('update_post', { id: draft.id, post_id: 'p3', text: 'Edited' }))).toBe(3)
   })
 
   it('MCP move_post: 4', async () => {

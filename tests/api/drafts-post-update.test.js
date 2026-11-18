@@ -108,12 +108,13 @@ describe('PATCH /api/drafts/:id/posts/:postId', () => {
     expect((await rowOf(draft.id)).version).toBe(before.version + 1)
   })
 
-  it('a failure at COMMIT rolls the write back', async () => {
+  it('a failure after the one UPDATE leaves the row unchanged (there is no COMMIT any more, plan P7)', async () => {
     const draft = await db.insertDraft(alice.id, { posts: POSTS() })
     const before = await rowOf(draft.id)
 
-    failOn = (text) => text === 'COMMIT'
-    const failed = await patchPost(draft.id, 'b', { text: 'edited' })
+    // The replay path: the UPDATE skips the row, then the read that answers it fails.
+    failOn = (text) => text.startsWith('select') && text.includes('from drafts where id')
+    const failed = await patchPost(draft.id, 'b', { text: 'second' })
     failOn = null
     expect(failed.status).toBe(500)
     expect(await rowOf(draft.id)).toEqual(before)
@@ -148,6 +149,76 @@ describe('PATCH /api/drafts/:id/posts/:postId', () => {
     const res = await patchPost(draft.id, 'nope', { text: 'x' })
     expect(res.status).toBe(404)
     expect((await res.json()).error).toBe('Post not found in this draft')
+  })
+
+  it('the first of two posts with the same id is the one changed, as findIndex did', async () => {
+    const draft = await db.insertDraft(alice.id, {
+      posts: [
+        { id: 'dup', text: 'one', images: [], embeddedTweet: null },
+        { id: 'dup', text: 'two', images: [], embeddedTweet: null }
+      ]
+    })
+    expect((await patchPost(draft.id, 'dup', { text: 'X' })).status).toBe(200)
+    expect((await rowOf(draft.id)).posts.map((post) => post.text)).toEqual(['X', 'two'])
+  })
+
+  it('a post whose text is missing gets the text', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: [{ id: 'm', images: [], embeddedTweet: null }] })
+    const res = await patchPost(draft.id, 'm', { text: 'filled' })
+    expect(res.status).toBe(200)
+    expect((await rowOf(draft.id)).posts[0].text).toBe('filled')
+  })
+
+  it('a huge or weak If-Match is 412 with the current version and writes nothing', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    const before = await rowOf(draft.id)
+    for (const tag of ['"99999999999"', '"2147483648"', 'W/"1"']) {
+      const res = await patchPost(draft.id, 'b', { text: 'mine' }, { ifMatch: tag })
+      expect(res.status).toBe(412)
+      expect((await res.json()).version).toBe(1)
+      expect(await rowOf(draft.id)).toEqual(before)
+    }
+  })
+
+  it('one statement writes: a PATCH of one post sends exactly one draft query', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    const seen = []
+    failOn = (text) => (seen.push(text), false)
+    const res = await patchPost(draft.id, 'b', { text: 'once' })
+    failOn = null
+    expect(res.status).toBe(200)
+    expect(seen.filter((text) => /drafts/.test(text))).toHaveLength(1)
+  })
+
+  it('two edits of the same post with the same If-Match at the same time: one 200 and one 412', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    const [r1, r2] = await Promise.all([patchPost(draft.id, 'b', { text: 'A' }, { ifMatch: '"1"' }), patchPost(draft.id, 'b', { text: 'B' }, { ifMatch: '"1"' })])
+    expect([r1.status, r2.status].sort()).toEqual([200, 412])
+    const row = await rowOf(draft.id)
+    expect(row.version).toBe(2)
+    expect(row.posts[1].text).toBe(r1.status === 200 ? 'A' : 'B')
+  })
+
+  it('a write that lands between the UPDATE and its read is retried, not a 412, when no tag was sent', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    // The UPDATE skips the row: post b already says "mine". Then another write changes it before the read.
+    await db.pg.query(`update drafts set posts = jsonb_set(posts, '{1,text}', '"mine"') where id = $1`, [draft.id])
+    let sawUpdate = false
+    let raced = false
+    failOn = (text) => {
+      if (text.startsWith('update drafts')) sawUpdate = true
+      if (sawUpdate && !raced && text.startsWith('select') && text.includes('from drafts where id')) {
+        raced = true
+        db.pg.query(`update drafts set posts = jsonb_set(posts, '{1,text}', '"other"') where id = $1`, [draft.id])
+      }
+      return false
+    }
+    const res = await patchPost(draft.id, 'b', { text: 'mine' })
+    failOn = null
+    expect(raced).toBe(true)
+    expect(res.status).toBe(200)
+    expect((await res.json()).draft.posts[1].text).toBe('mine')
+    expect((await rowOf(draft.id)).posts[1].text).toBe('mine')
   })
 
   it('text over 280 characters is 400', async () => {
