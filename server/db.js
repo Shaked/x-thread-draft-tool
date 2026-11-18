@@ -1,4 +1,5 @@
 import pg from 'pg'
+import { attachDatabasePool } from '@vercel/functions'
 import { noteConnect, noteQuery } from './perf.js'
 
 let pool = null
@@ -6,15 +7,26 @@ let impl = null
 // Tests (PGlite) have one connection, so their transactions are serialised here.
 let implTail = Promise.resolve()
 
+/**
+ * Options of the pg pool. One connection per function instance, kept open for 60 s when idle
+ * (pg's default is 10 s), so a request that follows soon after reuses it instead of reconnecting.
+ * Timeouts so a stalled connection fails in seconds instead of hanging the request.
+ */
+export function poolOptions() {
+  return {
+    connectionString: process.env.DATABASE_URL,
+    max: 1,
+    idleTimeoutMillis: 60000,
+    connectionTimeoutMillis: 8000,
+    query_timeout: 15000
+  }
+}
+
 function getPool() {
   if (!pool) {
-    // Timeouts so a stalled connection fails in seconds instead of hanging the request.
-    pool = new pg.Pool({
-      connectionString: process.env.DATABASE_URL,
-      max: 1,
-      connectionTimeoutMillis: 8000,
-      query_timeout: 15000
-    })
+    pool = new pg.Pool(poolOptions())
+    // Lets Vercel wait for the idle connection before the instance suspends (Fluid compute).
+    attachDatabasePool(pool)
   }
   return pool
 }
