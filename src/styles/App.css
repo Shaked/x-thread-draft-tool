@@ -1661,6 +1661,10 @@ body {
 .copy-btn:hover { background-color: var(--border-soft); }
 .connect-app-row > div { flex: 1 1 16rem; min-width: 0; }
 .connect-app-row code { display: block; margin-top: 4px; padding: 4px 8px; font-size: 13px; background: var(--surface-2); border-radius: 6px; overflow-wrap: anywhere; }
+.ai-apps-card h3 { margin: 12px 0 4px; font-size: 15px; }
+.ai-apps-card blockquote { margin: 0 0 8px; padding: 8px 12px; color: var(--text); background: var(--surface-2); border-inline-start: 3px solid var(--border-strong); border-radius: 6px; overflow-wrap: anywhere; }
+.paste-places { margin: 8px 0 0; padding-inline-start: 20px; }
+.paste-places li { margin: 4px 0; }
 
 /* Menu: a button in each signed-in page header and a left drawer (settings-menu.md M6 to M11). */
 .page-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
