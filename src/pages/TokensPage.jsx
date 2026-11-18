@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { grantsApi, tokensApi } from '../utils/api'
 import { connectEntries } from '../utils/connectApps'
-import ThemeSetting from '../components/ThemeSetting'
 import AppBar from '../components/AppBar'
+import AppMenu from '../components/AppMenu'
 
 const EXPIRY_OPTIONS = [1, 3, 7]
 
@@ -126,12 +126,14 @@ export default function TokensPage({ deployedAt, deployedAgo, deployCommit }) {
   return (
     <div className="tokens-page">
       <div className="settings-top">
-        <Link to="/">← Back to drafts</Link>
+        <span className="page-title">
+          <AppMenu />
+          <Link to="/">← Back to drafts</Link>
+        </span>
         <AppBar />
       </div>
 
       <h1>API tokens</h1>
-      <ThemeSetting />
 
       <section className="connected-apps connect-apps" aria-labelledby="connect-apps-heading">
         <h2 id="connect-apps-heading">Connect an AI app</h2>

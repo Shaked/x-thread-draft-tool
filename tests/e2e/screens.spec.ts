@@ -52,7 +52,7 @@ async function shoot(
   width: number,
   name: string,
   pagePath: string,
-  options: { token?: string; ready?: (page: Page) => Locator; before?: (page: Page) => Promise<void> } = {}
+  options: { token?: string; theme?: 'dark'; ready?: (page: Page) => Locator; before?: (page: Page) => Promise<void> } = {}
 ) {
   const context = await browser.newContext({
     viewport: { width, height: width < 800 ? 844 : 800 },
@@ -68,6 +68,7 @@ async function shoot(
     })
   }
   const page = await context.newPage()
+  if (options.theme) await page.addInitScript((value) => localStorage.setItem('xt-theme', value), options.theme)
   await page.goto(`${BASE}${pagePath}`, { waitUntil: 'networkidle' })
   if (options.ready) await options.ready(page).first().waitFor({ timeout: 15_000 })
   if (options.before) await options.before(page)
@@ -132,6 +133,17 @@ test.describe('screens', () => {
       const shareToken = (await apiJson<{ token: string }>(request, owner, 'POST', `/api/drafts/${editorId}/share-tokens`)).token
       await shoot(browser, width, 'preview', `/x-thread-preview/${previewToken}`, { ready: (p) => p.getByText('Opening post') })
       await shoot(browser, width, 'share', `/api/share/${shareToken}.html`, { ready: (p) => p.getByText('Opening post') })
+
+      // The menu drawer: light on both widths, dark on phones.
+      const openMenu = async (p: Page) => {
+        await p.getByRole('button', { name: 'Menu', exact: true }).click()
+        await p.locator('#app-menu').waitFor()
+        await p.waitForTimeout(300)
+      }
+      await shoot(browser, width, 'menu-open', `/draft/${editorId}`, { token: owner, ready: (p) => p.locator('.draft-title-input'), before: openMenu })
+      if (width < 800) {
+        await shoot(browser, width, 'menu-open-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.locator('.draft-title-input'), before: openMenu })
+      }
 
       await shoot(browser, width, 'tokens', '/settings/tokens', { token: owner, ready: (p) => p.locator('.tokens-page') })
     })

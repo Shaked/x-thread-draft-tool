@@ -9,6 +9,7 @@ import XThreadLinkButton from '../components/XThreadLinkButton'
 import ShareLinkButton from '../components/ShareLinkButton'
 import ExportOptions from '../components/ExportOptions'
 import AppBar from '../components/AppBar'
+import AppMenu from '../components/AppMenu'
 
 export default function DraftEditor({ user }) {
   const { id } = useParams()
@@ -196,6 +197,7 @@ export default function DraftEditor({ user }) {
   return (
     <div className="draft-editor">
       <header className="editor-header">
+        <AppMenu />
         <Link to="/" className="back-link" aria-label="Back" title="Back">
           <span className="back-arrow">←</span>
           <span className="back-text">Back</span>
