@@ -5,6 +5,8 @@
 //
 //   ANTHROPIC_API_KEY=... EVAL_MODEL=<model id> node tests/eval/mcp-default-use.eval.mjs
 //
+// A "before" run on old code needs the old INSTRUCTIONS text passed through the `load` parameter of main(),
+// because INSTRUCTIONS was not exported before this PR.
 // Without ANTHROPIC_API_KEY it prints "skipped: no key" and exits 0. The pure parts (prompts, request
 // building, result checking, table) are unit tested offline in tests/unit/mcp-default-use-eval.test.js.
 import { fileURLToPath } from 'node:url'
@@ -12,13 +14,14 @@ import { fileURLToPath } from 'node:url'
 export const SAVE_TOOLS = ['create_thread_from_text', 'create_draft']
 export const WRITE_TOOLS = [
   'create_thread_from_text', 'create_draft', 'add_post', 'update_post', 'update_draft',
-  'duplicate_draft', 'delete_draft', 'publish_draft', 'move_post', 'remove_post', 'add_image_from_url', 'remove_image'
+  'duplicate_draft', 'delete_draft', 'publish_draft', 'move_post', 'remove_post', 'add_image_from_url', 'remove_image',
+  'create_share_link', 'revoke_share_link'
 ]
 
 // kind 'save': a written thread is asked for, a save tool should be called. kind 'question': no write tool.
 export const PROMPTS = [
   { kind: 'save', lang: 'en', text: 'Write a thread about remote work' },
-  { kind: 'save', lang: 'en', text: 'Draft a tweet thread on why I moved to Linux' },
+  { kind: 'save', lang: 'en', text: 'Write a thread about why I moved to Linux' },
   { kind: 'save', lang: 'en', text: 'Plan a 5-post X thread announcing my new newsletter about cooking' },
   { kind: 'save', lang: 'he', text: 'כתוב לי שרשור על AI' },
   { kind: 'save', lang: 'he', text: 'כתוב לי שרשור על קפה' },

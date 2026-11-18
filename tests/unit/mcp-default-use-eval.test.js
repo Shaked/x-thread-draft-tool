@@ -1,7 +1,8 @@
 // @vitest-environment node
 // Offline part of the optional D3 evaluation (tests/eval/mcp-default-use.eval.mjs). No API call is made.
 import { describe, expect, it, vi } from 'vitest'
-import { PROMPTS, buildRequest, calledTools, formatTable, isExpected, main, summarize } from '../eval/mcp-default-use.eval.mjs'
+import { listTools } from '../../server/mcp/tools.js'
+import { PROMPTS, WRITE_TOOLS, buildRequest, calledTools, formatTable, isExpected, main, summarize } from '../eval/mcp-default-use.eval.mjs'
 
 const tools = [{ name: 'create_draft', description: 'd', inputSchema: { type: 'object' } }]
 
@@ -11,6 +12,15 @@ describe('mcp default-use eval', () => {
     expect(PROMPTS.filter((p) => p.kind === 'save')).toHaveLength(6)
     expect(PROMPTS.filter((p) => p.lang === 'he')).toHaveLength(6)
     expect(PROMPTS.filter((p) => p.kind === 'save' && p.lang === 'he')).toHaveLength(3)
+  })
+
+  it('WRITE_TOOLS equals the non-read-only tools of the real tool list', () => {
+    const real = listTools().filter((t) => t.annotations?.readOnlyHint === false).map((t) => t.name)
+    expect([...WRITE_TOOLS].sort()).toEqual(real.sort())
+  })
+
+  it('no save prompt names drafts', () => {
+    for (const p of PROMPTS.filter((x) => x.kind === 'save')) expect(p.text).not.toMatch(/draft|טיוטה/i)
   })
 
   it('builds a Messages API request with the instructions as system text', () => {
