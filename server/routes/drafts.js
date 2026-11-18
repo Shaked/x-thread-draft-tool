@@ -181,8 +181,8 @@ async function getDraftOutline({ request, params }) {
 }
 
 /**
- * PATCH /api/drafts/:id: owner only; a non-owner gets 404 and the row is untouched. One transaction
- * with the row locked. Sending what the draft already holds is a 200 with no write (a replay); a
+ * PATCH /api/drafts/:id: owner only; a non-owner gets 404 and the row is untouched. One UPDATE
+ * that re-checks its WHERE on the newest row. Sending what the draft already holds is a 200 with no write (a replay); a
  * stale If-Match is a 412 with no write.
  */
 async function updateDraft({ request, params }) {
@@ -196,30 +196,43 @@ async function updateDraft({ request, params }) {
   if (!isUuid(params.id)) throw notFound()
   const expected = ifMatchOf(request)
 
-  return transaction(async (q) => {
-    const { rows: found } = await q(
-      `select ${COLUMNS},
-              ($3::text is null or title = $3::text) as same_title,
-              ($4::jsonb is null or posts = $4::jsonb) as same_posts
-         from drafts where id = $1 and user_id = $2 for update`,
-      [params.id, session.uid, title, posts]
+  // -1 never equals a version: a weak tag or a number beyond int range never matches a write. null: no check.
+  const tag =
+    expected === null || expected.any === true
+      ? null
+      : expected.weak || !(Number.isSafeInteger(expected.version) && expected.version <= 2147483647)
+        ? -1
+        : expected.version
+  // Without a tag the UPDATE can skip the row because the body looked like a replay, then another
+  // write lands before the SELECT and the SELECT sees a real change. Such a request must never be a
+  // 412, so it runs the UPDATE again (at most 3 tries). PGlite cannot reproduce this race.
+  for (let attempt = 1; ; attempt++) {
+    const { rows } = await query(
+      `update drafts
+        set title = coalesce($3, title),
+            posts = coalesce($4::jsonb, posts),
+            version = version + 1,
+            updated_at = now()
+      where id = $1 and user_id = $2
+        and not (($3::text is null or title = $3::text) and ($4::jsonb is null or posts = $4::jsonb))
+        and ($5::int is null or version = $5::int)
+      returning ${COLUMNS}`,
+    [params.id, session.uid, title, posts, tag]
+    )
+    if (rows[0]) return json({ draft: rows[0] }, 200, etagHeaders(rows[0].version))
+    // No write: not the owner, a replay, or a stale tag. This statement never writes.
+    const { rows: found } = await query(
+    `select ${COLUMNS},
+            ($3::text is null or title = $3::text) as same_title,
+            ($4::jsonb is null or posts = $4::jsonb) as same_posts
+       from drafts where id = $1 and user_id = $2`,
+    [params.id, session.uid, title, posts]
     )
     if (!found[0]) throw notFound()
     const { same_title: sameTitle, same_posts: samePosts, ...draft } = found[0]
     if (sameTitle && samePosts) return json({ draft }, 200, etagHeaders(draft.version))
-    if (!preconditionHolds(expected, draft.version)) return staleResponse(draft)
-    const { rows } = await q(
-      `update drafts
-          set title = coalesce($3, title),
-              posts = coalesce($4::jsonb, posts),
-              version = version + 1,
-              updated_at = now()
-        where id = $1 and user_id = $2
-        returning ${COLUMNS}`,
-      [params.id, session.uid, title, posts]
-    )
-    return json({ draft: rows[0] }, 200, etagHeaders(rows[0].version))
-  })
+    if (tag !== null || attempt >= 3) return staleResponse(draft)
+  }
 }
 
 /**

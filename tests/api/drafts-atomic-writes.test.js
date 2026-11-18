@@ -100,6 +100,70 @@ describe('PATCH /api/drafts/:id', () => {
     expect(await rowOf(draft.id)).toEqual(before)
   })
 
+  it('one statement writes: a PATCH with a matching tag, `*` or no tag sends exactly one query', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    const seen = []
+    failOn = (text) => (seen.push(text), false)
+    for (const tag of [undefined, '*', '"1"']) {
+      seen.length = 0
+      const res = await patchDraft(draft.id, { title: `t${tag}` }, tag)
+      expect(res.status).toBe(200)
+      expect(seen.filter((t) => /drafts/.test(t))).toHaveLength(1)
+      await db.pg.query('update drafts set version = 1 where id = $1', [draft.id])
+    }
+  })
+
+  it('a strong tag that does not match is 412 with the current version and writes nothing', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    const before = await rowOf(draft.id)
+    const res = await patchDraft(draft.id, { title: 'x' }, '"7"')
+    expect(res.status).toBe(412)
+    expect(await res.json()).toEqual({ error: 'The draft changed since you read it', version: 1 })
+    expect(res.headers.get('etag')).toBe('"1"')
+    expect(await rowOf(draft.id)).toEqual(before)
+  })
+
+  it('a huge If-Match number is 412 with the current version and writes nothing', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    const before = await rowOf(draft.id)
+    const res = await patchDraft(draft.id, { title: 'x' }, '"99999999999"')
+    expect(res.status).toBe(412)
+    expect((await res.json()).version).toBe(1)
+    expect(await rowOf(draft.id)).toEqual(before)
+  })
+
+  it('a replay is 200 with a weak or a mismatching tag too, and writes nothing', async () => {
+    const draft = await db.insertDraft(alice.id, { title: 'Same', posts: POSTS() })
+    const before = await rowOf(draft.id)
+    for (const tag of ['W/"1"', '"9"']) {
+      const res = await patchDraft(draft.id, { title: 'Same' }, tag)
+      expect(res.status).toBe(200)
+      expect(res.headers.get('etag')).toBe('"1"')
+    }
+    expect(await rowOf(draft.id)).toEqual(before)
+  })
+
+  it('a non-owner with a stale tag, `*` or a replay body still gets 404 and nothing changes', async () => {
+    const draft = await db.insertDraft(alice.id, { title: 'Same', posts: POSTS() })
+    const before = await rowOf(draft.id)
+    const bob = await db.insertUser({ github_id: 2, login: 'bob' })
+    const bobCookie = await db.cookieFor(bob)
+    for (const [body, tag] of [[{ title: 'Same' }, '*'], [{ title: 'Other' }, '"5"'], [{ title: 'Other' }, undefined]]) {
+      const res = await route(apiRequest(`/api/drafts/${draft.id}`, { method: 'PATCH', body, cookie: bobCookie, headers: tag === undefined ? {} : { 'if-match': tag } }))
+      expect(res.status).toBe(404)
+    }
+    expect(await rowOf(draft.id)).toEqual(before)
+  })
+
+  it('two concurrent writes with the same tag: one 200 and one 412', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    const [r1, r2] = await Promise.all([patchDraft(draft.id, { title: 'A' }, '"1"'), patchDraft(draft.id, { title: 'B' }, '"1"')])
+    expect([r1.status, r2.status].sort()).toEqual([200, 412])
+    const row = await rowOf(draft.id)
+    expect(row.version).toBe(2)
+    expect(row.title).toBe([r1, r2].findIndex((r) => r.status === 200) === 0 ? 'A' : 'B')
+  })
+
   it.each(['1', '"abc"', '"1", "2"', 'W/1', ''])('a malformed If-Match (%j) is 400 and writes nothing', async (value) => {
     const draft = await db.insertDraft(alice.id, { posts: POSTS() })
     const before = await rowOf(draft.id)
