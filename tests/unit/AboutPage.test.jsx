@@ -52,7 +52,7 @@ describe('AboutPage', () => {
     Object.defineProperty(window, 'location', { value: { ...original, reload }, writable: true })
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'Reload' }))
-    expect(screen.getByText('A newer version is available.')).toBeInTheDocument()
+    expect(screen.getByText('A newer version is live. Reload to update.')).toBeInTheDocument()
     expect(reload).toHaveBeenCalledTimes(1)
     Object.defineProperty(window, 'location', { value: original, writable: true })
   })
@@ -63,7 +63,7 @@ describe('AboutPage', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     await screen.findAllByText('aaaaaaa')
     expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull()
-    expect(screen.queryByText('A newer version is available.')).toBeNull()
+    expect(screen.queryByText('A newer version is live. Reload to update.')).toBeNull()
   })
 
   it('reads unknown for a null commit and deploy time, and shows no hint', async () => {
@@ -72,6 +72,22 @@ describe('AboutPage', () => {
     renderPage()
     expect(await screen.findAllByText('unknown')).not.toHaveLength(0)
     expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull()
+  })
+
+  it('shows no hint when the build has a commit but the server answer has none', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ ...SERVER, commit: null, commit_short: null }) })
+    renderPage()
+    await waitFor(() => expect(screen.queryByText('Loading…')).toBeNull())
+    expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull()
+    expect(screen.queryByText('A newer version is live. Reload to update.')).toBeNull()
+  })
+
+  it('shows no hint when the server has a commit but the build has none', async () => {
+    localBuildInfo.mockReturnValue({ ...BUILD, commit: null })
+    renderPage()
+    expect(await screen.findByText('bbbbbbb')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull()
+    expect(screen.queryByText('A newer version is live. Reload to update.')).toBeNull()
   })
 
   it('shows the error state when the server cannot be reached', async () => {

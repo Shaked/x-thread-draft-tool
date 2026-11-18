@@ -88,7 +88,7 @@ export default function AboutPage() {
         {server.state === 'ready' && <VersionDetails info={server.info} />}
         {newer && (
           <div className="about-newer" role="status">
-            <p>A newer version is available.</p>
+            <p>A newer version is live. Reload to update.</p>
             <button type="button" className="copy-btn" onClick={reloadToNewest}>
               Reload
             </button>
