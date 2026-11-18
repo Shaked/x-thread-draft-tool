@@ -328,3 +328,84 @@ test('API tokens page at 390 px: no horizontal overflow, a 44 px Create button, 
     await context.close()
   }
 })
+
+// The changelog page (settings-menu.md Task 6): reached from the drawer, paged, readable in both themes.
+const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+
+for (const size of SIZES) {
+  for (const theme of ['light', 'dark'] as const) {
+    test(`changelog at ${size.name} px, ${theme}: opens from the drawer, Show older, no overflow, readable text`, async ({ browser }) => {
+      const { context, page } = await open(browser, size)
+      try {
+        if (theme === 'dark') await page.addInitScript(() => localStorage.setItem('xt-theme', 'dark'))
+        await page.goto(`${BASE}/`)
+        await page.getByRole('heading', { name: 'Your Threads' }).waitFor()
+        await openMenu(page)
+        await drawer(page).getByRole('link', { name: 'Changelog', exact: true }).click()
+        await expect(page).toHaveURL(/\/changelog$/)
+        await expect(drawer(page)).toHaveCount(0)
+        await expect(page.getByRole('heading', { name: 'Changelog', level: 1 })).toBeVisible()
+
+        const entries = page.locator('.changelog-entry')
+        await expect(entries.first()).toBeVisible()
+        expect(await overflows(page)).toBe(false)
+
+        // Readable: the entry text on its surface, the day and version text on the page, at least 4.5:1.
+        const ratios = await page.evaluate(() => {
+          const luminance = (css: string) => {
+            const [r, g, b] = (css.match(/[\d.]+/g) ?? []).slice(0, 3).map((v) => {
+              const c = Number(v) / 255
+              return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+            })
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b
+          }
+          const ratio = (a: string, b: string) => {
+            const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+            return (hi + 0.05) / (lo + 0.05)
+          }
+          const colour = (el: Element | null, prop: 'color' | 'backgroundColor') => getComputedStyle(el!)[prop]
+          const entry = document.querySelector('.changelog-entry')!
+          const page = getComputedStyle(document.body).backgroundColor
+          return {
+            entry: ratio(colour(entry.querySelector('p') ?? entry, 'color'), colour(entry, 'backgroundColor')),
+            day: ratio(colour(document.querySelector('.changelog-day h2'), 'color'), page),
+            version: ratio(colour(document.querySelector('.changelog-version'), 'color'), page)
+          }
+        })
+        for (const [name, value] of Object.entries(ratios)) expect(value, name).toBeGreaterThanOrEqual(4.5)
+
+        // Show older: the next entries are added, focus moves to the first new one, the page does not overflow.
+        const before = await entries.count()
+        await page.getByRole('button', { name: 'Show older' }).click()
+        await expect.poll(() => entries.count()).toBeGreaterThan(before)
+        await expect(entries.nth(before)).toBeFocused()
+        expect(await overflows(page)).toBe(false)
+
+        // The last entry is not covered by the bottom bar once the page is scrolled to its end.
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+        const clear = await entries.last().evaluate((el) => {
+          const r = el.getBoundingClientRect()
+          return !!document.elementFromPoint(r.left + r.width / 2, r.bottom - 6)?.closest('.changelog-entry')
+        })
+        expect(clear).toBe(true)
+      } finally {
+        await context.close()
+      }
+    })
+  }
+}
+
+for (const size of SIZES) {
+  test(`About links to the changelog ("See what changed") at ${size.name} px`, async ({ browser }) => {
+    const { context, page } = await open(browser, size)
+    try {
+      await page.goto(`${BASE}/about`)
+      await expect(page.getByRole('heading', { name: 'About', level: 1 })).toBeVisible()
+      await page.getByRole('link', { name: 'See what changed' }).click()
+      await expect(page).toHaveURL(/\/changelog$/)
+      await expect(page.getByRole('heading', { name: 'Changelog', level: 1 })).toBeVisible()
+    } finally {
+      await context.close()
+    }
+  })
+}

@@ -7,6 +7,7 @@ import DraftEditor from './pages/DraftEditor'
 import XThreadPreviewPage from './pages/XThreadPreviewPage'
 import TokensPage from './pages/TokensPage'
 import AboutPage from './pages/AboutPage'
+import ChangelogPage from './pages/ChangelogPage'
 import './styles/App.css'
 import { applyTheme, getTheme } from './utils/theme'
 import { clearCachedDrafts } from './utils/draftCache'
@@ -67,6 +68,10 @@ function App() {
           <Route
             path="/about"
             element={user ? <AboutPage /> : <LoginPage />}
+          />
+          <Route
+            path="/changelog"
+            element={user ? <ChangelogPage /> : <LoginPage />}
           />
           <Route
             path="/x-thread-preview/:token"

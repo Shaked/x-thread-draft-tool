@@ -1717,3 +1717,11 @@ html.menu-open { overflow: hidden; }
 .about-utc, .about-ago { color: var(--text-soft); }
 .about-newer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
 .about-newer p { margin: 0; }
+.about-changes { margin-top: 24px; }
+.changelog-version, .changelog-empty { color: var(--text-soft); }
+.changelog-page h2 { font-size: 1rem; margin: 24px 0 8px; }
+.changelog-entry { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; }
+.changelog-entry:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.changelog-entry h3 { margin: 0 0 4px; font-size: 1rem; font-weight: 600; }
+.changelog-entry p { margin: 0; overflow-wrap: anywhere; }
+.changelog-more { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 16px 0; }
