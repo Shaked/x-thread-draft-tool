@@ -17,7 +17,7 @@ const LEGACY_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26']
 const SERVER_NAME = 'x-thread-draft-tool'
 const BASE_VERSION = '0.1.0'
 const CAPABILITIES = { tools: {}, prompts: {}, resources: {}, extensions: { 'io.modelcontextprotocol/skills': {} } }
-const INSTRUCTIONS =
+export const INSTRUCTIONS =
   'Drafts are X thread drafts: posts of up to 280 characters, with optional images. ' +
   'When the user asks to write, draft, rewrite or plan X/Twitter posts or a thread (שרשור, ציוץ, פוסט, טיוטה), ' +
   'even without naming drafts or this connector, save them with create_thread_from_text or create_draft and reply ' +

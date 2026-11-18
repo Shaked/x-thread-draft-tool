@@ -1,0 +1,1 @@
+- Added an optional evaluation, tests/eval/mcp-default-use.eval.mjs, that checks with the Anthropic API whether a model saves written threads as drafts and answers questions without saving (epic #132 D3). It is not run in CI and skips without ANTHROPIC_API_KEY.

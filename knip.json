@@ -3,7 +3,8 @@
   "entry": [
     "api/handler.js",
     "scripts/*.{mjs,js}",
-    "tests/**/*.{test,spec}.{js,jsx,ts}"
+    "tests/**/*.{test,spec}.{js,jsx,ts}",
+    "tests/eval/*.eval.mjs"
   ],
   "project": [
     "src/**",
