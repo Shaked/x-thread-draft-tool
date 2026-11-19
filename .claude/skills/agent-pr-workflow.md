@@ -4,7 +4,7 @@ Use this skill for any session that changes the repo: planning, a task from a pl
 covers scope, branches, commits, pull requests and reading CI. The helper is `scripts/agent-pr.sh`.
 
 ## 1. Scope: plan or implement
-- "Plan", "review the plan", "add to our plans" → edit `docs/plans/` (+ changelog) only. No code.
+- "Plan", "review the plan", "add to our plans" → write it in the epic or task issue on GitHub, not in files. No code.
 - Implement only a task Shaked names (for example "do Task 1.0"). A bare "go" or "do it" applies
   to the last thing you asked about; if that was a question with more than one open item, ask which.
 - A problem found while planning (red CI, a bug) becomes a task in the plan with an acceptance
@@ -25,7 +25,8 @@ covers scope, branches, commits, pull requests and reading CI. The helper is `sc
 ## 4. Pull request
 - `gh pr create` fails in agent sessions (GraphQL blocked). Use
   `scripts/agent-pr.sh pr "<title>" <body-file>` (REST).
-- Never merge, approve, or run workflows against production without Shaked asking.
+- Merge (merge commit) only when checks are green and Opus approved the PR. Shaked gave this as a
+  standing permission (see AGENTS.md); the deploy to production follows. Do not ask first.
 
 ## 5. Read CI
 - `scripts/agent-pr.sh checks [sha]` lists check runs; `scripts/agent-pr.sh smoke [sha]` prints
