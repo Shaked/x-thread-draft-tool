@@ -1,6 +1,6 @@
 // @vitest-environment node
-// Admin follows identity: the owner's approval on the MCP connection gives admin tools for 24 hours, whatever the age of the sign-in.
-// There is no box, no pairing code and no pending state.
+// Admin is pure identity: any token for the MCP resource whose user is the owner lists and runs the admin tools.
+// There is no elevation: no box, no pairing code, no notice, no time limit, and approval never touches admin.
 import { createHash, randomBytes } from 'node:crypto'
 import { SignJWT } from 'jose'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -117,8 +117,6 @@ async function grantOf(user, resource = MCP) {
   return rows[0]
 }
 
-const noElevation = (grant) => expect(grant.admin_until).toBeNull()
-
 /** Exchanges an authorization code from a redirect for a token pair. */
 async function exchange(link, clientId, redirectUri, verifier) {
   const code = link.searchParams.get('code')
@@ -151,63 +149,69 @@ async function toolNames(token) {
   return JSON.parse(await res.text()).result.tools.map((tool) => tool.name)
 }
 
-// ---- The admin notice ---------------------------------------------------------------------------
+/** One JSON-RPC call on the legacy protocol with the token. Returns the parsed answer. */
+async function rpcOn(token, method, params = {}) {
+  const res = await route(
+    new Request(MCP, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        authorization: `Bearer ${token}`,
+        'mcp-protocol-version': LEGACY
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+    })
+  )
+  return JSON.parse(await res.text())
+}
 
-describe('the admin notice is shown to the owner and to nobody else', () => {
-  it('shows the notice to the owner on a fresh sign-in on the MCP resource, with no box', async () => {
-    const clientId = await registerClient(CLAUDE)
-    const res = await getPage(authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge }), await cookieFor(admin))
-    const html = await res.text()
-    expect(res.status).toBe(200)
-    expect(html).toContain('Approving gives')
-    expect(html).toContain('<strong>claude.ai</strong>')
-    expect(html).toContain('24 hours')
+const callOn = (token, name, args) => rpcOn(token, 'tools/call', { name, arguments: args })
+
+
+
+/** The raw Response of a tools/list call, for the status code. */
+const rpcRaw = (token) =>
+  route(
+    new Request(MCP, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        authorization: `Bearer ${token}`,
+        'mcp-protocol-version': LEGACY
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} })
+    })
+  )
+
+// ---- The consent page ---------------------------------------------------------------------------
+
+describe('the consent page says nothing about admin, to anyone', () => {
+  const noAdminText = (html) => {
+    expect(html).not.toMatch(/admin/i)
     expect(html).not.toContain('name="admin"')
-    expect(html).not.toContain('sign out, sign in again')
-  })
-
-  it('shows nothing to a normal user, even on a listed return address', async () => {
-    const clientId = await registerClient(CLAUDE)
-    const res = await getPage(authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge }), await cookieFor(alice))
-    const html = await res.text()
     expect(html).not.toContain('Approving gives')
-    expect(html).not.toContain('name="admin"')
-    expect(html).not.toContain('sign out, sign in again')
-  })
+    expect(html).not.toContain('24 hours')
+  }
 
-  it('shows the notice to the owner whatever the age of the sign-in', async () => {
-    const clientId = await registerClient(CLAUDE)
-    const res = await getPage(authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge }), await cookieFor(admin, 86_400))
-    const html = await res.text()
-    expect(html).toContain('Approving gives')
-    expect(html).not.toContain('sign out, sign in again')
-  })
-
-  it('shows nothing for the REST resource', async () => {
-    const claudeClient = await registerClient(CLAUDE)
-    const html = await (
-      await getPage(authorizePath(claudeClient, { redirectUri: CLAUDE, challenge: pkce().challenge, resource: API }), await cookieFor(admin))
-    ).text()
-    expect(html).not.toContain('Approving gives')
-    expect(html).not.toContain('sign out, sign in again')
-  })
-
-  it('shows the notice for any return address, with that host in bold', async () => {
-    for (const redirect of [EVIL, LOOPBACK]) {
+  it('shows nothing to the owner, on the MCP resource, any return address, any sign-in age', async () => {
+    for (const [redirect, age] of [[CLAUDE, 0], [CLAUDE, 86_400], [EVIL, 0], [LOOPBACK, 0]]) {
       const clientId = await registerClient(redirect)
-      const html = await (await getPage(authorizePath(clientId, { redirectUri: redirect, challenge: pkce().challenge }), await cookieFor(admin))).text()
-      expect(html).toContain('Approving gives')
-      expect(html).toContain(`<strong>${new URL(redirect).host}</strong>`)
-      expect(html).toContain('Check that the address above is your own AI app')
+      const res = await getPage(authorizePath(clientId, { redirectUri: redirect, challenge: pkce().challenge }), await cookieFor(admin, age))
+      expect(res.status).toBe(200)
+      noAdminText(await res.text())
     }
   })
 
-  it('shows nothing when ADMIN_DISABLED=1, even to the owner', async () => {
-    process.env.ADMIN_DISABLED = '1'
+  it('shows nothing to a normal user, nor for the REST resource, nor with ADMIN_DISABLED=1', async () => {
     const clientId = await registerClient(CLAUDE)
-    const html = await (await getPage(authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge }), await cookieFor(admin))).text()
-    expect(html).not.toContain('Approving gives')
-    expect(html).not.toContain('sign out, sign in again')
+    const path = authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge })
+    noAdminText(await (await getPage(path, await cookieFor(alice))).text())
+    const restPath = authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge, resource: API })
+    noAdminText(await (await getPage(restPath, await cookieFor(admin))).text())
+    process.env.ADMIN_DISABLED = '1'
+    noAdminText(await (await getPage(path, await cookieFor(admin))).text())
   })
 
   it('escapes the state in the consent link', async () => {
@@ -223,131 +227,108 @@ describe('the admin notice is shown to the owner and to nobody else', () => {
 // ---- The approval ---------------------------------------------------------------------------------
 
 /** Approves for the owner on the MCP resource and exchanges the code: the connection's token. */
-async function ownerApp(redirect = CLAUDE, cookieAge = 0) {
+async function ownerApp(redirect = CLAUDE) {
   const clientId = await registerClient(redirect)
   const { verifier, challenge } = pkce()
   const path = authorizePath(clientId, { redirectUri: redirect, challenge })
-  const res = await approve(path, await cookieFor(admin, cookieAge))
+  const res = await approve(path, await cookieFor(admin))
   expect(res.status).toBe(302)
   const tokens = await exchange(new URL(res.headers.get('location')), clientId, redirect, verifier)
-  return { token: tokens.access_token, clientId, path, res }
+  return { token: tokens.access_token, clientId, path, res, verifier }
 }
 
-describe('an approval gives admin to the owner, and to nobody else', () => {
-  it('the owner on the MCP resource: a normal redirect, admin for about 24 hours, admin tools at once', async () => {
+const adminNames = async (token) => (await toolNames(token)).filter((name) => name.startsWith('admin_'))
+
+describe('admin follows identity, with no special step', () => {
+  it('the owner on the MCP resource: a normal approval lists all 8 admin tools; admin_status and admin_stats work', async () => {
     const { token, res } = await ownerApp()
     const location = new URL(res.headers.get('location'))
     expect(location.origin + location.pathname).toBe(CLAUDE)
-    expect(location.searchParams.get('code')).toBeTruthy()
     expect(location.searchParams.get('state')).toBe('st-1')
 
-    const grant = await grantOf(admin)
-    const hours = (new Date(grant.admin_until).getTime() - Date.now()) / 3_600_000
-    expect(hours).toBeGreaterThan(23.9)
-    expect(hours).toBeLessThan(24.1)
-    expect((await toolNames(token)).filter((name) => name.startsWith('admin_'))).toContain('admin_status')
-    const audit = await db.pg.query("select action, outcome from admin_audit where action = 'elevate_connection'")
-    expect(audit.rows).toEqual([{ action: 'elevate_connection', outcome: 'done' }])
+    expect(await adminNames(token)).toHaveLength(8)
+    expect(await adminNames(token)).toContain('admin_status')
+    const listed = await rpcOn(token, 'tools/list', {})
+    expect(listed.result.cacheScope).toBe('private')
+
+    const status = await callOn(token, 'admin_status', {})
+    expect(status.result.isError).toBe(false)
+    expect(status.result.structuredContent).toMatchObject({ admin: true, login: 'Shaked', github_id: String(ADMIN_GITHUB_ID) })
+    expect(status.result.structuredContent).not.toHaveProperty('admin_until')
+    expect((await callOn(token, 'admin_stats', {})).result.isError).toBe(false)
   })
 
-  it('a normal user gets no admin and no admin tools', async () => {
+  it('a normal user gets no admin tools', async () => {
     const clientId = await registerClient(CLAUDE)
     const { verifier, challenge } = pkce()
     const res = await approve(authorizePath(clientId, { redirectUri: CLAUDE, challenge }), await cookieFor(alice))
     expect(res.status).toBe(302)
-    noElevation(await grantOf(alice))
     const tokens = await exchange(new URL(res.headers.get('location')), clientId, CLAUDE, verifier)
-    expect((await toolNames(tokens.access_token)).filter((name) => name.startsWith('admin_'))).toEqual([])
-    expect((await db.pg.query('select count(*)::int as n from admin_audit')).rows[0].n).toBe(0)
+    expect(await adminNames(tokens.access_token)).toEqual([])
+    expect((await callOn(tokens.access_token, 'admin_status', {})).error.message).toMatch(/unknown tool/)
   })
 
-  it('the owner on the REST resource gets no admin', async () => {
-    const clientId = await registerClient(CLAUDE)
-    const res = await approve(authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge, resource: API }), await cookieFor(admin))
-    expect(res.status).toBe(302)
-    noElevation(await grantOf(admin, API))
-  })
-
-  it('ADMIN_DISABLED=1 at approval gives no admin, even to the owner', async () => {
-    process.env.ADMIN_DISABLED = '1'
+  it('the owner on the REST resource gets no admin tools', async () => {
     const clientId = await registerClient(CLAUDE)
     const { verifier, challenge } = pkce()
-    const res = await approve(authorizePath(clientId, { redirectUri: CLAUDE, challenge }), await cookieFor(admin))
+    const res = await approve(authorizePath(clientId, { redirectUri: CLAUDE, challenge, resource: API }), await cookieFor(admin))
     expect(res.status).toBe(302)
-    noElevation(await grantOf(admin))
     const tokens = await exchange(new URL(res.headers.get('location')), clientId, CLAUDE, verifier)
-    expect((await toolNames(tokens.access_token)).filter((name) => name.startsWith('admin_'))).toEqual([])
-  })
-
-  it('the owner with an old sign-in gets admin too: the age of the sign-in does not matter', async () => {
-    const clientId = await registerClient(CLAUDE)
-    const { verifier, challenge } = pkce()
-    const path = authorizePath(clientId, { redirectUri: CLAUDE, challenge })
-    const res = await approve(path, await cookieFor(admin, 86_400))
-    expect(res.status).toBe(302)
-    expect((await grantOf(admin)).admin_until).not.toBeNull()
-    const tokens = await exchange(new URL(res.headers.get('location')), clientId, CLAUDE, verifier)
-    expect(await toolNames(tokens.access_token)).toContain('admin_status')
-  })
-
-  it('an approval kills the tokens issued before it on the same MCP grant', async () => {
-    const clientId = await registerClient(CLAUDE)
-    const { verifier, challenge } = pkce()
-    const path = authorizePath(clientId, { redirectUri: CLAUDE, challenge })
-    const first = await approve(path, await cookieFor(admin))
-    const tokens = await exchange(new URL(first.headers.get('location')), clientId, CLAUDE, verifier)
-    expect(await resolveAccess(tokens.access_token, MCP)).not.toBeNull()
-
-    expect((await approve(path, await cookieFor(admin))).status).toBe(302)
+    expect(await resolveAccess(tokens.access_token, API)).toMatchObject({ admin: false })
     expect(await resolveAccess(tokens.access_token, MCP)).toBeNull()
   })
 
-  it('a session cookie that claims the owner id, for a normal user, gets nothing and elevates nothing', async () => {
+  it('ADMIN_DISABLED=1 lists no admin tool and an admin tool call is an unknown-tool error', async () => {
+    const { token } = await ownerApp()
+    expect(await adminNames(token)).toHaveLength(8)
+    process.env.ADMIN_DISABLED = '1'
+    expect(await adminNames(token)).toEqual([])
+    expect((await callOn(token, 'admin_status', {})).error.message).toMatch(/unknown tool/)
+  })
+
+  it('approval never sets admin_until, for the owner or anyone', async () => {
+    await ownerApp()
+    expect((await grantOf(admin)).admin_until).toBeNull()
     const clientId = await registerClient(CLAUDE)
-    const path = authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge })
-    const cookie = await cookieFor(alice, 0, String(ADMIN_GITHUB_ID))
-    const html = await (await getPage(path, cookie)).text()
-    expect(html).not.toContain('Approving gives')
-    expect(html).not.toContain('sign out, sign in again')
-    const res = await approve(path, cookie)
-    expect(res.status).toBe(302)
-    noElevation(await grantOf(alice))
+    expect((await approve(authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge }), await cookieFor(alice))).status).toBe(302)
+    expect((await grantOf(alice)).admin_until).toBeNull()
     expect((await db.pg.query('select count(*)::int as n from admin_audit')).rows[0].n).toBe(0)
   })
 
-  it('a revoke removes the admin tools', async () => {
-    const { token, clientId } = await ownerApp()
-    expect(await toolNames(token)).toContain('admin_status')
+  it('a revoked grant is rejected with 401', async () => {
+    const { token } = await ownerApp()
+    expect(await adminNames(token)).toHaveLength(8)
     const grant = await grantOf(admin)
     const res = await route(apiRequest(`/api/grants/${grant.id}`, { method: 'DELETE', cookie: await cookieFor(admin) }))
     expect(res.status).toBeLessThan(300)
-    expect(clientId).toBeTruthy()
-    const after = await route(
-      new Request(MCP, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          accept: 'application/json, text/event-stream',
-          authorization: `Bearer ${token}`,
-          'mcp-protocol-version': LEGACY
-        },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} })
-      })
-    )
-    expect(after.status).toBe(401)
+    expect((await rpcRaw(token)).status).toBe(401)
   })
 
-  it('admin ends when admin_until passes: the app lists no admin tool at all', async () => {
-    const { token } = await ownerApp()
-    await db.pg.query("update oauth_grants set admin_until = now() - interval '1 second' where user_id = $1", [admin.id])
-    expect((await toolNames(token)).filter((name) => name.startsWith('admin_'))).toEqual([])
-    expect((await callOn(token, 'admin_status', {})).error.message).toMatch(/unknown tool/)
+  it('a new approval of a revoked grant kills the tokens issued before the revoke', async () => {
+    const { token, path } = await ownerApp()
+    const grant = await grantOf(admin)
+    await route(apiRequest(`/api/grants/${grant.id}`, { method: 'DELETE', cookie: await cookieFor(admin) }))
+    expect(await resolveAccess(token, MCP)).toBeNull()
+    expect((await approve(path, await cookieFor(admin))).status).toBe(302)
+    expect(await resolveAccess(token, MCP)).toBeNull()
+  })
+
+  it('a session cookie that claims the owner id, for a normal user, gets no admin', async () => {
+    const clientId = await registerClient(CLAUDE)
+    const { verifier, challenge } = pkce()
+    const path = authorizePath(clientId, { redirectUri: CLAUDE, challenge })
+    const cookie = await cookieFor(alice, 0, String(ADMIN_GITHUB_ID))
+    const res = await approve(path, cookie)
+    expect(res.status).toBe(302)
+    const tokens = await exchange(new URL(res.headers.get('location')), clientId, CLAUDE, verifier)
+    expect(await adminNames(tokens.access_token)).toEqual([])
+    expect((await grantOf(alice)).admin_until).toBeNull()
   })
 })
 
 // ---- A device grant never elevates (plan item 8) ----------------------------------------------
 
-describe('a device grant never carries an elevation', () => {
+describe('a device grant never carries admin columns', () => {
   it('stores no admin columns, even for the owner', async () => {
     vi.stubGlobal(
       'fetch',
@@ -379,48 +360,3 @@ describe('a device grant never carries an elevation', () => {
   })
 })
 
-// ---- Admin tools at once ----------------------------------------------------------------------
-
-/** One JSON-RPC call on the legacy protocol with the token. Returns the parsed answer. */
-async function rpcOn(token, method, params = {}) {
-  const res = await route(
-    new Request(MCP, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json, text/event-stream',
-        authorization: `Bearer ${token}`,
-        'mcp-protocol-version': LEGACY
-      },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
-    })
-  )
-  return JSON.parse(await res.text())
-}
-
-const callOn = (token, name, args) => rpcOn(token, 'tools/call', { name, arguments: args })
-
-
-describe('an owner connection gets admin tools at once', () => {
-  it('lists the admin tools after the approval, answers admin_status admin true, and admin_stats is callable', async () => {
-    const { token } = await ownerApp()
-    const names = await toolNames(token)
-    expect(names).toContain('whoami')
-    expect(names).toContain('admin_status')
-    expect(names).toContain('admin_stats')
-    expect(names).not.toContain('admin_activate')
-    const listed = await rpcOn(token, 'tools/list', {})
-    expect(listed.result.cacheScope).toBe('private')
-
-    const status = await callOn(token, 'admin_status', {})
-    expect(status.result.isError).toBe(false)
-    expect(status.result.structuredContent).toMatchObject({ admin: true })
-    const stats = await callOn(token, 'admin_stats', {})
-    expect(stats.result.isError).toBe(false)
-
-    const grant = await grantOf(admin)
-    const hours = (new Date(grant.admin_until).getTime() - Date.now()) / 3_600_000
-    expect(hours).toBeGreaterThan(23.9)
-    expect(hours).toBeLessThan(24.1)
-  })
-})

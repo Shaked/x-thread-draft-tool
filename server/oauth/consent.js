@@ -100,17 +100,8 @@ function copyBlock(link, text) {
 <script>${COPY_SCRIPT}</script>`
 }
 
-// The admin part of the consent form, shown only to the owner. 'notice' says that approving gives admin tools
-// for 24 hours. Anything else (null) shows nothing.
-function adminNote(state, redirectHost) {
-  if (state === 'notice') {
-    return `<p class="warn">Approving gives <strong>${escapeHtml(redirectHost)}</strong> admin tools (list all users, suspend users, delete users and their content) for 24 hours. Check that the address above is your own AI app.</p>`
-  }
-  return ''
-}
-
 /** The Approve / Deny page. `requestToken` is the signed decision; `link` is this same address. Everything shown is escaped. */
-export function consentPage({ clientName, unverified, redirectHost, requestToken, login, link, adminState = null }) {
+export function consentPage({ clientName, unverified, redirectHost, requestToken, login, link }) {
   const warning = unverified
     ? '<p class="warn">This app is not verified. Approve only if you started it yourself.</p>'
     : ''
@@ -126,7 +117,6 @@ ${warning}
 <p>After you choose, it sends you back to <strong>${escapeHtml(redirectHost)}</strong>.</p>
 <form method="post" action="/api/oauth/authorize">
 <input type="hidden" name="request" value="${escapeHtml(requestToken)}">
-${adminNote(adminState, redirectHost)}
 <button class="approve" name="decision" value="approve">Approve</button>
 <button class="deny" name="decision" value="deny">Deny</button>
 </form>

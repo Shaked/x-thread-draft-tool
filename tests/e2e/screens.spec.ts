@@ -228,9 +228,8 @@ test.describe('screens', () => {
       await signedIn.close()
     })
 
-    // The owner's consent page with the admin notice. The dev session is the owner's id,
-    // so the notice is shown.
-    test(`captures the owner's consent page with the admin notice at ${width}px`, async ({ browser, request }) => {
+    // The owner's consent page. The dev session is the owner's id; the page shows nothing about admin.
+    test(`captures the owner's consent page at ${width}px`, async ({ browser, request }) => {
       const redirect = 'https://claude.ai/api/mcp/auth_callback'
       const registered = await request.post(`${BASE}/api/oauth/register`, { data: { client_name: 'Claude', redirect_uris: [redirect] } })
       expect(registered.status()).toBe(201)

@@ -96,14 +96,18 @@ describe.each([MODERN, LEGACY])('the admin tools are listed only for the elevate
     expect(body.result.cacheScope).toBe('public')
   })
 
-  it('no admin tool without an elevated grant: no admin_until, or one in the past, or a normal user elevated', async () => {
-    const plain = await tokenAndCaller(await grantFor(admin))
-    const expired = await tokenAndCaller(await grantFor(admin, { adminUntil: past() }))
-    const normalElevated = await tokenAndCaller(await grantFor(normal, { adminUntil: future() }))
-    for (const { token } of [plain, expired, normalElevated]) {
+  it('no admin tool for a normal user, whatever admin_until holds', async () => {
+    const normalFuture = await tokenAndCaller(await grantFor(normal, { adminUntil: future() }))
+    const body = await rpc(version, normalFuture.token, 'tools/list')
+    expect(toolNames(body).filter(isAdminName)).toEqual([])
+    expect(body.result.cacheScope).toBe('public')
+  })
+
+  it('the admin gets the admin tools by identity alone: no admin_until, or one in the past', async () => {
+    for (const adminUntil of [null, past()]) {
+      const { token } = await tokenAndCaller(await grantFor(admin, { adminUntil }))
       const body = await rpc(version, token, 'tools/list')
-      expect(toolNames(body).filter(isAdminName)).toEqual([])
-      expect(body.result.cacheScope).toBe('public')
+      expect(toolNames(body).filter(isAdminName)).toHaveLength(8)
     }
   })
 

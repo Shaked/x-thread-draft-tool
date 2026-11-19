@@ -6,14 +6,11 @@ import { ADMIN_LIMITS, withinAdminLimit } from '../admin/limits.js'
 import { isProtectedGithubId, protectedGithubIds } from '../admin/identity.js'
 import { listBlobPrefix } from '../blob.js'
 import { deleteUser } from '../admin/delete-user.js'
-import { query, transaction } from '../db.js'
+import { transaction } from '../db.js'
 import { HttpError, json, readJson, readOptionalJson } from '../http.js'
 
 // Admin routes (plan A2). Each one is built with adminRoute, which refuses everyone but the admin.
-const status = async ({ admin }) => {
-  const { rows } = await query('select admin_until from oauth_grants where id = $1', [admin.grantId])
-  return json({ admin: true, login: admin.login, github_id: admin.gh, admin_until: rows[0]?.admin_until ?? null })
-}
+const status = async ({ admin }) => json({ admin: true, login: admin.login, github_id: admin.gh })
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const LOGIN_PREFIX = /^[A-Za-z0-9-]{1,39}$/
@@ -84,8 +81,7 @@ const appView = (app) => ({
   resource: app.resource,
   created_at: app.created_at,
   last_used_at: app.last_used_at,
-  revoked_at: app.revoked_at,
-  admin: app.admin === true
+  revoked_at: app.revoked_at
 })
 
 /** One user with counts, tokens and connected apps (no Blob numbers), or null. Used by the reads and by suspend. */

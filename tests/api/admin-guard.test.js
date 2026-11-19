@@ -224,9 +224,9 @@ describe('resolveAccess reports the resource and the elevation', () => {
     expect(await resolveAccess(pair.access_token, API)).toBeNull()
   })
 
-  it('an expired elevation is not admin', async () => {
-    const pair = await issuePair(await newGrant(admin.id, { adminUntil: new Date(Date.now() - 60_000) }))
-    expect(await resolveAccess(pair.access_token, MCP)).toMatchObject({ admin: false })
+  it('the admin identity is admin on the MCP resource without any admin_until', async () => {
+    const pair = await issuePair(await newGrant(admin.id))
+    expect(await resolveAccess(pair.access_token, MCP)).toMatchObject({ admin: true })
   })
 })
 

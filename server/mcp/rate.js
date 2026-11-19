@@ -11,7 +11,7 @@ export const RATE_LIMIT_MESSAGE = 'Rate limit reached: at most 120 tool calls pe
 // The same checks as resolveAccess (server/oauth/tokens.js).
 const TOKEN_OWNER = `
   select g.id as grant_id, u.id as uid, u.github_id, u.login, u.suspended_at, g.resource,
-         (g.resource like '%/api/mcp' and g.admin_until is not null and g.admin_until > now()) as admin
+         (g.resource like '%/api/mcp') as admin
     from oauth_tokens t join oauth_grants g on g.id = t.grant_id join users u on u.id = g.user_id
    where t.token_hash = $1 and t.kind = 'access' and t.expires_at > now()
      and g.revoked_at is null and g.resource = $2`

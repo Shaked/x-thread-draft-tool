@@ -89,8 +89,7 @@ export async function userApiTokens(id) {
 /** A user's connected apps: no client name (decision D9), only the kind, the host of the return address and the resource. */
 export async function userConnectedApps(id) {
   const { rows } = await query(
-    `select g.id, c.kind, c.redirect_uris, g.resource, g.created_at, g.last_used_at, g.revoked_at,
-            (g.admin_until is not null and g.admin_until > now()) as admin
+    `select g.id, c.kind, c.redirect_uris, g.resource, g.created_at, g.last_used_at, g.revoked_at
        from oauth_grants g join oauth_clients c on c.client_id = g.client_id
       where g.user_id = $1 order by g.created_at desc, g.id desc`,
     [id]

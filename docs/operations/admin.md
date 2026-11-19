@@ -7,25 +7,23 @@ Who this is for: the owner, and agents that work for the owner. This page is not
 - Admin is one GitHub numeric id: `960015` (github.com/Shaked). It is in `server/admin/identity.js` as `ADMIN_GITHUB_IDS`. A login is never used, because a login can be renamed. `tests/api/admin-identity.test.js` pins the list.
 - No environment variable adds an admin. `ADMIN_DISABLED=1` only turns admin off. The value is read on every check. Set it in the Vercel environment and make a new deploy so the change is live (how Vercel applies env changes: not checked here).
 - The admin account and the CI identity (`ci-smoke`) can never be suspended or deleted. This is enforced in code and in SQL, and does not depend on `ADMIN_DISABLED`.
-- Any AI app you approve, while signed in as the owner, can hold admin tools for 24 hours. No list of app addresses is kept and no code is used.
+- Any AI app you connect while signed in as the owner can hold admin tools. No list of app addresses is kept, and no code or time limit is used.
 
 ## How to get admin tools
 
-Admin follows your GitHub identity. You do not need a code or a box.
+Admin follows your GitHub identity and nothing else. There is no code, no box, no time limit and no extra approval.
 
-1. Be signed in to X Thread Draft Tool with GitHub as `Shaked` (github id 960015). The age of the sign-in does not matter.
-2. In your AI app (Claude or ChatGPT on the web, or a command-line app), go to the connector settings. Disconnect X Thread Draft Tool, then press Connect.
-3. On the "Allow access" page, check that the address shown is your own app, then approve.
-4. Admin tools appear at once on that connection and last 24 hours. To check, ask the app to run `admin_status`.
+1. Sign in to X Thread Draft Tool with GitHub as `Shaked` (github id 960015).
+2. In your AI app (Claude, ChatGPT, Grok or a command-line app), connect X Thread Draft Tool through its MCP connector as usual and approve it.
+3. The admin tools appear in that connection's tool list. To check, ask the app to run `admin_status`.
 
 Rules that come from the code:
 
-- Only your account gets admin, and only on the MCP connection. Other users never get it, and the REST API never does.
-- Each approval of the MCP connection gives 24 hours of admin again.
-- To end admin at once, go to the Connected apps list on the settings page and disconnect (revoke) the app. A revoked grant stops working.
+- Any MCP connection (OAuth token for the MCP address) of GitHub id 960015 gets the admin tools. Other users never get them, and the REST API and device tokens never do.
+- The AI app keeps its own saved copy of the tool list. After you first connect, refresh the connector's tool list in the app, or delete and re-add the connector, so it asks the server again.
+- To end admin for one app, go to the Connected apps list on the settings page and revoke the app. A revoked connection stops working.
 - `ADMIN_DISABLED=1` in the environment turns admin off for everyone, including you. It is read on every check, so a new deploy is needed for a change to apply.
-- Use a separate chat for admin work. Do not let it share a chat that reads untrusted web pages or other text.
-- Any app you approve while signed in as you can use admin tools for 24 hours. Approve only apps you started yourself.
+- Any app you approve while signed in as you can use admin tools, with no time limit. Approve only apps you started yourself, and revoke apps you no longer use.
 
 ## The eight tools
 
