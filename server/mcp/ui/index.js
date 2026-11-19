@@ -32,16 +32,21 @@ const ENTRIES = VIEWS.map((view) => {
   }
 })
 
+// ChatGPT reads its own widget keys (T10, #238), not _meta.ui: the same one image host, in the snake_case form.
+// Without it ChatGPT blocks the images in a view. Every view gets the same keys.
+const WIDGET_CSP = { connect_domains: [], resource_domains: BLOB_ORIGIN ? [BLOB_ORIGIN] : [] }
+const metaOf = (ui) => ({ ui: structuredClone(ui), 'openai/widgetCSP': structuredClone(WIDGET_CSP), 'openai/widgetPrefersBorder': true })
+
 /** resources/list entries for the views (no HTML in the list). */
 export function listUiResources() {
-  return ENTRIES.map(({ html: _html, ui, ...entry }) => ({ ...entry, _meta: { ui: structuredClone(ui) } }))
+  return ENTRIES.map(({ html: _html, ui, ...entry }) => ({ ...entry, _meta: metaOf(ui) }))
 }
 
 /** resources/read contents for an exact view uri, or null when it is not a view (a wrong ?v= is not found). */
 export function readUiResource(uri) {
   const entry = ENTRIES.find((e) => e.uri === uri)
   if (!entry) return null
-  return [{ uri: entry.uri, mimeType: MIME_TYPE, text: entry.html, _meta: { ui: structuredClone(entry.ui) } }]
+  return [{ uri: entry.uri, mimeType: MIME_TYPE, text: entry.html, _meta: metaOf(entry.ui) }]
 }
 
 /** The public manifest (GET /api/mcp/ui-manifest): each view's uri, type, size and sha256 of its HTML. No HTML. */

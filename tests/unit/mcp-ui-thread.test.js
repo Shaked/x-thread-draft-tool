@@ -215,6 +215,19 @@ describe('the header and long drafts', () => {
     more.click()
     expect(root.querySelectorAll('article')).toHaveLength(30)
   })
+
+  it('marks the start of the thread, and the end only once every post is shown (T10, #238)', () => {
+    const make = (n) => Array.from({ length: n }, (_, i) => ({ text: 'p' + i }))
+    const short = render({ title: 'T', saved: true, posts: make(3) })
+    expect(short.textContent).toContain('Start of thread')
+    expect(short.textContent).toContain('End of thread')
+    expect(short.textContent.indexOf('Start of thread')).toBeLessThan(short.textContent.indexOf('p0'))
+    expect(short.textContent.indexOf('End of thread')).toBeGreaterThan(short.textContent.indexOf('p2'))
+    const long = render({ title: 'T', saved: true, posts: make(26) })
+    expect(long.textContent).not.toContain('End of thread')
+    ;[...long.querySelectorAll('button')].find((b) => b.textContent === 'Show all 26 posts').click()
+    expect(long.textContent).toContain('End of thread')
+  })
 })
 
 describe('the view size and host context', () => {

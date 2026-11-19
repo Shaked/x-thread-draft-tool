@@ -264,11 +264,13 @@ export function renderThread(root, thread, open) {
     root.appendChild(el('p', {}, ['This draft has no posts.']))
     return
   }
-  const list = el('div', {}, [])
+  // T10 (#238): a start line and an end line, so the thread's edges are clear inside a host's card.
+  const list = el('div', {}, [el('p', { dir: 'auto' }, ['Start of thread'])])
   root.appendChild(list)
   const first = 25
   const showRange = (from, to) => {
     for (let i = from; i < to; i++) list.appendChild(postNode(thread, i, total, open))
+    if (to === total) list.appendChild(el('p', { dir: 'auto' }, ['End of thread']))
   }
   showRange(0, Math.min(total, first))
   if (total > first) {

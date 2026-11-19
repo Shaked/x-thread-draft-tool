@@ -34,6 +34,7 @@ section { border: 1px solid var(--x-line); border-radius: 16px; padding: 10px 12
 section p { font-size: 14px; color: var(--x-muted); margin: 0 0 6px; }
 button { font: inherit; font-size: 14px; color: var(--x-link); background: none; border: 1px solid var(--x-line); border-radius: 999px; padding: 4px 12px; cursor: pointer; max-width: 100%; overflow-wrap: anywhere; text-align: start; }
 footer small { color: var(--x-muted); }
+main > div > p { color: var(--x-muted); font-size: 13px; text-align: center; margin: 12px 0; }
 footer strong { color: #f4212e; }
 `
 
@@ -57,6 +58,8 @@ const STARTER = `
   function applyContext(ctx) {
     if (ctx && (ctx.theme === 'dark' || ctx.theme === 'light')) document.documentElement.dataset.theme = ctx.theme;
   }
+  // T10 (#238): ChatGPT's theme, when its page has one. The key is not checked against OpenAI's docs (unreachable).
+  if (window.openai && (window.openai.theme === 'dark' || window.openai.theme === 'light')) applyContext({ theme: window.openai.theme });
   link = bridge({
     result: showResult,
     context: applyContext,
