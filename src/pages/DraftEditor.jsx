@@ -20,6 +20,8 @@ export default function DraftEditor({ user }) {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [synced, setSynced] = useState(true)
+  // True after a save gets 401: the session ended. The text stays in the editor for the user to copy.
+  const [signedOut, setSignedOut] = useState(false)
 
   const saveTimeoutRef = useRef(null)
   const lastSavedRef = useRef(null)
@@ -79,6 +81,7 @@ export default function DraftEditor({ user }) {
 
           lastSavedRef.current = JSON.stringify(draftToSave)
           setSynced(true)
+          setSignedOut(false)
 
           // Update IndexedDB
           await idbSet(`draft-${id}`, draftToSave)
@@ -86,7 +89,8 @@ export default function DraftEditor({ user }) {
         } catch (err) {
           console.error('Save error:', err)
           // Still save to IndexedDB even if server fails, except when signed out (sign-out clears this cache)
-          if (err.status !== 401) await idbSet(`draft-${id}`, draftToSave)
+          if (err.status === 401) setSignedOut(true)
+          else await idbSet(`draft-${id}`, draftToSave)
           return false
         } finally {
           setSaving(false)
@@ -213,11 +217,11 @@ export default function DraftEditor({ user }) {
         />
 
         <span
-          className={`sync-status ${!synced || saving ? 'syncing' : 'synced'}`}
+          className={`sync-status ${signedOut ? 'signed-out' : !synced || saving ? 'syncing' : 'synced'}`}
           role="status"
           aria-live="polite"
         >
-          {!synced || saving ? 'Saving…' : 'Saved'}
+          {signedOut ? 'Not saved' : !synced || saving ? 'Saving…' : 'Saved'}
         </span>
 
         <AppBar>
@@ -240,6 +244,15 @@ export default function DraftEditor({ user }) {
 
       <div className="editor-content">
         <div className="main-panel">
+          {signedOut && (
+            <div className="signed-out-note" role="alert">
+              <p>You are signed out. Your text is still here: copy it, then sign in again.</p>
+              <button className="btn btn-primary" onClick={() => authApi.login()}>
+                Sign in with GitHub
+              </button>
+            </div>
+          )}
+
           <ThreadComposer posts={draft.posts} onPostsChange={handlePostsChange} />
 
           {!draft.is_published && (

@@ -1361,6 +1361,29 @@ body {
   color: var(--success);
 }
 
+.sync-status.signed-out {
+  color: var(--danger);
+}
+
+/* Shown when a save fails because the session ended. The editor keeps the text. */
+.signed-out-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  background-color: var(--surface);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.signed-out-note p {
+  flex: 1 1 220px;
+  margin: 0;
+}
+
 /* Publish is the editor's one primary action: filled accent. */
 .publish-btn {
   min-height: 44px;
