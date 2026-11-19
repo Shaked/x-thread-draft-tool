@@ -113,6 +113,15 @@ function spyPerf() {
   return vi.spyOn(console, 'log').mockImplementation(() => {})
 }
 
+/** Sends every statement to the PGlite test database; with `seen`, also keeps each statement's rows. */
+function useDbQueries(seen = null) {
+  setQueryImpl(async (text, params = []) => {
+    const result = await db.pg.query(text, params)
+    if (seen) seen.push(result.rows)
+    return { rows: result.rows, rowCount: result.affectedRows ?? result.rows.length }
+  })
+}
+
 describe('query budget per flow (plan section 3.2)', () => {
   it('MCP initialize: 1', async () => {
     const spy = spyPerf()
@@ -155,9 +164,22 @@ describe('query budget per flow (plan section 3.2)', () => {
     expect(await roundTrips(spy, toolCall('remove_post', { id: draft.id, post_id: 'p3' }))).toBe(3)
   })
 
-  it('MCP remove_post of the post with an image: 5', async () => {
+  it('MCP remove_post of the post with an image: 4 (P8: one SQL check instead of two draft lists)', async () => {
     const spy = spyPerf()
-    expect(await roundTrips(spy, toolCall('remove_post', { id: draft.id, post_id: 'p2' }))).toBe(5)
+    expect(await roundTrips(spy, toolCall('remove_post', { id: draft.id, post_id: 'p2' }))).toBe(4)
+  })
+
+  it('MCP remove_post of the post with an image: no statement returns more than one draft\'s posts (P8)', async () => {
+    const spy = spyPerf()
+    const seen = []
+    useDbQueries(seen)
+    try {
+      expect(await roundTrips(spy, toolCall('remove_post', { id: draft.id, post_id: 'p2' }))).toBe(4)
+    } finally {
+      useDbQueries()
+    }
+    expect(seen.length).toBeGreaterThan(0)
+    for (const rows of seen) expect(rows.filter((row) => 'posts' in row).length).toBeLessThanOrEqual(1)
   })
 
   it('REST GET /api/drafts with an xt_ token: 3', async () => {
@@ -225,10 +247,7 @@ describe('connection time (plan P1, step 4)', () => {
     } finally {
       if (saved === undefined) delete process.env.DATABASE_URL
       else process.env.DATABASE_URL = saved
-      setQueryImpl(async (text, params = []) => {
-        const result = await db.pg.query(text, params)
-        return { rows: result.rows, rowCount: result.affectedRows ?? result.rows.length }
-      })
+      useDbQueries()
     }
     // 15 s: if a sandbox drops packets instead of refusing, the 8 s connect timeout still fits.
   }, 15000)

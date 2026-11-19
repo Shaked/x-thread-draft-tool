@@ -449,10 +449,29 @@ export const OPENAPI = {
         responses: { ...json({ type: 'object', properties: { url: { type: 'string' } } }, '201'), 401: UNAUTHORIZED, 404: NOT_FOUND, 413: BAD_REQUEST, 415: BAD_REQUEST }
       },
       delete: {
-        summary: 'Delete one of your own uploaded images by URL',
+        summary: 'Delete one of your own uploaded images by URL (owner only). Optional if_unused: true keeps the file while a draft still uses its URL.',
         security: BEARER,
-        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['url'], properties: { url: { type: 'string' } } } } } },
-        responses: { ...json({ type: 'object', properties: { ok: { type: 'boolean' } } }), 401: UNAUTHORIZED, 403: { description: 'Not your image', content: errorContent() } }
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['url'],
+                properties: {
+                  url: { type: 'string' },
+                  if_unused: { type: 'boolean', description: 'true: delete only when no draft of yours still uses the URL. Absent or false: delete always.' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          ...json({ type: 'object', properties: { ok: { type: 'boolean' }, deleted: { type: 'boolean', description: 'Only with if_unused true: whether the file was deleted.' } } }),
+          400: BAD_REQUEST,
+          401: UNAUTHORIZED,
+          403: { description: 'Not your image', content: errorContent() }
+        }
       }
     },
     '/images/from-url': {

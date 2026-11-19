@@ -3,6 +3,7 @@ import { HttpError, json, readJson } from '../http.js'
 import { requireUser } from '../session.js'
 import { deleteBlobUrls, putBlob } from '../blob.js'
 import { isOwnedBlobUrl } from '../draft-images.js'
+import { usedImageUrls } from './drafts.js'
 import { fetchRemoteImage } from '../remote-image.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -37,17 +38,28 @@ async function uploadImage({ request, url }) {
   return json({ url: blob.url }, 201)
 }
 
-/** DELETE /api/images with `{ url }`: only objects under the caller's own prefix. */
+/**
+ * DELETE /api/images with `{ url }`: only objects under the caller's own prefix. With
+ * `if_unused: true` the file is deleted only when no draft of the caller still uses it; the answer
+ * then says whether it was deleted. Without it (or with false) the answer is `{ ok: true }`, as before.
+ */
 async function deleteImage({ request }) {
   const session = await requireUser(request)
   const body = await readJson(request, 10_000)
   const target = typeof body?.url === 'string' ? body.url : ''
+  const ifUnused = body?.if_unused
 
   if (!/^https?:\/\//.test(target)) throw new HttpError(400, 'Invalid image URL')
   if (!isOwnedBlobUrl(target, session.uid)) {
     throw new HttpError(403, 'Not allowed to delete this image')
   }
+  if (ifUnused !== undefined && typeof ifUnused !== 'boolean') throw new HttpError(400, 'if_unused must be true or false')
 
+  if (ifUnused === true) {
+    if ((await usedImageUrls(query, session.uid, [target], null)).has(target)) return json({ ok: true, deleted: false })
+    await deleteBlobUrls([target])
+    return json({ ok: true, deleted: true })
+  }
   await deleteBlobUrls([target])
   return json({ ok: true })
 }

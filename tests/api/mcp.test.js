@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn(async () => {}) }))
 
+import { deleteBlobUrls } from '../../server/blob.js'
 import { route } from '../../server/router.js'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { getVersion } from '../../server/version.js'
@@ -712,5 +713,78 @@ describe('T5 short results from post edit tools', () => {
     const removed = await call(modernPost('tools/call', { name: 'remove_post', arguments: { id: draft.id, post_id: 'p2' } }, { token }))
     expect(removed.body.result.structuredContent.draft).toMatchObject({ post_count: 3, version: await versionOf(draft.id) })
     expect(removed.body.result.structuredContent.url).toBe(`${APP_URL}/draft/${draft.id}`)
+  })
+})
+
+// ---- P8: remove_post and remove_image delete a file only when no draft still uses it -----------
+
+describe('P8 image still used (remove_post, remove_image)', () => {
+  const blob = (owner, name) => `https://store.public.blob.vercel-storage.com/drafts/${owner.id}/${name}.png`
+  // Every URL the server asked to delete during this test.
+  const deletedUrls = () => vi.mocked(deleteBlobUrls).mock.calls.flatMap(([urls]) => urls)
+  const post = (id, text, images = []) => ({ id, text, images, embeddedTweet: null })
+  const insert = (posts, title = 'Draft') => db.insertDraft(alice.id, { title, posts })
+
+  beforeEach(() => {
+    vi.mocked(deleteBlobUrls).mockClear()
+  })
+
+  it('remove_post keeps an image that a duplicate still uses', async () => {
+    const url = blob(alice, 'dup-post')
+    const mine = await insert([post('p1', 'a'), post('p2', 'b', [{ url }])], 'Mine')
+    await insert([post('p1', 'copy', [{ url }])], 'Copy')
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'remove_post', arguments: { id: mine.id, post_id: 'p2' } }, { token }))
+    expect(res.body.result.isError).toBe(false)
+    expect(deletedUrls()).not.toContain(url)
+  })
+
+  it('remove_post deletes an image that no draft of the caller uses', async () => {
+    const url = blob(alice, 'alone-post')
+    const mine = await insert([post('p1', 'a'), post('p2', 'b', [{ url }])])
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'remove_post', arguments: { id: mine.id, post_id: 'p2' } }, { token }))
+    expect(res.body.result.isError).toBe(false)
+    expect(deletedUrls()).toEqual([url])
+  })
+
+  it('remove_post keeps an image whose URL is only text in another draft', async () => {
+    const url = blob(alice, 'in-text-post')
+    const mine = await insert([post('p1', 'a'), post('p2', 'b', [{ url }])])
+    await insert([post('p1', `as text: ${url}`)], 'Notes')
+    const token = await accessToken(alice)
+    await call(modernPost('tools/call', { name: 'remove_post', arguments: { id: mine.id, post_id: 'p2' } }, { token }))
+    expect(deletedUrls()).not.toContain(url)
+  })
+
+  it('remove_image keeps an image that a duplicate still uses and reports deleted false', async () => {
+    const url = blob(alice, 'dup-image')
+    const mine = await insert([post('p1', 'a', [{ url }])], 'Mine')
+    await insert([post('p1', 'copy', [{ url }])], 'Copy')
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'remove_image', arguments: { draftId: mine.id, url } }, { token }))
+    const { removed, deleted } = res.body.result.structuredContent
+    expect({ removed, deleted }).toEqual({ removed: true, deleted: false })
+    expect(deletedUrls()).not.toContain(url)
+  })
+
+  it('remove_image deletes an image no draft uses and reports deleted true', async () => {
+    const url = blob(alice, 'alone-image')
+    const mine = await insert([post('p1', 'a', [{ url }])])
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'remove_image', arguments: { draftId: mine.id, url } }, { token }))
+    const { removed, deleted } = res.body.result.structuredContent
+    expect({ removed, deleted }).toEqual({ removed: true, deleted: true })
+    expect(deletedUrls()).toEqual([url])
+  })
+
+  it('remove_image deletes the file of a 251-draft user when no draft uses it (the old 200 cap kept it)', async () => {
+    await db.pg.query("insert into drafts (user_id, title, posts) select $1, 'Filler ' || g, '[]'::jsonb from generate_series(1, 250) g", [alice.id])
+    const url = blob(alice, 'deep-image')
+    const mine = await insert([post('p1', 'a', [{ url }])])
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'remove_image', arguments: { draftId: mine.id, url } }, { token }))
+    expect(res.body.result.structuredContent.deleted).toBe(true)
+    expect(deletedUrls()).toEqual([url])
   })
 })

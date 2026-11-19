@@ -253,10 +253,10 @@ const TOOLS = [
       const { draft } = await patched.json()
       // Only the caller's own files are deleted (DELETE /images refuses others with 403).
       let deleted = false
-      if (isOwnedBlobUrl(args.url, ctx.caller.uid) && !(await stillReferenced(ctx, args.url))) {
-        const removedFile = await ctx.rest('DELETE', '/images', { url: args.url })
+      if (isOwnedBlobUrl(args.url, ctx.caller.uid)) {
+        const removedFile = await ctx.rest('DELETE', '/images', { url: args.url, if_unused: true })
         if (removedFile.status >= 400) return removedFile
-        deleted = true
+        deleted = (await removedFile.json()).deleted
       }
       return json({ draft: outline(draft), url: editorUrl(ctx.origin, draft.id), removed: true, deleted })
     }
@@ -406,12 +406,12 @@ const REST_ROUTES = {
   delete_draft: ['DELETE /drafts/:id'],
   add_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
   update_post: ['PATCH /drafts/:id/posts/:postId'],
-  remove_post: ['GET /drafts/:id', 'PATCH /drafts/:id', 'GET /drafts', 'DELETE /images'],
+  remove_post: ['GET /drafts/:id', 'PATCH /drafts/:id', 'DELETE /images'],
   move_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
   whoami: ['GET /auth/me'],
   app_version: ['GET /version', 'GET /changelog'],
   create_thread_from_text: ['POST /threads/split', 'POST /drafts'],
-  remove_image: ['GET /drafts', 'PATCH /drafts/:id', 'DELETE /images']
+  remove_image: ['GET /drafts/:id', 'PATCH /drafts/:id', 'DELETE /images']
 }
 
 /** Every REST route the MCP tools call. */
@@ -630,27 +630,9 @@ async function editPosts(ctx, id, change) {
   }
   if (patched.status >= 400) return patched
   for (const url of edited.removedImages ?? []) {
-    if (isOwnedBlobUrl(url, ctx.caller.uid) && !(await stillReferenced(ctx, url))) {
-      await ctx.rest('DELETE', '/images', { url })
-    }
+    if (isOwnedBlobUrl(url, ctx.caller.uid)) await ctx.rest('DELETE', '/images', { url, if_unused: true })
   }
   return patched
-}
-
-/**
- * True when any draft of the caller (published or not, duplicates included) still uses `url`.
- * Same question as deletableImageUrls in server/routes/drafts.js. When the caller's drafts cannot
- * all be read (the list is capped), the answer is true: the file is kept.
- */
-async function stillReferenced(ctx, url) {
-  for (const published of ['false', 'true']) {
-    const res = await ctx.rest('GET', `/drafts?published=${published}&limit=200`)
-    if (res.status >= 400) return true
-    const { drafts } = await res.json()
-    if (drafts.length >= 200) return true
-    if (drafts.some((draft) => (draft.posts ?? []).some((post) => (post.images ?? []).some((i) => imageUrlOf(i) === url)))) return true
-  }
-  return false
 }
 
 function pick(args, keys) {
