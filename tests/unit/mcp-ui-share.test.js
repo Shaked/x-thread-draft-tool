@@ -103,6 +103,7 @@ describe('the card', () => {
     const buttons = Array.from(root.querySelectorAll('button'))
     expect(buttons.length).toBeGreaterThan(0)
     expect(buttons.every((button) => button.disabled)).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
     stop()
   })
 
@@ -146,11 +147,14 @@ describe('the card', () => {
       }
     }
     const { root } = render(shareFrom(result()))
+    const field = root.querySelector('input')
+    const select = vi.spyOn(field, 'select')
     const copy = Array.from(root.querySelectorAll('button')).find((b) => b.textContent === 'Copy')
     copy.click()
     await Promise.resolve()
     await Promise.resolve()
     expect(copy.textContent).toBe('Select and copy')
+    expect(select).toHaveBeenCalled()
   })
 
   it('a rejected clipboard write gets the same fallback', async () => {
