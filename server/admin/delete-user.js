@@ -93,7 +93,7 @@ export async function deleteUser(admin, id, body) {
   }
   if (!same(sealed.counts, counts)) throw new HttpError(409, 'The content changed. Run the dry run again.')
 
-  // The limit counts `started` rows. The admin's row is locked, so two runs at once cannot both pass.
+  // The limit counts `started` rows. The admin's row is locked, so two runs at once cannot both exceed the limit.
   await transaction(async (q) => {
     await q('select id from users where id = $1 for update', [admin.uid])
     if (!(await withinAdminLimit(q, admin.uid, ADMIN_LIMITS.delete.actions, ADMIN_LIMITS.delete.perHour, ADMIN_LIMITS.delete.outcomes))) {

@@ -250,7 +250,7 @@ const unsuspendUser = async ({ admin, request, params }) => {
 
 const deleteUserRoute = async ({ admin, request, params }) => {
   if (!UUID.test(params.id)) throw new HttpError(404, 'User not found')
-  return deleteUser(admin, params.id, await readOptionalJson(request))
+  return deleteUser(admin, params.id.toLowerCase(), await readOptionalJson(request))
 }
 
 const stats = async () => json({ stats: await statsRow() })
