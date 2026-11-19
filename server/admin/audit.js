@@ -3,7 +3,7 @@ const OUTCOMES = ['done', 'started', 'refused', 'failed']
 
 /**
  * Writes one audit row. `run` is `query` or a transaction's `q`. `actor` is `{ uid, gh, login }`,
- * `target` is null or `{ id, github_id, login }`. `details` must never hold a secret or a pairing code.
+ * `target` is null or `{ id, github_id, login }`. `details` must never hold a secret.
  */
 export async function recordAdminAction(run, { actor, action, outcome, target = null, details = {} }) {
   if (!OUTCOMES.includes(outcome)) throw new Error(`unknown audit outcome: ${outcome}`)

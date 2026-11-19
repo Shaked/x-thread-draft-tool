@@ -228,9 +228,9 @@ test.describe('screens', () => {
       await signedIn.close()
     })
 
-    // The owner's consent box and the one-time pairing page (admin plan A4). The dev session is the owner's id,
-    // and the return address is a listed Claude one, so the box is offered.
-    test(`captures the owner's consent box and pairing page at ${width}px`, async ({ browser, request }) => {
+    // The owner's consent page with the admin notice. The dev session is the owner's id,
+    // so the notice is shown.
+    test(`captures the owner's consent page with the admin notice at ${width}px`, async ({ browser, request }) => {
       const redirect = 'https://claude.ai/api/mcp/auth_callback'
       const registered = await request.post(`${BASE}/api/oauth/register`, { data: { client_name: 'Claude', redirect_uris: [redirect] } })
       expect(registered.status()).toBe(201)
@@ -251,15 +251,6 @@ test.describe('screens', () => {
       const approve = (p: Page) => p.getByRole('button', { name: 'Approve' })
 
       await shoot(browser, width, 'consent-admin', `/api/oauth/authorize?${query}`, { cookie: cookie!, ready: approve })
-      await shoot(browser, width, 'pairing-admin', `/api/oauth/authorize?${query}`, {
-        cookie: cookie!,
-        ready: approve,
-        before: async (p) => {
-          await p.getByRole('checkbox').check()
-          await approve(p).click()
-          await p.getByRole('heading', { name: 'Admin pairing code' }).waitFor()
-        }
-      })
     })
   }
 })

@@ -3,7 +3,7 @@
 // with the initialize handshake kept for clients on 2025-11-25 and 2025-06-18.
 import { runAs } from '../caller-context.js'
 import { HttpError } from '../http.js'
-import { callTool, hasTool, isAdminCaller, isAdminToolName, isPendingCaller, listTools } from './tools.js'
+import { callTool, hasTool, isAdminCaller, isAdminToolName, listTools } from './tools.js'
 import { getPrompt, listPrompts } from './prompts.js'
 import { getSkill, listSkillResources, listSkills, readSkillResource } from './skills.js'
 import { listUiResources, readUiResource } from './ui/index.js'
@@ -273,7 +273,7 @@ async function dispatch(message, ctx) {
       return {
         tools: listTools(ctx.caller, ctx.origin),
         ttlMs: LIST_TTL_MS,
-        cacheScope: isAdminCaller(ctx.caller, ctx.origin) || isPendingCaller(ctx.caller, ctx.origin) ? 'private' : 'public'
+        cacheScope: isAdminCaller(ctx.caller, ctx.origin) ? 'private' : 'public'
       }
     case 'prompts/list':
       noCursor(params)

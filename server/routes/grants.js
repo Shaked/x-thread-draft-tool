@@ -30,8 +30,7 @@ function toGrant(row) {
     last_used_at: row.last_used_at,
     revoked_at: row.revoked_at,
     // Admin fields only when they say something: a normal grant's answer is unchanged (plan A5, step 6).
-    ...(row.admin_until ? { admin_until: row.admin_until } : {}),
-    ...(row.admin_pending ? { admin_pending: true } : {})
+    ...(row.admin_until ? { admin_until: row.admin_until } : {})
   }
 }
 
@@ -41,8 +40,7 @@ async function listGrants({ request }) {
   const { rows } = await query(
     `select g.id, c.client_name, c.kind, c.redirect_uris, g.resource, g.scope,
             g.created_at, g.last_used_at, g.revoked_at,
-            (case when g.admin_until > now() then g.admin_until end) as admin_until,
-            (g.admin_pending_hash is not null and g.admin_pending_until > now()) as admin_pending
+            (case when g.admin_until > now() then g.admin_until end) as admin_until
        from oauth_grants g join oauth_clients c on c.client_id = g.client_id
       where g.user_id = $1
       order by g.created_at desc`,

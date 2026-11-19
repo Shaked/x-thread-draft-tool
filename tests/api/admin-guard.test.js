@@ -13,7 +13,6 @@ import { adminRoute, isGuardedAdminHandler } from '../../server/admin/guard.js'
 import { runAs } from '../../server/caller-context.js'
 import { ciAudience, OIDC_ISSUER, setJwksForTests, verifyCiToken } from '../../server/oidc-ci.js'
 import { resolveAccess, issuePair } from '../../server/oauth/tokens.js'
-import { pairingHash } from '../../server/admin/pairing.js'
 import { createApiToken } from '../../server/tokens.js'
 import { adminRoutes } from '../../server/routes/admin.js'
 import { apiRequest, setupTestDb, APP_URL } from './helpers/db.js'
@@ -248,46 +247,5 @@ describe('runAs is called only by the MCP server and its tool runner', () => {
       .map((file) => relative(root, file))
       .sort()
     expect(callers).toEqual(['server/mcp/server.js', 'server/mcp/tools.js'])
-  })
-})
-
-describe('the pending route: only the activation tool of a pending connection (plan A5)', () => {
-  it('exactly one route is pending, and it is the activation route', () => {
-    expect(ROUTES.filter((entry) => entry.pending === true).map((entry) => `${entry.method} ${entry.path}`)).toEqual(['POST /admin/activate'])
-  })
-
-  it('a pending caller with admin_activate reaches the activation handler (a wrong code answers 400, not 404)', async () => {
-    const grantId = await newGrant(admin.id)
-    await db.pg.query("update oauth_grants set admin_pending_hash = $2, admin_pending_until = now() + interval '10 minutes' where id = $1", [
-      grantId,
-      pairingHash(grantId, 'ABCD-EFGH')
-    ])
-    const { caller } = { caller: await resolveAccess((await issuePair(grantId)).access_token, MCP) }
-    expect(caller).toMatchObject({ adminPending: true, admin: false })
-    const res = await runAs({ ...caller, adminTool: 'admin_activate' }, () =>
-      route(apiRequest('/api/admin/activate', { method: 'POST', body: { code: 'ZZZZ-ZZZZ' }, headers: { 'content-type': 'application/json' } }))
-    )
-    expect(res.status).toBe(400)
-    expect(await res.text()).toContain('tries left')
-  })
-
-  it('a pending caller gets the unknown-route 404 from every other admin route', async () => {
-    const grantId = await newGrant(admin.id)
-    await db.pg.query("update oauth_grants set admin_pending_hash = $2, admin_pending_until = now() + interval '10 minutes' where id = $1", [
-      grantId,
-      pairingHash(grantId, 'ABCD-EFGH')
-    ])
-    const caller = await resolveAccess((await issuePair(grantId)).access_token, MCP)
-    const unknown = await bodyOf(await route(apiRequest('/api/zz-no-such-route')))
-    const got = await bodyOf(await runAs({ ...caller, adminTool: 'admin_status' }, () => route(apiRequest('/api/admin/status'))))
-    expect(got).toEqual(unknown)
-  })
-
-  it('an elevated admin calling the activation route gets the unknown-route 404 (the route is for pending callers only)', async () => {
-    const { caller } = await elevatedCaller()
-    const unknown = await bodyOf(await route(apiRequest('/api/zz-no-such-route')))
-    const req = apiRequest('/api/admin/activate', { method: 'POST', body: { code: 'ZZZZ-ZZZZ' }, headers: { 'content-type': 'application/json' } })
-    const got = await bodyOf(await runAs({ ...caller, adminTool: 'admin_status' }, () => route(req)))
-    expect(got).toEqual(unknown)
   })
 })
