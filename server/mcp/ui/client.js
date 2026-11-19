@@ -134,6 +134,12 @@ export function safeImage(url, imageOrigin) {
   return safe && new URL(safe).origin === imageOrigin ? safe : null
 }
 
+/** A safe-area inset in px: a finite number from 0 to 96, rounded; anything else is null (T10, #238). */
+export function clampInset(value) {
+  const n = Number(value)
+  return Number.isFinite(n) && n >= 0 && n <= 96 ? Math.round(n) : null
+}
+
 /** An embedded tweet's link and its "@handle / status id" label; null when the URL is not https. */
 export function tweetFrom(url) {
   const safe = safeUrl(url, null)
@@ -251,6 +257,8 @@ export function headerNode(thread, open) {
   if (thread.is_published) info.appendChild(el('span', {}, [' · Published']))
   const children = [el('h1', { dir: 'auto' }, [thread.title || 'Untitled draft']), info]
   if (underEditorBase(thread.url, thread.editorBase)) children.push(linkButton('Open in editor', thread.url, open))
+  // T10 (#238): only when the starter found a way to go full screen (ChatGPT offers one; the host may still refuse).
+  if (typeof thread.expand === 'function') children.push(linkButton('Full screen', null, thread.expand))
   return el('header', {}, children)
 }
 
