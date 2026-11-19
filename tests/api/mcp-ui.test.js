@@ -2,6 +2,7 @@
 // Plan Task 1 (#170): the MCP views as ui:// resources. Lists and reads them on the MCP endpoint, checks the
 // results against the vendored official schemas, and checks the view HTML for the rules that the plan states
 // (no script or link from other hosts, one image host at most, small size, the same HTML for every user).
+import { createHash } from 'node:crypto'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import Ajv2020 from 'ajv/dist/2020'
 import officialApp from '@modelcontextprotocol/ext-apps/schema.json'
@@ -182,5 +183,41 @@ describe('the view metadata against the official app schema', () => {
     for (const meta of [entry._meta.ui, content._meta.ui]) {
       expect(validResourceMeta(meta), JSON.stringify(validResourceMeta.errors)).toBe(true)
     }
+  })
+})
+
+describe('GET /api/mcp/ui-manifest (plan T2): hashes only, public, no-store', () => {
+  const MANIFEST = `${APP_URL}/api/mcp/ui-manifest`
+  const sha = (text) => createHash('sha256').update(text, 'utf8').digest('hex')
+
+  it('answers without a token with no-store and one entry per view, with no HTML', async () => {
+    const res = await route(new Request(MANIFEST))
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    const body = await res.json()
+    expect(Object.keys(body)).toEqual(['views'])
+    expect(body.views.length).toBe(listUiResources().length)
+    for (const view of body.views) {
+      expect(Object.keys(view).sort()).toEqual(['mimeType', 'sha256', 'size', 'uri'])
+      expect(view.uri).toMatch(VIEW_URI)
+      expect(view.mimeType).toBe(MIME)
+    }
+    expect(JSON.stringify(body)).not.toContain('<')
+  })
+
+  it('each sha256 is the hash of the exact HTML the view resource serves', async () => {
+    const res = await route(new Request(MANIFEST))
+    const { views } = await res.json()
+    for (const view of views) {
+      const [content] = readUiResource(view.uri)
+      expect(view.sha256).toBe(sha(content.text))
+      expect(view.size).toBe(Buffer.byteLength(content.text, 'utf8'))
+    }
+  })
+
+  it('answers the same to a signed-in user and to a stranger', async () => {
+    const plain = await (await route(new Request(MANIFEST))).text()
+    const signedIn = await (await route(new Request(MANIFEST, { headers: { authorization: `Bearer ${aliceToken}` } }))).text()
+    expect(signedIn).toBe(plain)
   })
 })

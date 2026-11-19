@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash, randomBytes } from 'node:crypto'
+import { uiManifest } from '../server/mcp/ui/index.js'
 // Smoke test against a running deployment or the local dev server. Node 20 only, no dependencies.
 //
 //   XT_BASE_URL=http://127.0.0.1:8787 XT_TOKEN=xt_... node scripts/smoke.mjs
@@ -27,6 +28,7 @@ const PUBLIC_PATHS = new Set([
   '/api/version',
   '/llms.txt',
   '/api/openapi.json',
+  '/api/mcp/ui-manifest',
   '/.well-known/oauth-protected-resource/api/mcp',
   '/.well-known/oauth-authorization-server'
 ])
@@ -121,6 +123,16 @@ await step('llms.txt', async () => {
 await step('openapi', async () => {
   const doc = await call('GET', '/api/openapi.json')
   if (typeof doc.openapi !== 'string') throw new Error('no openapi version in document')
+})
+
+// The MCP views (plan T2): the deployed manifest of view hashes must equal the views in this checkout.
+await step('mcp ui manifest matches this commit', async () => {
+  const deployed = await call('GET', '/api/mcp/ui-manifest')
+  const local = uiManifest().views
+  if (!Array.isArray(deployed.views) || deployed.views.length === 0) throw new Error('no views in the manifest')
+  if (JSON.stringify(deployed.views) !== JSON.stringify(local)) {
+    throw new Error(`deployed views ${deployed.views.map((v) => v.uri).join(', ')} do not match this commit`)
+  }
 })
 
 // MCP connector, public (no account): the endpoint refuses a request without a token, and its

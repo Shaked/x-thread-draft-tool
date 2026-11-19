@@ -39,6 +39,18 @@ export function readUiResource(uri) {
   return [{ uri: entry.uri, mimeType: MIME_TYPE, text: entry.html, _meta: { ui: structuredClone(UI) } }]
 }
 
+/** The public manifest (GET /api/mcp/ui-manifest): each view's uri, type, size and sha256 of its HTML. No HTML. */
+export function uiManifest() {
+  return {
+    views: listUiResources().map(({ uri, mimeType, size }) => ({
+      uri,
+      mimeType,
+      sha256: createHash('sha256').update(readUiResource(uri)[0].text, 'utf8').digest('hex'),
+      size
+    }))
+  }
+}
+
 /** The current uri of a view by name, or null. */
 export function uiResourceUri(name) {
   return ENTRIES.find((e) => e.name === name)?.uri ?? null

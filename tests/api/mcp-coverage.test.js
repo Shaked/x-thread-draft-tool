@@ -19,6 +19,7 @@ const EXCLUDED = {
   'GET /share/:token': 'Public one-time read; the link is the product, not a tool',
   'GET /openapi.json': 'Documentation, not a user function',
   'GET /health': 'Health check, not a user function',
+  'GET /mcp/ui-manifest': 'Deploy check: view hashes for the production smoke step, not a user function',
   'POST /mcp': 'The MCP endpoint itself'
 }
 

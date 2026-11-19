@@ -8,6 +8,7 @@ import { shareRoutes } from './routes/share.js'
 import { tokenRoutes } from './routes/tokens.js'
 import { threadRoutes } from './routes/threads.js'
 import { openapiRoutes } from './routes/openapi.js'
+import { mcpUiRoutes } from './routes/mcp-ui.js'
 import { oauthRoutes } from './routes/oauth.js'
 import { versionRoutes } from './version.js'
 import { changelogRoutes } from './changelog.js'
@@ -34,6 +35,7 @@ export const ROUTES = [
   ...threadRoutes,
   ...oauthRoutes,
   ...openapiRoutes,
+  ...mcpUiRoutes,
   ...versionRoutes,
   ...changelogRoutes,
   // The MCP endpoint (plan 7.6) checks its own Origin and bearer token, so its 401 carries the

@@ -158,6 +158,28 @@ export const OPENAPI = {
       }
     },
     '/openapi.json': { get: { summary: 'This document', responses: json({ type: 'object' }) } },
+    '/mcp/ui-manifest': {
+      get: {
+        summary: 'Public manifest of the MCP views: uri, type, size and sha256 of each view (no HTML, no user data)',
+        responses: json({
+          type: 'object',
+          properties: {
+            views: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  uri: { type: 'string', example: 'ui://x-thread/thread.html?v=0123456789ab' },
+                  mimeType: { type: 'string', example: 'text/html;profile=mcp-app' },
+                  sha256: { type: 'string' },
+                  size: { type: 'integer' }
+                }
+              }
+            }
+          }
+        })
+      }
+    },
     '/.well-known/oauth-protected-resource': {
       get: { servers: [{ url: '/' }], summary: 'Protected resource metadata (RFC 9728), MCP resource at /api/mcp', responses: json({ type: 'object' }) }
     },
