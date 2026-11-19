@@ -152,7 +152,7 @@ export async function resolveAccess(token, expectedResource) {
   if (typeof token !== 'string' || !ACCESS_SHAPE.test(token)) return null
   const { rows } = await query(
     `select g.id as grant_id, u.id as uid, u.github_id, u.login, u.suspended_at, g.resource,
-            (g.resource like '%/api/mcp' and g.admin_until is not null and g.admin_until > now()) as admin
+            (g.resource like '%/api/mcp') as admin
        from oauth_tokens t
        join oauth_grants g on g.id = t.grant_id
        join users u on u.id = g.user_id

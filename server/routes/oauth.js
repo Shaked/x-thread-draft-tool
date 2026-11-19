@@ -20,8 +20,6 @@ import {
   signInHeaders,
   signInPage
 } from '../oauth/consent.js'
-import { ADMIN_ELEVATION_HOURS, isAdminGithubId } from '../admin/identity.js'
-import { recordAdminAction } from '../admin/audit.js'
 
 const CODE_TTL = "interval '60 seconds'"
 const FORM_MAX_BYTES = 16 * 1024
@@ -180,25 +178,6 @@ function parseAuthorize(params, base) {
   }
 }
 
-/** The owner's GitHub id, read from the users table by the session's user id (never from the cookie). Null when no such user. */
-async function githubIdOf(uid) {
-  const { rows } = await query('select github_id from users where id = $1', [uid])
-  return rows[0] ? String(rows[0].github_id) : null
-}
-
-/**
- * True only when an approval gives admin tools: the owner's GitHub id and the MCP resource.
- * Identity decides; no return-address list, no code, no sign-in age. Used on the consent page and on the POST.
- */
-function canElevate({ githubId, resource, base }) {
-  return resource === mcpResource(base) && isAdminGithubId(githubId)
-}
-
-/** What the consent page shows the owner: 'notice' (admin on approval) or null (nothing; everyone else). */
-function adminNoteState(checks) {
-  return canElevate(checks) ? 'notice' : null
-}
-
 /** This consent address, rebuilt only from validated values, for copying into another browser. */
 function authorizeLink(base, clientId, redirectUri, value, params) {
   const fields = [
@@ -256,11 +235,6 @@ async function authorizeGet({ request, url }) {
     resource: value.resource
   })
   const redirectOrigin = new URL(redirectUri).origin
-  const adminState = adminNoteState({
-    githubId: await githubIdOf(session.uid),
-    resource: value.resource,
-    base
-  })
   return new Response(
     consentPage({
       clientName: client.client_name,
@@ -268,8 +242,7 @@ async function authorizeGet({ request, url }) {
       redirectHost: new URL(redirectUri).host,
       requestToken,
       login: session.login,
-      link,
-      adminState
+      link
     }),
     { status: 200, headers: consentHeaders(redirectOrigin) }
   )
@@ -321,11 +294,6 @@ async function authorizePost({ request }) {
     return redirectTo(decision.redirect_uri, { error: 'access_denied', state: decision.state }, base)
   }
 
-  // Admin follows identity: the owner's approval on the MCP connection gives admin tools for 24 hours.
-  const githubId = await githubIdOf(session.uid)
-  const elevate = canElevate({ githubId, resource: decision.resource, base })
-  const actor = { uid: session.uid, gh: githubId, login: session.login }
-
   const code = randomBytes(32).toString('base64url')
   await transaction(async (q) => {
     // One grant per user, client and resource. The row is locked so a concurrent approval waits.
@@ -335,39 +303,22 @@ async function authorizePost({ request }) {
       [session.uid, decision.client_id, decision.scope, decision.resource]
     )
     const { rows } = await q(
-      `select id, revoked_at, admin_until from oauth_grants
+      `select id, revoked_at from oauth_grants
         where user_id = $1 and client_id = $2 and resource = $3 for update`,
       [session.uid, decision.client_id, decision.resource]
     )
     const grant = rows[0]
-    const wasElevated = grant.admin_until !== null
-    if (grant.revoked_at || elevate || wasElevated) {
-      // Reactivating a revoked grant, or changing admin: every code and token issued before must stay dead.
+    if (grant.revoked_at) {
+      // Reactivating a revoked grant: every code and token issued before must stay dead.
       await q('delete from oauth_tokens where grant_id = $1', [grant.id])
       await q('delete from oauth_codes where grant_id = $1', [grant.id])
     }
-    // Each approval sets admin again (24 hours) or clears it.
-    await q(
-      `update oauth_grants
-          set revoked_at = null, scope = $2,
-              admin_until = case when $3::boolean then now() + make_interval(hours => $4::int) else null end,
-              admin_pending_hash = null, admin_pending_until = null, admin_pending_tries = 0
-        where id = $1`,
-      [grant.id, decision.scope, elevate, ADMIN_ELEVATION_HOURS]
-    )
+    await q('update oauth_grants set revoked_at = null, scope = $2 where id = $1', [grant.id, decision.scope])
     await q(
       `insert into oauth_codes (code_hash, grant_id, redirect_uri, code_challenge, expires_at)
        values ($1, $2, $3, $4, now() + ${CODE_TTL})`,
       [hashToken(code), grant.id, decision.redirect_uri, decision.code_challenge]
     )
-    if (elevate) {
-      await recordAdminAction(q, {
-        actor,
-        action: 'elevate_connection',
-        outcome: 'done',
-        details: { hours: ADMIN_ELEVATION_HOURS, redirect_host: new URL(decision.redirect_uri).host }
-      })
-    }
   })
 
   return redirectTo(decision.redirect_uri, { code, state: decision.state }, base)

@@ -39,7 +39,7 @@ describe('admin identity (plan A2)', () => {
     }
   })
 
-  it('exports exactly the three functions and the elevation hours', () => {
-    expect(Object.keys(identity).sort()).toEqual(['ADMIN_ELEVATION_HOURS', 'isAdminGithubId', 'isProtectedGithubId', 'protectedGithubIds'])
+  it('exports exactly the three functions', () => {
+    expect(Object.keys(identity).sort()).toEqual(['isAdminGithubId', 'isProtectedGithubId', 'protectedGithubIds'])
   })
 })
