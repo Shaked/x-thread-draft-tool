@@ -58,7 +58,7 @@ The text is sent as HTML with escaping. Only if Telegram answers HTTP 400 with a
 
 ## How to test
 
-- Try-preview: add the label `try-preview` to a pull request. The pull request must contain `.github/workflows/notify-labels.yml`, which means it was opened after #249 was merged. A pull request event starts the workflow only if the workflow file exists in the pull request's code (not checked: whether GitHub uses the pull request's own commit or its test merge). Use a pull request opened after #249.
+- Try-preview: add the label `try-preview` to a pull request. The pull request's code must contain `.github/workflows/notify-labels.yml`. A pull request event starts the workflow only if that file is there (not checked: whether GitHub uses the pull request's own commit or its test merge). Use a pull request opened after #249.
 - Needs you: add the label `owner` to an issue or a pull request.
 - Production: merge a change that creates a production deployment. The message comes from the smoke test that runs after that deployment. A docs-only merge sends nothing.
 
