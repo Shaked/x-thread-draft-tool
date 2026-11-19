@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest'
 import { splitIntoThreads } from '../../src/utils/threadSplitter.js'
 import { buildEmojiRegex, graphemeWeight, xFitEnd, xLength } from '../../src/utils/xLength.js'

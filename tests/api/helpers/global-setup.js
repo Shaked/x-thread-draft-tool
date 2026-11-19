@@ -1,5 +1,5 @@
 // Vitest global setup for the API project. Applies the migrations once to a PGlite database,
-// saves it as a compressed data dir, and hands the file path to every API test file. Each file
+// saves it as an uncompressed data dir (tar; gzip cost about 250 ms per file to unpack), and hands the file path to every API test file. Each file
 // then loads that snapshot instead of replaying all migrations. The snapshot is cached under
 // node_modules/.cache and keyed by a hash of db/migrations/*.sql, so a new migration rebuilds it.
 import { createHash } from 'node:crypto'
@@ -34,7 +34,7 @@ function isCached(path) {
 }
 
 export default async function setup(project) {
-  const path = join(CACHE_DIR, `pglite-${migrationsHash()}.tgz`)
+  const path = join(CACHE_DIR, `pglite-${migrationsHash()}.tar`)
   if (!isCached(path)) {
     const pg = new PGlite()
     await applyMigrations((text, params) =>
@@ -42,7 +42,7 @@ export default async function setup(project) {
         ? pg.exec(text).then((results) => ({ rows: results.at(-1)?.rows ?? [] }))
         : pg.query(text, params)
     )
-    const dump = await pg.dumpDataDir('gzip')
+    const dump = await pg.dumpDataDir('none')
     mkdirSync(CACHE_DIR, { recursive: true })
     // Write under a private name, then rename, so a parallel run never reads a half-written file.
     const temp = `${path}.${process.pid}.tmp`

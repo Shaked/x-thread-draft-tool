@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Task 23 (docs/plans/hardening-finish.md): production skips builds for docs, CI and test-only merges.
 import { describe, expect, it } from 'vitest'
 import { shouldSkip } from '../../scripts/vercel-ignore.mjs'
