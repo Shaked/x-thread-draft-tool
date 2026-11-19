@@ -142,7 +142,8 @@ async function ownedPosts(id, uid) {
 /**
  * The URLs (of `urls`) that a draft of `uid` still uses, answered by the database: one statement,
  * no draft's posts leave it. A URL that appears anywhere in a post's JSON counts as used (images
- * or plain text), so a file is never deleted by mistake. `exceptDraftId` is left out (or null).
+ * or plain text), so a file is never deleted by mistake. The URL is compared in its JSON-escaped
+ * form (jsonb text escapes quotes, backslashes and control characters). `exceptDraftId` is left out (or null).
  */
 export async function usedImageUrls(run, uid, urls, exceptDraftId) {
   if (urls.length === 0) return new Set()
@@ -150,7 +151,7 @@ export async function usedImageUrls(run, uid, urls, exceptDraftId) {
     `select u.url from unnest($2::text[]) as u(url)
       where exists (select 1 from drafts d where d.user_id = $1
                      and ($3::uuid is null or d.id <> $3::uuid)
-                     and strpos(d.posts::text, u.url) > 0)`,
+                     and strpos(d.posts::text, substr(to_jsonb(u.url)::text, 2, length(to_jsonb(u.url)::text) - 2)) > 0)`,
     [uid, urls, exceptDraftId]
   )
   return new Set(rows.map((row) => row.url))

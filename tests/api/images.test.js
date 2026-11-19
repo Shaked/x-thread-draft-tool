@@ -10,6 +10,8 @@ vi.mock('../../server/blob.js', () => ({
 
 import { deleteBlobUrls, putBlob } from '../../server/blob.js'
 import { route } from '../../server/router.js'
+import { usedImageUrls } from '../../server/routes/drafts.js'
+import { query } from '../../server/db.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
 
 let db
@@ -225,3 +227,32 @@ describe('P8: draft delete and publish keep a file another draft still uses', ()
     expect(deletedUrls()).toEqual([shared])
   })
 })
+
+describe('P8: a URL with JSON-escaped characters is still seen as used', () => {
+  // jsonb text escapes these (tab as \t, quote as \", backslash as \\); the URL itself does not.
+  const urls = () => {
+    const base = `https://store.public.blob.vercel-storage.com/drafts/${alice.id}/${draft.id}/`
+    return [`${base}tab\there.png`, `${base}quo"te.png`, `${base}back\\slash.png`]
+  }
+
+  it('usedImageUrls reports tab, quote and backslash URLs as used', async () => {
+    const list = urls()
+    await db.insertDraft(alice.id, { title: 'Escaped', posts: [{ id: 'p1', text: 'x', images: list.map((url) => ({ url })), embeddedTweet: null }] })
+    const used = await usedImageUrls(query, alice.id, list, null)
+    expect([...used].sort()).toEqual([...list].sort())
+  })
+
+  it('DELETE /api/images with if_unused keeps each of them and answers deleted false', async () => {
+    const list = urls()
+    await db.insertDraft(alice.id, { title: 'Escaped', posts: [{ id: 'p1', text: 'x', images: list.map((url) => ({ url })), embeddedTweet: null }] })
+    for (const url of list) {
+      const res = await deleteIfUnusedFor(aliceCookie, url)
+      expect(await res.json()).toEqual({ ok: true, deleted: false })
+    }
+    expect(deleteBlobUrls).not.toHaveBeenCalled()
+  })
+})
+
+function deleteIfUnusedFor(cookie, url) {
+  return route(apiRequest('/api/images', { method: 'DELETE', cookie, body: { url, if_unused: true } }))
+}
