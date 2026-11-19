@@ -9,6 +9,7 @@ import { hashToken } from '../tokens.js'
 import { OAuthError, SCOPE, cleanupExpired, insertPair, rotate } from '../oauth/tokens.js'
 import { getClient, isValidRedirectUriList, redirectUriAllowed, registerClient } from '../oauth/clients.js'
 import {
+  NOSNIFF,
   consentHeaders,
   consentPage,
   errorHeaders,
@@ -36,6 +37,11 @@ function redirect(location) {
   return new Response(null, { status: 302, headers: { location, 'cache-control': 'no-store' } })
 }
 
+/** JSON answers of this server's OAuth endpoints: `json` plus nosniff (the HTML pages set it in consent.js). */
+function oauthJson(data, status, headers = {}) {
+  return json(data, status, { ...NOSNIFF, ...headers })
+}
+
 /** Adds `code` or `error` (plus state and the issuer, RFC 9207) to the client's redirect URI. */
 function redirectTo(redirectUri, fields, base) {
   const target = new URL(redirectUri)
@@ -51,11 +57,11 @@ function htmlError(status, title, message) {
 }
 
 function tokenError(status, error, description) {
-  return json({ error, error_description: description }, status)
+  return oauthJson({ error, error_description: description }, status)
 }
 
 function registrationError(description) {
-  return json({ error: 'invalid_client_metadata', error_description: description }, 400)
+  return oauthJson({ error: 'invalid_client_metadata', error_description: description }, 400)
 }
 
 async function formBody(request) {
@@ -69,7 +75,7 @@ async function formBody(request) {
 /** GET /.well-known/oauth-protected-resource (also served at .../api/mcp): RFC 9728. */
 async function protectedResourceMetadata({ request }) {
   const base = origin(request)
-  return json(
+  return oauthJson(
     {
       resource: mcpResource(base),
       authorization_servers: [base],
@@ -84,7 +90,7 @@ async function protectedResourceMetadata({ request }) {
 /** GET /.well-known/oauth-authorization-server: RFC 8414, with the MCP-required fields. */
 async function authorizationServerMetadata({ request }) {
   const base = origin(request)
-  return json(
+  return oauthJson(
     {
       issuer: base,
       authorization_endpoint: `${base}/api/oauth/authorize`,
@@ -127,7 +133,7 @@ async function register({ request }) {
   }
 
   const clientId = await registerClient({ client_name: name, redirect_uris: body.redirect_uris })
-  return json(
+  return oauthJson(
     {
       client_id: clientId,
       client_name: name,
@@ -397,11 +403,11 @@ async function token({ request }) {
   const form = await formBody(request)
   const grantType = form.get('grant_type')
   try {
-    if (grantType === 'authorization_code') return json(await exchangeCode(form))
+    if (grantType === 'authorization_code') return oauthJson(await exchangeCode(form))
     if (grantType === 'refresh_token') {
       const clientId = form.get('client_id')
       if (!clientId) throw new OAuthError('invalid_request', 'client_id is required')
-      return json(await rotate(form.get('refresh_token'), clientId, form.get('resource')))
+      return oauthJson(await rotate(form.get('refresh_token'), clientId, form.get('resource')))
     }
     return tokenError(400, 'unsupported_grant_type', 'grant_type must be authorization_code or refresh_token')
   } catch (err) {

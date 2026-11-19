@@ -141,6 +141,19 @@ describe('metadata documents', () => {
       authorization_response_iss_parameter_supported: true
     })
   })
+
+  it('sends nosniff on every OAuth JSON answer: metadata, registration and token errors', async () => {
+    const answers = [
+      await get('/.well-known/oauth-authorization-server'),
+      await get('/.well-known/oauth-protected-resource'),
+      await postJson('/api/oauth/register', { client_name: 'Nosniff check', redirect_uris: [LOCAL_REDIRECT] }),
+      await post('/api/oauth/token', 'grant_type=not_a_grant')
+    ]
+    for (const res of answers) {
+      expect(res.headers.get('content-type')).toContain('application/json')
+      expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+    }
+  })
 })
 
 // ---- registration -----------------------------------------------------------------------------
@@ -382,6 +395,20 @@ describe('GET /oauth/authorize', () => {
       expect(res.headers.get('x-frame-options')).toBe('DENY')
       expect(res.headers.get('cache-control')).toBe('no-store')
       expect(csp).toContain("frame-ancestors 'none'")
+    }
+  })
+
+  it('sends nosniff on the consent, sign-in and error pages', async () => {
+    const clientId = await registerClient()
+    const query = authorizeQuery(clientId, { challenge: pkce().challenge })
+    const consent = await get(`/api/oauth/authorize?${query}`, { cookie: aliceCookie })
+    const signIn = await get(`/api/oauth/authorize?${query}`)
+    const unknown = await get(`/api/oauth/authorize?${authorizeQuery('xtc_nope', { challenge: pkce().challenge })}`, {
+      cookie: aliceCookie
+    })
+    for (const res of [consent, signIn, unknown]) {
+      expect(res.headers.get('content-type')).toContain('text/html')
+      expect(res.headers.get('x-content-type-options')).toBe('nosniff')
     }
   })
 

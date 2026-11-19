@@ -214,6 +214,7 @@ await step('approval page: signed-out sign-in page, copy-link field and strict h
   if (scriptSrc.includes("'unsafe-inline'")) throw new Error("script-src allows 'unsafe-inline'")
   if (!csp.includes("frame-ancestors 'none'")) throw new Error("content-security-policy has no frame-ancestors 'none'")
   if (res.headers.get('x-frame-options') !== 'DENY') throw new Error('x-frame-options is not DENY')
+  if (res.headers.get('x-content-type-options') !== 'nosniff') throw new Error('x-content-type-options is not nosniff')
   if (!(res.headers.get('cache-control') || '').includes('no-store')) throw new Error('cache-control has no no-store')
 })
 

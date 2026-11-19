@@ -33,8 +33,12 @@ note.textContent = 'Copy failed. Select the link and copy it by hand.'
 })()`
 const SCRIPT_SOURCE = `'sha256-${createHash('sha256').update(COPY_SCRIPT).digest('base64')}'`
 
+// Browsers must not sniff these answers into another type. Shared by the HTML pages here and the OAuth JSON in routes/oauth.js.
+export const NOSNIFF = { 'x-content-type-options': 'nosniff' }
+
 function htmlHeaders(csp) {
   return {
+    ...NOSNIFF,
     'content-type': 'text/html; charset=utf-8',
     'cache-control': 'no-store',
     'x-frame-options': 'DENY',
@@ -56,6 +60,7 @@ export function signInHeaders() {
 
 export function errorHeaders() {
   return {
+    ...NOSNIFF,
     'content-type': 'text/html; charset=utf-8',
     'cache-control': 'no-store',
     'x-frame-options': 'DENY',
