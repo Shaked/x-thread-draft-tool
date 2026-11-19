@@ -26,7 +26,12 @@ export function blobOrigin(env = process.env) {
  * null), JSON-encoded with the characters that could end a script tag or break a string escaped. It cannot carry a draft.
  */
 export function embedOrigin(v) {
-  return JSON.stringify(isBlobOrigin(v) ? v : null)
+  return escapeForScript(JSON.stringify(isBlobOrigin(v) ? v : null))
+}
+
+/** JSON text escaped so it cannot end a script tag or break out of a string: < > & and the two line separators. */
+export function escapeForScript(json) {
+  return json
     .replace(/</g, '\\u003c')
     .replace(/>/g, '\\u003e')
     .replace(/&/g, '\\u0026')

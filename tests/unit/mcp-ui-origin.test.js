@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildUiManifest, uiManifest, uiResourceUri } from '../../server/mcp/ui/index.js'
 import { THREAD_VIEW } from '../../server/mcp/ui/thread.js'
-import { BLOB_ORIGIN_PATTERN, blobOrigin, embedOrigin, isBlobOrigin } from '../../server/mcp/ui/origin.js'
+import { BLOB_ORIGIN_PATTERN, blobOrigin, embedOrigin, escapeForScript, isBlobOrigin } from '../../server/mcp/ui/origin.js'
 
 const GOOD = 'https://abc123.public.blob.vercel-storage.com'
 
@@ -30,8 +30,7 @@ describe('embedOrigin', () => {
   it('writes a JSON literal that cannot end a script tag, even for a hostile value (T10 part 3, #238)', () => {
     // The hostile value is escaped as null by isBlobOrigin, so only the escaping itself is checked here.
     const hostile = '</script><script>x()</script>\u2028\u2029&'
-    const raw = JSON.stringify(hostile).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
-      .replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')
+    const raw = escapeForScript(JSON.stringify(hostile))
     expect(raw).not.toMatch(/[<>\u2028\u2029]/)
     expect(JSON.parse(raw)).toBe(hostile)
     expect(embedOrigin(hostile)).toBe('null')
