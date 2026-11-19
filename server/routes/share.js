@@ -29,6 +29,8 @@ async function getShare({ url, path }) {
       where token = $1
         and coalesce(expires_at, created_at + interval '1 hour') > now()
         and (one_time = false or used = false)
+        and not exists (select 1 from drafts d join users u on u.id = d.user_id
+                         where d.id = share_tokens.draft_id and u.suspended_at is not null)
       returning draft_id`,
     [token]
   )

@@ -3,6 +3,7 @@ import { fetchGithubUser, upsertGithubUser } from '../github-user.js'
 import { apiResource } from '../session.js'
 import { transaction } from '../db.js'
 import { SCOPE, issuePair } from '../oauth/tokens.js'
+import { SUSPENDED_MESSAGE } from '../suspension.js'
 
 const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 const JSON_HEADERS = { accept: 'application/json', 'content-type': 'application/json' }
@@ -99,6 +100,8 @@ async function pollDevice({ request }) {
 
   const github = await fetchGithubUser(data.access_token)
   const user = await upsertGithubUser(github)
+  // A suspended user gets no grant and no token.
+  if (user.suspended_at !== null) throw new HttpError(403, SUSPENDED_MESSAGE)
   const { grantId, clientId } = await deviceGrant(user.id, name, apiResource(request))
   const pair = await issuePair(grantId)
   return json(

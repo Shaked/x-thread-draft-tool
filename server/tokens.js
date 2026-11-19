@@ -58,7 +58,8 @@ export async function createApiToken(userId, { name, expiresInDays = MAX_EXPIRY_
  * Resolves a plaintext token to its owner. Returns null when unknown, expired or revoked.
  * A hand-made token is also refused once it is 7 days old from creation (plan D4), even if
  * its stored expires_at is later (tokens created before the cap; see db/migrations/006_token_cap.sql).
- * Updates last_used_at at most once every five minutes.
+ * Updates last_used_at at most once every five minutes, never for a suspended user.
+ * The returned caller carries `suspended` (loaded by the same statement); `authenticate` refuses it.
  */
 export async function findUserByToken(token) {
   if (!isTokenShape(token)) return null
@@ -66,21 +67,22 @@ export async function findUserByToken(token) {
   // The data-modifying CTE runs even though the final select does not read it.
   const { rows } = await query(
     `with t as (
-       select u.id, u.github_id, u.login, tk.id as token_id, tk.last_used_at
+       select u.id, u.github_id, u.login, u.suspended_at, tk.id as token_id, tk.last_used_at
          from api_tokens tk join users u on u.id = tk.user_id
         where tk.token_hash = $1 and ${activeSql('tk')}
           and tk.created_at > now() - interval '${MAX_EXPIRY_DAYS} days'
      ), touch as (
        update api_tokens set last_used_at = now()
          from t where api_tokens.id = t.token_id
+          and t.suspended_at is null
           and (t.last_used_at is null or t.last_used_at < now() - interval '5 minutes')
      )
-     select id, github_id, login, token_id from t`,
+     select id, github_id, login, suspended_at, token_id from t`,
     [hashToken(token)]
   )
   const row = rows[0]
   if (!row) return null
-  return { uid: row.id, gh: String(row.github_id), login: row.login, tokenId: row.token_id, via: 'token' }
+  return { uid: row.id, gh: String(row.github_id), login: row.login, tokenId: row.token_id, via: 'token', suspended: row.suspended_at !== null }
 }
 
 /**

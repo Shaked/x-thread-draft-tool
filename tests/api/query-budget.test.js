@@ -193,6 +193,25 @@ describe('query budget per flow (plan section 3.2)', () => {
     expect(await roundTrips(spy, apiRequest('/api/drafts?published=false', { cookie }))).toBe(2)
   })
 
+  // Admin plan A6: suspension is read by the statement each path already runs, so a refused request costs the same.
+  it('suspended user, REST GET /api/drafts with the cookie: 1 (the session check; no draft query)', async () => {
+    await db.pg.query('update users set suspended_at = now() where id = $1', [alice.id])
+    const spy = spyPerf()
+    expect(await roundTrips(spy, apiRequest('/api/drafts?published=false', { cookie }))).toBe(1)
+  })
+
+  it('suspended user, REST GET /api/drafts with an xt_ token: 1', async () => {
+    await db.pg.query('update users set suspended_at = now() where id = $1', [alice.id])
+    const spy = spyPerf()
+    expect(await roundTrips(spy, apiRequest('/api/drafts?published=false', { headers: { authorization: `Bearer ${apiToken}` } }))).toBe(1)
+  })
+
+  it('suspended user, MCP list_drafts: 1 (the token check only)', async () => {
+    await db.pg.query('update users set suspended_at = now() where id = $1', [alice.id])
+    const spy = spyPerf()
+    expect(await roundTrips(spy, toolCall('list_drafts', { published: false }))).toBe(1)
+  })
+
   it('REST PATCH /api/drafts/:id with the cookie and a new title: 2', async () => {
     const spy = spyPerf()
     const q = await roundTrips(spy, apiRequest(`/api/drafts/${draft.id}`, { method: 'PATCH', cookie, body: { title: 'Changed' } }))

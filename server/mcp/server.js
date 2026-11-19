@@ -2,6 +2,7 @@
 // Specification: revision 2026-07-28 (stateless, server/discover, per-request _meta and headers),
 // with the initialize handshake kept for clients on 2025-11-25 and 2025-06-18.
 import { runAs } from '../caller-context.js'
+import { HttpError } from '../http.js'
 import { callTool, hasTool, isAdminCaller, isAdminToolName, isPendingCaller, listTools } from './tools.js'
 import { getPrompt, listPrompts } from './prompts.js'
 import { getSkill, listSkillResources, listSkills, readSkillResource } from './skills.js'
@@ -9,6 +10,7 @@ import { listUiResources, readUiResource } from './ui/index.js'
 import { RATE_LIMIT_MESSAGE, authorizeAndCount, withinToolRate } from './rate.js'
 import { noteRpc } from '../perf.js'
 import { getVersion } from '../version.js'
+import { SUSPENDED_MESSAGE, admit } from '../suspension.js'
 
 const LATEST_VERSION = '2026-07-28'
 const SUPPORTED_VERSIONS = [LATEST_VERSION, '2025-11-25', '2025-06-18', '2025-03-26']
@@ -208,6 +210,14 @@ export async function handleMcp(request) {
   const counted = !checked.response && message.id !== undefined && isCountedToolCall(message)
   const caller = await authorizeAndCount(token, `${origin}/api/mcp`, counted)
   if (!caller) return unauthorized(origin)
+  // A suspended user is refused with 403 and no www-authenticate header: a 401 would make the app
+  // start a new sign-in loop. `admit` also fails closed when the flag was not loaded (an error, not a pass).
+  try {
+    admit(caller)
+  } catch (err) {
+    if (err instanceof HttpError) return reply({ error: SUSPENDED_MESSAGE }, 403)
+    throw err
+  }
   if (message) {
     // Only the method and a known tool name reach the [perf] line, never the arguments.
     noteRpc(message.method, message.method === 'tools/call' && hasTool(message.params?.name, caller, origin) ? message.params.name : null)

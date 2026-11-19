@@ -7,6 +7,7 @@ import { resolveAccess } from './oauth/tokens.js'
 import { verifyCiToken } from './oidc-ci.js'
 import { upsertGithubUser } from './github-user.js'
 import { currentCaller } from './caller-context.js'
+import { SUSPENDED_MESSAGE, admit } from './suspension.js'
 
 // The CI identity: a dedicated row in users (github_id -1; real GitHub ids are positive).
 const CI_USER = { id: -1, login: 'ci-smoke', name: 'CI', avatar_url: null }
@@ -29,8 +30,12 @@ export async function createSession(user) {
     .sign(secretKey())
 }
 
-/** Returns the session payload, or null when missing, invalid or expired. */
-export async function readSession(request) {
+/**
+ * The state of the browser session: `{ session }` (the payload), `{ suspended: true }`, or null when
+ * missing, invalid, expired, revoked or the user is gone. One statement answers all three questions
+ * (revoked? suspended? still there?), so suspension adds no round trip.
+ */
+async function sessionState(request) {
   const token = parseCookies(request)[SESSION_COOKIE]
   if (!token) return null
   let payload
@@ -45,8 +50,27 @@ export async function readSession(request) {
   // A token without a jti predates sign-out revocation and cannot be revoked, so it is refused.
   if (typeof payload.jti !== 'string' || payload.jti === '') return null
   // Outside the try: a database error is a server error, never "signed out".
-  const { rows } = await query('select 1 from revoked_sessions where jti = $1', [payload.jti])
-  return rows.length === 0 ? payload : null
+  const { rows } = await query(
+    `select exists(select 1 from revoked_sessions where jti = $1) as revoked,
+            (select suspended_at from users where id = $2) as suspended_at,
+            exists(select 1 from users where id = $2) as found`,
+    [payload.jti, payload.uid]
+  )
+  const row = rows[0]
+  if (row.revoked || !row.found) return null
+  // The payload rides along only so that sign-out can revoke it; every other caller treats suspended as no session.
+  if (row.suspended_at !== null) return { suspended: true, session: payload }
+  return { session: payload }
+}
+
+/**
+ * Returns the session payload, or null when there is no usable session. A suspended user has none,
+ * except for sign-out (`includeSuspended`), which must still be able to revoke the session.
+ */
+export async function readSession(request, { includeSuspended = false } = {}) {
+  const state = await sessionState(request)
+  if (!state || (state.suspended && !includeSuspended)) return null
+  return state.session
 }
 
 /**
@@ -73,7 +97,8 @@ export function clearSessionCookie() {
 /**
  * Who is calling. An Authorization header is the only credential considered when present:
  * an invalid, expired or revoked token is a 401 and never falls back to the cookie.
- * Returns `{ uid, gh, login, via: 'token' | 'session' }`, or null when signed out.
+ * Returns `{ uid, gh, login, via, suspended: false }`, or null when signed out. Every path ends in `admit`:
+ * a suspended user is a 403, and a caller without the flag is an error (fail closed).
  */
 export async function authenticate(request) {
   // An in-process MCP tool call (server/mcp/tools.js) runs as the token's user.
@@ -85,14 +110,14 @@ export async function authenticate(request) {
     if (match) {
       const user = await findUserByToken(match[1])
       if (!user) throw await refusedHandmadeToken(match[1])
-      return user
+      return admit(user)
     }
     // OAuth access token (1 hour), bound to the REST API resource `<origin>/api` (RFC 8707).
     const access = header.match(/^Bearer (xta_[A-Za-z0-9_-]{43})$/)
     if (access) {
       const user = await resolveAccess(access[1], apiResource(request))
       if (!user) throw new HttpError(401, 'Invalid or expired API token')
-      return user
+      return admit(user)
     }
     // A three-part JWT is a GitHub Actions identity token (see server/oidc-ci.js).
     const jwt = header.match(/^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/)
@@ -100,12 +125,14 @@ export async function authenticate(request) {
       const claims = await verifyCiToken(jwt[1])
       if (!claims) throw new HttpError(401, 'Invalid or expired API token')
       const row = await upsertGithubUser(CI_USER)
-      return { uid: row.id, gh: '-1', login: CI_USER.login, via: 'ci-oidc' }
+      return admit({ uid: row.id, gh: '-1', login: CI_USER.login, via: 'ci-oidc', suspended: row.suspended_at !== null })
     }
     throw new HttpError(401, 'Invalid or expired API token')
   }
-  const session = await readSession(request)
-  return session ? { ...session, via: 'session' } : null
+  const state = await sessionState(request)
+  if (!state) return null
+  if (state.suspended) throw new HttpError(403, SUSPENDED_MESSAGE)
+  return admit({ ...state.session, via: 'session', suspended: false })
 }
 
 /** A hand-made token that has expired (7-day cap or its expiry) gets a message that says so. */

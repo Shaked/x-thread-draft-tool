@@ -1,6 +1,7 @@
 import { query } from '../db.js'
 import { fetchGithubUser, upsertGithubUser } from '../github-user.js'
 import { HttpError, cookie, json, parseCookies } from '../http.js'
+import { SUSPENDED_MESSAGE } from '../suspension.js'
 import { authenticate, clearSessionCookie, createSession, readSession, revokeSession, sessionCookie } from '../session.js'
 
 const STATE_COOKIE = 'xt_oauth_state'
@@ -85,6 +86,11 @@ async function callback({ request, url }) {
   const github = await fetchGithubUser(accessToken)
   const user = await upsertGithubUser(github)
 
+  // A suspended user gets no session cookie. The app shows the notice at /?suspended=1.
+  if (user.suspended_at !== null) {
+    return redirect(`${appOrigin()}/?suspended=1`, [cookie(STATE_COOKIE, '', { maxAge: 0 }), cookie(RETURN_COOKIE, '', { maxAge: 0 })])
+  }
+
   const token = await createSession(user)
   const returnTo = safeReturnTo(parseCookies(request)[RETURN_COOKIE])
   return redirect(`${appOrigin()}${returnTo ?? '/'}`, [
@@ -96,7 +102,16 @@ async function callback({ request, url }) {
 
 /** GET /api/auth/me: cookie session or bearer token. `user` is null when signed out. */
 async function me({ request }) {
-  const caller = await authenticate(request)
+  let caller
+  try {
+    caller = await authenticate(request)
+  } catch (err) {
+    // A suspended caller is not an error here: the app shows the notice.
+    if (err instanceof HttpError && err.status === 403 && err.message === SUSPENDED_MESSAGE) {
+      return json({ user: null, auth: null, suspended: true })
+    }
+    throw err
+  }
   if (!caller) return json({ user: null, auth: null })
   const { rows } = await query('select id, login, name, avatar_url from users where id = $1', [caller.uid])
   return json({ user: rows[0] ?? null, auth: rows[0] ? caller.via : null })
@@ -104,7 +119,8 @@ async function me({ request }) {
 
 /** POST /api/auth/logout: ends this browser's session on the server (not API tokens or AI apps), then clears the cookie. */
 async function logout({ request }) {
-  const session = await readSession(request)
+  // A suspended user can sign out too: the session is revoked, so it stays dead after unsuspending.
+  const session = await readSession(request, { includeSuspended: true })
   if (session) await revokeSession(session)
   return json({ ok: true }, 200, { 'set-cookie': clearSessionCookie() })
 }

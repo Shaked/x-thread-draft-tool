@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { query, transaction } from '../db.js'
 import { hashToken } from '../tokens.js'
+import { SUSPENDED_MESSAGE } from '../suspension.js'
 
 // OAuth tokens (plan Task 7.4). Opaque random strings; only their SHA-256 hashes are stored.
 const ACCESS_PREFIX = 'xta_'
@@ -98,8 +99,8 @@ export async function rotate(refreshToken, clientId, resource = null) {
   const hash = hashToken(refreshToken)
 
   const { rows: found } = await query(
-    `select t.grant_id, t.used_at, t.expires_at > now() as fresh, g.client_id, g.revoked_at, g.resource
-       from oauth_tokens t join oauth_grants g on g.id = t.grant_id
+    `select t.grant_id, t.used_at, t.expires_at > now() as fresh, g.client_id, g.revoked_at, g.resource, u.suspended_at
+       from oauth_tokens t join oauth_grants g on g.id = t.grant_id join users u on u.id = g.user_id
       where t.token_hash = $1 and t.kind = 'refresh'`,
     [hash]
   )
@@ -110,6 +111,8 @@ export async function rotate(refreshToken, clientId, resource = null) {
     throw invalidGrant()
   }
   if (!row.fresh || row.revoked_at || row.client_id !== clientId) throw invalidGrant()
+  // A suspended user gets no new pair. Nothing is spent or revoked, so the token works again after unsuspending.
+  if (row.suspended_at !== null) throw new OAuthError('invalid_grant', SUSPENDED_MESSAGE)
   // `resource` is optional on refresh (D-2). When sent, it must be the grant's resource.
   if (resource !== null && resource !== row.resource) {
     throw new OAuthError('invalid_target', 'The resource does not match the one the grant was issued for', 400)
@@ -148,7 +151,7 @@ export async function rotate(refreshToken, clientId, resource = null) {
 export async function resolveAccess(token, expectedResource) {
   if (typeof token !== 'string' || !ACCESS_SHAPE.test(token)) return null
   const { rows } = await query(
-    `select g.id as grant_id, u.id as uid, u.github_id, u.login, g.resource,
+    `select g.id as grant_id, u.id as uid, u.github_id, u.login, u.suspended_at, g.resource,
             (g.resource like '%/api/mcp' and g.admin_until is not null and g.admin_until > now()) as admin,
             (g.resource like '%/api/mcp' and g.admin_until is null and g.admin_pending_hash is not null
                and g.admin_pending_until > now()) as admin_pending
@@ -168,6 +171,7 @@ export async function resolveAccess(token, expectedResource) {
     via: 'oauth',
     grantId: row.grant_id,
     resource: row.resource,
+    suspended: row.suspended_at !== null,
     admin: row.admin === true,
     adminPending: row.admin_pending === true
   }

@@ -7,6 +7,7 @@
 - Owner-only writes are filtered by the session user id in every query; a non-owner gets 404.
 - Deployment metadata visibility.
 - Settings page (`/settings/tokens`): "Connect an AI app" lists the four clients with copy buttons; "Connected apps" lists and revokes them.
+- Suspension: a suspended account is refused on every sign-in path (cookie, `xt_` and `xta_` tokens, MCP, the OAuth token endpoint, device sign-in, the GitHub callback, the CI identity). The API answers 403 "This account is suspended."; the app shows that notice above the sign-in button (`/?suspended=1`); share links of the account's drafts answer 410 and are not used up. Nothing is deleted, and everything works again after the suspension is lifted.
 - MCP connector at `/api/mcp` (OAuth 2.1 with PKCE, rotating refresh tokens). Setup and tools: [docs/agents/mcp.md](../agents/mcp.md).
 
 The MCP connector also offers four slash commands (prompts): `thread_from_notes`, `tighten_draft`, `review_before_publish` and `rewrite_hook`. It serves one skill, `x-thread-drafts` (at `skill://x-thread-drafts/SKILL.md`). Some tools also show a small view inside Claude or ChatGPT: the thread, the drafts list and the share card ([views](../agents/mcp.md#views-in-claude-and-chatgpt)). Requests may be in Hebrew (עברית), using words such as טיוטה (draft), שרשור (thread) and ציוץ (tweet). X and Twitter (X/טוויטר) are the same service. Publishing a draft in this app posts nothing to X/Twitter.
