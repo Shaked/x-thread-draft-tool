@@ -211,19 +211,23 @@ describe('the consent box is shown to the owner and to nobody else', () => {
     expect(html).toContain('sign out, sign in again and come back to this page within 10 minutes')
   })
 
-  it('shows nothing for the REST resource, an unlisted return address or a loopback address', async () => {
+  it('shows nothing for the REST resource', async () => {
     const claudeClient = await registerClient(CLAUDE)
-    const evilClient = await registerClient(EVIL)
-    const loopbackClient = await registerClient(LOOPBACK)
-    const cases = [
-      authorizePath(claudeClient, { redirectUri: CLAUDE, challenge: pkce().challenge, resource: API }),
-      authorizePath(evilClient, { redirectUri: EVIL, challenge: pkce().challenge }),
-      authorizePath(loopbackClient, { redirectUri: LOOPBACK, challenge: pkce().challenge })
-    ]
+    const cases = [authorizePath(claudeClient, { redirectUri: CLAUDE, challenge: pkce().challenge, resource: API })]
     for (const path of cases) {
       const html = await (await getPage(path, await cookieFor(admin))).text()
       expect(html).not.toContain('name="admin"')
       expect(html).not.toContain('sign out, sign in again')
+    }
+  })
+
+  it('shows the box for any return address, with that host in bold, and says to check it', async () => {
+    for (const redirect of [EVIL, LOOPBACK]) {
+      const clientId = await registerClient(redirect)
+      const html = await (await getPage(authorizePath(clientId, { redirectUri: redirect, challenge: pkce().challenge }), await cookieFor(admin))).text()
+      expect(html).toContain('name="admin"')
+      expect(html).toContain(`<strong>${new URL(redirect).host}</strong>`)
+      expect(html).toContain('check that the address above is your own AI app')
     }
   })
 
@@ -292,8 +296,6 @@ describe('an approval with the box ticked gives the owner a one-time pairing pag
     ['a normal user', () => alice, { resource: undefined, redirect: CLAUDE, age: 0 }],
     ['the owner with a sign-in older than 10 minutes', () => admin, { resource: undefined, redirect: CLAUDE, age: 660 }],
     ['the owner on the REST resource', () => admin, { resource: API, redirect: CLAUDE, age: 0 }],
-    ['the owner with an unlisted return address', () => admin, { resource: undefined, redirect: EVIL, age: 0 }],
-    ['the owner with a loopback return address', () => admin, { resource: undefined, redirect: LOOPBACK, age: 0 }]
   ])('a posted box from %s is ignored: a normal approval and the normal redirect', async (_, who, { resource, redirect, age }) => {
     const clientId = await registerClient(redirect)
     const user = who()
@@ -309,7 +311,7 @@ describe('an approval with the box ticked gives the owner a one-time pairing pag
 
   it('records a refused attempt only for the owner, and nothing for anyone else', async () => {
     const clientId = await registerClient(EVIL)
-    await approve(authorizePath(clientId, { redirectUri: EVIL, challenge: pkce().challenge }), await cookieFor(admin), { admin: true })
+    await approve(authorizePath(clientId, { redirectUri: EVIL, challenge: pkce().challenge, resource: API }), await cookieFor(admin), { admin: true })
     const audit = await db.pg.query('select action, outcome from admin_audit')
     expect(audit.rows).toEqual([{ action: 'elevate_requested', outcome: 'refused' }])
 
@@ -451,6 +453,15 @@ async function pendingApp(redirect, { ticked = true } = {}) {
 }
 
 describe('admin_activate: the pairing code turns admin on for this connection', () => {
+  it('an app the owner did not expect gets a pending connection from the box; a wrong code is refused', async () => {
+    const { code, token } = await pendingApp(EVIL)
+    expect((await toolNames(token)).filter((name) => name.startsWith('admin_'))).toEqual(['admin_activate'])
+    const guess = code === 'AAAA-AAAA' ? 'BBBB-BBBB' : 'AAAA-AAAA'
+    const wrong = await callOn(token, 'admin_activate', { code: guess })
+    expect(wrong.result.isError).toBe(true)
+    expect(textOf(wrong)).toContain('2 tries left')
+  })
+
   it('the app lists only admin_activate; the right code turns admin on for 24 hours; then the admin tools show', async () => {
     const { code, token } = await pendingApp(CLAUDE)
     const names = await toolNames(token)

@@ -21,7 +21,7 @@ import {
   signInHeaders,
   signInPage
 } from '../oauth/consent.js'
-import { isAdminGithubId, isAdminRedirectUri } from '../admin/identity.js'
+import { isAdminGithubId } from '../admin/identity.js'
 import { recordAdminAction } from '../admin/audit.js'
 import { PAIRING_MINUTES, formatPairingCode, newPairingCode, pairingHash } from '../admin/pairing.js'
 
@@ -199,22 +199,22 @@ function isFreshSession(session) {
 }
 
 /**
- * True only when an approval may add admin tools: the MCP resource, a real Claude or ChatGPT return
- * address, a fresh sign-in, and the admin GitHub id. Used for the consent box and again on the POST.
+ * True only when an approval may add admin tools: the MCP resource, a fresh sign-in, and the admin GitHub id.
+ * The app's return address is not checked: the pairing code, typed by the owner, is the gate. Used for the
+ * consent box and again on the POST.
  */
-function canElevate({ session, githubId, resource, redirectUri, base }) {
+function canElevate({ session, githubId, resource, base }) {
   return (
     resource === mcpResource(base) &&
-    isAdminRedirectUri(redirectUri) &&
     isFreshSession(session) &&
     isAdminGithubId(githubId)
   )
 }
 
 /** What the consent page shows the owner: 'box' (tick to elevate), 'stale' (sign in again), or null (nothing; everyone else). */
-function adminNoteState({ session, githubId, resource, redirectUri, base }) {
-  if (!isAdminGithubId(githubId) || !isAdminRedirectUri(redirectUri) || resource !== mcpResource(base)) return null
-  return canElevate({ session, githubId, resource, redirectUri, base }) ? 'box' : 'stale'
+function adminNoteState({ session, githubId, resource, base }) {
+  if (!isAdminGithubId(githubId) || resource !== mcpResource(base)) return null
+  return canElevate({ session, githubId, resource, base }) ? 'box' : 'stale'
 }
 
 /** This consent address, rebuilt only from validated values, for copying into another browser. */
@@ -278,7 +278,6 @@ async function authorizeGet({ request, url }) {
     session,
     githubId: await githubIdOf(session.uid),
     resource: value.resource,
-    redirectUri,
     base
   })
   return new Response(
@@ -345,7 +344,7 @@ async function authorizePost({ request }) {
   // A posted `admin=1` that fails them is ignored: a normal grant, the normal redirect.
   const githubId = await githubIdOf(session.uid)
   const wantsAdmin = form.get('admin') === '1'
-  const checks = { session, githubId, resource: decision.resource, redirectUri: decision.redirect_uri, base }
+  const checks = { session, githubId, resource: decision.resource, base }
   const elevate = wantsAdmin && canElevate(checks)
   const refused = wantsAdmin && !elevate && isAdminGithubId(githubId)
   const pairing = elevate ? newPairingCode() : null
@@ -387,12 +386,11 @@ async function authorizePost({ request }) {
       [hashToken(code), grant.id, decision.redirect_uri, decision.code_challenge]
     )
     if (elevate) {
-      const clientKind = decision.redirect_uri.startsWith('https://claude.ai/') ? 'claude' : 'chatgpt'
       await recordAdminAction(q, {
         actor,
         action: 'elevate_requested',
         outcome: 'done',
-        details: { client_kind: clientKind, redirect_host: new URL(decision.redirect_uri).host }
+        details: { redirect_host: new URL(decision.redirect_uri).host }
       })
     } else if (refused && githubId !== null) {
       await recordAdminAction(q, {

@@ -104,7 +104,7 @@ function copyBlock(link, text) {
 // how to get a fresh sign-in. Anything else (null) shows nothing.
 function adminNote(state, redirectHost) {
   if (state === 'box') {
-    return `<p class="warn"><label><input type="checkbox" name="admin" value="1"> Also allow admin tools (list all users, suspend users, delete users and their content) for the app at <strong>${escapeHtml(redirectHost)}</strong>. Tick this only if you pressed Connect in your own AI app in the last minute. If a link brought you here, do not tick it.</label></p>`
+    return `<p class="warn"><label><input type="checkbox" name="admin" value="1"> Also allow admin tools (list all users, suspend users, delete users and their content) for the app at <strong>${escapeHtml(redirectHost)}</strong>. This box shows for every app: check that the address above is your own AI app. Tick it only if you pressed Connect in your own AI app in the last minute. If a link brought you here, do not tick it.</label></p>`
   }
   if (state === 'stale') {
     return '<p>To allow admin tools, sign out, sign in again and come back to this page within 10 minutes.</p>'
@@ -156,7 +156,7 @@ export function pairingPage({ code, continueUrl, redirectHost }) {
     'Admin pairing code',
     `<h1>Admin pairing code</h1>
 <p class="code" aria-label="Pairing code">${escapeHtml(code)}</p>
-<p>Write this code down. After you press Continue, tell your AI app: activate admin with code ${escapeHtml(code)}. The code works once, for 10 minutes. Press Continue within 5 minutes. If you did not start this from your own AI app, close this page: without the code nobody gets admin tools.</p>
+<p>Write this code down. After you press Continue, tell your AI app: activate admin with code ${escapeHtml(code)}. The code works once, for 10 minutes. Press Continue within 5 minutes. Type this code only into the AI app you connected yourself. If any other page or app asks for it, do not give it. If you did not start this from your own AI app, close this page: without the code nobody gets admin tools.</p>
 <p><a class="continue" href="${escapeHtml(continueUrl)}">Continue to ${escapeHtml(redirectHost)}</a></p>`
   )
 }
