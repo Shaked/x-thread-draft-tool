@@ -10,6 +10,7 @@ vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn
 import { route } from '../../server/router.js'
 import { secretKey } from '../../server/session.js'
 import { setMetadataResolverForTests } from '../../server/oauth/clients.js'
+import { resolveAccess } from '../../server/oauth/tokens.js'
 import { pairingHash } from '../../server/admin/pairing.js'
 import { APP_URL, apiRequest, setupTestDb } from './helpers/db.js'
 
@@ -58,11 +59,11 @@ function pkce() {
 }
 
 /** A browser session cookie for the user, issued `ageSeconds` ago (the consent check reads `iat`). */
-async function cookieFor(user, ageSeconds = 0) {
+async function cookieFor(user, ageSeconds = 0, gh = String(user.github_id)) {
   const now = Math.floor(Date.now() / 1000)
   const token = await new SignJWT({
     uid: user.id,
-    gh: String(user.github_id),
+    gh,
     login: user.login,
     jti: randomBytes(24).toString('base64url')
   })
@@ -334,6 +335,41 @@ describe('an approval with the box ticked gives the owner a one-time pairing pag
     expect(again.status).toBe(302)
     noElevation(await grantOf(admin, API))
     expect((await route(apiRequest('/api/drafts?published=false', { method: 'GET', headers: bearer }))).status).toBe(401)
+  })
+
+  it('a session cookie that claims the owner id, for a normal user, gets nothing and elevates nothing', async () => {
+    const clientId = await registerClient(CLAUDE)
+    const path = authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge })
+    const cookie = await cookieFor(alice, 0, String(ADMIN_GITHUB_ID))
+    const html = await (await getPage(path, cookie)).text()
+    expect(html).not.toContain('name="admin"')
+    expect(html).not.toContain('sign out, sign in again')
+    const res = await approve(path, cookie, { admin: true })
+    expect(res.status).toBe(302)
+    noElevation(await grantOf(alice))
+    expect((await db.pg.query('select count(*)::int as n from admin_audit')).rows[0].n).toBe(0)
+  })
+
+  it('an elevated approval kills the tokens issued earlier on the same MCP grant', async () => {
+    const clientId = await registerClient(CLAUDE)
+    const { verifier, challenge } = pkce()
+    const path = authorizePath(clientId, { redirectUri: CLAUDE, challenge })
+    const first = await approve(path, await cookieFor(admin))
+    const tokens = await exchange(new URL(first.headers.get('location')), clientId, CLAUDE, verifier)
+    expect(await resolveAccess(tokens.access_token, MCP)).not.toBeNull()
+
+    const elevated = await approve(path, await cookieFor(admin), { admin: true })
+    await pairingFrom(elevated)
+    expect(await resolveAccess(tokens.access_token, MCP)).toBeNull()
+  })
+
+  it('a normal approval clears a pending pairing code left by an earlier elevated approval', async () => {
+    const clientId = await registerClient(CLAUDE)
+    const path = authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge })
+    await pairingFrom(await approve(path, await cookieFor(admin), { admin: true }))
+    expect((await grantOf(admin)).admin_pending_hash).not.toBeNull()
+    expect((await approve(path, await cookieFor(admin))).status).toBe(302)
+    noElevation(await grantOf(admin))
   })
 
   it('escapes the state on the pairing page', async () => {

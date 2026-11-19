@@ -194,7 +194,7 @@ async function githubIdOf(uid) {
 /** True when the session was issued (signed in) within the fresh window. A missing or odd `iat` is not fresh. */
 function isFreshSession(session) {
   const age = Math.floor(Date.now() / 1000) - Number(session.iat)
-  return Number.isFinite(age) && age <= ADMIN_FRESH_SESSION_SECONDS
+  return Number.isFinite(age) && age >= 0 && age <= ADMIN_FRESH_SESSION_SECONDS
 }
 
 /**
