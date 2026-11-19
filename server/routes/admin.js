@@ -7,8 +7,9 @@ import { ADMIN_LIMITS, withinAdminLimit } from '../admin/limits.js'
 import { isProtectedGithubId, protectedGithubIds } from '../admin/identity.js'
 import { listBlobPrefix } from '../blob.js'
 import { ADMIN_ELEVATION_HOURS, PAIRING_TRIES, pairingHash } from '../admin/pairing.js'
+import { deleteUser } from '../admin/delete-user.js'
 import { query, transaction } from '../db.js'
-import { HttpError, json, readJson } from '../http.js'
+import { HttpError, json, readJson, readOptionalJson } from '../http.js'
 
 // Admin routes (plan A2). Each one is built with adminRoute, which refuses everyone but the admin.
 const status = async ({ admin }) => {
@@ -199,6 +200,17 @@ async function changeSuspension(admin, id, body, suspend) {
     if (!target) return { kind: 'missing' }
     if (target.login !== body.confirm_login) return { kind: 'mismatch' }
     const targetAudit = { id: target.id, github_id: target.github_id, login: target.login }
+    if (!suspend) {
+      // A delete of this user that started in the last 15 minutes and has no `failed` or `done` row yet.
+      const { rows: running } = await q(
+        `select 1 from admin_audit s where s.action = 'delete_user' and s.outcome = 'started' and s.target_user_id = $1
+            and s.created_at > now() - interval '15 minutes'
+            and not exists (select 1 from admin_audit f where f.action = 'delete_user' and f.target_user_id = $1
+                              and f.outcome in ('failed', 'done') and f.created_at >= s.created_at) limit 1`,
+        [target.id]
+      )
+      if (running.length > 0) return { kind: 'deleting' }
+    }
     if (isProtectedGithubId(target.github_id)) {
       await recordAdminAction(q, { actor, action, outcome: 'refused', target: targetAudit })
       return { kind: 'refused' }
@@ -224,6 +236,7 @@ async function changeSuspension(admin, id, body, suspend) {
 
   if (outcome.kind === 'missing') throw new HttpError(404, 'User not found')
   if (outcome.kind === 'mismatch') throw bad("confirm_login does not match this user's login")
+  if (outcome.kind === 'deleting') throw new HttpError(409, 'A deletion of this user is running. Try again in a few minutes.')
   if (outcome.kind === 'refused') throw new HttpError(403, 'This account cannot be suspended or deleted.')
   const found = await userDetail(id)
   if (!found) throw new HttpError(404, 'User not found')
@@ -245,6 +258,11 @@ const suspendUser = async ({ admin, request, params }) => {
 const unsuspendUser = async ({ admin, request, params }) => {
   if (!UUID.test(params.id)) throw new HttpError(404, 'User not found')
   return changeSuspension(admin, params.id, await readJson(request), false)
+}
+
+const deleteUserRoute = async ({ admin, request, params }) => {
+  if (!UUID.test(params.id)) throw new HttpError(404, 'User not found')
+  return deleteUser(admin, params.id.toLowerCase(), await readOptionalJson(request))
 }
 
 const stats = async () => json({ stats: await statsRow() })
@@ -275,6 +293,7 @@ export const adminRoutes = [
   adminRoute('GET', '/admin/users/:id', getUser),
   adminRoute('POST', '/admin/users/:id/suspend', suspendUser),
   adminRoute('POST', '/admin/users/:id/unsuspend', unsuspendUser),
+  adminRoute('POST', '/admin/users/:id/delete', deleteUserRoute),
   adminRoute('GET', '/admin/stats', stats),
   adminRoute('GET', '/admin/audit', audit)
 ]
