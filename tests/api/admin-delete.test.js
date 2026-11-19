@@ -255,6 +255,8 @@ describe('admin_delete_user', () => {
   it('removes more than 1000 files and reports remaining 0; a bad prefix throws and calls nothing', async () => {
     const alice = await target('alice', 50, { files: 2500 })
     const result = await removeBlobPrefix(`drafts/${alice.id}/`)
+    const preview = await dry((await adminConnection()).token, await target('big', 51, { files: 1001 }))
+    expect(preview.data.will_delete).toMatchObject({ image_files: 1000, image_files_truncated: true })
     expect(result).toEqual({ deleted: 2500, bytes: 25000, remaining: 0 })
     expect(blob.delCalls.map((urls) => urls.length)).toEqual([1000, 1000, 500])
     blob.delCalls = []
@@ -304,6 +306,18 @@ describe('admin_delete_user', () => {
       expect((await db.pg.query(DELETE_SQL, [who.id, protectedGithubIds()])).rowCount).toBe(0)
       expect(await userExists(who)).toBe(true)
     }
+  })
+
+  it('unsuspend is refused while a delete of that user is running, and allowed after it failed', async () => {
+    const { token } = await adminConnection()
+    const alice = await target('alice', 80)
+    const note = (outcome) => db.pg.query("insert into admin_audit (actor_user_id, actor_github_id, actor_login, action, outcome, target_user_id, target_github_id, target_login) values ($1, 960015, 'shaked', 'delete_user', $2, $3, 80, 'alice')", [admin.id, outcome, alice.id])
+    await note('started')
+    const refused = await call(token, 'admin_unsuspend_user', { id: alice.id, confirm_login: 'alice' })
+    expect(refused.data.error).toBe('A deletion of this user is running. Try again in a few minutes.')
+    expect((await db.pg.query('select suspended_at from users where id = $1', [alice.id])).rows[0].suspended_at).not.toBeNull()
+    await note('failed')
+    expect((await call(token, 'admin_unsuspend_user', { id: alice.id, confirm_login: 'alice' })).data.changed).toBe(true)
   })
 
   it('a normal user does not get the tool', async () => {

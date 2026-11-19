@@ -31,7 +31,8 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 async function currentCounts(id) {
   const { rows } = await query(COUNTS_SQL, [id])
   const listing = await listBlobPrefix(`drafts/${id}/`)
-  return { ...rows[0], image_files: listing.files.length }
+  // A listing holds 1000 files at most: say so, so the preview is never taken for the whole count.
+  return { ...rows[0], image_files: listing.files.length, ...(listing.truncated ? { image_files_truncated: true } : {}) }
 }
 
 /** The checks of both modes, in order. Returns the user row or throws. */
@@ -66,6 +67,12 @@ async function filesFailed(actor, target, progress, remaining) {
   return new HttpError(502, 'Some image files could not be deleted. Nothing else was removed. Run the dry run and the delete again.')
 }
 
+/** The transaction did not delete: record why and answer. The files are already gone, so the audit row matters. */
+async function refuseAfterFiles(actor, target, outcome) {
+  await recordAdminAction(query, { actor, action: 'delete_user', outcome: 'failed', target, details: { stage: 'db', reason: outcome } })
+  throw outcome === 'gone' ? new HttpError(404, 'User not found') : new HttpError(409, 'The user changed. Run the dry run again.')
+}
+
 export async function deleteUser(admin, id, body) {
   const actor = { uid: admin.uid, gh: admin.gh, login: admin.login }
   const { user, target } = await checkTarget(actor, id)
@@ -94,13 +101,23 @@ export async function deleteUser(admin, id, body) {
   if (!same(sealed.counts, counts)) throw new HttpError(409, 'The content changed. Run the dry run again.')
 
   // The limit counts `started` rows. The admin's row is locked, so two runs at once cannot both exceed the limit.
-  await transaction(async (q) => {
+  const begun = await transaction(async (q) => {
     await q('select id from users where id = $1 for update', [admin.uid])
+    // The target is locked here and unsuspend checks for this `started` row under the same lock, so the
+    // user cannot be restored once the files start to go.
+    const { rows: still } = await q('select suspended_at from users where id = $1 for update', [id])
+    if (still.length === 0) return 'gone'
+    if (still[0].suspended_at === null) throw new HttpError(409, 'Suspend the user first with admin_suspend_user.')
     if (!(await withinAdminLimit(q, admin.uid, ADMIN_LIMITS.delete.actions, ADMIN_LIMITS.delete.perHour, ADMIN_LIMITS.delete.outcomes))) {
       throw new HttpError(429, `Admin limit reached: at most ${ADMIN_LIMITS.delete.perHour} of these actions per hour.`)
     }
     await recordAdminAction(q, { actor, action: 'delete_user', outcome: 'started', target, details: { counts } })
+    return 'started'
   })
+  if (begun === 'gone') {
+    await recordAdminAction(query, { actor, action: 'delete_user', outcome: 'failed', target, details: { stage: 'db', reason: 'gone' } })
+    throw new HttpError(404, 'User not found')
+  }
 
   let files
   try {
@@ -133,13 +150,6 @@ export async function deleteUser(admin, id, body) {
     throw new HttpError(500, 'The user could not be deleted. Nothing was changed in the database. Run the dry run and the delete again.')
   }
 
-  if (outcome === 'gone') {
-    await recordAdminAction(query, { actor, action: 'delete_user', outcome: 'failed', target, details: { stage: 'db', reason: 'gone' } })
-    throw new HttpError(404, 'User not found')
-  }
-  if (outcome !== 'done') {
-    await recordAdminAction(query, { actor, action: 'delete_user', outcome: 'failed', target, details: { stage: 'db', reason: outcome } })
-    throw new HttpError(409, 'The user changed. Run the dry run again.')
-  }
+  if (outcome !== 'done') await refuseAfterFiles(actor, target, outcome)
   return json({ deleted: true, user: target, removed: counts, files_deleted: files.deleted, bytes_deleted: files.bytes })
 }
