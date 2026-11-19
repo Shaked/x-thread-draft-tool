@@ -49,3 +49,31 @@ export function listBlobPrefix(prefix) {
   if (typeof prefix !== 'string' || !USER_FOLDER.test(prefix)) throw new Error('listBlobPrefix: not a user folder')
   return impl.list({ prefix, limit: LIST_LIMIT })
 }
+
+/**
+ * Deletes every object under one user's draft folder (admin plan A9). The prefix is checked like
+ * listBlobPrefix does. Lists up to 1000 files and deletes them, at most 20 times, until a listing is empty.
+ * Errors of the backend are not swallowed: the caller must know. `remaining` is 0 only after an empty listing.
+ * A thrown error carries `progress` ({ deleted, bytes }) for the audit row.
+ */
+export async function removeBlobPrefix(prefix) {
+  if (typeof prefix !== 'string' || !USER_FOLDER.test(prefix)) throw new Error('removeBlobPrefix: not a user folder')
+  let deleted = 0
+  let bytes = 0
+  try {
+    for (let round = 0; round < 20; round += 1) {
+      const { files } = await impl.list({ prefix, limit: LIST_LIMIT })
+      if (files.length === 0) return { deleted, bytes, remaining: 0 }
+      // Defence in depth: only URLs of this folder are ever passed to the backend's delete.
+      if (!files.every((file) => typeof file.url === 'string' && file.url.includes(`/${prefix}`))) throw new Error('removeBlobPrefix: listing outside the folder')
+      await impl.del(files.map((file) => file.url))
+      deleted += files.length
+      bytes += files.reduce((sum, file) => sum + Number(file.size ?? 0), 0)
+    }
+    const { files } = await impl.list({ prefix, limit: LIST_LIMIT })
+    return { deleted, bytes, remaining: files.length }
+  } catch (error) {
+    error.progress = { deleted, bytes }
+    throw error
+  }
+}

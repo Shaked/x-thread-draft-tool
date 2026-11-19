@@ -7,8 +7,9 @@ import { ADMIN_LIMITS, withinAdminLimit } from '../admin/limits.js'
 import { isProtectedGithubId, protectedGithubIds } from '../admin/identity.js'
 import { listBlobPrefix } from '../blob.js'
 import { ADMIN_ELEVATION_HOURS, PAIRING_TRIES, pairingHash } from '../admin/pairing.js'
+import { deleteUser } from '../admin/delete-user.js'
 import { query, transaction } from '../db.js'
-import { HttpError, json, readJson } from '../http.js'
+import { HttpError, json, readJson, readOptionalJson } from '../http.js'
 
 // Admin routes (plan A2). Each one is built with adminRoute, which refuses everyone but the admin.
 const status = async ({ admin }) => {
@@ -247,6 +248,11 @@ const unsuspendUser = async ({ admin, request, params }) => {
   return changeSuspension(admin, params.id, await readJson(request), false)
 }
 
+const deleteUserRoute = async ({ admin, request, params }) => {
+  if (!UUID.test(params.id)) throw new HttpError(404, 'User not found')
+  return deleteUser(admin, params.id, await readOptionalJson(request))
+}
+
 const stats = async () => json({ stats: await statsRow() })
 
 const audit = async ({ url }) => {
@@ -275,6 +281,7 @@ export const adminRoutes = [
   adminRoute('GET', '/admin/users/:id', getUser),
   adminRoute('POST', '/admin/users/:id/suspend', suspendUser),
   adminRoute('POST', '/admin/users/:id/unsuspend', unsuspendUser),
+  adminRoute('POST', '/admin/users/:id/delete', deleteUserRoute),
   adminRoute('GET', '/admin/stats', stats),
   adminRoute('GET', '/admin/audit', audit)
 ]
