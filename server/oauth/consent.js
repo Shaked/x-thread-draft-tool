@@ -76,7 +76,8 @@ button.approve{background:#1d4ed8;color:#fff}button.deny{background:#e5e7eb}
 .link-box{margin-top:20px}.link-box p{margin:0 0 8px}.link-box input{width:100%;box-sizing:border-box;font:inherit;padding:8px;border:1px solid #9ca3af;border-radius:6px}
 #copy-note{margin-left:8px}
 .not-you{margin:0 0 12px}.not-you button{background:none;color:#1d4ed8;text-decoration:underline;padding:0;margin:0 0 0 4px}
-.continue{display:inline-block;padding:10px 16px;border-radius:6px;background:#1d4ed8;color:#fff;text-decoration:none}`
+.continue{display:inline-block;padding:10px 16px;border-radius:6px;background:#1d4ed8;color:#fff;text-decoration:none}
+.code{font-size:2rem;font-weight:700;letter-spacing:.08em;font-family:ui-monospace,monospace;margin:16px 0}`
 
 function page(title, body) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -99,8 +100,20 @@ function copyBlock(link, text) {
 <script>${COPY_SCRIPT}</script>`
 }
 
+// The admin part of the consent form, shown only to the owner. 'box' offers the tick box; 'stale' says
+// how to get a fresh sign-in. Anything else (null) shows nothing.
+function adminNote(state, redirectHost) {
+  if (state === 'box') {
+    return `<p class="warn"><label><input type="checkbox" name="admin" value="1"> Also allow admin tools (list all users, suspend users, delete users and their content) for the app at <strong>${escapeHtml(redirectHost)}</strong>. Tick this only if you pressed Connect in your own AI app in the last minute. If a link brought you here, do not tick it.</label></p>`
+  }
+  if (state === 'stale') {
+    return '<p>To allow admin tools, sign out, sign in again and come back to this page within 10 minutes.</p>'
+  }
+  return ''
+}
+
 /** The Approve / Deny page. `requestToken` is the signed decision; `link` is this same address. Everything shown is escaped. */
-export function consentPage({ clientName, unverified, redirectHost, requestToken, login, link }) {
+export function consentPage({ clientName, unverified, redirectHost, requestToken, login, link, adminState = null }) {
   const warning = unverified
     ? '<p class="warn">This app is not verified. Approve only if you started it yourself.</p>'
     : ''
@@ -116,6 +129,7 @@ ${warning}
 <p>After you choose, it sends you back to <strong>${escapeHtml(redirectHost)}</strong>.</p>
 <form method="post" action="/api/oauth/authorize">
 <input type="hidden" name="request" value="${escapeHtml(requestToken)}">
+${adminNote(adminState, redirectHost)}
 <button class="approve" name="decision" value="approve">Approve</button>
 <button class="deny" name="decision" value="deny">Deny</button>
 </form>
@@ -130,6 +144,20 @@ export function signInPage({ link, loginUrl }) {
     `<h1>Sign in to continue</h1>
 <p><a class="continue" href="${escapeHtml(loginUrl)}">Continue with GitHub</a></p>
 ${copyBlock(link, 'Wrong browser? Copy this link and open it in the browser where you are signed in.')}`
+  )
+}
+
+/**
+ * Shown once after an elevated approval: the pairing code (already formatted, `ABCD-EFGH`) and a plain
+ * link back to the app. No script and no form. The code appears on this page only.
+ */
+export function pairingPage({ code, continueUrl, redirectHost }) {
+  return page(
+    'Admin pairing code',
+    `<h1>Admin pairing code</h1>
+<p class="code" aria-label="Pairing code">${escapeHtml(code)}</p>
+<p>Write this code down. After you press Continue, tell your AI app: activate admin with code ${escapeHtml(code)}. The code works once, for 10 minutes. Press Continue within 5 minutes. If you did not start this from your own AI app, close this page: without the code nobody gets admin tools.</p>
+<p><a class="continue" href="${escapeHtml(continueUrl)}">Continue to ${escapeHtml(redirectHost)}</a></p>`
   )
 }
 

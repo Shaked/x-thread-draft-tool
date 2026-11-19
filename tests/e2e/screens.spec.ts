@@ -226,5 +226,39 @@ test.describe('screens', () => {
       await inPage.screenshot({ path: path.join(dir, 'consent.png'), fullPage: true })
       await signedIn.close()
     })
+
+    // The owner's consent box and the one-time pairing page (admin plan A4). The dev session is the owner's id,
+    // and the return address is a listed Claude one, so the box is offered.
+    test(`captures the owner's consent box and pairing page at ${width}px`, async ({ browser, request }) => {
+      const redirect = 'https://claude.ai/api/mcp/auth_callback'
+      const registered = await request.post(`${BASE}/api/oauth/register`, { data: { client_name: 'Claude', redirect_uris: [redirect] } })
+      expect(registered.status()).toBe(201)
+      const clientId = (await registered.json()).client_id as string
+      const challenge = createHash('sha256').update(randomBytes(48).toString('base64url')).digest('base64url')
+      const query = new URLSearchParams({
+        response_type: 'code',
+        client_id: clientId,
+        redirect_uri: redirect,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        state: 'screens'
+      }).toString()
+      const session = await request.post(`${BASE}/api/dev/session`, { data: { login: `screens-owner-${width}`, admin: true } })
+      expect(session.ok()).toBeTruthy()
+      const cookie = session.headersArray().find((h) => h.name.toLowerCase() === 'set-cookie')?.value.match(/xt_session=([^;]+)/)?.[1]
+      expect(cookie).toBeTruthy()
+      const approve = (p: Page) => p.getByRole('button', { name: 'Approve' })
+
+      await shoot(browser, width, 'consent-admin', `/api/oauth/authorize?${query}`, { cookie: cookie!, ready: approve })
+      await shoot(browser, width, 'pairing-admin', `/api/oauth/authorize?${query}`, {
+        cookie: cookie!,
+        ready: approve,
+        before: async (p) => {
+          await p.getByRole('checkbox').check()
+          await approve(p).click()
+          await p.getByRole('heading', { name: 'Admin pairing code' }).waitFor()
+        }
+      })
+    })
   }
 })

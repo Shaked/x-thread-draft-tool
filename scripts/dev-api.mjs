@@ -99,8 +99,9 @@ async function devRoute(request, url) {
   }
   const body = await request.json().catch(() => ({}))
   const login = typeof body.login === 'string' && body.login.trim() ? body.login.trim() : 'dev-user'
-  // Fake negative GitHub ids never collide with real accounts.
-  const githubId = -(Math.abs(hash(login)) % 1_000_000_000) - 1
+  // Fake negative GitHub ids never collide with real accounts. `admin: true` on /api/dev/session gives the
+  // owner's id (960015) in this in-memory database, so the consent box can be captured (plan A4).
+  const githubId = url.pathname === '/api/dev/session' && body.admin === true ? 960015 : -(Math.abs(hash(login)) % 1_000_000_000) - 1
   const user = await upsertGithubUser({ id: githubId, login, name: login, avatar_url: null })
   if (url.pathname === '/api/dev/session') {
     const session = await createSession(user)
