@@ -16,18 +16,14 @@ import {
   errorHeaders,
   errorPage,
   openDecision,
-  pairingPage,
   sealDecision,
   signInHeaders,
   signInPage
 } from '../oauth/consent.js'
-import { isAdminGithubId } from '../admin/identity.js'
+import { ADMIN_ELEVATION_HOURS, isAdminGithubId } from '../admin/identity.js'
 import { recordAdminAction } from '../admin/audit.js'
-import { PAIRING_MINUTES, formatPairingCode, newPairingCode, pairingHash } from '../admin/pairing.js'
 
 const CODE_TTL = "interval '60 seconds'"
-// An elevated approval gets longer: the person needs time to read the pairing code and press Continue.
-const ADMIN_CODE_TTL = "interval '5 minutes'"
 // Admin may be offered only to a sign-in no older than this (the owner signs in again if it is).
 const ADMIN_FRESH_SESSION_SECONDS = 600
 const FORM_MAX_BYTES = 16 * 1024
@@ -199,22 +195,17 @@ function isFreshSession(session) {
 }
 
 /**
- * True only when an approval may add admin tools: the MCP resource, a fresh sign-in, and the admin GitHub id.
- * The app's return address is not checked: the pairing code, typed by the owner, is the gate. Used for the
- * consent box and again on the POST.
+ * True only when an approval gives admin tools: the owner's GitHub id, the MCP resource, and a fresh sign-in.
+ * Identity decides; there is no return-address list and no code. Used on the consent page and on the POST.
  */
 function canElevate({ session, githubId, resource, base }) {
-  return (
-    resource === mcpResource(base) &&
-    isFreshSession(session) &&
-    isAdminGithubId(githubId)
-  )
+  return resource === mcpResource(base) && isFreshSession(session) && isAdminGithubId(githubId)
 }
 
-/** What the consent page shows the owner: 'box' (tick to elevate), 'stale' (sign in again), or null (nothing; everyone else). */
+/** What the consent page shows the owner: 'notice' (admin on approval), 'stale' (sign in again), or null (nothing). */
 function adminNoteState({ session, githubId, resource, base }) {
   if (!isAdminGithubId(githubId) || resource !== mcpResource(base)) return null
-  return canElevate({ session, githubId, resource, base }) ? 'box' : 'stale'
+  return isFreshSession(session) ? 'notice' : 'stale'
 }
 
 /** This consent address, rebuilt only from validated values, for copying into another browser. */
@@ -340,14 +331,9 @@ async function authorizePost({ request }) {
     return redirectTo(decision.redirect_uri, { error: 'access_denied', state: decision.state }, base)
   }
 
-  // The admin box is honoured only when the same checks pass again now, on the signed decision's values.
-  // A posted `admin=1` that fails them is ignored: a normal grant, the normal redirect.
+  // Admin follows identity: the owner's approval on a fresh sign-in gives admin tools for 24 hours.
   const githubId = await githubIdOf(session.uid)
-  const wantsAdmin = form.get('admin') === '1'
-  const checks = { session, githubId, resource: decision.resource, base }
-  const elevate = wantsAdmin && canElevate(checks)
-  const refused = wantsAdmin && !elevate && isAdminGithubId(githubId)
-  const pairing = elevate ? newPairingCode() : null
+  const elevate = canElevate({ session, githubId, resource: decision.resource, base })
   const actor = { uid: session.uid, gh: githubId, login: session.login }
 
   const code = randomBytes(32).toString('base64url')
@@ -359,64 +345,41 @@ async function authorizePost({ request }) {
       [session.uid, decision.client_id, decision.scope, decision.resource]
     )
     const { rows } = await q(
-      `select id, revoked_at, admin_until, admin_pending_hash from oauth_grants
+      `select id, revoked_at, admin_until from oauth_grants
         where user_id = $1 and client_id = $2 and resource = $3 for update`,
       [session.uid, decision.client_id, decision.resource]
     )
     const grant = rows[0]
-    const wasElevated = grant.admin_until !== null || grant.admin_pending_hash !== null
+    const wasElevated = grant.admin_until !== null
     if (grant.revoked_at || elevate || wasElevated) {
       // Reactivating a revoked grant, or changing admin: every code and token issued before must stay dead.
       await q('delete from oauth_tokens where grant_id = $1', [grant.id])
       await q('delete from oauth_codes where grant_id = $1', [grant.id])
     }
-    // A new approval never makes an admin by itself: it ends any earlier elevation.
+    // Each approval sets admin again (24 hours) or clears it.
     await q(
       `update oauth_grants
-          set revoked_at = null, scope = $2, admin_until = null,
-              admin_pending_hash = $3,
-              admin_pending_until = case when $3::text is null then null else now() + interval '${PAIRING_MINUTES} minutes' end,
-              admin_pending_tries = 0
+          set revoked_at = null, scope = $2,
+              admin_until = case when $3::boolean then now() + make_interval(hours => $4::int) else null end,
+              admin_pending_hash = null, admin_pending_until = null, admin_pending_tries = 0
         where id = $1`,
-      [grant.id, decision.scope, pairing ? pairingHash(grant.id, pairing) : null]
+      [grant.id, decision.scope, elevate, ADMIN_ELEVATION_HOURS]
     )
     await q(
       `insert into oauth_codes (code_hash, grant_id, redirect_uri, code_challenge, expires_at)
-       values ($1, $2, $3, $4, now() + ${elevate ? ADMIN_CODE_TTL : CODE_TTL})`,
+       values ($1, $2, $3, $4, now() + ${CODE_TTL})`,
       [hashToken(code), grant.id, decision.redirect_uri, decision.code_challenge]
     )
     if (elevate) {
       await recordAdminAction(q, {
         actor,
-        action: 'elevate_requested',
+        action: 'elevate_connection',
         outcome: 'done',
-        details: { redirect_host: new URL(decision.redirect_uri).host }
-      })
-    } else if (refused && githubId !== null) {
-      await recordAdminAction(q, {
-        actor,
-        action: 'elevate_requested',
-        outcome: 'refused',
-        details: { redirect_host: new URL(decision.redirect_uri).host }
+        details: { hours: ADMIN_ELEVATION_HOURS, redirect_host: new URL(decision.redirect_uri).host }
       })
     }
   })
 
-  if (elevate) {
-    // The code is shown here once and never sent anywhere else. The button is the same address a 302 would use.
-    const continueUrl = redirectUrl(decision.redirect_uri, { code, state: decision.state }, base)
-    return new Response(
-      pairingPage({
-        code: formatPairingCode(pairing),
-        continueUrl,
-        redirectHost: new URL(decision.redirect_uri).host
-      }),
-      {
-        status: 200,
-        headers: { ...consentHeaders(new URL(decision.redirect_uri).origin), 'referrer-policy': 'no-referrer' }
-      }
-    )
-  }
   return redirectTo(decision.redirect_uri, { code, state: decision.state }, base)
 }
 

@@ -100,11 +100,11 @@ function copyBlock(link, text) {
 <script>${COPY_SCRIPT}</script>`
 }
 
-// The admin part of the consent form, shown only to the owner. 'box' offers the tick box; 'stale' says
-// how to get a fresh sign-in. Anything else (null) shows nothing.
+// The admin part of the consent form, shown only to the owner. 'notice' says that approving gives admin tools
+// for 24 hours; 'stale' says how to get a fresh sign-in. Anything else (null) shows nothing.
 function adminNote(state, redirectHost) {
-  if (state === 'box') {
-    return `<p class="warn"><label><input type="checkbox" name="admin" value="1"> Also allow admin tools (list all users, suspend users, delete users and their content) for the app at <strong>${escapeHtml(redirectHost)}</strong>. This box shows for every app: check that the address above is your own AI app. Tick it only if you pressed Connect in your own AI app in the last minute. If a link brought you here, do not tick it.</label></p>`
+  if (state === 'notice') {
+    return `<p class="warn">Approving gives <strong>${escapeHtml(redirectHost)}</strong> admin tools (list all users, suspend users, delete users and their content) for 24 hours. Check that the address above is your own AI app.</p>`
   }
   if (state === 'stale') {
     return '<p>To allow admin tools, sign out, sign in again and come back to this page within 10 minutes.</p>'
@@ -144,20 +144,6 @@ export function signInPage({ link, loginUrl }) {
     `<h1>Sign in to continue</h1>
 <p><a class="continue" href="${escapeHtml(loginUrl)}">Continue with GitHub</a></p>
 ${copyBlock(link, 'Wrong browser? Copy this link and open it in the browser where you are signed in.')}`
-  )
-}
-
-/**
- * Shown once after an elevated approval: the pairing code (already formatted, `ABCD-EFGH`) and a plain
- * link back to the app. No script and no form. The code appears on this page only.
- */
-export function pairingPage({ code, continueUrl, redirectHost }) {
-  return page(
-    'Admin pairing code',
-    `<h1>Admin pairing code</h1>
-<p class="code" aria-label="Pairing code">${escapeHtml(code)}</p>
-<p>Write this code down. After you press Continue, tell your AI app: activate admin with code ${escapeHtml(code)}. The code works once, for 10 minutes. Press Continue within 5 minutes. Type this code only into the AI app you connected yourself. If any other page or app asks for it, do not give it. If you did not start this from your own AI app, close this page: without the code nobody gets admin tools.</p>
-<p><a class="continue" href="${escapeHtml(continueUrl)}">Continue to ${escapeHtml(redirectHost)}</a></p>`
   )
 }
 

@@ -7,36 +7,33 @@ Who this is for: the owner, and agents that work for the owner. This page is not
 - Admin is one GitHub numeric id: `960015` (github.com/Shaked). It is in `server/admin/identity.js` as `ADMIN_GITHUB_IDS`. A login is never used, because a login can be renamed. `tests/api/admin-identity.test.js` pins the list.
 - No environment variable adds an admin. `ADMIN_DISABLED=1` only turns admin off. The value is read on every check. Set it in the Vercel environment and make a new deploy so the change is live (how Vercel applies env changes: not checked here).
 - The admin account and the CI identity (`ci-smoke`) can never be suspended or deleted. This is enforced in code and in SQL, and does not depend on `ADMIN_DISABLED`.
-- Any AI app can hold admin tools after you tick the box and type the pairing code into that app. This includes Claude, ChatGPT, Grok, Claude Code and Codex. No list of app addresses is kept. A loopback address (localhost, used by command-line apps) is allowed too.
+- Any AI app you approve, while signed in as the owner, can hold admin tools for 24 hours. No list of app addresses is kept and no code is used.
 
 ## How to get admin tools
 
-1. Sign out of X Thread Draft Tool, then sign in again.
+Admin follows your GitHub identity. You do not need a code or a box.
+
+1. Sign out of X Thread Draft Tool, then sign in again with GitHub as `Shaked` (github id 960015).
 2. In your AI app (Claude or ChatGPT on the web, or a command-line app), go to the connector settings. Disconnect X Thread Draft Tool, then press Connect.
-3. On the "Allow access" page, check that the address shown is your own app. Tick "Also allow admin tools" only if you pressed Connect in your own AI app in the last minute. If a link brought you to this page, do not tick it.
-4. Approve. The page shows a pairing code once. Write it down. Press Continue.
-5. In the AI app, say: "activate admin with code <the code>". The tool `admin_activate` checks it.
+3. On the "Allow access" page, check that the address shown is your own app. Approve within 10 minutes of signing in.
+4. Admin tools appear at once on that connection and last 24 hours. To check, ask the app to run `admin_status`.
 
 Rules that come from the code:
 
-- The pairing code is 8 characters. It is shown only in your own browser. Only its hash is stored.
-- The code is the only thing that stops a wrong app. Type it only into the app you connected yourself.
-- You get 3 tries. Three wrong codes cancel the code. A code also expires after 10 minutes.
-- A right code turns on admin for this connection for 24 hours. It covers every chat of that AI app in your account, not just one chat.
-- Any new approval of that app ends an active admin connection (`server/routes/oauth.js` sets `admin_until` to null).
-- The tool list of an AI app can lag behind the server. The plan says up to 5 minutes after activation. Not checked here.
-- Use a separate chat for admin work. Do not let admin work share a chat that reads web pages or other text you do not trust.
+- The approval must be made within 10 minutes of your sign-in, on the MCP connection. Other users never get admin, and the REST API never does.
+- Each approval gives 24 hours of admin again, or clears it if the sign-in is old.
+- To end admin at once, go to the Connected apps list on the settings page and disconnect (revoke) the app. A revoked grant stops working.
+- `ADMIN_DISABLED=1` in the environment turns admin off for everyone, including you. It is read on every check, so a new deploy is needed for a change to apply.
+- Use a separate chat for admin work. Do not let it share a chat that reads untrusted web pages or other text.
+- Any app you approve while signed in as you can use admin tools for 24 hours. Approve only apps you started yourself.
 
-To end admin at once, go to the Connected apps list on the settings page and disconnect (revoke) the app. A revoked grant stops working. The list shows "Admin tools until <time>" while admin is on, and "waiting for the pairing code" while a code is pending. Do this when the admin work is done.
+## The eight tools
 
-## The nine tools
-
-The elevated admin connection sees eight admin tools. A pending connection (a pairing code waiting) sees only `admin_activate`. Nobody else sees any of them.
+The admin connection sees the eight admin tools below. Nobody else sees any of them.
 
 | Tool | Arguments | REST route |
 |---|---|---|
 | `admin_status` | none | `GET /api/admin/status` |
-| `admin_activate` | `code` (8 to 12 characters, the pairing code) | `POST /api/admin/activate` |
 | `admin_list_users` | `limit` (1 to 100, default 50), `cursor`, `q` (login prefix), `status` (`all`, `active`, `suspended`) | `GET /api/admin/users` |
 | `admin_get_user` | `id` (user UUID from `admin_list_users`) | `GET /api/admin/users/:id` |
 | `admin_stats` | none | `GET /api/admin/stats` |
@@ -45,7 +42,7 @@ The elevated admin connection sees eight admin tools. A pending connection (a pa
 | `admin_unsuspend_user` | `id`, `confirm_login` | `POST /api/admin/users/:id/unsuspend` |
 | `admin_delete_user` | `id`, `dry_run` (default true), `confirm_token`, `confirm_login` | `POST /api/admin/users/:id/delete` |
 
-The REST routes are under `/api/admin/`. They answer 404 to everyone except the elevated admin connection (and, for `admin_activate` only, a pending one), the same answer as an unknown path. The smoke test checks this on the deployed site (`PASS admin paths answer like an unknown path (404)`).
+The REST routes are under `/api/admin/`. They answer 404 to everyone except the elevated admin connection, the same answer as an unknown path. The smoke test checks this on the deployed site (`PASS admin paths answer like an unknown path (404)`).
 
 The answers hold account details and numbers only. They never hold draft text, token secrets, token hashes, client secrets or image URLs.
 
@@ -77,7 +74,7 @@ What the server does, in order:
 
 - Table `admin_audit` (migration `009_admin.sql`). It has no foreign keys on purpose, so a row outlives the user it is about.
 - Each row keeps the admin's id and login, the action, the outcome (`started`, `done`, `failed`, `refused`), and the target's id, GitHub id and login.
-- The `details` field never holds a secret or a pairing code.
+- The `details` field never holds a secret.
 - Read it with `admin_audit_log`, newest first.
 
 ## Scale note
@@ -86,7 +83,6 @@ The stats query (`GET /api/admin/stats`) is one statement of scalar subqueries, 
 
 ## If something goes wrong
 
-- A wrong pairing code is counted. After 3 wrong codes, start again at step 1 of "How to get admin tools".
 - A user was suspended by mistake: run `admin_unsuspend_user` with the same login. Nothing was deleted.
 - A delete stopped in the middle: the user is still suspended. Run a fresh dry run, then the real delete with the new token. Each step is safe to repeat.
 - `ADMIN_DISABLED=1` turns admin tools off. Set it in the environment and make a new deploy, so the server reads it.
