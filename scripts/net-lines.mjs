@@ -13,7 +13,7 @@ import { pathToFileURL } from 'node:url'
 export const COUNTED_DIRS = ['src/', 'server/', 'api/', 'scripts/']
 const LOCKFILE = /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/
 const PLAN_REFERENCE = /docs\/plans\/[a-z0-9-]+\.md.*Task \d+(\.\d+)?/
-const ISSUE_REFERENCE = /#\d+ .*Task \d+(\.\d+)?/
+const ISSUE_REFERENCE = /\bImplements #\d+ Task \d+(\.\d+)?\b/
 
 /** True when a numstat path counts toward the rule. */
 export function isCounted(path) {
@@ -54,7 +54,7 @@ export function evaluate({ numstat, body = '' }) {
     pass: false,
     added,
     removed,
-    reason: 'added lines exceed removed lines and the pull request body does not reference a plan task'
+    reason: 'added lines exceed removed lines and the pull request body does not reference a plan task or an issue task'
   }
 }
 

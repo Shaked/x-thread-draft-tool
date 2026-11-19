@@ -70,6 +70,15 @@ describe('net-lines evaluation', () => {
     expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Task 4 for #123' }).pass).toBe(false)
   })
 
+  it('does not accept an issue number and a task word without the Implements form', () => {
+    expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Closes #160 since Task 2 was dropped' }).pass).toBe(false)
+    expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Part of #155, see Task 3' }).pass).toBe(false)
+  })
+
+  it('does not accept a task number with trailing letters', () => {
+    expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Implements #159 Task 1a' }).pass).toBe(false)
+  })
+
   it('explains both counts and the reason', () => {
     const result = evaluate({ numstat: '3\t1\tsrc/a.js', body: '' })
     expect(result.reason).toMatch(/plan task/)
