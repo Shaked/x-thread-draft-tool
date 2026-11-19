@@ -18,14 +18,14 @@ Code:
 | Needs you | 🙋 Needs you | The label `owner` is added to an issue or a pull request, by the repository owner's account. | Open (the issue or PR) |
 
 What a message looks like:
-- Line 1: the emoji and the headline, in bold.
+- Line 1: the emoji and the headline, in bold (in the HTML version; the plain-text fallback has no bold).
 - Line 2: for the two production kinds, the short commit id (7 characters, in code font) and the commit title. For the other two kinds, the issue or PR title.
 - Line 3 (production kinds only): "Smoke tests passed." or "The smoke test did not pass."
 - Last line: the links, separated by " · ".
 
 Titles are cut to 120 characters.
 
-Nothing else sends a message. There is no message for a push, a new PR, a CI run, a merge, a preview build, or a docs-only merge. A docs-only merge creates no deployment (`scripts/vercel-ignore.mjs` skips the build).
+Nothing else sends a message. There is no message for a push, a new PR, a CI run, a merge, a preview build, or a docs-only merge. A failed Vercel deployment sends nothing either: the smoke job runs only when the deployment state is `success`. A docs-only merge creates no deployment (`scripts/vercel-ignore.mjs` skips the build).
 
 Limits of the text today:
 - The "passed" line has no number. "N/N passed" is not in the code yet.
@@ -52,13 +52,13 @@ Delete either secret, `TELEGRAM_BOT_TOKEN` or `TELEGRAM_CHAT_ID`. Nothing else c
 
 - No token, no chat id, no other secret.
 - No login names, no draft text, no post text, no PR body, no diff, no log output.
-- Only: the short commit id, a commit or issue/PR title (cut to 120 characters), fixed text, and links. The production links go to the production address or to the failed run; the preview link goes to the preview address.
+- Only: the short commit id, a commit or issue/PR title (cut to 120 characters), fixed text, and links. The production links go to the production address or to the failed run; the preview link goes to the preview address; the try-preview and needs-you messages also link to the PR or issue.
 
 The text is sent as HTML with escaping. Only if Telegram answers HTTP 400 with a parse error does the script send the same text once more as plain text (log line `notify: HTML rejected, sending plain text`). Any other refusal is not retried.
 
 ## How to test
 
-- Try-preview: add the label `try-preview` to a pull request. The pull request must contain `.github/workflows/notify-labels.yml`, which means it was opened after #249 was merged. A pull request event runs the workflow file from that pull request's own commit, so an older pull request has no run.
+- Try-preview: add the label `try-preview` to a pull request. The pull request must contain `.github/workflows/notify-labels.yml`, which means it was opened after #249 was merged. A pull request event starts the workflow only if the workflow file exists in the pull request's code (not checked: whether GitHub uses the pull request's own commit or its test merge). Use a pull request opened after #249.
 - Needs you: add the label `owner` to an issue or a pull request.
 - Production: merge a change that creates a production deployment. The message comes from the smoke test that runs after that deployment. A docs-only merge sends nothing.
 
