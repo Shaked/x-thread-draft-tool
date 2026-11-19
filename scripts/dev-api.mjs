@@ -10,7 +10,7 @@
 // knows about them, and this script refuses to run on Vercel.
 import http from 'node:http'
 import { randomBytes } from 'node:crypto'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { PGlite } from '@electric-sql/pglite'
 import { applyMigrations } from './migrate.mjs'
@@ -68,6 +68,23 @@ setBlobImpl({
       const key = url.slice(BLOB_PREFIX.length)
       await rm(path.join(BLOB_DIR, key), { force: true })
     }
+  },
+  // Walks the folder for one prefix (admin plan A7), at most 1000 files.
+  async list({ prefix, limit }) {
+    const files = []
+    const walk = async (dir) => {
+      for (const entry of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
+        if (files.length > limit) return
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) await walk(full)
+        else {
+          const key = path.relative(BLOB_DIR, full).split(path.sep).join('/')
+          files.push({ url: `${BLOB_PREFIX}${key}`, size: (await stat(full)).size })
+        }
+      }
+    }
+    await walk(path.join(BLOB_DIR, prefix))
+    return { files: files.slice(0, limit), truncated: files.length > limit }
   },
   key(url) {
     return url.startsWith(BLOB_PREFIX) ? url.slice(BLOB_PREFIX.length) : null

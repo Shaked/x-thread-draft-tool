@@ -1,6 +1,7 @@
 // Tool-call rate limit for the MCP server (plan M8): at most 120 tools/call per user per minute.
 // One upsert per call; the count is per minute (date_trunc), so the window resets on its own.
 // Plan P4: the token check and the count are one statement (`authorizeAndCount`).
+// Rows are kept for 8 days (cleanupExpired in server/oauth/tokens.js): the admin statistics read the last 7.
 import { query } from '../db.js'
 import { hashToken } from '../tokens.js'
 
