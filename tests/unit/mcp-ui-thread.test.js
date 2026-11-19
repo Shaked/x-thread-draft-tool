@@ -2,7 +2,7 @@
 // (D5), long drafts, the banner for an unsaved text, and draft text as plain text in every place it can appear
 // (rule 9). The Playwright check of the same view is in tests/e2e/mcp-thread-view.spec.ts.
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { bridge, linksIn, renderThread, safeImage, threadFrom, tweetFrom } from '../../server/mcp/ui/client.js'
+import { bridge, linksIn, renderThread, safeImage, threadFrom, tweetFrom, underEditorBase } from '../../server/mcp/ui/client.js'
 import { readUiResource, uiResourceUri } from '../../server/mcp/ui/index.js'
 
 const BLOB = 'https://store1.public.blob.vercel-storage.com'
@@ -154,8 +154,24 @@ describe('the header and long drafts', () => {
     expect([...bad.querySelectorAll('button')].map((b) => b.textContent)).not.toContain('Open in editor')
   })
 
+  it('a look-alike host or a base without a trailing slash does not pass the editor check', () => {
+    expect(underEditorBase('https://app.example.evil.com/draft/1', 'https://app.example')).toBe(false)
+    expect(underEditorBase('https://app.example/draft/1', 'https://app.example')).toBe(true)
+    expect(underEditorBase('http://app.example/draft/1', 'https://app.example/draft/')).toBe(false)
+    expect(underEditorBase('https://app.example/other/1', 'https://app.example/draft/')).toBe(false)
+  })
+
   it('says a text is not saved yet when it has no draft', () => {
     expect(render({ title: 'T', saved: false, posts: [{ text: 'a' }] }).textContent).toContain('Not saved yet.')
+  })
+
+  it('has no "Show all" button at exactly 25 posts, and one at 26', () => {
+    const make = (n) => Array.from({ length: n }, (_, i) => ({ text: 'p' + i }))
+    expect(render({ title: 'T', saved: true, posts: make(25) }).querySelectorAll('article')).toHaveLength(25)
+    expect([...render({ title: 'T', saved: true, posts: make(25) }).querySelectorAll('button')].some((b) => b.textContent.startsWith('Show all'))).toBe(false)
+    const twentySix = render({ title: 'T', saved: true, posts: make(26) })
+    expect(twentySix.querySelectorAll('article')).toHaveLength(25)
+    expect([...twentySix.querySelectorAll('button')].some((b) => b.textContent === 'Show all 26 posts')).toBe(true)
   })
 
   it('shows the first 25 posts, then all of them on "Show all"', () => {

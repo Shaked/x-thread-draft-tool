@@ -83,6 +83,7 @@ const SCRIPT = [
   client.el,
   client.linkButton,
   client.postNode,
+  client.underEditorBase,
   client.headerNode,
   client.renderThread,
   client.renderError,

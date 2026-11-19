@@ -223,15 +223,25 @@ export function postNode(thread, index, total, open) {
   return el('article', {}, [el('span', {}, [initial]), body])
 }
 
+/** True when url is https on the same origin as editorBase and under its path (a prefix on the whole URL is not enough). */
+export function underEditorBase(url, editorBase) {
+  if (typeof url !== 'string' || typeof editorBase !== 'string') return false
+  try {
+    const link = new URL(url)
+    const base = new URL(editorBase)
+    return link.protocol === 'https:' && link.origin === base.origin && link.pathname.startsWith(base.pathname)
+  } catch {
+    return false
+  }
+}
+
 /** The thread's heading: title, post count, Published badge, Open in editor (only for links under the app). */
 export function headerNode(thread, open) {
   const count = thread.posts.length
   const info = el('p', {}, [count + (count === 1 ? ' post' : ' posts')])
   if (thread.is_published) info.appendChild(el('span', {}, [' · Published']))
   const children = [el('h1', { dir: 'auto' }, [thread.title || 'Untitled draft']), info]
-  if (thread.url && thread.editorBase && thread.url.indexOf(thread.editorBase) === 0) {
-    children.push(linkButton('Open in editor', thread.url, open))
-  }
+  if (underEditorBase(thread.url, thread.editorBase)) children.push(linkButton('Open in editor', thread.url, open))
   return el('header', {}, children)
 }
 
