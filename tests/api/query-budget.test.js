@@ -182,10 +182,10 @@ describe('query budget per flow (plan section 3.2)', () => {
     for (const rows of seen) expect(rows.filter((row) => 'posts' in row).length).toBeLessThanOrEqual(1)
   })
 
-  it('REST GET /api/drafts with an xt_ token: 3', async () => {
+  it('REST GET /api/drafts with an xt_ token: 2 (P5: token lookup and last_used_at in one statement)', async () => {
     const spy = spyPerf()
     const q = await roundTrips(spy, apiRequest('/api/drafts?published=false', { headers: { authorization: `Bearer ${apiToken}` } }))
-    expect(q).toBe(3)
+    expect(q).toBe(2)
   })
 
   it('REST GET /api/drafts with the session cookie: 2', async () => {

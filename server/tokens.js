@@ -62,20 +62,24 @@ export async function createApiToken(userId, { name, expiresInDays = MAX_EXPIRY_
  */
 export async function findUserByToken(token) {
   if (!isTokenShape(token)) return null
+  // One statement: the lookup, and the last_used_at update when it is more than 5 minutes old.
+  // The data-modifying CTE runs even though the final select does not read it.
   const { rows } = await query(
-    `select u.id, u.github_id, u.login, t.id as token_id
-       from api_tokens t join users u on u.id = t.user_id
-      where t.token_hash = $1 and ${activeSql('t')}
-        and t.created_at > now() - interval '${MAX_EXPIRY_DAYS} days'`,
+    `with t as (
+       select u.id, u.github_id, u.login, tk.id as token_id, tk.last_used_at
+         from api_tokens tk join users u on u.id = tk.user_id
+        where tk.token_hash = $1 and ${activeSql('tk')}
+          and tk.created_at > now() - interval '${MAX_EXPIRY_DAYS} days'
+     ), touch as (
+       update api_tokens set last_used_at = now()
+         from t where api_tokens.id = t.token_id
+          and (t.last_used_at is null or t.last_used_at < now() - interval '5 minutes')
+     )
+     select id, github_id, login, token_id from t`,
     [hashToken(token)]
   )
   const row = rows[0]
   if (!row) return null
-  await query(
-    `update api_tokens set last_used_at = now()
-      where id = $1 and (last_used_at is null or last_used_at < now() - interval '5 minutes')`,
-    [row.token_id]
-  )
   return { uid: row.id, gh: String(row.github_id), login: row.login, tokenId: row.token_id, via: 'token' }
 }
 
