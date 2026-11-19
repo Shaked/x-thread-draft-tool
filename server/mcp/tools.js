@@ -647,7 +647,8 @@ function withPostIds(args) {
   return {
     ...args,
     posts: args.posts.map((post) => {
-      const id = typeof post?.id === 'string' && post.id && !seen.has(post.id) ? post.id : randomUUID()
+      if (post === null || typeof post !== 'object' || Array.isArray(post)) return post // REST refuses it with 400
+      const id = typeof post.id === 'string' && post.id && !seen.has(post.id) ? post.id : randomUUID()
       seen.add(id)
       return { ...post, id }
     })

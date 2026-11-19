@@ -84,6 +84,18 @@ describe('POST /api/drafts', () => {
     )
     expect(badPosts.status).toBe(400)
   })
+
+  it('rejects a post that is not an object with a string id, and writes nothing', async () => {
+    for (const post of [null, 'text', 7, ['p1'], { text: 'no id' }, { id: 7, text: 'number id' }]) {
+      const res = await route(
+        apiRequest('/api/drafts', { method: 'POST', cookie: aliceCookie, body: { title: 'bad', posts: [{ id: 'p0' }, post] } })
+      )
+      expect(res.status).toBe(400)
+      expect((await json(res)).error).toBe('each post must be an object with a string id')
+    }
+    const { rows } = await db.pg.query('select count(*)::int as n from drafts where user_id = $1', [alice.id])
+    expect(rows[0].n).toBe(0)
+  })
 })
 
 describe('GET /api/drafts/:id', () => {
@@ -133,6 +145,24 @@ describe('owner-only writes', () => {
     const { draft: updated } = await json(res)
     expect(updated.title).toBe('b')
     expect(updated.posts).toEqual([{ id: 'z', text: 'updated', images: [] }])
+  })
+
+  it('PATCH rejects a post that is not an object with a string id, and keeps the draft', async () => {
+    const draft = await db.insertDraft(alice.id, { title: 'kept', posts: [{ id: 'a', text: 'first', images: [] }] })
+    const res = await route(
+      apiRequest(`/api/drafts/${draft.id}`, { method: 'PATCH', cookie: aliceCookie, body: { posts: [null] } })
+    )
+    expect(res.status).toBe(400)
+    const { rows } = await db.pg.query('select posts, version from drafts where id = $1', [draft.id])
+    expect(rows[0].posts).toEqual([{ id: 'a', text: 'first', images: [] }])
+    expect(rows[0].version).toBe(draft.version)
+  })
+
+  it('a draft that already holds a post without an id still reads', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: [{ text: 'legacy' }] })
+    const res = await route(apiRequest(`/api/drafts/${draft.id}`, { cookie: aliceCookie }))
+    expect(res.status).toBe(200)
+    expect((await json(res)).draft.posts).toEqual([{ text: 'legacy' }])
   })
 
   it('PATCH with no fields is rejected', async () => {

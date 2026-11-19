@@ -32,6 +32,8 @@ function validTitle(title) {
 
 function validPosts(posts) {
   if (!Array.isArray(posts)) throw new HttpError(400, 'posts must be an array')
+  const isPost = (post) => post !== null && typeof post === 'object' && !Array.isArray(post) && typeof post.id === 'string'
+  if (!posts.every(isPost)) throw new HttpError(400, 'each post must be an object with a string id')
   return posts
 }
 
