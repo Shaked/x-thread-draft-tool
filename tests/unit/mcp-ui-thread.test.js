@@ -2,7 +2,7 @@
 // (D5), long drafts, the banner for an unsaved text, and draft text as plain text in every place it can appear
 // (rule 9). The Playwright check of the same view is in tests/e2e/mcp-thread-view.spec.ts.
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { bridge, linksIn, renderThread, safeImage, threadFrom, tweetFrom, underEditorBase } from '../../server/mcp/ui/client.js'
+import { bridge, clampInset, headerNode, linksIn, renderThread, safeImage, threadFrom, tweetFrom, underEditorBase } from '../../server/mcp/ui/client.js'
 import { readUiResource, uiResourceUri } from '../../server/mcp/ui/index.js'
 
 const BLOB = 'https://store1.public.blob.vercel-storage.com'
@@ -214,6 +214,29 @@ describe('the header and long drafts', () => {
     const more = [...root.querySelectorAll('button')].find((b) => b.textContent === 'Show all 30 posts')
     more.click()
     expect(root.querySelectorAll('article')).toHaveLength(30)
+  })
+
+  it('shows a Full screen button only when the view was given a way to go full screen (T10, #238)', () => {
+    const base = { title: 'T', posts: [{ text: 'a' }] }
+    const none = headerNode(base, vi.fn())
+    expect([...none.querySelectorAll('button')].some((b) => b.textContent === 'Full screen')).toBe(false)
+    const expand = vi.fn()
+    const yes = headerNode({ ...base, expand }, vi.fn())
+    const button = [...yes.querySelectorAll('button')].find((b) => b.textContent === 'Full screen')
+    expect(button).toBeDefined()
+    button.click()
+    expect(expand).toHaveBeenCalledTimes(1)
+  })
+
+  it('takes safe-area insets only as whole numbers from 0 to 96 (T10, #238)', () => {
+    expect(clampInset(12.4)).toBe(12)
+    expect(clampInset(0)).toBe(0)
+    expect(clampInset(96)).toBe(96)
+    expect(clampInset(97)).toBeNull()
+    expect(clampInset(-1)).toBeNull()
+    expect(clampInset('12px; background: red')).toBeNull()
+    expect(clampInset(undefined)).toBeNull()
+    expect(clampInset(Infinity)).toBeNull()
   })
 
   it('marks the start of the thread, and the end only once every post is shown (T10, #238)', () => {

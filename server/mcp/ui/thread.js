@@ -10,7 +10,7 @@ export const STYLE = `
 :root[data-theme="dark"] { color-scheme: dark; ${X_VARS_DARK} }
 :root[data-theme="light"] { color-scheme: light; ${X_VARS_LIGHT} }
 html, body { margin: 0; background: var(--x-bg); color: var(--x-fg); font: 15px/1.4 system-ui, -apple-system, sans-serif; overflow-wrap: anywhere; }
-main { max-width: 600px; margin: 0 auto; padding: 0 16px; }
+main { max-width: 600px; margin: 0 auto; padding: var(--safe-top, 0px) calc(16px + var(--safe-right, 0px)) var(--safe-bottom, 0px) calc(16px + var(--safe-left, 0px)); }
 header { padding: 12px 0; border-bottom: 1px solid var(--x-line); }
 h1 { font-size: 20px; font-weight: 800; margin: 0 0 4px; }
 header p { margin: 0; color: var(--x-muted); font-size: 14px; }
@@ -43,7 +43,20 @@ const STARTER = `
   var root = document.getElementById('root');
   var shown = false;
   var link = null;
-  function open(url) { return link.openLink(url).catch(function () { return null; }); }
+  // T10 (#238): ChatGPT's openExternal when it is there (the MCP Apps guide maps it to openLink); else ui/open-link.
+  function open(url) {
+    var safe = safeUrl(url, null);
+    if (!safe) return Promise.resolve(null);
+    if (window.openai && typeof window.openai.openExternal === 'function') {
+      try { return Promise.resolve(window.openai.openExternal({ href: safe })).catch(function () { return null; }); } catch (e) { return Promise.resolve(null); }
+    }
+    return link.openLink(safe).catch(function () { return null; });
+  }
+  // Full screen only where ChatGPT offers requestDisplayMode; the host may refuse, and that is not an error here.
+  function canExpand() { return Boolean(window.openai && typeof window.openai.requestDisplayMode === 'function'); }
+  function expand() {
+    try { Promise.resolve(window.openai.requestDisplayMode({ mode: 'fullscreen' })).catch(function () {}); } catch (e) {}
+  }
   function showResult(result) {
     shown = true;
     if (result.isError) {
@@ -52,13 +65,26 @@ const STARTER = `
       return;
     }
     var thread = threadFrom(result);
-    if (thread) renderThread(root, thread, open);
-    else renderError(root, 'This view cannot show that result.');
+    if (thread) {
+      thread.expand = canExpand() ? expand : null;
+      renderThread(root, thread, open);
+    } else {
+      renderError(root, 'This view cannot show that result.');
+    }
   }
+  // The host's theme (MCP Apps hostContext, or ChatGPT's window.openai.theme) and its safe-area insets as CSS values.
   function applyContext(ctx) {
-    if (ctx && (ctx.theme === 'dark' || ctx.theme === 'light')) document.documentElement.dataset.theme = ctx.theme;
+    if (!ctx) return;
+    if (ctx.theme === 'dark' || ctx.theme === 'light') document.documentElement.dataset.theme = ctx.theme;
+    var insets = ctx.safeAreaInsets;
+    if (insets) {
+      ['top', 'right', 'bottom', 'left'].forEach(function (side) {
+        var px = clampInset(insets[side]);
+        if (px !== null) document.documentElement.style.setProperty('--safe-' + side, px + 'px');
+      });
+    }
   }
-  // T10 (#238): ChatGPT's theme, when its page has one. The key is not checked against OpenAI's docs (unreachable).
+  // ChatGPT's theme, when its page has one. The key is not checked against OpenAI's docs (unreachable from the build).
   if (window.openai && (window.openai.theme === 'dark' || window.openai.theme === 'light')) applyContext({ theme: window.openai.theme });
   link = bridge({
     result: showResult,
@@ -83,6 +109,7 @@ export const RENDER_FUNCTIONS = [
   client.bridge,
   client.safeUrl,
   client.safeImage,
+  client.clampInset,
   client.tweetFrom,
   client.linksIn,
   client.el,
