@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { authApi } from '../utils/api'
 
-export default function LoginPage() {
+export default function LoginPage({ suspended = false }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -50,6 +50,11 @@ export default function LoginPage() {
         </div>
 
         <div className="login-action">
+          {suspended && (
+            <div className="login-error" role="alert">
+              This account is suspended.
+            </div>
+          )}
           <button
             className="github-login-btn"
             onClick={handleGitHubLogin}

@@ -14,6 +14,8 @@ import { clearCachedDrafts } from './utils/draftCache'
 
 function App() {
   const [user, setUser] = useState(null)
+  // A suspended account: the server says so (me), or the sign-in callback sent the browser to /?suspended=1.
+  const [suspended, setSuspended] = useState(() => new URLSearchParams(window.location.search).get('suspended') === '1')
   useEffect(() => {
     applyTheme(getTheme())
   }, [])
@@ -24,6 +26,7 @@ function App() {
       .me()
       .then((res) => {
         setUser(res.user ?? null)
+        if (res.suspended === true) setSuspended(true)
         // Nobody is signed in (a session that ended elsewhere, such as the consent page's sign-out): no
         // draft text may stay cached in this browser. Only an explicit answer clears it, never an offline error.
         if (!res.user) clearCachedDrafts()
@@ -53,7 +56,7 @@ function App() {
               user ? (
                 <DraftList user={user} />
               ) : (
-                <LoginPage />
+                <LoginPage suspended={suspended} />
               )
             }
           />
@@ -63,15 +66,15 @@ function App() {
           />
           <Route
             path="/settings/tokens"
-            element={user ? <TokensPage /> : <LoginPage />}
+            element={user ? <TokensPage /> : <LoginPage suspended={suspended} />}
           />
           <Route
             path="/about"
-            element={user ? <AboutPage /> : <LoginPage />}
+            element={user ? <AboutPage /> : <LoginPage suspended={suspended} />}
           />
           <Route
             path="/changelog"
-            element={user ? <ChangelogPage /> : <LoginPage />}
+            element={user ? <ChangelogPage /> : <LoginPage suspended={suspended} />}
           />
           <Route
             path="/x-thread-preview/:token"

@@ -369,7 +369,8 @@ describe('token lookup and last_used_at (plan P5)', () => {
       gh: '1',
       login: 'alice',
       tokenId: id,
-      via: 'token'
+      via: 'token',
+      suspended: false
     })
   })
 

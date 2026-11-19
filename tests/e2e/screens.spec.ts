@@ -6,7 +6,7 @@
 // Use the built app, not `npm run dev`: in development React StrictMode runs the preview effect
 // twice, and the second request hits the one-use share link and gets 410.
 // Writes test-results/screens/<width>/<name>.png for 390 px and 1280 px wide:
-// login, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens, changelog,
+// login, login-suspended, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens, changelog,
 // consent-signed-out and consent (the OAuth approval pages, plan T3).
 // Under 800 px wide, each shot also writes <name>-viewport.png: what is on the screen, with the fixed bar.
 //
@@ -126,6 +126,7 @@ test.describe('screens', () => {
       const editorId = created[0].draft.id
 
       await shoot(browser, width, 'login', '/')
+      await shoot(browser, width, 'login-suspended', '/?suspended=1', { ready: (p) => p.getByRole('alert').getByText('This account is suspended.') })
       await shoot(browser, width, 'drafts-three', '/', { token: owner, ready: (p) => p.getByText('Launch thread') })
       await shoot(browser, width, 'editor', `/draft/${editorId}`, { token: owner, ready: (p) => p.locator('.draft-title-input') })
       await shoot(browser, width, 'editor-export-menu', `/draft/${editorId}`, {

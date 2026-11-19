@@ -7,8 +7,9 @@ import { setupTestDb } from './helpers/db.js'
 
 describe('consent decision token size', () => {
   // readSession now checks revoked_sessions, so a valid session cookie needs the test database.
+  let db
   beforeAll(async () => {
-    await setupTestDb()
+    db = await setupTestDb()
   })
 
   it('opens a token built from four maximum-length accepted fields', async () => {
@@ -31,8 +32,10 @@ describe('consent decision token size', () => {
   })
 
   it('still accepts a normal browser session cookie', async () => {
-    const token = await createSession({ id: 7, github_id: 7, login: 'someone' })
+    // The user must exist: a session of a deleted user is no session (plan A6).
+    const { rows } = await db.pg.query("insert into users (github_id, login) values (7, 'someone') returning id")
+    const token = await createSession({ id: rows[0].id, github_id: 7, login: 'someone' })
     const request = new Request('https://app.test/', { headers: { cookie: `xt_session=${token}` } })
-    expect((await readSession(request))?.uid).toBe(7)
+    expect((await readSession(request))?.uid).toBe(rows[0].id)
   })
 })

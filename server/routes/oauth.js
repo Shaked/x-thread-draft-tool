@@ -6,6 +6,7 @@ import { query, transaction } from '../db.js'
 import { HttpError, json, readJson } from '../http.js'
 import { clearSessionCookie, readSession, revokeSession } from '../session.js'
 import { hashToken } from '../tokens.js'
+import { SUSPENDED_MESSAGE } from '../suspension.js'
 import { OAuthError, SCOPE, cleanupExpired, insertPair, rotate } from '../oauth/tokens.js'
 import { getClient, isValidRedirectUriList, redirectUriAllowed, registerClient } from '../oauth/clients.js'
 import {
@@ -454,8 +455,8 @@ async function exchangeCode(form) {
   const hash = hashToken(code)
   const { rows } = await query(
     `select c.used_at, c.expires_at > now() as fresh, c.redirect_uri, c.code_challenge, c.grant_id,
-            g.client_id, g.resource, g.revoked_at
-       from oauth_codes c join oauth_grants g on g.id = c.grant_id
+            g.client_id, g.resource, g.revoked_at, u.suspended_at
+       from oauth_codes c join oauth_grants g on g.id = c.grant_id join users u on u.id = g.user_id
       where c.code_hash = $1`,
     [hash]
   )
@@ -473,6 +474,8 @@ async function exchangeCode(form) {
   }
   if (!row.fresh || row.revoked_at) throw invalidCode()
   if (!bindingsMatch) throw invalidCode()
+  // A suspended user gets no pair. The code is not spent and the grant is not revoked.
+  if (row.suspended_at !== null) throw new OAuthError('invalid_grant', SUSPENDED_MESSAGE)
   if (resource !== null && resource !== row.resource) {
     throw new OAuthError('invalid_target', 'The resource does not match the one the code was issued for', 400)
   }
