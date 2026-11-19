@@ -232,7 +232,11 @@ describe('SDK client against the in-process server', () => {
     expect(caps?.extensions?.['io.modelcontextprotocol/skills']).toEqual({})
     expect(caps?.resources).toBeTruthy()
     const { resources } = await client.listResources()
-    expect(resources.map((r) => r.uri)).toEqual(['skill://x-thread-drafts/SKILL.md'])
+    // The skill, then the thread view added in #170 (T1).
+    expect(resources.map((r) => r.uri)).toEqual([
+      'skill://x-thread-drafts/SKILL.md',
+      expect.stringMatching(/^ui:\/\/x-thread\/thread\.html\?v=[0-9a-f]{12}$/)
+    ])
     const read = await client.readResource({ uri: 'skill://x-thread-drafts/SKILL.md' })
     expect(read.contents[0].mimeType).toBe('text/markdown')
     expect(read.contents[0].text).toMatch(/^---\nname: x-thread-drafts\n/)
