@@ -85,9 +85,9 @@ jobs:
           title="$(git log -1 --format=%s "$DEPLOY_SHA" 2>/dev/null)"
           NOTIFY_SHA="$DEPLOY_SHA" NOTIFY_TITLE="${title:-(title not found)}" node scripts/notify-telegram.mjs
 
-      # Only a real failure sends this. A cancelled run (a newer deployment replaced it) sends nothing.
+      # A failed or skipped smoke step sends this (skipped: checkout or npm ci failed before it ran). A cancelled run sends nothing.
       - name: "Telegram: production smoke failed"
-        if: always() && github.event_name == 'deployment_status' && github.event.deployment.environment == 'Production' && steps.smoke.outcome == 'failure'
+        if: always() && github.event_name == 'deployment_status' && github.event.deployment.environment == 'Production' && (steps.smoke.outcome == 'failure' || steps.smoke.outcome == 'skipped')
         continue-on-error: true
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
