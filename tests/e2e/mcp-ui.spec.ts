@@ -48,3 +48,63 @@ test('the thread view handshakes, shows the text, reports a size, and the page m
   // Only the page itself and the frame's document were loaded; no request left the page.
   expect(requests.filter((u) => !u.startsWith('about:') && !u.startsWith('data:'))).toEqual([])
 })
+
+// Plan Task 4 first commit (#177): the same checks with the OFFICIAL AppBridge from @modelcontextprotocol/ext-apps
+// (bundled by tests/e2e/global-setup.ts), not the hand-written host. The view must work with the host the MCP Apps
+// spec describes, and the handshake, the text, the size and the absence of requests must hold with both hosts.
+test('the official AppBridge shows the view: handshake, text, size, and the page makes no request', async ({ page }) => {
+  const requests: string[] = []
+  page.on('request', (req) => requests.push(req.url()))
+
+  await page.setContent('<!doctype html><meta charset="utf-8"><title>official host</title><body></body>')
+  await page.addScriptTag({ content: readFileSync(join(process.cwd(), 'tests/e2e/.generated/app-bridge.js'), 'utf8') })
+  const [view] = readUiResource(uiResourceUri('thread')) as Array<{ text: string }>
+  const srcdoc = view.text.replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="${HOST_CSP}">`)
+  await page.evaluate(
+    ({ srcdoc, fixture }) => {
+      const w = window as any
+      w.__bridgeLog = []
+      w.__size = null
+      w.__bridgeError = null
+      const frame = document.createElement('iframe')
+      frame.id = 'view'
+      frame.setAttribute('sandbox', 'allow-scripts')
+      frame.style.cssText = 'width:390px;height:120px;border:0'
+      document.body.appendChild(frame)
+      const bridge = new w.ExtAppsHost.AppBridge(null, { name: 'official', version: '1' }, {}, {
+        hostContext: { theme: 'light', locale: 'en-US' }
+      })
+      bridge.oninitialized = () => {
+        w.__bridgeLog.push('initialized')
+        // The official host sends the input once before the result (its spec order).
+        Promise.resolve()
+          .then(() => bridge.sendToolInput({ arguments: {} }))
+          .then(() => bridge.sendToolResult(fixture))
+          .catch((err: unknown) => {
+            w.__bridgeError = String(err)
+          })
+      }
+      bridge.onsizechange = (size: unknown) => {
+        w.__size = size
+      }
+      frame.setAttribute('srcdoc', srcdoc)
+      bridge
+        .connect(new w.ExtAppsHost.PostMessageTransport(frame.contentWindow, frame.contentWindow))
+        .catch((err: unknown) => {
+          w.__bridgeError = String(err)
+        })
+    },
+    { srcdoc, fixture: FIXTURE }
+  )
+
+  const frame = page.frameLocator('#view')
+  await expect(frame.getByText('First post שלום')).toBeVisible()
+  await expect(frame.getByText('Second post <img src=x onerror=alert(1)>')).toBeVisible()
+  await expect(frame.locator('img')).toHaveCount(0)
+
+  expect(await page.evaluate(() => (window as any).__bridgeError)).toBeNull()
+  expect(await page.evaluate(() => (window as any).__bridgeLog)).toEqual(['initialized'])
+  await expect.poll(() => page.evaluate(() => (window as any).__size?.height ?? 0)).toBeGreaterThan(0)
+
+  expect(requests.filter((u) => !u.startsWith('about:') && !u.startsWith('data:'))).toEqual([])
+})

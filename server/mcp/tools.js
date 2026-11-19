@@ -7,6 +7,8 @@ import { outline } from '../draft-stats.js'
 import { xLength } from '../../src/utils/xLength.js'
 import { runAs } from '../caller-context.js'
 import { randomUUID } from 'node:crypto'
+import { uiResourceUri } from './ui/index.js'
+import { blobOrigin } from './ui/origin.js'
 
 const UUID = { type: 'string', format: 'uuid' }
 const TITLE = { type: 'string', maxLength: 500, description: 'Draft title, at most 500 characters.' }
@@ -355,6 +357,24 @@ const TOOLS = [
   }
 ]
 
+// The thread view (plan Task 4, D8): these tools show it. Each result gets the view's three x-thread/* keys in
+// _meta; `content` and `structuredContent` do not change. The outline is what the view counts from.
+// The create tools also carry the full posts in _meta (x-thread/posts): their structuredContent has the outline only.
+const VIEW_OUTLINE = {
+  get_draft: (body) => outline(body.draft),
+  create_draft: (body) => body.draft,
+  create_thread_from_text: (body) => body.draft,
+  split_text: (body) => outline({ posts: body.posts })
+}
+const VIEW_POSTS = new Set(['create_draft', 'create_thread_from_text'])
+// Where outlineResult keeps the saved posts on its Response (a symbol, so it never reaches the JSON body).
+const VIEW_POSTS_OF = Symbol('view posts')
+for (const tool of TOOLS) {
+  if (VIEW_OUTLINE[tool.name]) {
+    tool.resultMeta = (body, ctx, res) => threadMeta(ctx, VIEW_OUTLINE[tool.name](body), VIEW_POSTS.has(tool.name) ? res[VIEW_POSTS_OF] : undefined)
+  }
+}
+
 const TOOL_BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]))
 
 export function hasTool(name) {
@@ -457,12 +477,15 @@ const publicSchema = (schema) => JSON.parse(JSON.stringify(schema, (key, value) 
 export function listTools() {
   return TOOLS.map(({ name, description, inputSchema }) => {
     const [title, readOnlyHint, destructiveHint, idempotentHint, openWorldHint] = META[name]
+    const uri = VIEW_OUTLINE[name] ? uiResourceUri('thread') : null
     return {
       name,
       title,
       description: describe(name, description),
       inputSchema: publicSchema(inputSchema),
-      annotations: { readOnlyHint, destructiveHint, idempotentHint, openWorldHint }
+      annotations: { readOnlyHint, destructiveHint, idempotentHint, openWorldHint },
+      // The three keys the hosts read for the view: the MCP Apps key, its flat form, and the OpenAI key.
+      ...(uri ? { _meta: { ui: { resourceUri: uri }, 'ui/resourceUri': uri, 'openai/outputTemplate': uri } } : {})
     }
   })
 }
@@ -477,7 +500,10 @@ export async function callTool(name, args, { caller, origin }) {
   if (problem) return toolError(problem)
   const ctx = { caller, origin, rest: restAs(origin, caller) }
   try {
-    return await toToolResult(await tool.run(args, ctx))
+    const res = await tool.run(args, ctx)
+    const result = await toToolResult(res)
+    if (tool.resultMeta && res.status < 400 && result.structuredContent) result._meta = tool.resultMeta(result.structuredContent, ctx, res)
+    return result
   } catch (err) {
     console.error('[mcp] tool failed', name, err)
     return toolError('The tool failed. Try again.')
@@ -513,6 +539,17 @@ async function toToolResult(res) {
     result.structuredContent = JSON.parse(text)
   }
   return result
+}
+
+/** The view's keys in a result's _meta: the outline (counts), the editor base and the one image host (when known). */
+function threadMeta(ctx, outlineValue, posts) {
+  const imageOrigin = blobOrigin()
+  return {
+    'x-thread/outline': outlineValue,
+    'x-thread/editorBase': `${ctx.origin}/draft/`,
+    ...(imageOrigin ? { 'x-thread/imageOrigin': imageOrigin } : {}),
+    ...(posts ? { 'x-thread/posts': posts } : {})
+  }
 }
 
 function toolError(text) {
@@ -577,7 +614,9 @@ const editorUrl = (origin, id) => `${origin}/draft/${id}`
 async function outlineResult(res, origin, extra = {}) {
   if (res.status >= 400) return res
   const { draft } = await res.json()
-  return json({ draft: outline(draft), url: editorUrl(origin, draft.id), ...extra }, res.status)
+  const response = json({ draft: outline(draft), url: editorUrl(origin, draft.id), ...extra }, res.status)
+  response[VIEW_POSTS_OF] = draft.posts
+  return response
 }
 
 /** An image entry is a string (older drafts) or an object with a url. Both are supported. */

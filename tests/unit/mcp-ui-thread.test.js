@@ -38,6 +38,32 @@ describe('threadFrom', () => {
     expect(threadFrom({ structuredContent: { posts: [{ text: 'a' }] } })).toMatchObject({ saved: false, counts: null })
   })
 
+  it('uses the full posts from _meta for a create result, when they match the outline in count', () => {
+    const outline = { posts: [{ chars: 5 }, { chars: 6 }] }
+    const full = [{ text: 'Hello', images: [] }, { text: 'Second!', images: [] }]
+    const thread = threadFrom({
+      structuredContent: { draft: { title: 'T', posts: [{ index: 1 }, { index: 2 }] } },
+      _meta: { 'x-thread/outline': outline, 'x-thread/posts': full }
+    })
+    expect(thread.posts).toEqual(full)
+    expect(thread.saved).toBe(true)
+  })
+
+  it('takes the editor link from the top level of a create result when the draft has none', () => {
+    const thread = threadFrom({
+      structuredContent: { draft: { title: 'T', posts: [{ index: 1 }] }, url: 'https://app.example/draft/9' }
+    })
+    expect(thread.url).toBe('https://app.example/draft/9')
+  })
+
+  it('ignores _meta posts whose count differs from the structured posts', () => {
+    const thread = threadFrom({
+      structuredContent: { draft: { title: 'T', posts: [{ index: 1 }, { index: 2 }] } },
+      _meta: { 'x-thread/posts': [{ text: 'only one' }] }
+    })
+    expect(thread.posts).toEqual([{ index: 1 }, { index: 2 }])
+  })
+
   it('returns null for anything without posts', () => {
     expect(threadFrom({ structuredContent: { draft: { title: 'x' } } })).toBeNull()
     expect(threadFrom({})).toBeNull()

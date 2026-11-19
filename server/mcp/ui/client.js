@@ -290,7 +290,8 @@ export function renderError(root, message) {
 /**
  * The thread in a tool result: { draft } from get_draft (saved), or a bare { posts } (not saved, from split_text).
  * The counts come from _meta["x-thread/outline"], the editor base from _meta["x-thread/editorBase"] and the image host
- * from _meta["x-thread/imageOrigin"]; any of them may be missing. Null for anything else.
+ * from _meta["x-thread/imageOrigin"]; any of them may be missing. The full posts of a create result come from
+ * _meta["x-thread/posts"]. Null for anything else.
  */
 export function threadFrom(result) {
   const structured = (result && result.structuredContent) || {}
@@ -299,12 +300,15 @@ export function threadFrom(result) {
   const source = structured.draft || structured
   if (!Array.isArray(source.posts)) return null
   const outline = meta['x-thread/outline']
+  // The create tools send the outline in structuredContent; the full posts (text, images) come in _meta when they match.
+  const full = Array.isArray(meta['x-thread/posts']) && meta['x-thread/posts'].length === source.posts.length ? meta['x-thread/posts'] : null
   return {
     title: source.title,
-    posts: source.posts,
+    posts: full || source.posts,
     saved,
     is_published: source.is_published === true,
-    url: typeof source.url === 'string' ? source.url : null,
+    // get_draft puts the editor link in the draft; the create tools put it at the top level of structuredContent.
+    url: typeof source.url === 'string' ? source.url : typeof structured.url === 'string' ? structured.url : null,
     counts: outline && Array.isArray(outline.posts) ? outline.posts : null,
     editorBase: typeof meta['x-thread/editorBase'] === 'string' ? meta['x-thread/editorBase'] : null,
     imageOrigin: typeof meta['x-thread/imageOrigin'] === 'string' ? meta['x-thread/imageOrigin'] : null

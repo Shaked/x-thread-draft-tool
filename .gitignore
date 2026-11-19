@@ -43,3 +43,6 @@ url-map.json
 
 # Written by scripts/build-info.mjs at build time
 server/generated/
+
+# Test-only bundle of the official AppBridge (tests/e2e/global-setup.ts)
+tests/e2e/.generated/
