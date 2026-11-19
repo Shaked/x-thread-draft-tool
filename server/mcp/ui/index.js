@@ -4,16 +4,19 @@
 import { createHash } from 'node:crypto'
 import { THREAD_VIEW } from './thread.js'
 import { DRAFTS_VIEW } from './drafts.js'
+import { SHARE_VIEW } from './share.js'
 import { blobOrigin } from './origin.js'
 
 const MIME_TYPE = 'text/html;profile=mcp-app'
-const VIEWS = [THREAD_VIEW, DRAFTS_VIEW]
+const VIEWS = [THREAD_VIEW, DRAFTS_VIEW, SHARE_VIEW]
 // Resolved once at load: the one image host the CSP allows, or no host when the store id is unknown.
 const BLOB_ORIGIN = blobOrigin()
 const UI = {
   csp: { connectDomains: [], resourceDomains: BLOB_ORIGIN ? [BLOB_ORIGIN] : [] },
   prefersBorder: true
 }
+// A view that needs a browser permission declares it in its own _meta.ui (plan D3); the host decides whether to grant it.
+const uiOf = (view) => (view.permissions ? { ...UI, permissions: view.permissions } : UI)
 
 const ENTRIES = VIEWS.map((view) => {
   const hash = createHash('sha256').update(view.html, 'utf8').digest('hex').slice(0, 12)
@@ -24,20 +27,21 @@ const ENTRIES = VIEWS.map((view) => {
     description: view.description,
     mimeType: MIME_TYPE,
     size: Buffer.byteLength(view.html, 'utf8'),
-    html: view.html
+    html: view.html,
+    ui: uiOf(view)
   }
 })
 
 /** resources/list entries for the views (no HTML in the list). */
 export function listUiResources() {
-  return ENTRIES.map(({ html: _html, ...entry }) => ({ ...entry, _meta: { ui: structuredClone(UI) } }))
+  return ENTRIES.map(({ html: _html, ui, ...entry }) => ({ ...entry, _meta: { ui: structuredClone(ui) } }))
 }
 
 /** resources/read contents for an exact view uri, or null when it is not a view (a wrong ?v= is not found). */
 export function readUiResource(uri) {
   const entry = ENTRIES.find((e) => e.uri === uri)
   if (!entry) return null
-  return [{ uri: entry.uri, mimeType: MIME_TYPE, text: entry.html, _meta: { ui: structuredClone(UI) } }]
+  return [{ uri: entry.uri, mimeType: MIME_TYPE, text: entry.html, _meta: { ui: structuredClone(entry.ui) } }]
 }
 
 /** The public manifest (GET /api/mcp/ui-manifest): each view's uri, type, size and sha256 of its HTML. No HTML. */

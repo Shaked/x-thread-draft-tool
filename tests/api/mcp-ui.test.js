@@ -26,7 +26,7 @@ const SKILL_URI = 'skill://x-thread-drafts/SKILL.md'
 const appAjv = new Ajv2020({ strict: false, allErrors: true })
 appAjv.addSchema(officialApp)
 const validResourceMeta = appAjv.getSchema('https://modelcontextprotocol.io/ext-apps/schema.json#/$defs/McpUiResourceMeta')
-const VIEW_URI = /^ui:\/\/x-thread\/(thread|drafts)\.html\?v=[0-9a-f]{12}$/
+const VIEW_URI = /^ui:\/\/x-thread\/(thread|drafts|share)\.html\?v=[0-9a-f]{12}$/
 
 let db
 let aliceToken
@@ -178,6 +178,17 @@ function expectedImageHosts() {
 }
 
 describe('the view metadata against the official app schema', () => {
+  it('the share card declares clipboard write in its _meta.ui, and both copies are valid McpUiResourceMeta', () => {
+    const uri = uiResourceUri('share')
+    const [entry] = listUiResources().filter((e) => e.uri === uri)
+    const [content] = readUiResource(uri)
+    expect(entry._meta.ui.permissions).toEqual({ clipboardWrite: {} })
+    expect(content._meta.ui.permissions).toEqual({ clipboardWrite: {} })
+    for (const meta of [entry._meta.ui, content._meta.ui]) {
+      expect(validResourceMeta(meta), JSON.stringify(validResourceMeta.errors)).toBe(true)
+    }
+  })
+
   it('_meta.ui of the list entry and of the read content is a valid McpUiResourceMeta', () => {
     const [entry] = listUiResources()
     const [content] = readUiResource(entry.uri)
@@ -223,9 +234,16 @@ describe('GET /api/mcp/ui-manifest (plan T2): hashes only, public, no-store', ()
   })
 })
 
-describe('the tools that show the thread view (plan Task 4, #177) and the drafts list (plan Task 5, #182)', () => {
-  // Each view tool, with the view it shows: the thread view, or the drafts list (list_drafts).
-  const VIEW_OF = { get_draft: 'thread', create_draft: 'thread', split_text: 'thread', create_thread_from_text: 'thread', list_drafts: 'drafts' }
+describe('the tools that show the thread view (plan Task 4, #177), the drafts list (Task 5, #182) and the share card (Task 6, #187)', () => {
+  // Each view tool, with the view it shows: the thread view, the drafts list (list_drafts) or the share card.
+  const VIEW_OF = {
+    get_draft: 'thread',
+    create_draft: 'thread',
+    split_text: 'thread',
+    create_thread_from_text: 'thread',
+    list_drafts: 'drafts',
+    create_share_link: 'share'
+  }
   const call = async (name, args) => (await rpc(MODERN, 'tools/call', { name, arguments: args })).body.result
 
   it('tools/list gives each view tool its view uri in all three keys, and no other tool a view', async () => {
@@ -269,6 +287,15 @@ describe('the tools that show the thread view (plan Task 4, #177) and the drafts
     const thread = await call('create_thread_from_text', { text: 'One. Two.' })
     expect(thread.isError).not.toBe(true)
     expect(thread._meta['x-thread/outline']).toEqual(thread.structuredContent.draft)
+  })
+
+  it('create_share_link: the share card is linked, and the result has no _meta (the two URLs are in structuredContent)', async () => {
+    const created = await call('create_draft', { title: 'Share', posts: [{ text: 'Hello' }] })
+    const link = await call('create_share_link', { id: created.structuredContent.draft.id })
+    expect(link.isError).not.toBe(true)
+    expect(link._meta).toBeUndefined()
+    expect(link.structuredContent.preview_url).toContain(link.structuredContent.token)
+    expect(link.structuredContent.markdown_url).toContain(link.structuredContent.token)
   })
 
   it('create tools: _meta has the full posts (text and images) in the same order; structuredContent has the outline only', async () => {
