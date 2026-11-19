@@ -620,7 +620,7 @@ async function editPosts(ctx, id, change) {
   const owned = await fetchOwnedDraft(ctx, id)
   if (owned.failure) return owned.failure
   if (owned.draft.is_published) return json({ error: 'This draft is published. Duplicate it to edit.' }, 409)
-  const edited = change(owned.draft.posts)
+  const edited = change(withMissingPostIds(owned.draft.posts))
   if (typeof edited === 'string') return json({ error: edited }, 422)
   if (edited.conflict) return json({ error: edited.conflict }, 409)
   const patched = await ctx.rest('PATCH', `/drafts/${enc(id)}`, { posts: edited.posts }, { 'if-match': `"${owned.draft.version}"` })
@@ -654,5 +654,14 @@ function withPostIds(args) {
     })
   }
 }
+
+// A draft saved before ids were required can hold an object post with no id. An edit gives it one
+// first, so the edit can name it. Anything that is not an object is left as it is (REST refuses it).
+const withMissingPostIds = (posts) =>
+  posts.map((post) =>
+    post !== null && typeof post === 'object' && !Array.isArray(post) && typeof post.id !== 'string'
+      ? { ...post, id: randomUUID() }
+      : post
+  )
 
 const enc = (value) => encodeURIComponent(String(value))

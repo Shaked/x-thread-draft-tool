@@ -11,6 +11,13 @@ import ExportOptions from '../components/ExportOptions'
 import AppBar from '../components/AppBar'
 import AppMenu from '../components/AppMenu'
 
+// A post saved before ids were required has none. An object without a string id gets a new one, so
+// the next save is accepted. Anything else is returned as it is, so the server still refuses it.
+const withPostId = post =>
+  post !== null && typeof post === 'object' && !Array.isArray(post) && typeof post.id !== 'string'
+    ? { ...post, id: crypto.randomUUID() }
+    : post
+
 export default function DraftEditor({ user }) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -38,7 +45,7 @@ export default function DraftEditor({ user }) {
       const normalizedData = {
         ...data,
         posts: data.posts?.map(post => ({
-          ...post,
+          ...withPostId(post),
           images: normalizeImages(post.images || [])
         })) || []
       }
