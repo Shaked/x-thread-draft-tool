@@ -15,12 +15,20 @@ import {
   errorHeaders,
   errorPage,
   openDecision,
+  pairingPage,
   sealDecision,
   signInHeaders,
   signInPage
 } from '../oauth/consent.js'
+import { isAdminGithubId, isAdminRedirectUri } from '../admin/identity.js'
+import { recordAdminAction } from '../admin/audit.js'
+import { PAIRING_MINUTES, formatPairingCode, newPairingCode, pairingHash } from '../admin/pairing.js'
 
 const CODE_TTL = "interval '60 seconds'"
+// An elevated approval gets longer: the person needs time to read the pairing code and press Continue.
+const ADMIN_CODE_TTL = "interval '5 minutes'"
+// Admin may be offered only to a sign-in no older than this (the owner signs in again if it is).
+const ADMIN_FRESH_SESSION_SECONDS = 600
 const FORM_MAX_BYTES = 16 * 1024
 const PKCE_CHALLENGE = /^[A-Za-z0-9._~-]{43,128}$/
 const PKCE_VERIFIER = /^[A-Za-z0-9._~-]{43,128}$/
@@ -42,14 +50,18 @@ function oauthJson(data, status, headers = {}) {
   return json(data, status, { ...NOSNIFF, ...headers })
 }
 
-/** Adds `code` or `error` (plus state and the issuer, RFC 9207) to the client's redirect URI. */
-function redirectTo(redirectUri, fields, base) {
+/** The client's redirect URI with `code` or `error` (plus state and the issuer, RFC 9207) added. */
+function redirectUrl(redirectUri, fields, base) {
   const target = new URL(redirectUri)
   for (const [key, value] of Object.entries(fields)) {
     if (value !== null && value !== undefined) target.searchParams.set(key, value)
   }
   target.searchParams.set('iss', base)
-  return redirect(target.toString())
+  return target.toString()
+}
+
+function redirectTo(redirectUri, fields, base) {
+  return redirect(redirectUrl(redirectUri, fields, base))
 }
 
 function htmlError(status, title, message) {
@@ -173,6 +185,37 @@ function parseAuthorize(params, base) {
   }
 }
 
+/** The owner's GitHub id, read from the users table by the session's user id (never from the cookie). Null when no such user. */
+async function githubIdOf(uid) {
+  const { rows } = await query('select github_id from users where id = $1', [uid])
+  return rows[0] ? String(rows[0].github_id) : null
+}
+
+/** True when the session was issued (signed in) within the fresh window. A missing or odd `iat` is not fresh. */
+function isFreshSession(session) {
+  const age = Math.floor(Date.now() / 1000) - Number(session.iat)
+  return Number.isFinite(age) && age >= 0 && age <= ADMIN_FRESH_SESSION_SECONDS
+}
+
+/**
+ * True only when an approval may add admin tools: the MCP resource, a real Claude or ChatGPT return
+ * address, a fresh sign-in, and the admin GitHub id. Used for the consent box and again on the POST.
+ */
+function canElevate({ session, githubId, resource, redirectUri, base }) {
+  return (
+    resource === mcpResource(base) &&
+    isAdminRedirectUri(redirectUri) &&
+    isFreshSession(session) &&
+    isAdminGithubId(githubId)
+  )
+}
+
+/** What the consent page shows the owner: 'box' (tick to elevate), 'stale' (sign in again), or null (nothing; everyone else). */
+function adminNoteState({ session, githubId, resource, redirectUri, base }) {
+  if (!isAdminGithubId(githubId) || !isAdminRedirectUri(redirectUri) || resource !== mcpResource(base)) return null
+  return canElevate({ session, githubId, resource, redirectUri, base }) ? 'box' : 'stale'
+}
+
 /** This consent address, rebuilt only from validated values, for copying into another browser. */
 function authorizeLink(base, clientId, redirectUri, value, params) {
   const fields = [
@@ -230,6 +273,13 @@ async function authorizeGet({ request, url }) {
     resource: value.resource
   })
   const redirectOrigin = new URL(redirectUri).origin
+  const adminState = adminNoteState({
+    session,
+    githubId: await githubIdOf(session.uid),
+    resource: value.resource,
+    redirectUri,
+    base
+  })
   return new Response(
     consentPage({
       clientName: client.client_name,
@@ -237,7 +287,8 @@ async function authorizeGet({ request, url }) {
       redirectHost: new URL(redirectUri).host,
       requestToken,
       login: session.login,
-      link
+      link,
+      adminState
     }),
     { status: 200, headers: consentHeaders(redirectOrigin) }
   )
@@ -289,6 +340,16 @@ async function authorizePost({ request }) {
     return redirectTo(decision.redirect_uri, { error: 'access_denied', state: decision.state }, base)
   }
 
+  // The admin box is honoured only when the same checks pass again now, on the signed decision's values.
+  // A posted `admin=1` that fails them is ignored: a normal grant, the normal redirect.
+  const githubId = await githubIdOf(session.uid)
+  const wantsAdmin = form.get('admin') === '1'
+  const checks = { session, githubId, resource: decision.resource, redirectUri: decision.redirect_uri, base }
+  const elevate = wantsAdmin && canElevate(checks)
+  const refused = wantsAdmin && !elevate && isAdminGithubId(githubId)
+  const pairing = elevate ? newPairingCode() : null
+  const actor = { uid: session.uid, gh: githubId, login: session.login }
+
   const code = randomBytes(32).toString('base64url')
   await transaction(async (q) => {
     // One grant per user, client and resource. The row is locked so a concurrent approval waits.
@@ -298,23 +359,65 @@ async function authorizePost({ request }) {
       [session.uid, decision.client_id, decision.scope, decision.resource]
     )
     const { rows } = await q(
-      `select id, revoked_at from oauth_grants
+      `select id, revoked_at, admin_until, admin_pending_hash from oauth_grants
         where user_id = $1 and client_id = $2 and resource = $3 for update`,
       [session.uid, decision.client_id, decision.resource]
     )
     const grant = rows[0]
-    if (grant.revoked_at) {
-      // Reactivating a revoked grant: every code and token issued before revocation must stay dead.
+    const wasElevated = grant.admin_until !== null || grant.admin_pending_hash !== null
+    if (grant.revoked_at || elevate || wasElevated) {
+      // Reactivating a revoked grant, or changing admin: every code and token issued before must stay dead.
       await q('delete from oauth_tokens where grant_id = $1', [grant.id])
       await q('delete from oauth_codes where grant_id = $1', [grant.id])
     }
-    await q('update oauth_grants set revoked_at = null, scope = $2 where id = $1', [grant.id, decision.scope])
+    // A new approval never makes an admin by itself: it ends any earlier elevation.
+    await q(
+      `update oauth_grants
+          set revoked_at = null, scope = $2, admin_until = null,
+              admin_pending_hash = $3,
+              admin_pending_until = case when $3::text is null then null else now() + interval '${PAIRING_MINUTES} minutes' end,
+              admin_pending_tries = 0
+        where id = $1`,
+      [grant.id, decision.scope, pairing ? pairingHash(grant.id, pairing) : null]
+    )
     await q(
       `insert into oauth_codes (code_hash, grant_id, redirect_uri, code_challenge, expires_at)
-       values ($1, $2, $3, $4, now() + ${CODE_TTL})`,
+       values ($1, $2, $3, $4, now() + ${elevate ? ADMIN_CODE_TTL : CODE_TTL})`,
       [hashToken(code), grant.id, decision.redirect_uri, decision.code_challenge]
     )
+    if (elevate) {
+      const clientKind = decision.redirect_uri.startsWith('https://claude.ai/') ? 'claude' : 'chatgpt'
+      await recordAdminAction(q, {
+        actor,
+        action: 'elevate_requested',
+        outcome: 'done',
+        details: { client_kind: clientKind, redirect_host: new URL(decision.redirect_uri).host }
+      })
+    } else if (refused && githubId !== null) {
+      await recordAdminAction(q, {
+        actor,
+        action: 'elevate_requested',
+        outcome: 'refused',
+        details: { redirect_host: new URL(decision.redirect_uri).host }
+      })
+    }
   })
+
+  if (elevate) {
+    // The code is shown here once and never sent anywhere else. The button is the same address a 302 would use.
+    const continueUrl = redirectUrl(decision.redirect_uri, { code, state: decision.state }, base)
+    return new Response(
+      pairingPage({
+        code: formatPairingCode(pairing),
+        continueUrl,
+        redirectHost: new URL(decision.redirect_uri).host
+      }),
+      {
+        status: 200,
+        headers: { ...consentHeaders(new URL(decision.redirect_uri).origin), 'referrer-policy': 'no-referrer' }
+      }
+    )
+  }
   return redirectTo(decision.redirect_uri, { code, state: decision.state }, base)
 }
 
