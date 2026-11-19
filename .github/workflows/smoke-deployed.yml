@@ -79,24 +79,22 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NOTIFY_KIND: live
           DEPLOY_SHA: ${{ github.event.deployment.sha }}
-          PROD_URL: https://x-thread-draft-tool.vercel.app
         run: |
-          short="${DEPLOY_SHA:0:7}"
           title="$(git log -1 --format=%s "$DEPLOY_SHA" 2>/dev/null)"
-          title="${title:-(title not found)}"
-          NOTIFY_TEXT="Production is live and tested: ${short} ${title}. Smoke tests passed. ${PROD_URL}" node scripts/notify-telegram.mjs
+          NOTIFY_SHA="$DEPLOY_SHA" NOTIFY_TITLE="${title:-(title not found)}" node scripts/notify-telegram.mjs
 
+      # Only a real failure sends this. A cancelled run (a newer deployment replaced it) sends nothing.
       - name: "Telegram: production smoke failed"
-        if: always() && github.event_name == 'deployment_status' && github.event.deployment.environment == 'Production' && steps.smoke.outcome != 'success'
+        if: always() && github.event_name == 'deployment_status' && github.event.deployment.environment == 'Production' && steps.smoke.outcome == 'failure'
         continue-on-error: true
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NOTIFY_KIND: failed
           DEPLOY_SHA: ${{ github.event.deployment.sha }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          NOTIFY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          short="${DEPLOY_SHA:0:7}"
           title="$(git log -1 --format=%s "$DEPLOY_SHA" 2>/dev/null)"
-          title="${title:-(title not found)}"
-          NOTIFY_TEXT="PRODUCTION SMOKE FAILED: ${short} ${title}. Run: ${RUN_URL}" node scripts/notify-telegram.mjs
+          NOTIFY_SHA="$DEPLOY_SHA" NOTIFY_TITLE="${title:-(title not found)}" node scripts/notify-telegram.mjs

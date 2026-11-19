@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Telegram notice for the labels `try-preview` (on a PR) and `owner` (on an issue or PR).
-// Epic #241, task N2. Node 20, no dependencies. Run by .github/workflows/notify-labels.yml from
-// the default branch; the event values come in through environment variables:
+// Epic #241, task N2; template from N4 (#250). Node 20, no dependencies. Run by
+// .github/workflows/notify-labels.yml from the default branch; the event values come in through
+// environment variables:
 //
 //   LABEL_NAME, SENDER_LOGIN, OWNER_LOGIN, TARGET_IS_PR ('true'|'false'), TARGET_TITLE, TARGET_URL
 //
@@ -9,27 +10,19 @@
 // skip line and exits 0 (see notify-telegram.mjs). It never throws and never prints a secret.
 
 import { pathToFileURL } from 'node:url'
-import { notify } from './notify-telegram.mjs'
+import { buildMessage, notify } from './notify-telegram.mjs'
 
-export const PREVIEW_URL = 'https://x-thread-draft-tool-preview.vercel.app'
-// The title is cut first so the URL at the end of each message always survives the 400-character cut.
-export const MAX_TITLE = 200
-
-// Returns the text to send, or null when this event sends nothing.
-export function labelText({ label = '', sender = '', owner = '', isPr = false, title = '', url = '' }) {
+// Returns { kind, data } for the label event, or null when this event sends nothing.
+export function labelMessage({ label = '', sender = '', owner = '', isPr = false, title = '', url = '' }) {
   if (!owner || String(sender).toLowerCase() !== String(owner).toLowerCase()) return null
-  const shortTitle = Array.from(String(title)).slice(0, MAX_TITLE).join('') || '(no title)'
-  if (label === 'try-preview') {
-    if (!isPr) return null
-    return `Try it on preview: ${shortTitle}. Preview: ${PREVIEW_URL} . PR: ${url}`
-  }
-  if (label === 'owner') return `Needs you: ${shortTitle}. ${url}`
+  if (label === 'try-preview') return isPr ? { kind: 'preview', data: { title, url } } : null
+  if (label === 'owner') return { kind: 'owner', data: { title, url } }
   return null
 }
 
 // Builds the message from the environment and sends it. `fetchImpl` and `log` are parameters for tests.
 export async function run(env = {}, { fetchImpl = fetch, log = console.log } = {}) {
-  const text = labelText({
+  const picked = labelMessage({
     label: env.LABEL_NAME || '',
     sender: env.SENDER_LOGIN || '',
     owner: env.OWNER_LOGIN || '',
@@ -37,11 +30,12 @@ export async function run(env = {}, { fetchImpl = fetch, log = console.log } = {
     title: env.TARGET_TITLE || '',
     url: env.TARGET_URL || '',
   })
-  if (text === null) {
+  const message = picked && buildMessage(picked.kind, picked.data)
+  if (!message) {
     log('notify skipped: this label event sends nothing')
     return 'skipped'
   }
-  return notify({ token: env.TELEGRAM_BOT_TOKEN || '', chatId: env.TELEGRAM_CHAT_ID || '', text, fetchImpl, log })
+  return notify({ token: env.TELEGRAM_BOT_TOKEN || '', chatId: env.TELEGRAM_CHAT_ID || '', ...message, fetchImpl, log })
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
