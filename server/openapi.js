@@ -56,6 +56,7 @@ export const OPENAPI = {
       },
       Post: {
         type: 'object',
+        required: ['id'],
         properties: {
           id: { type: 'string' },
           text: { type: 'string', maxLength: 4000, description: 'At most 280 characters as X counts them (a URL counts 23, an emoji 2).' },

@@ -322,6 +322,25 @@ describe('tools/call', () => {
     expect(list.body.result.structuredContent.drafts.map((d) => d.id)).toEqual([draft.id])
   })
 
+  it('refuses a null post in create_draft and update_draft, and saves nothing', async () => {
+    const token = await accessToken(alice)
+    const created = await call(
+      modernPost('tools/call', { name: 'create_draft', arguments: { title: 'Null', posts: [null] } }, { token })
+    )
+    expect(created.body.result.isError).toBe(true)
+    const list = await call(modernPost('tools/call', { name: 'list_drafts', arguments: { published: false } }, { token }))
+    expect(list.body.result.structuredContent.drafts.filter((d) => d.title === 'Null')).toEqual([])
+
+    const own = await call(
+      modernPost('tools/call', { name: 'create_draft', arguments: { title: 'Own', posts: [{ id: 'p1', text: 'Hi', images: [], embeddedTweet: null }] } }, { token })
+    )
+    const id = own.body.result.structuredContent.draft.id
+    const patched = await call(modernPost('tools/call', { name: 'update_draft', arguments: { id, posts: [null] } }, { token }))
+    expect(patched.body.result.isError).toBe(true)
+    const read = await call(modernPost('tools/call', { name: 'get_draft', arguments: { id } }, { token }))
+    expect(read.body.result.structuredContent.draft.posts[0].text).toBe('Hi')
+  })
+
   it('gives posts sent without ids unique ids, so each post can be found by id', async () => {
     const token = await accessToken(alice)
     const created = await call(

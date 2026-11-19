@@ -93,6 +93,7 @@ Errors are JSON: `{ "error": "message" }`.
 ## Limits
 
 - Post text: the write endpoints reject text longer than 4000 characters, or over 280 as X counts them (use `POST /api/threads/split` for long text). Counts follow the X rules: a URL counts 23, an emoji counts 2, Hebrew and Latin letters count 1. `chars` in the answers uses the same count.
+- Posts: each post in `posts` must be an object with a string `id`. Any other post makes a create or update answer `400` and write nothing. Drafts saved before this rule still read as they are.
 - Images: 4 MB each, `image/*` only, up to 4 per post.
 - Request bodies: 1 MB for JSON (100 KB for `/api/threads/split`).
 - Draft lists: `limit` 1–200, default 100; there is no cursor yet.
