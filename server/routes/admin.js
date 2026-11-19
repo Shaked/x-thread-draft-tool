@@ -1,8 +1,10 @@
 import { timingSafeEqual } from 'node:crypto'
 import { adminRoute } from '../admin/guard.js'
 import { recordAdminAction } from '../admin/audit.js'
-import { auditRows, findUserRow, listUserPage, statsRow, userApiTokens, userConnectedApps, userView } from '../admin/queries.js'
-import { cleanLogin } from '../admin/clean.js'
+import { SUSPEND_SQL, UNSUSPEND_SQL, auditRows, findUserRow, listUserPage, statsRow, userApiTokens, userConnectedApps, userView } from '../admin/queries.js'
+import { cleanLogin, cleanName } from '../admin/clean.js'
+import { ADMIN_LIMITS, withinAdminLimit } from '../admin/limits.js'
+import { isProtectedGithubId, protectedGithubIds } from '../admin/identity.js'
 import { listBlobPrefix } from '../blob.js'
 import { ADMIN_ELEVATION_HOURS, PAIRING_TRIES, pairingHash } from '../admin/pairing.js'
 import { query, transaction } from '../db.js'
@@ -129,15 +131,34 @@ const listUsers = async ({ url }) => {
   return json({ users: page.map(userView), next_cursor })
 }
 
+/** One connected app as the admin sees it: the kind, the host of its return address and the resource, never the name. */
+const appView = (app) => ({
+  id: app.id,
+  kind: app.kind,
+  redirect_host: hostOf(app.redirect_uris?.[0]),
+  resource: app.resource,
+  created_at: app.created_at,
+  last_used_at: app.last_used_at,
+  revoked_at: app.revoked_at,
+  admin: app.admin === true
+})
+
+/** One user with counts, tokens and connected apps (no Blob numbers), or null. Used by the reads and by suspend. */
+async function userDetail(id) {
+  const row = await findUserRow(id)
+  if (!row) return null
+  const [tokens, apps] = await Promise.all([userApiTokens(row.id), userConnectedApps(row.id)])
+  return { row, user: { ...userView(row), api_tokens: tokens, connected_apps: apps.map(appView) } }
+}
+
 const getUser = async ({ params }) => {
   if (!UUID.test(params.id)) throw new HttpError(404, 'User not found')
-  const row = await findUserRow(params.id)
-  if (!row) throw new HttpError(404, 'User not found')
-  const [tokens, apps] = await Promise.all([userApiTokens(row.id), userConnectedApps(row.id)])
+  const found = await userDetail(params.id)
+  if (!found) throw new HttpError(404, 'User not found')
   // The image listing is a Blob call, not SQL. A failed listing leaves both counts null, not an error.
   let images = { image_files: null, image_bytes: null, image_files_truncated: null }
   try {
-    const listing = await listBlobPrefix(`drafts/${row.id}/`)
+    const listing = await listBlobPrefix(`drafts/${found.row.id}/`)
     images = {
       image_files: listing.files.length,
       image_bytes: listing.files.reduce((sum, file) => sum + Number(file.size ?? 0), 0),
@@ -146,23 +167,7 @@ const getUser = async ({ params }) => {
   } catch (err) {
     console.error('[admin] image listing failed', err)
   }
-  return json({
-    user: {
-      ...userView(row),
-      ...images,
-      api_tokens: tokens,
-      connected_apps: apps.map((app) => ({
-        id: app.id,
-        kind: app.kind,
-        redirect_host: hostOf(app.redirect_uris?.[0]),
-        resource: app.resource,
-        created_at: app.created_at,
-        last_used_at: app.last_used_at,
-        revoked_at: app.revoked_at,
-        admin: app.admin === true
-      }))
-    }
-  })
+  return json({ user: { ...found.user, ...images } })
 }
 
 /** The host of a return address, or null. Only the host leaves the server: never the path or query. */
@@ -172,6 +177,74 @@ function hostOf(uri) {
   } catch {
     return null
   }
+}
+
+/**
+ * Suspends or unsuspends one user (plan A8). One transaction: the admin's row is locked and the limit checked,
+ * the user row is locked, the checks run, the change and its audit row are written. The answers that refuse
+ * (404, 400, 403) are returned after the commit, so their audit row (`refused`) is kept.
+ */
+async function changeSuspension(admin, id, body, suspend) {
+  if (typeof body?.confirm_login !== 'string') throw bad('Type confirm_login: the login of this user, exactly.')
+  const reason = suspend ? suspendReason(body.reason) : null
+  const action = suspend ? 'suspend_user' : 'unsuspend_user'
+  const actor = { uid: admin.uid, gh: admin.gh, login: admin.login }
+  const outcome = await transaction(async (q) => {
+    await q('select id from users where id = $1 for update', [admin.uid])
+    if (!(await withinAdminLimit(q, admin.uid, ADMIN_LIMITS.suspend.actions, ADMIN_LIMITS.suspend.perHour))) {
+      throw new HttpError(429, `Admin limit reached: at most ${ADMIN_LIMITS.suspend.perHour} of these actions per hour.`)
+    }
+    const { rows } = await q('select id, github_id, login from users where id = $1 for update', [id])
+    const target = rows[0]
+    if (!target) return { kind: 'missing' }
+    if (target.login !== body.confirm_login) return { kind: 'mismatch' }
+    const targetAudit = { id: target.id, github_id: target.github_id, login: target.login }
+    if (isProtectedGithubId(target.github_id)) {
+      await recordAdminAction(q, { actor, action, outcome: 'refused', target: targetAudit })
+      return { kind: 'refused' }
+    }
+    const protectedIds = protectedGithubIds()
+    const { rows: changed } = await q(suspend ? SUSPEND_SQL : UNSUSPEND_SQL, suspend ? [target.id, reason, protectedIds] : [target.id, protectedIds])
+    if (changed.length === 0) return { kind: 'unchanged' }
+    if (suspend) {
+      // What stops working at once: the active tokens, connected apps and share links of this user.
+      const { rows: counts } = await q(
+        `select (select count(*)::int from api_tokens where user_id = $1 and revoked_at is null and (expires_at is null or expires_at > now())) as api_tokens,
+                (select count(*)::int from oauth_grants where user_id = $1 and revoked_at is null) as connected_apps,
+                (select count(*)::int from share_tokens where created_by = $1
+                   and coalesce(expires_at, created_at + interval '1 hour') > now() and (one_time = false or used = false)) as share_links`,
+        [target.id]
+      )
+      await recordAdminAction(q, { actor, action, outcome: 'done', target: targetAudit, details: { reason, counts: counts[0] } })
+    } else {
+      await recordAdminAction(q, { actor, action, outcome: 'done', target: targetAudit })
+    }
+    return { kind: 'changed' }
+  })
+
+  if (outcome.kind === 'missing') throw new HttpError(404, 'User not found')
+  if (outcome.kind === 'mismatch') throw bad("confirm_login does not match this user's login")
+  if (outcome.kind === 'refused') throw new HttpError(403, 'This account cannot be suspended or deleted.')
+  const found = await userDetail(id)
+  if (!found) throw new HttpError(404, 'User not found')
+  return json({ user: found.user, changed: outcome.kind === 'changed' })
+}
+
+/** The optional reason: text of at most 200 characters, cleaned like a name. Empty becomes null. */
+function suspendReason(value) {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') throw bad('reason must be text.')
+  if (Array.from(value).length > 200) throw bad('reason must be at most 200 characters.')
+  return cleanName(value, 200) || null
+}
+
+const suspendUser = async ({ admin, request, params }) => {
+  if (!UUID.test(params.id)) throw new HttpError(404, 'User not found')
+  return changeSuspension(admin, params.id, await readJson(request), true)
+}
+const unsuspendUser = async ({ admin, request, params }) => {
+  if (!UUID.test(params.id)) throw new HttpError(404, 'User not found')
+  return changeSuspension(admin, params.id, await readJson(request), false)
 }
 
 const stats = async () => json({ stats: await statsRow() })
@@ -200,6 +273,8 @@ export const adminRoutes = [
   adminRoute('POST', '/admin/activate', activate, { pending: true }),
   adminRoute('GET', '/admin/users', listUsers),
   adminRoute('GET', '/admin/users/:id', getUser),
+  adminRoute('POST', '/admin/users/:id/suspend', suspendUser),
+  adminRoute('POST', '/admin/users/:id/unsuspend', unsuspendUser),
   adminRoute('GET', '/admin/stats', stats),
   adminRoute('GET', '/admin/audit', audit)
 ]
