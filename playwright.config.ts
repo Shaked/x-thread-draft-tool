@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
+  // Bundles the official AppBridge host used by mcp-ui.spec.ts (#177).
+  globalSetup: './tests/e2e/global-setup.ts',
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
