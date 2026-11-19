@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MCP host fixture</title>
+</head>
+<body>
+<!-- A hand-written host (plan Task 1 step 7): it puts the view in a sandboxed iframe, answers ui/initialize,
+     sends the tool result from window.__fixture, and records what the view sends back. -->
+<iframe id="view" sandbox="allow-scripts" style="width:390px;height:120px;border:0"></iframe>
+<script>
+window.__log = []
+window.__size = null
+window.addEventListener('message', function (event) {
+  var frame = document.getElementById('view')
+  if (!frame || event.source !== frame.contentWindow) return
+  var msg = event.data || {}
+  if (msg.method) window.__log.push(msg.method)
+  if (msg.method === 'ui/initialize') {
+    frame.contentWindow.postMessage({ jsonrpc: '2.0', id: msg.id, result: {
+      protocolVersion: '2026-01-26', hostInfo: { name: 'fixture', version: '1' }, hostCapabilities: {},
+      hostContext: { theme: 'light', locale: 'en-US' }
+    } }, '*')
+  } else if (msg.method === 'ui/notifications/initialized') {
+    frame.contentWindow.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: window.__fixture }, '*')
+  } else if (msg.method === 'ui/notifications/size-changed') {
+    window.__size = msg.params
+  }
+})
+</script>
+</body>
+</html>

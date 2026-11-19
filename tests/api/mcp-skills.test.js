@@ -151,11 +151,12 @@ describe.each([MODERN, LEGACY])('skills, protocol %s', (version) => {
     else expectValid(version, 'InitializeResult', (await rpc(version, 'initialize', { ...INIT, protocolVersion: version })).body.result)
   })
 
-  it('resources/list: one SKILL.md resource, valid against the official schema', async () => {
+  it('resources/list: the SKILL.md resource and the thread view, valid against the official schema', async () => {
+    // The view is added in #170 (T1), so the list has two entries on purpose.
     const { body } = await rpc(version, 'resources/list')
     expectValid(version, 'ListResourcesResult', body.result)
-    expect(body.result.resources).toHaveLength(1)
-    const [r] = body.result.resources
+    expect(body.result.resources).toHaveLength(2)
+    const [r] = body.result.resources.filter((x) => x.uri === URI)
     expect(r).toMatchObject({ uri: URI, name: 'x-thread-drafts', mimeType: 'text/markdown' })
     expect(r.size).toBe(Buffer.byteLength(await readSkillText(version), 'utf8'))
     if (version === MODERN) expect(body.result).toMatchObject({ ttlMs: 3_600_000, cacheScope: 'public' })

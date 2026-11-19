@@ -5,6 +5,7 @@ import { runAs } from '../caller-context.js'
 import { callTool, hasTool, listTools } from './tools.js'
 import { getPrompt, listPrompts } from './prompts.js'
 import { getSkill, listSkillResources, listSkills, readSkillResource } from './skills.js'
+import { listUiResources, readUiResource } from './ui/index.js'
 import { RATE_LIMIT_MESSAGE, authorizeAndCount } from './rate.js'
 import { noteRpc } from '../perf.js'
 import { getVersion } from '../version.js'
@@ -291,13 +292,13 @@ function dispatchResources(method, params, ctx) {
   switch (method) {
     case 'resources/list':
       noCursor(params)
-      return { resources: listSkillResources(), ttlMs: RESOURCE_TTL_MS, cacheScope: 'public' }
+      return { resources: [...listSkillResources(), ...listUiResources()], ttlMs: RESOURCE_TTL_MS, cacheScope: 'public' }
     case 'resources/templates/list':
       noCursor(params)
       return { resourceTemplates: [], ttlMs: RESOURCE_TTL_MS, cacheScope: 'public' }
     case 'resources/read': {
       if (typeof params.uri !== 'string') throw new RpcError(-32602, 'Invalid params: uri must be a string')
-      const contents = readSkillResource(params.uri)
+      const contents = readSkillResource(params.uri) ?? readUiResource(params.uri)
       if (!contents) {
         // 2026-07-28 answers an unknown resource with -32602, the earlier revisions with -32002.
         throw new RpcError(ctx.modern ? -32602 : -32002, `Resource not found: ${JSON.stringify(params.uri.slice(0, 200))}`)
