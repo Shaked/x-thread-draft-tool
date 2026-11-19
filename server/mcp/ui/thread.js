@@ -55,7 +55,7 @@ const STARTER = `
   // Full screen only where ChatGPT offers requestDisplayMode; the host may refuse, and that is not an error here.
   function canExpand() { return Boolean(window.openai && typeof window.openai.requestDisplayMode === 'function'); }
   function expand() {
-    try { Promise.resolve(window.openai.requestDisplayMode({ mode: 'fullscreen' })).catch(function () {}); } catch (e) {}
+    try { return Promise.resolve(window.openai.requestDisplayMode({ mode: 'fullscreen' })).catch(function () { return null; }); } catch (e) { return Promise.resolve(null); }
   }
   function showResult(result) {
     shown = true;
