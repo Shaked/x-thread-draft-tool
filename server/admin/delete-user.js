@@ -9,7 +9,7 @@ import { sealAdminConfirm, openAdminConfirm } from './confirm.js'
 import { isProtectedGithubId, protectedGithubIds } from './identity.js'
 import { ADMIN_LIMITS, withinAdminLimit } from './limits.js'
 
-export const DELETE_WAIT_MINUTES = 10
+const DELETE_WAIT_MINUTES = 10
 const CONFIRM_SECONDS = 600
 
 // The rows the cascade removes, counted in one statement. oauth_codes and api_token_cap_backup are not shown:
