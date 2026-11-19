@@ -310,9 +310,10 @@ describe('paging, ties and the cursor', () => {
     const { caller } = await elevatedCaller()
     const badQueries = ['?limit=0', '?limit=101', '?limit=x', '?limit=', '?q=a_b', '?q=', '?q=' + 'a'.repeat(40), '?status=nope', '?status=']
     for (const query of badQueries) expect((await listAs(caller, query)).status).toBe(400)
-    for (const query of ['?limit=0', '?limit=101', '?before=yesterday', '?before=2026-11-19T10:00:00']) {
+    for (const query of ['?limit=0', '?limit=101', '?before=yesterday', '?before=2026-02-31T00:00:00Z', '?before=0000-01-01T00:00:00Z', '?before=2026-01-01T00:00:00%2B20:00']) {
       expect((await restAs(caller, 'admin_audit_log', `/admin/audit${query}`)).status).toBe(400)
     }
+    expect((await restAs(caller, 'admin_audit_log', '/admin/audit?before=2026-11-19T10:00:00Z')).status).toBe(200)
     expect((await restAs(caller, 'admin_get_user', '/admin/users/not-a-uuid')).status).toBe(404)
     expect((await restAs(caller, 'admin_get_user', '/admin/users/00000000-0000-0000-0000-000000000000')).status).toBe(404)
   })

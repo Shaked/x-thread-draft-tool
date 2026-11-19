@@ -70,7 +70,8 @@ const activate = async ({ admin, request }) => {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const LOGIN_PREFIX = /^[A-Za-z0-9-]{1,39}$/
-const CURSOR_TS = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(\.\d{1,6})?([+-])(\d{2})(:\d{2})?$/
+// An ISO-like time with a space or T between date and time, and Z or an offset (Postgres text form too).
+const TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(?:(Z)|([+-])(\d{2})(?::?(\d{2}))?)$/i
 const STATUSES = ['all', 'active', 'suspended']
 
 const bad = (message) => new HttpError(400, message)
@@ -84,14 +85,15 @@ function pageLimit(url, fallback = 50) {
 }
 
 /**
- * True when every field of a cursor time is a real value. Postgres would answer an out-of-range time with a
- * server error, not a 400, so the check is done here (hour 24, minute 61, offset +99 and day 31 of February are refused).
+ * True when every field of a timestamp is a real value. Postgres would answer an out-of-range time with a
+ * server error, not a 400, so the check is done here (February 31, hour 24, minute 61, offset +20:00 are refused).
  */
-function realTimestamp(m) {
+function realTimestamp(text) {
+  const m = TIMESTAMP.exec(text)
   if (m === null) return false
   const [year, month, day, hour, minute, second] = m.slice(1, 7).map(Number)
   const dayExists = new Date(Date.UTC(year, month - 1, day)).getUTCDate() === day
-  const offsetOk = Number(m[9]) <= 15 && (m[10] === undefined || Number(m[10].slice(1)) <= 59)
+  const offsetOk = Number(m[9] ?? 0) <= 15 && Number(m[10] ?? 0) <= 59
   return year >= 1 && month >= 1 && month <= 12 && dayExists && hour <= 23 && minute <= 59 && second <= 59 && offsetOk
 }
 
@@ -107,7 +109,7 @@ function decodeCursor(text) {
   }
   if (!Array.isArray(parts) || parts.length !== 2 || typeof parts[0] !== 'string' || typeof parts[1] !== 'string') throw bad('cursor is not valid.')
   const [ts, id] = parts
-  if (!realTimestamp(CURSOR_TS.exec(ts)) || !UUID.test(id)) throw bad('cursor is not valid.')
+  if (!realTimestamp(ts) || !UUID.test(id)) throw bad('cursor is not valid.')
   return { afterTs: ts, afterId: id }
 }
 
@@ -174,11 +176,10 @@ function hostOf(uri) {
 
 const stats = async () => json({ stats: await statsRow() })
 
-const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/
 const audit = async ({ url }) => {
   const limit = pageLimit(url)
   const before = url.searchParams.get('before')
-  if (before !== null && (!ISO_TIME.test(before) || Number.isNaN(Date.parse(before)))) throw bad('before must be an ISO time.')
+  if (before !== null && !realTimestamp(before)) throw bad('before must be an ISO time.')
   const rows = await auditRows({ limit, before })
   return json({
     events: rows.map((row) => ({
