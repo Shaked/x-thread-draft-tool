@@ -67,7 +67,10 @@ export function buildMessage(kind, data = {}) {
   let links
   if (kind === 'live') links = [['Open production', data.url || PROD_URL]]
   else if (kind === 'failed') links = [['See the failed run', data.runUrl]]
-  else if (kind === 'preview') links = [['Open preview', data.previewUrl || PREVIEW_URL], ['PR', data.url]]
+  else if (kind === 'preview') {
+    const number = String(data.url || '').match(/\/pull\/(\d+)$/)?.[1]
+    links = [['Open preview', data.previewUrl || PREVIEW_URL], [number ? `PR #${number}` : 'PR', data.url]]
+  }
   else links = [['Open', data.url]]
 
   const html = [`${spec.emoji} <b>${escapeHtml(spec.headline)}</b>`]

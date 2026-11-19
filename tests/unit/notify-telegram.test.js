@@ -78,10 +78,17 @@ describe('buildMessage: the four kinds', () => {
       [
         '👀 <b>Try it on preview</b>',
         'Try the drafts',
-        `<a href="${PREVIEW_URL}">Open preview</a> · <a href="${PR_URL}">PR</a>`,
+        `<a href="${PREVIEW_URL}">Open preview</a> · <a href="${PR_URL}">PR #12</a>`,
       ].join('\n'),
     )
     expect(msg.html.indexOf(PREVIEW_URL)).toBeLessThan(msg.html.indexOf(PR_URL))
+  })
+
+  it('preview: the PR link shows its number, and falls back to PR when the URL has none', () => {
+    expect(buildMessage('preview', { title: 'T', url: PR_URL }).plain).toContain('PR #12')
+    expect(buildMessage('preview', { title: 'T', url: 'https://github.com/o/r/pulls' }).plain).toContain(
+      '· PR: https://github.com/o/r/pulls',
+    )
   })
 
   it('owner: needs you, with the issue link', () => {
