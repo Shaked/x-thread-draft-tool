@@ -2,7 +2,8 @@
 // Net-lines rule: product code must not grow overall. Counts added and removed lines in
 // src/, server/, api/ and scripts/ between origin/main and HEAD. Tests, docs and lockfiles
 // are not counted. Passes when added <= removed, or when the pull request body points to a
-// plan task, for example "Implements docs/plans/post-migration-hardening.md Task 3.5".
+// plan task, for example "Implements docs/plans/post-migration-hardening.md Task 3.5", or to
+// an issue task, for example "Implements #123 Task 4".
 //
 // Usage (CI): PR_BODY is passed through the environment only, never inlined in a script.
 
@@ -12,6 +13,7 @@ import { pathToFileURL } from 'node:url'
 export const COUNTED_DIRS = ['src/', 'server/', 'api/', 'scripts/']
 const LOCKFILE = /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/
 const PLAN_REFERENCE = /docs\/plans\/[a-z0-9-]+\.md.*Task \d+(\.\d+)?/
+const ISSUE_REFERENCE = /\bImplements #\d+ Task \d+(\.\d+)?\b/
 
 /** True when a numstat path counts toward the rule. */
 export function isCounted(path) {
@@ -45,11 +47,14 @@ export function evaluate({ numstat, body = '' }) {
   if (PLAN_REFERENCE.test(body)) {
     return { pass: true, added, removed, reason: 'pull request is a planned task (plan reference in the body)' }
   }
+  if (ISSUE_REFERENCE.test(body)) {
+    return { pass: true, added, removed, reason: 'pull request is an issue task (issue reference in the body)' }
+  }
   return {
     pass: false,
     added,
     removed,
-    reason: 'added lines exceed removed lines and the pull request body does not reference a plan task'
+    reason: 'added lines exceed removed lines and the pull request body does not reference a plan task or an issue task'
   }
 }
 

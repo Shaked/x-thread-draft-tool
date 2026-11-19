@@ -55,6 +55,30 @@ describe('net-lines evaluation', () => {
     expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'See docs/plans/post-migration-hardening.md' }).pass).toBe(false)
   })
 
+  it('passes a growing change when the body references an issue task', () => {
+    const result = evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Implements #123 Task 4' })
+    expect(result.pass).toBe(true)
+    expect(result.reason).toMatch(/issue task/)
+  })
+
+  it('does not accept an issue reference without a task number', () => {
+    expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Implements #123' }).pass).toBe(false)
+    expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Implements #123 Task' }).pass).toBe(false)
+  })
+
+  it('does not accept a task number that comes before the issue number', () => {
+    expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Task 4 for #123' }).pass).toBe(false)
+  })
+
+  it('does not accept an issue number and a task word without the Implements form', () => {
+    expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Closes #160 since Task 2 was dropped' }).pass).toBe(false)
+    expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Part of #155, see Task 3' }).pass).toBe(false)
+  })
+
+  it('does not accept a task number with trailing letters', () => {
+    expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Implements #159 Task 1a' }).pass).toBe(false)
+  })
+
   it('explains both counts and the reason', () => {
     const result = evaluate({ numstat: '3\t1\tsrc/a.js', body: '' })
     expect(result.reason).toMatch(/plan task/)
