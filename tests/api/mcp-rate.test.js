@@ -228,6 +228,7 @@ describe('tool-call count in the auth statement (P4)', () => {
     const expired = await accessToken(bob)
     await db.pg.query("update oauth_tokens set expires_at = now() - interval '1 second'")
     expect((await route(toolCallWith(expired, 'whoami'))).status).toBe(401)
+    expect(await callsThisMinute(bob)).toBeUndefined()
 
     const otherResource = await accessToken(alice, `${APP_URL}/api`)
     const res = await route(toolCallWith(otherResource, 'whoami'))
