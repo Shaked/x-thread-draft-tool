@@ -219,8 +219,8 @@ export async function handleMcp(request) {
     throw err
   }
   if (message) {
-    // Only the method and a known tool name reach the [perf] line, never the arguments.
-    noteRpc(message.method, message.method === 'tools/call' && hasTool(message.params?.name, caller, origin) ? message.params.name : null)
+    // Only the method and a known tool name reach the [perf] line, never the arguments. A tools/list shows 'list' or 'admin-list'.
+    noteRpc(message.method, message.method === 'tools/call' && hasTool(message.params?.name, caller, origin) ? message.params.name : message.method === 'tools/list' ? (isAdminCaller(caller, origin) ? 'admin-list' : 'list') : null)
   }
   if (checked.response) return checked.response
 
