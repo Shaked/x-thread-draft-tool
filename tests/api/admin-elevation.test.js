@@ -1,5 +1,5 @@
 // @vitest-environment node
-// Admin follows identity: the owner's approval on a fresh sign-in gives admin tools for 24 hours.
+// Admin follows identity: the owner's approval on the MCP connection gives admin tools for 24 hours, whatever the age of the sign-in.
 // There is no box, no pairing code and no pending state.
 import { createHash, randomBytes } from 'node:crypto'
 import { SignJWT } from 'jose'
@@ -175,12 +175,12 @@ describe('the admin notice is shown to the owner and to nobody else', () => {
     expect(html).not.toContain('sign out, sign in again')
   })
 
-  it('shows only the sign-in hint when the owner signed in more than 10 minutes ago', async () => {
+  it('shows the notice to the owner whatever the age of the sign-in', async () => {
     const clientId = await registerClient(CLAUDE)
-    const res = await getPage(authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge }), await cookieFor(admin, 660))
+    const res = await getPage(authorizePath(clientId, { redirectUri: CLAUDE, challenge: pkce().challenge }), await cookieFor(admin, 86_400))
     const html = await res.text()
-    expect(html).not.toContain('Approving gives')
-    expect(html).toContain('sign out, sign in again and come back to this page within 10 minutes')
+    expect(html).toContain('Approving gives')
+    expect(html).not.toContain('sign out, sign in again')
   })
 
   it('shows nothing for the REST resource', async () => {
@@ -233,8 +233,8 @@ async function ownerApp(redirect = CLAUDE, cookieAge = 0) {
   return { token: tokens.access_token, clientId, path, res }
 }
 
-describe('an approval gives admin to the owner on a fresh sign-in, and to nobody else', () => {
-  it('the owner on a fresh sign-in on the MCP resource: a normal redirect, admin for about 24 hours, admin tools at once', async () => {
+describe('an approval gives admin to the owner, and to nobody else', () => {
+  it('the owner on the MCP resource: a normal redirect, admin for about 24 hours, admin tools at once', async () => {
     const { token, res } = await ownerApp()
     const location = new URL(res.headers.get('location'))
     expect(location.origin + location.pathname).toBe(CLAUDE)
@@ -279,25 +279,15 @@ describe('an approval gives admin to the owner on a fresh sign-in, and to nobody
     expect((await toolNames(tokens.access_token)).filter((name) => name.startsWith('admin_'))).toEqual([])
   })
 
-  it('the owner with a sign-in older than 10 minutes gets no admin, and an old elevated grant loses it', async () => {
+  it('the owner with an old sign-in gets admin too: the age of the sign-in does not matter', async () => {
     const clientId = await registerClient(CLAUDE)
     const { verifier, challenge } = pkce()
     const path = authorizePath(clientId, { redirectUri: CLAUDE, challenge })
-    const first = await approve(path, await cookieFor(admin))
-    const tokens = await exchange(new URL(first.headers.get('location')), clientId, CLAUDE, verifier)
+    const res = await approve(path, await cookieFor(admin, 86_400))
+    expect(res.status).toBe(302)
     expect((await grantOf(admin)).admin_until).not.toBeNull()
+    const tokens = await exchange(new URL(res.headers.get('location')), clientId, CLAUDE, verifier)
     expect(await toolNames(tokens.access_token)).toContain('admin_status')
-
-    const again = await approve(path, await cookieFor(admin, 660))
-    expect(again.status).toBe(302)
-    noElevation(await grantOf(admin))
-    expect(await resolveAccess(tokens.access_token, MCP)).toBeNull()
-  })
-
-  it('a stale approval of an elevated grant also ends admin on a different return address', async () => {
-    const { path } = await ownerApp(EVIL)
-    expect((await approve(path, await cookieFor(admin, 660))).status).toBe(302)
-    noElevation(await grantOf(admin))
   })
 
   it('an approval kills the tokens issued before it on the same MCP grant', async () => {

@@ -3,7 +3,7 @@
 const ADMIN_GITHUB_IDS = Object.freeze(['960015'])
 const CI_GITHUB_ID = '-1'
 
-// How long admin tools stay on after the owner approves a connection on a fresh sign-in.
+// How long admin tools stay on after the owner approves a connection.
 export const ADMIN_ELEVATION_HOURS = 24
 
 /** True for an admin id, unless ADMIN_DISABLED=1. The variable can only turn admin off. */

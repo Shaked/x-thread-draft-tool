@@ -24,8 +24,6 @@ import { ADMIN_ELEVATION_HOURS, isAdminGithubId } from '../admin/identity.js'
 import { recordAdminAction } from '../admin/audit.js'
 
 const CODE_TTL = "interval '60 seconds'"
-// Admin may be offered only to a sign-in no older than this (the owner signs in again if it is).
-const ADMIN_FRESH_SESSION_SECONDS = 600
 const FORM_MAX_BYTES = 16 * 1024
 const PKCE_CHALLENGE = /^[A-Za-z0-9._~-]{43,128}$/
 const PKCE_VERIFIER = /^[A-Za-z0-9._~-]{43,128}$/
@@ -188,24 +186,17 @@ async function githubIdOf(uid) {
   return rows[0] ? String(rows[0].github_id) : null
 }
 
-/** True when the session was issued (signed in) within the fresh window. A missing or odd `iat` is not fresh. */
-function isFreshSession(session) {
-  const age = Math.floor(Date.now() / 1000) - Number(session.iat)
-  return Number.isFinite(age) && age >= 0 && age <= ADMIN_FRESH_SESSION_SECONDS
-}
-
 /**
- * True only when an approval gives admin tools: the owner's GitHub id, the MCP resource, and a fresh sign-in.
- * Identity decides; there is no return-address list and no code. Used on the consent page and on the POST.
+ * True only when an approval gives admin tools: the owner's GitHub id and the MCP resource.
+ * Identity decides; no return-address list, no code, no sign-in age. Used on the consent page and on the POST.
  */
-function canElevate({ session, githubId, resource, base }) {
-  return resource === mcpResource(base) && isFreshSession(session) && isAdminGithubId(githubId)
+function canElevate({ githubId, resource, base }) {
+  return resource === mcpResource(base) && isAdminGithubId(githubId)
 }
 
-/** What the consent page shows the owner: 'notice' (admin on approval), 'stale' (sign in again), or null (nothing). */
-function adminNoteState({ session, githubId, resource, base }) {
-  if (!isAdminGithubId(githubId) || resource !== mcpResource(base)) return null
-  return isFreshSession(session) ? 'notice' : 'stale'
+/** What the consent page shows the owner: 'notice' (admin on approval) or null (nothing; everyone else). */
+function adminNoteState(checks) {
+  return canElevate(checks) ? 'notice' : null
 }
 
 /** This consent address, rebuilt only from validated values, for copying into another browser. */
@@ -266,7 +257,6 @@ async function authorizeGet({ request, url }) {
   })
   const redirectOrigin = new URL(redirectUri).origin
   const adminState = adminNoteState({
-    session,
     githubId: await githubIdOf(session.uid),
     resource: value.resource,
     base
@@ -331,9 +321,9 @@ async function authorizePost({ request }) {
     return redirectTo(decision.redirect_uri, { error: 'access_denied', state: decision.state }, base)
   }
 
-  // Admin follows identity: the owner's approval on a fresh sign-in gives admin tools for 24 hours.
+  // Admin follows identity: the owner's approval on the MCP connection gives admin tools for 24 hours.
   const githubId = await githubIdOf(session.uid)
-  const elevate = canElevate({ session, githubId, resource: decision.resource, base })
+  const elevate = canElevate({ githubId, resource: decision.resource, base })
   const actor = { uid: session.uid, gh: githubId, login: session.login }
 
   const code = randomBytes(32).toString('base64url')
