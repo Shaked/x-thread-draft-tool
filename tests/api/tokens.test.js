@@ -6,7 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn(async () => {}) }))
 
 import { route } from '../../server/router.js'
-import { createApiToken, hashToken } from '../../server/tokens.js'
+import { createApiToken, findUserByToken, hashToken } from '../../server/tokens.js'
 import { MIGRATIONS_DIR } from '../../scripts/migrate.mjs'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
@@ -354,5 +354,52 @@ describe('authentication precedence and CSRF', () => {
       apiRequest('/api/drafts', { method: 'POST', cookie: aliceCookie, origin: 'https://evil.example', body: { title: 'x', posts: [] } })
     )
     expect(res.status).toBe(403)
+  })
+})
+
+describe('token lookup and last_used_at (plan P5)', () => {
+  // The text form keeps microseconds, so two reads compare exactly.
+  const lastUsed = async (id) =>
+    (await db.pg.query('select last_used_at::text as t from api_tokens where id = $1', [id])).rows[0].t
+
+  it('returns the same owner object as before the one-statement lookup', async () => {
+    const { token, id } = await newToken()
+    expect(await findUserByToken(token)).toEqual({
+      uid: alice.id,
+      gh: '1',
+      login: 'alice',
+      tokenId: id,
+      via: 'token'
+    })
+  })
+
+  it('refuses a token whose user was deleted (the cascade removes the token row)', async () => {
+    const { token } = await newToken()
+    await db.pg.query('delete from users where id = $1', [alice.id])
+    expect(await findUserByToken(token)).toBeNull()
+    const res = await route(apiRequest('/api/auth/me', { headers: bearer(token) }))
+    expect(res.status).toBe(401)
+  })
+
+  it('a second use within 5 minutes does not move last_used_at', async () => {
+    const { token, id } = await newToken()
+    await findUserByToken(token)
+    const first = await lastUsed(id)
+    expect(first).not.toBeNull()
+    expect(await findUserByToken(token)).not.toBeNull()
+    expect(await lastUsed(id)).toBe(first)
+  })
+
+  it('a use after 5 minutes moves last_used_at to now', async () => {
+    const { token, id } = await newToken()
+    await db.pg.query("update api_tokens set last_used_at = now() - interval '6 minutes' where id = $1", [id])
+    const stale = await lastUsed(id)
+    expect(await findUserByToken(token)).not.toBeNull()
+    expect(await lastUsed(id)).not.toBe(stale)
+    const { rows } = await db.pg.query(
+      "select last_used_at > now() - interval '1 minute' as recent from api_tokens where id = $1",
+      [id]
+    )
+    expect(rows[0].recent).toBe(true)
   })
 })
