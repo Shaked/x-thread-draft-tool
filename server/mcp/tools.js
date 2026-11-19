@@ -369,10 +369,13 @@ const VIEW_OUTLINE = {
 const VIEW_POSTS = new Set(['create_draft', 'create_thread_from_text'])
 // Where outlineResult keeps the saved posts on its Response (a symbol, so it never reaches the JSON body).
 const VIEW_POSTS_OF = Symbol('view posts')
+// The drafts list (plan Task 5, D8): list_drafts shows the list view. Its result carries the editor base only.
+const VIEW_OF = { get_draft: 'thread', create_draft: 'thread', create_thread_from_text: 'thread', split_text: 'thread', list_drafts: 'drafts' }
 for (const tool of TOOLS) {
   if (VIEW_OUTLINE[tool.name]) {
     tool.resultMeta = (body, ctx, res) => threadMeta(ctx, VIEW_OUTLINE[tool.name](body), VIEW_POSTS.has(tool.name) ? res[VIEW_POSTS_OF] : undefined)
   }
+  if (tool.name === 'list_drafts') tool.resultMeta = (body, ctx) => ({ 'x-thread/editorBase': `${ctx.origin}/draft/` })
 }
 
 const TOOL_BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]))
@@ -477,7 +480,7 @@ const publicSchema = (schema) => JSON.parse(JSON.stringify(schema, (key, value) 
 export function listTools() {
   return TOOLS.map(({ name, description, inputSchema }) => {
     const [title, readOnlyHint, destructiveHint, idempotentHint, openWorldHint] = META[name]
-    const uri = VIEW_OUTLINE[name] ? uiResourceUri('thread') : null
+    const uri = VIEW_OF[name] ? uiResourceUri(VIEW_OF[name]) : null
     return {
       name,
       title,

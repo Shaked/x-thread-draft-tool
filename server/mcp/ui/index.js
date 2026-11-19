@@ -3,10 +3,11 @@
 // on the user: the same HTML goes to everyone, and user data reaches a view only in a tool result.
 import { createHash } from 'node:crypto'
 import { THREAD_VIEW } from './thread.js'
+import { DRAFTS_VIEW } from './drafts.js'
 import { blobOrigin } from './origin.js'
 
 const MIME_TYPE = 'text/html;profile=mcp-app'
-const VIEWS = [THREAD_VIEW]
+const VIEWS = [THREAD_VIEW, DRAFTS_VIEW]
 // Resolved once at load: the one image host the CSP allows, or no host when the store id is unknown.
 const BLOB_ORIGIN = blobOrigin()
 const UI = {

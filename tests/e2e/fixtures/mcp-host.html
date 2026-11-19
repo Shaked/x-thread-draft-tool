@@ -11,6 +11,8 @@
 <script>
 window.__log = []
 window.__size = null
+window.__calls = []
+window.__callReply = null
 window.addEventListener('message', function (event) {
   var frame = document.getElementById('view')
   if (!frame || event.source !== frame.contentWindow) return
@@ -19,10 +21,14 @@ window.addEventListener('message', function (event) {
   if (msg.method === 'ui/initialize') {
     frame.contentWindow.postMessage({ jsonrpc: '2.0', id: msg.id, result: {
       protocolVersion: '2026-01-26', hostInfo: { name: 'fixture', version: '1' }, hostCapabilities: {},
-      hostContext: { theme: 'light', locale: 'en-US' }
+      hostContext: { theme: window.__theme || 'light', locale: 'en-US' }
     } }, '*')
   } else if (msg.method === 'ui/notifications/initialized') {
     frame.contentWindow.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: window.__fixture }, '*')
+  } else if (msg.method === 'tools/call') {
+    // A call the view makes through the host (plan Task 5: View thread calls get_draft); the test sets the answer.
+    window.__calls.push(msg.params)
+    frame.contentWindow.postMessage({ jsonrpc: '2.0', id: msg.id, result: window.__callReply }, '*')
   } else if (msg.method === 'ui/notifications/size-changed') {
     window.__size = msg.params
   }

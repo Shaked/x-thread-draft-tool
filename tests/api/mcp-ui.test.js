@@ -26,7 +26,7 @@ const SKILL_URI = 'skill://x-thread-drafts/SKILL.md'
 const appAjv = new Ajv2020({ strict: false, allErrors: true })
 appAjv.addSchema(officialApp)
 const validResourceMeta = appAjv.getSchema('https://modelcontextprotocol.io/ext-apps/schema.json#/$defs/McpUiResourceMeta')
-const VIEW_URI = /^ui:\/\/x-thread\/thread\.html\?v=[0-9a-f]{12}$/
+const VIEW_URI = /^ui:\/\/x-thread\/(thread|drafts)\.html\?v=[0-9a-f]{12}$/
 
 let db
 let aliceToken
@@ -223,21 +223,31 @@ describe('GET /api/mcp/ui-manifest (plan T2): hashes only, public, no-store', ()
   })
 })
 
-describe('the tools that show the thread view (plan Task 4, #177)', () => {
-  const VIEW_TOOLS = ['get_draft', 'create_draft', 'split_text', 'create_thread_from_text']
+describe('the tools that show the thread view (plan Task 4, #177) and the drafts list (plan Task 5, #182)', () => {
+  // Each view tool, with the view it shows: the thread view, or the drafts list (list_drafts).
+  const VIEW_OF = { get_draft: 'thread', create_draft: 'thread', split_text: 'thread', create_thread_from_text: 'thread', list_drafts: 'drafts' }
   const call = async (name, args) => (await rpc(MODERN, 'tools/call', { name, arguments: args })).body.result
 
-  it('tools/list gives the four tools the same view uri in all three keys, and no other tool a view', async () => {
+  it('tools/list gives each view tool its view uri in all three keys, and no other tool a view', async () => {
     const { body } = await rpc(MODERN, 'tools/list', {})
-    const uri = uiResourceUri('thread')
     for (const tool of body.result.tools) {
-      if (VIEW_TOOLS.includes(tool.name)) {
-        expect(tool._meta).toEqual({ ui: { resourceUri: uri }, 'ui/resourceUri': uri, 'openai/outputTemplate': uri })
+      if (VIEW_OF[tool.name]) {
+        const uri = uiResourceUri(VIEW_OF[tool.name])
+        expect(tool._meta, tool.name).toEqual({ ui: { resourceUri: uri }, 'ui/resourceUri': uri, 'openai/outputTemplate': uri })
       } else {
         expect(tool._meta).toBeUndefined()
       }
     }
-    expect(body.result.tools.filter((tool) => tool._meta).map((tool) => tool.name).sort()).toEqual([...VIEW_TOOLS].sort())
+    expect(body.result.tools.filter((tool) => tool._meta).map((tool) => tool.name).sort()).toEqual(Object.keys(VIEW_OF).sort())
+  })
+
+  it('list_drafts: the editor base is in _meta; content and structuredContent are the REST body, unchanged', async () => {
+    await call('create_draft', { title: 'Listed', posts: [{ text: 'Hello' }] })
+    const listed = await call('list_drafts', {})
+    expect(listed.isError).not.toBe(true)
+    expect(listed.content[0].text).toBe(JSON.stringify(listed.structuredContent))
+    expect(listed.structuredContent.drafts.length).toBeGreaterThan(0)
+    expect(listed._meta).toEqual({ 'x-thread/editorBase': `${APP_URL}/draft/` })
   })
 
   it('get_draft: the outline, the editor base and the image host are in _meta; content is the REST body, unchanged', async () => {
