@@ -131,6 +131,13 @@ describe('links and direction', () => {
     expect(linksIn('see https://example.com/a. and http://x.example and javascript:alert(1)')).toEqual(['https://example.com/a'])
   })
 
+  it('keeps a closing parenthesis that the URL opens itself, and drops one it does not', () => {
+    expect(linksIn('read https://en.wikipedia.org/wiki/Function_(mathematics)')).toEqual([
+      'https://en.wikipedia.org/wiki/Function_(mathematics)'
+    ])
+    expect(linksIn('(see https://example.com/a)')).toEqual(['https://example.com/a'])
+  })
+
   it('every post text has dir="auto" (Hebrew, English and mixed text)', () => {
     const root = render({ title: 'T', saved: true, posts: [{ text: 'שלום' }, { text: 'Hello' }, { text: 'שלום https://example.com' }] })
     const texts = [...root.querySelectorAll('article p[dir]')]

@@ -146,7 +146,16 @@ export function tweetFrom(url) {
 export function linksIn(text) {
   const found = []
   for (const raw of String(text).match(/https?:\/\/[^\s]+/g) || []) {
-    const safe = safeUrl(raw.replace(/[.,;:!?)\]]+$/, ''), null)
+    // Trailing punctuation goes, but a closing ) or ] stays when the URL opens one of its own (Wikipedia style).
+    let url = raw
+    while (/[.,;:!?)\]]$/.test(url)) {
+      const last = url.slice(-1)
+      const open = last === ')' ? '(' : last === ']' ? '[' : null
+      if (open && url.split(open).length - 1 >= url.split(last).length - 1) break
+      if (!open && !'.,;:!?'.includes(last)) break
+      url = url.slice(0, -1)
+    }
+    const safe = safeUrl(url, null)
     if (safe && !found.includes(safe)) found.push(safe)
   }
   return found
