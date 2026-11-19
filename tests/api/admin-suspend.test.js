@@ -172,8 +172,9 @@ describe('suspend and unsuspend through the admin tools', () => {
     // The unsuspend guard, on real rows: the admin and the CI user are suspended directly, and must not match.
     const ciRow = await db.pg.query("select id from users where github_id = -1")
     await db.pg.query('update users set suspended_at = now() where id = any($1::uuid[])', [[admin.id, ciRow.rows[0].id]])
-    const unsuspended = await db.pg.query(UNSUSPEND_SQL, [admin.id, protectedGithubIds()])
-    expect(unsuspended.rowCount).toBe(0)
+    for (const id of [admin.id, ciRow.rows[0].id]) {
+      expect((await db.pg.query(UNSUSPEND_SQL, [id, protectedGithubIds()])).rowCount).toBe(0)
+    }
     expect((await loginStatus(admin)).suspended_at).not.toBeNull()
   })
 
