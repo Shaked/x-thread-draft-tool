@@ -307,7 +307,8 @@ export function threadFrom(result) {
     posts: full || source.posts,
     saved,
     is_published: source.is_published === true,
-    url: typeof source.url === 'string' ? source.url : null,
+    // get_draft puts the editor link in the draft; the create tools put it at the top level of structuredContent.
+    url: typeof source.url === 'string' ? source.url : typeof structured.url === 'string' ? structured.url : null,
     counts: outline && Array.isArray(outline.posts) ? outline.posts : null,
     editorBase: typeof meta['x-thread/editorBase'] === 'string' ? meta['x-thread/editorBase'] : null,
     imageOrigin: typeof meta['x-thread/imageOrigin'] === 'string' ? meta['x-thread/imageOrigin'] : null

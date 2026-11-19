@@ -49,6 +49,13 @@ describe('threadFrom', () => {
     expect(thread.saved).toBe(true)
   })
 
+  it('takes the editor link from the top level of a create result when the draft has none', () => {
+    const thread = threadFrom({
+      structuredContent: { draft: { title: 'T', posts: [{ index: 1 }] }, url: 'https://app.example/draft/9' }
+    })
+    expect(thread.url).toBe('https://app.example/draft/9')
+  })
+
   it('ignores _meta posts whose count differs from the structured posts', () => {
     const thread = threadFrom({
       structuredContent: { draft: { title: 'T', posts: [{ index: 1 }, { index: 2 }] } },
