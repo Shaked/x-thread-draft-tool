@@ -1,0 +1,1 @@
+- P8 (performance plan): deciding whether an uploaded image is still used now runs one SQL check, not a list of every draft. `DELETE /api/images` takes an optional `if_unused: true`, and `remove_post`, `remove_image`, draft delete and publish keep any file a draft of the same user still uses (also as plain text).

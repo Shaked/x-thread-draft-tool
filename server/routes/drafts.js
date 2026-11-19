@@ -140,15 +140,30 @@ async function ownedPosts(id, uid) {
 }
 
 /**
+ * The URLs (of `urls`) that a draft of `uid` still uses, answered by the database: one statement,
+ * no draft's posts leave it. A URL that appears anywhere in a post's JSON counts as used (images
+ * or plain text), so a file is never deleted by mistake. `exceptDraftId` is left out (or null).
+ */
+export async function usedImageUrls(run, uid, urls, exceptDraftId) {
+  if (urls.length === 0) return new Set()
+  const { rows } = await run(
+    `select u.url from unnest($2::text[]) as u(url)
+      where exists (select 1 from drafts d where d.user_id = $1
+                     and ($3::uuid is null or d.id <> $3::uuid)
+                     and strpos(d.posts::text, u.url) > 0)`,
+    [uid, urls, exceptDraftId]
+  )
+  return new Set(rows.map((row) => row.url))
+}
+
+/**
  * Blob URLs that may be deleted with this draft: only the owner's own objects, and never an
  * object that another draft of the same owner still references (duplicates share URLs).
  */
 async function deletableImageUrls(run, uid, id, posts) {
   const owned = imageUrlsFrom(posts).filter((url) => isOwnedBlobUrl(url, uid))
-  if (owned.length === 0) return []
-  const { rows } = await run('select posts from drafts where user_id = $1 and id <> $2', [uid, id])
-  const stillUsed = new Set(rows.flatMap((row) => imageUrlsFrom(row.posts)))
-  return owned.filter((url) => !stillUsed.has(url))
+  const used = await usedImageUrls(run, uid, owned, id)
+  return owned.filter((url) => !used.has(url))
 }
 
 /**

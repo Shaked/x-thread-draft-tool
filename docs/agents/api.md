@@ -206,7 +206,13 @@ curl -s -X POST $BASE/api/images/from-url -H "Authorization: Bearer $TOKEN" \
 # Delete one of your own images
 curl -s -X DELETE $BASE/api/images -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -d '{"url":"IMAGE_URL"}'
+
+# Delete only when no draft of yours still uses the URL (in an image or in text)
+curl -s -X DELETE $BASE/api/images -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"url":"IMAGE_URL","if_unused":true}'   # → { ok, deleted: true|false }
 ```
+
+`if_unused` is optional. With `true` the file is kept (`deleted: false`) while any of your drafts still has the URL; without it, or with `false`, the file is deleted and the answer is `{ ok: true }`. Another user's image is 403 either way.
 
 ### Discovery
 
