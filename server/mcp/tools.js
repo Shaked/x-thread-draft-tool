@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto'
 import { uiResourceUri } from './ui/index.js'
 import { blobOrigin } from './ui/origin.js'
 import { adminTool, listAdminTools } from './admin-tools.js'
+import { PENDING_TOOL } from '../admin/guard.js'
 import { isAdminGithubId } from '../admin/identity.js'
 
 const UUID = { type: 'string', format: 'uuid' }
@@ -403,16 +404,31 @@ export function isAdminCaller(caller, origin) {
   return caller?.via === 'oauth' && caller.resource === `${origin}/api/mcp` && caller.admin === true && isAdminGithubId(caller.gh)
 }
 
+/**
+ * True for a pending connection: an OAuth token for this app's MCP resource, with a pairing code waiting
+ * (plan A5), of an admin GitHub id. It sees and calls only `admin_activate`.
+ */
+export function isPendingCaller(caller, origin) {
+  return caller?.via === 'oauth' && caller.resource === `${origin}/api/mcp` && caller.adminPending === true && isAdminGithubId(caller.gh)
+}
+
 /** True when `name` is an admin tool. It says nothing about who may call it: see isAdminCaller. */
 export function isAdminToolName(name) {
   return adminTool(name) !== undefined
 }
 
-/** The tool called `name` for this caller, with `admin` true only for an admin tool an admin connection may call. */
+/**
+ * The tool called `name` for this caller, with `admin` true only for an admin tool this caller may call:
+ * an active admin gets every admin tool but `admin_activate`; a pending connection gets `admin_activate` only.
+ */
 function findTool(name, caller, origin) {
   if (TOOL_BY_NAME.has(name)) return { tool: TOOL_BY_NAME.get(name), admin: false }
-  const admin = isAdminCaller(caller, origin) ? adminTool(name) : undefined
-  return admin ? { tool: admin, admin: true } : null
+  if (isAdminCaller(caller, origin) && name !== PENDING_TOOL) {
+    const admin = adminTool(name)
+    if (admin) return { tool: admin, admin: true }
+  }
+  if (isPendingCaller(caller, origin) && name === PENDING_TOOL) return { tool: adminTool(name), admin: true }
+  return null
 }
 
 /**
@@ -516,7 +532,7 @@ function describe(name, base) {
 // xMaxLength (X weighted limit) is checked here, not by JSON Schema, so clients get a plain schema without it.
 const publicSchema = (schema) => JSON.parse(JSON.stringify(schema, (key, value) => (key === 'xMaxLength' ? undefined : value)))
 
-/** The tools/list entries the caller may see: the normal tools, and the admin tools for the admin connection. */
+/** The tools/list entries the caller may see: the normal tools, plus the admin tools this caller may see. */
 export function listTools(caller, origin) {
   const normal = TOOLS.map(({ name, description, inputSchema }) => {
     const [title, readOnlyHint, destructiveHint, idempotentHint, openWorldHint] = META[name]
@@ -531,7 +547,9 @@ export function listTools(caller, origin) {
       ...(uri ? { _meta: { ui: { resourceUri: uri }, 'ui/resourceUri': uri, 'openai/outputTemplate': uri } } : {})
     }
   })
-  return isAdminCaller(caller, origin) ? [...normal, ...listAdminTools()] : normal
+  if (isAdminCaller(caller, origin)) return [...normal, ...listAdminTools().filter((tool) => tool.name !== PENDING_TOOL)]
+  if (isPendingCaller(caller, origin)) return [...normal, ...listAdminTools().filter((tool) => tool.name === PENDING_TOOL)]
+  return normal
 }
 
 /**

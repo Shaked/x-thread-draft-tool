@@ -4,6 +4,10 @@ import { randomInt } from 'node:crypto'
 import { hashToken } from '../tokens.js'
 
 export const PAIRING_MINUTES = 10
+// Wrong guesses before the code is cancelled (plan A5, step 3).
+export const PAIRING_TRIES = 3
+// How long admin tools stay on for a connection after a right code (Needs from Shaked 2: default 24 hours).
+export const ADMIN_ELEVATION_HOURS = 24
 
 // No 0, O, 1, I or L: a code is read by eye and typed by hand.
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'

@@ -244,6 +244,8 @@ export default function TokensPage() {
                       {grant.last_used_at ? formatDate(grant.last_used_at) : 'never'}
                     </div>
                     {revoked && <div>Revoked {formatDate(grant.revoked_at)}</div>}
+                    {grant.admin_until && <div>Admin tools until {formatDate(grant.admin_until)}</div>}
+                    {grant.admin_pending && <div>Admin tools: waiting for the pairing code</div>}
                   </div>
                   {!revoked && (
                     <button

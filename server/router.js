@@ -1,5 +1,5 @@
 import { HttpError, error, json } from './http.js'
-import { requireAdmin } from './admin/guard.js'
+import { adminPathOpen } from './admin/guard.js'
 import { adminRoutes } from './routes/admin.js'
 import { authRoutes } from './routes/auth.js'
 import { deviceRoutes } from './routes/device.js'
@@ -98,13 +98,7 @@ async function dispatch(request) {
 
     // Admin paths answer like an unknown path to everyone but the admin, whatever the method or token.
     // This runs before the 405 answer and before the CI-token 401, so neither can reveal an admin path.
-    if (path === '/admin' || path.startsWith('/admin/')) {
-      try {
-        requireAdmin(request)
-      } catch {
-        return error(404, 'Not found')
-      }
-    }
+    if ((path === '/admin' || path.startsWith('/admin/')) && !adminPathOpen(request)) return error(404, 'Not found')
 
     const candidates = TABLE.filter((entry) => entry.regex.test(path))
     if (candidates.length === 0) return error(404, 'Not found')

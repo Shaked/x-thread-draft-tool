@@ -149,7 +149,9 @@ export async function resolveAccess(token, expectedResource) {
   if (typeof token !== 'string' || !ACCESS_SHAPE.test(token)) return null
   const { rows } = await query(
     `select g.id as grant_id, u.id as uid, u.github_id, u.login, g.resource,
-            (g.resource like '%/api/mcp' and g.admin_until is not null and g.admin_until > now()) as admin
+            (g.resource like '%/api/mcp' and g.admin_until is not null and g.admin_until > now()) as admin,
+            (g.resource like '%/api/mcp' and g.admin_until is null and g.admin_pending_hash is not null
+               and g.admin_pending_until > now()) as admin_pending
        from oauth_tokens t
        join oauth_grants g on g.id = t.grant_id
        join users u on u.id = g.user_id
@@ -166,6 +168,7 @@ export async function resolveAccess(token, expectedResource) {
     via: 'oauth',
     grantId: row.grant_id,
     resource: row.resource,
-    admin: row.admin === true
+    admin: row.admin === true,
+    adminPending: row.admin_pending === true
   }
 }

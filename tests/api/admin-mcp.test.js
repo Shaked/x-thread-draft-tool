@@ -8,6 +8,8 @@ import { route } from '../../server/router.js'
 import { runAs } from '../../server/caller-context.js'
 import { issuePair, resolveAccess } from '../../server/oauth/tokens.js'
 import { ADMIN_TOOLS, ADMIN_NOTE, ADMIN_REST_ROUTES, listAdminTools } from '../../server/mcp/admin-tools.js'
+import { PENDING_TOOL } from '../../server/admin/guard.js'
+import { pairingHash } from '../../server/admin/pairing.js'
 import { listTools, callTool } from '../../server/mcp/tools.js'
 import { isCleanServerText } from '../../server/mcp/language.js'
 import { RATE_LIMIT_MESSAGE } from '../../server/mcp/rate.js'
@@ -64,6 +66,16 @@ async function tokenAndCaller(grantId) {
 }
 
 const elevated = async () => tokenAndCaller(await grantFor(admin, { adminUntil: future() }))
+
+/** A pending connection (plan A5): a pairing code waiting, stored as its hash the way the approval stores it. */
+async function pending(user) {
+  const grantId = await grantFor(user)
+  await db.pg.query("update oauth_grants set admin_pending_hash = $2, admin_pending_until = now() + interval '10 minutes' where id = $1", [
+    grantId,
+    pairingHash(grantId, 'ABCD-EFGH')
+  ])
+  return tokenAndCaller(grantId)
+}
 
 /** One JSON-RPC call on the given protocol version, with the bearer token. Returns the parsed body. */
 async function rpc(version, token, method, params = {}) {
@@ -164,7 +176,8 @@ describe('least privilege: a normal tool never reaches an admin route', () => {
 
 describe('every admin tool is behind its admin route', () => {
   it.each(ADMIN_TOOLS.map((tool) => [tool.name, tool]))('%s: 404 from every route without adminTool, and not 404 with it', async (name, tool) => {
-    const { caller } = await elevated()
+    // admin_activate runs for a pending connection (its route is pending); every other admin tool for the admin.
+    const { caller } = name === PENDING_TOOL ? await pending(admin) : await elevated()
     for (const key of ADMIN_REST_ROUTES[name]) {
       const [method, path] = key.split(' ')
       expect(path).not.toContain(':')

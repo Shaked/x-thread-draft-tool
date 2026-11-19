@@ -10,7 +10,7 @@ vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn
 import { route } from '../../server/router.js'
 import { secretKey } from '../../server/session.js'
 import { setMetadataResolverForTests } from '../../server/oauth/clients.js'
-import { resolveAccess } from '../../server/oauth/tokens.js'
+import { issuePair, resolveAccess } from '../../server/oauth/tokens.js'
 import { pairingHash } from '../../server/admin/pairing.js'
 import { APP_URL, apiRequest, setupTestDb } from './helpers/db.js'
 
@@ -284,8 +284,8 @@ describe('an approval with the box ticked gives the owner a one-time pairing pag
     const tokens = await exchange(link, clientId, CLAUDE, verifier)
     expect(tokens.scope).toBe('drafts')
     expect(JSON.stringify(tokens)).not.toContain(code.replace('-', ''))
-    // No connection is an admin after this task: the token lists no admin tool.
-    expect((await toolNames(tokens.access_token)).filter((name) => name.startsWith('admin_'))).toEqual([])
+    // Nothing is admin yet: the pending connection lists only admin_activate (plan A5).
+    expect((await toolNames(tokens.access_token)).filter((name) => name.startsWith('admin_'))).toEqual(['admin_activate'])
   })
 
   it.each([
@@ -415,5 +415,162 @@ describe('a device grant never carries an elevation', () => {
       "select admin_until, admin_pending_hash, admin_pending_until, admin_pending_tries from oauth_grants where client_id = 'device:claude'"
     )
     expect(rows).toEqual([{ admin_until: null, admin_pending_hash: null, admin_pending_until: null, admin_pending_tries: 0 }])
+  })
+})
+
+// ---- admin_activate: the pairing code turns admin on (plan A5) ---------------------------------
+
+/** One JSON-RPC call on the legacy protocol with the token. Returns the parsed answer. */
+async function rpcOn(token, method, params = {}) {
+  const res = await route(
+    new Request(MCP, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        authorization: `Bearer ${token}`,
+        'mcp-protocol-version': LEGACY
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+    })
+  )
+  return JSON.parse(await res.text())
+}
+
+const callOn = (token, name, args) => rpcOn(token, 'tools/call', { name, arguments: args })
+const textOf = (answer) => answer.result.content[0].text
+
+/** Approves with the box for a return address and exchanges the code: the pending connection and its code. */
+async function pendingApp(redirect, { ticked = true } = {}) {
+  const clientId = await registerClient(redirect)
+  const { verifier, challenge } = pkce()
+  const path = authorizePath(clientId, { redirectUri: redirect, challenge })
+  const { code, link } = await pairingFrom(await approve(path, await cookieFor(admin), { admin: ticked }))
+  const tokens = await exchange(link, clientId, redirect, verifier)
+  return { code, token: tokens.access_token, clientId }
+}
+
+describe('admin_activate: the pairing code turns admin on for this connection', () => {
+  it('the app lists only admin_activate; the right code turns admin on for 24 hours; then the admin tools show', async () => {
+    const { code, token } = await pendingApp(CLAUDE)
+    const names = await toolNames(token)
+    expect(names).toContain('whoami')
+    expect(names.filter((name) => name.startsWith('admin_'))).toEqual(['admin_activate'])
+    const listed = await rpcOn(token, 'tools/list', {})
+    expect(listed.result.cacheScope).toBe('private')
+    expect((await callOn(token, 'admin_status', {})).error.message).toMatch(/unknown tool/)
+
+    const done = await callOn(token, 'admin_activate', { code })
+    expect(done.result.isError).toBe(false)
+    expect(done.result.structuredContent).toMatchObject({ admin: true })
+
+    const grant = await grantOf(admin)
+    const hours = (new Date(grant.admin_until).getTime() - Date.now()) / 3_600_000
+    expect(hours).toBeGreaterThan(23.9)
+    expect(hours).toBeLessThan(24.1)
+    expect(grant).toMatchObject({ admin_pending_hash: null, admin_pending_tries: 0 })
+
+    const after = await toolNames(token)
+    expect(after).toContain('admin_status')
+    expect(after).not.toContain('admin_activate')
+    expect((await callOn(token, 'admin_status', {})).result.structuredContent).toMatchObject({ admin: true })
+
+    const audit = await db.pg.query("select action, outcome, details from admin_audit where action = 'elevate_connection'")
+    expect(audit.rows).toHaveLength(1)
+    expect(audit.rows[0]).toMatchObject({ outcome: 'done', details: { hours: 24 } })
+    expect(JSON.stringify(audit.rows)).not.toContain(code.replace('-', ''))
+    expect(JSON.stringify(done)).not.toContain(code.replace('-', ''))
+  })
+
+  it('three wrong codes cancel the code: each is a 400, the third says start again, and a right code then is an unknown tool', async () => {
+    const { code, token } = await pendingApp(CLAUDE)
+    // A guess that happens to equal the real code is not a wrong guess; none of these can, but the test says so.
+    const guesses = ['AAAA-AAAA', 'BBBB-BBBB', 'CCCC-CCCC'].filter((guess) => guess !== code)
+    const first = await callOn(token, 'admin_activate', { code: guesses[0] })
+    expect(first.result.isError).toBe(true)
+    expect(textOf(first)).toContain('2 tries left')
+    const second = await callOn(token, 'admin_activate', { code: guesses[1] })
+    expect(textOf(second)).toContain('1 try left')
+    const third = await callOn(token, 'admin_activate', { code: guesses[2] })
+    expect(third.result.isError).toBe(true)
+    expect(textOf(third)).toContain('Start again: connect the app and tick the box')
+
+    const grant = await grantOf(admin)
+    expect(grant).toMatchObject({ admin_until: null, admin_pending_hash: null, pending_seconds: null, admin_pending_tries: 0 })
+    expect((await callOn(token, 'admin_activate', { code })).error.message).toMatch(/unknown tool/)
+    expect(await toolNames(token)).not.toContain('admin_activate')
+
+    const refused = await db.pg.query("select outcome, details from admin_audit where action = 'elevate_connection' order by created_at")
+    expect(refused.rows.map((row) => row.details)).toEqual([{ tries: 1 }, { tries: 2 }, { tries: 3 }])
+    expect(JSON.stringify(refused.rows)).not.toContain(code.replace('-', ''))
+  })
+
+  it('a code whose time has run out is an unknown tool, and the app does not list admin_activate', async () => {
+    const { code, token } = await pendingApp(CLAUDE)
+    await db.pg.query("update oauth_grants set admin_pending_until = now() - interval '1 second' where admin_pending_hash is not null")
+    expect(await toolNames(token)).not.toContain('admin_activate')
+    expect((await callOn(token, 'admin_activate', { code })).error.message).toMatch(/unknown tool/)
+    expect((await grantOf(admin)).admin_until).toBeNull()
+  })
+
+  it('a code is good for its own connection only: on a second pending connection of the same user it is a wrong try there', async () => {
+    const first = await pendingApp(CLAUDE)
+    const second = await pendingApp(CHATGPT)
+    const wrongHere = await callOn(second.token, 'admin_activate', { code: first.code })
+    expect(textOf(wrongHere)).toContain('2 tries left')
+
+    const { rows } = await db.pg.query('select client_id, admin_pending_tries, admin_until from oauth_grants where user_id = $1 order by client_id', [admin.id])
+    const byClient = Object.fromEntries(rows.map((row) => [row.client_id, row]))
+    expect(byClient[second.clientId]).toMatchObject({ admin_pending_tries: 1, admin_until: null })
+    expect(byClient[first.clientId]).toMatchObject({ admin_pending_tries: 0, admin_until: null })
+
+    expect((await callOn(first.token, 'admin_activate', { code: first.code })).result.isError).toBe(false)
+    const after = await db.pg.query('select client_id, admin_until from oauth_grants where user_id = $1 order by client_id', [admin.id])
+    expect(after.rows.find((row) => row.client_id === first.clientId).admin_until).not.toBeNull()
+    expect(after.rows.find((row) => row.client_id === second.clientId).admin_until).toBeNull()
+  })
+
+  it('admin ends when admin_until passes: the app lists no admin tool at all', async () => {
+    const { code, token } = await pendingApp(CLAUDE)
+    await callOn(token, 'admin_activate', { code })
+    await db.pg.query("update oauth_grants set admin_until = now() - interval '1 second' where user_id = $1", [admin.id])
+    const names = await toolNames(token)
+    expect(names.filter((name) => name.startsWith('admin_'))).toEqual([])
+    expect((await callOn(token, 'admin_status', {})).error.message).toMatch(/unknown tool/)
+  })
+
+  it('a normal user with pending columns set by SQL gets no admin_activate', async () => {
+    const grant = await db.pg.query(
+      `insert into oauth_grants (user_id, client_id, scope, resource) values ($1, $2, 'drafts', $3) returning id`,
+      [alice.id, await registerClient(CLAUDE), MCP]
+    )
+    await db.pg.query("update oauth_grants set admin_pending_hash = $2, admin_pending_until = now() + interval '10 minutes' where id = $1", [
+      grant.rows[0].id,
+      pairingHash(grant.rows[0].id, 'ABCD-EFGH')
+    ])
+    const pair = await issuePair(grant.rows[0].id)
+    // The token knows its grant is pending; the admin check (the GitHub id) keeps the tool away from a normal user.
+    expect(await resolveAccess(pair.access_token, MCP)).toMatchObject({ admin: false })
+    expect((await toolNames(pair.access_token)).filter((name) => name.startsWith('admin_'))).toEqual([])
+    expect((await callOn(pair.access_token, 'admin_activate', { code: 'ABCD-EFGH' })).error.message).toMatch(/unknown tool/)
+  })
+
+  it('a pending column on the REST resource grant gives no admin flag at all', async () => {
+    const grant = await db.pg.query(
+      `insert into oauth_grants (user_id, client_id, scope, resource) values ($1, $2, 'drafts', $3) returning id`,
+      [admin.id, await registerClient(CLAUDE), API]
+    )
+    await db.pg.query("update oauth_grants set admin_pending_hash = $2, admin_pending_until = now() + interval '10 minutes' where id = $1", [
+      grant.rows[0].id,
+      pairingHash(grant.rows[0].id, 'ABCD-EFGH')
+    ])
+    const pair = await issuePair(grant.rows[0].id)
+    expect(await resolveAccess(pair.access_token, API)).toMatchObject({ adminPending: false, admin: false })
+  })
+
+  it('ADMIN_DISABLED=1 hides admin_activate even from the owner', async () => {
+    const { token } = await pendingApp(CLAUDE)
+    process.env.ADMIN_DISABLED = '1'
+    expect((await toolNames(token)).filter((name) => name.startsWith('admin_'))).toEqual([])
   })
 })
