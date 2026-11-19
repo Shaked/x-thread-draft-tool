@@ -99,6 +99,9 @@ describe.each([MODERN, LEGACY, EARLIER])('UI views, protocol %s', (version) => {
     expect(item).toMatchObject({ uri, mimeType: MIME })
     expect(item.text.startsWith('<!doctype html>')).toBe(true)
     expect(item._meta.ui).toEqual({ csp: { connectDomains: [], resourceDomains: expectedImageHosts() }, prefersBorder: true })
+    // ChatGPT's widget keys (T10, #238): the same image host, in the snake_case form ChatGPT reads.
+    expect(item._meta['openai/widgetCSP']).toEqual({ connect_domains: [], resource_domains: expectedImageHosts() })
+    expect(item._meta['openai/widgetPrefersBorder']).toBe(true)
   })
 
   it('a wrong ?v= is not found', async () => {
