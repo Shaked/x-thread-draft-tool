@@ -47,7 +47,7 @@ describe('MCP post tools on a draft with an id-less post', () => {
 
   it('move_post can move the id-less post, which then has an id', async () => {
     const draft = await db.insertDraft(alice.id, { posts: LEGACY() })
-    // The id-less post is at position 2; move it to position 1.
+    // Post 'a' (position 1) moves to position 2, so the id-less post, which was at position 2, moves to position 1.
     const result = await run('move_post', { id: draft.id, post_id: 'a', position: 2 })
     expect(result.isError).toBe(false)
 
