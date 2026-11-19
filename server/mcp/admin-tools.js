@@ -128,7 +128,7 @@ function userSuspension(action, args, rest) {
     return json({ error: 'Give the user id (a UUID from admin_list_users) and confirm_login (the login, typed exactly).' }, 400)
   }
   const body = { confirm_login: args.confirm_login }
-  if (action === 'suspend' && args.reason !== undefined) body.reason = String(args.reason)
+  if (action === 'suspend' && args.reason !== undefined) body.reason = args.reason
   return rest('POST', `/admin/users/${encodeURIComponent(args.id)}/${action}`, body)
 }
 

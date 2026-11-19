@@ -81,6 +81,20 @@ async function call(token, name, args) {
   return JSON.parse(await res.text())
 }
 
+/** tools/list on the modern protocol, for one connection. Returns the parsed body. */
+async function rpcList(token) {
+  const headers = {
+    'content-type': 'application/json',
+    accept: 'application/json, text/event-stream',
+    authorization: `Bearer ${token}`,
+    'mcp-protocol-version': MODERN,
+    'mcp-method': 'tools/list'
+  }
+  const body = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: { _meta: { 'io.modelcontextprotocol/protocolVersion': MODERN } } }
+  const res = await route(new Request(MCP, { method: 'POST', headers, body: JSON.stringify(body) }))
+  return JSON.parse(await res.text())
+}
+
 /** The answer of a tool call: `data` is the parsed JSON, or `{ error: text }` when the text is not JSON. */
 function answer(body) {
   const text = body.result.content[0].text
@@ -155,7 +169,12 @@ describe('suspend and unsuspend through the admin tools', () => {
       expect((await loginStatus(who)).suspended_at).toBeNull()
     }
     expect((await auditRows()).map((row) => row.outcome)).toEqual(['refused', 'refused'])
-    expect(UNSUSPEND_SQL).toContain('github_id <> all($2::bigint[])')
+    // The unsuspend guard, on real rows: the admin and the CI user are suspended directly, and must not match.
+    const ciRow = await db.pg.query("select id from users where github_id = -1")
+    await db.pg.query('update users set suspended_at = now() where id = any($1::uuid[])', [[admin.id, ciRow.rows[0].id]])
+    const unsuspended = await db.pg.query(UNSUSPEND_SQL, [admin.id, protectedGithubIds()])
+    expect(unsuspended.rowCount).toBe(0)
+    expect((await loginStatus(admin)).suspended_at).not.toBeNull()
   })
 
   it('records the audit rows with the reason and the counts, and refuses a reason over 200 characters', async () => {
@@ -176,23 +195,32 @@ describe('suspend and unsuspend through the admin tools', () => {
     expect(JSON.stringify(rows)).not.toMatch(/token_hash|secret/)
   })
 
-  it('the 31st suspend or unsuspend in an hour answers 429 and changes nothing', async () => {
+  it('suspend and unsuspend share the 30 an hour; refused rows do not count; the 31st answers 429', async () => {
     const { token } = await adminConnection()
+    // 29 done rows of both kinds, and 5 refused rows that must not count.
     await db.pg.query(
       `insert into admin_audit (actor_user_id, actor_github_id, actor_login, action, outcome)
-       select $1, $2, 'shaked', 'suspend_user', 'done' from generate_series(1, 30)`,
+       select $1::uuid, $2::bigint, 'shaked', 'suspend_user', 'done' from generate_series(1, 19)
+       union all select $1::uuid, $2::bigint, 'shaked', 'unsuspend_user', 'done' from generate_series(1, 10)
+       union all select $1::uuid, $2::bigint, 'shaked', 'suspend_user', 'refused' from generate_series(1, 5)`,
       [admin.id, ADMIN_GITHUB_ID]
     )
-    const limited = answer(await call(token, 'admin_suspend_user', { id: alice.id, confirm_login: 'alice' }))
+    // The 30th action is still allowed: 29 done rows so far.
+    expect(answer(await call(token, 'admin_suspend_user', { id: alice.id, confirm_login: 'alice' })).data.changed).toBe(true)
+    // Now 30 done rows: the 31st answers 429 and changes nothing.
+    const limited = answer(await call(token, 'admin_unsuspend_user', { id: alice.id, confirm_login: 'alice' }))
     expect(limited.isError).toBe(true)
     expect(limited.data.error).toBe('Admin limit reached: at most 30 of these actions per hour.')
-    expect((await loginStatus(alice)).suspended_at).toBeNull()
+    expect((await loginStatus(alice)).suspended_at).not.toBeNull()
   })
 
   it('a normal connection does not see the tools and calling one is an unknown tool', async () => {
     const pair = await issuePair(await grantFor(alice))
     const body = await call(pair.access_token, 'admin_suspend_user', { id: admin.id, confirm_login: 'shaked' })
     expect(body.error.code).toBe(-32602)
+    expect(body.error.message).toMatch(/unknown tool/i)
+    const listed = await rpcList(pair.access_token)
+    expect(listed.result.tools.map((tool) => tool.name).filter((name) => name.startsWith('admin_'))).toEqual([])
     expect((await loginStatus(admin)).suspended_at).toBeNull()
     expect((await loginStatus(alice)).suspended_at).toBeNull()
   })
