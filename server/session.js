@@ -58,14 +58,19 @@ async function sessionState(request) {
   )
   const row = rows[0]
   if (row.revoked || !row.found) return null
-  if (row.suspended_at !== null) return { suspended: true }
+  // The payload rides along only so that sign-out can revoke it; every other caller treats suspended as no session.
+  if (row.suspended_at !== null) return { suspended: true, session: payload }
   return { session: payload }
 }
 
-/** Returns the session payload, or null when there is no usable session. A suspended user has none. */
-export async function readSession(request) {
+/**
+ * Returns the session payload, or null when there is no usable session. A suspended user has none,
+ * except for sign-out (`includeSuspended`), which must still be able to revoke the session.
+ */
+export async function readSession(request, { includeSuspended = false } = {}) {
   const state = await sessionState(request)
-  return state?.session ?? null
+  if (!state || (state.suspended && !includeSuspended)) return null
+  return state.session
 }
 
 /**

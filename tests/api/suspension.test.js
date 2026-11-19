@@ -263,6 +263,16 @@ describe('REST paths', () => {
     expect((await (await me()).json()).user.login).toBe('ci-smoke')
   })
 
+  it('signing out while suspended revokes the session: the old cookie stays dead after unsuspending', async () => {
+    const alice = await userWith(1, 'alice')
+    await suspend(alice)
+    const out = await route(apiRequest('/api/auth/logout', { method: 'POST', cookie: alice.cookie, origin: APP_URL }))
+    expect(out.status).toBe(200)
+    expect((await db.pg.query('select count(*)::int as n from revoked_sessions')).rows[0].n).toBe(1)
+    await unsuspend(alice)
+    expect((await probes['cookie, GET /api/drafts'].send(alice)).status).toBe(401)
+  })
+
   it('a user row deleted with SQL: the old cookie gets 401', async () => {
     const alice = await userWith(1, 'alice')
     await db.pg.query('delete from users where id = $1', [alice.user.id])

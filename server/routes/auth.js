@@ -119,7 +119,8 @@ async function me({ request }) {
 
 /** POST /api/auth/logout: ends this browser's session on the server (not API tokens or AI apps), then clears the cookie. */
 async function logout({ request }) {
-  const session = await readSession(request)
+  // A suspended user can sign out too: the session is revoked, so it stays dead after unsuspending.
+  const session = await readSession(request, { includeSuspended: true })
   if (session) await revokeSession(session)
   return json({ ok: true }, 200, { 'set-cookie': clearSessionCookie() })
 }
