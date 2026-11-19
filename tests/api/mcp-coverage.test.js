@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { ROUTES } from '../../server/router.js'
 import { TOOL_REST_ROUTES } from '../../server/mcp/tools.js'
+import { ADMIN_TOOL_REST_ROUTES } from '../../server/mcp/admin-tools.js'
 
 // Excluded routes. A key ending in "/*" matches that path and everything below it. A key with a
 // method ("POST /images") matches only that method. Each has the reason it is not a tool.
@@ -21,7 +22,6 @@ const EXCLUDED = {
   'GET /health': 'Health check, not a user function',
   'GET /mcp/ui-manifest': 'Deploy check: view hashes for the production smoke step, not a user function',
   'POST /mcp': 'The MCP endpoint itself',
-  '/admin/*': 'Admin routes (plan A2): reached only by admin MCP tools (A3 adds the rule for them)'
 }
 
 /** True when a route matches an EXCLUDED key. */
@@ -42,6 +42,7 @@ describe('REST routes and MCP tools', () => {
     const uncovered = ROUTES.filter(
       (route) =>
         !TOOL_REST_ROUTES.includes(routeKey(route)) &&
+        !ADMIN_TOOL_REST_ROUTES.includes(routeKey(route)) &&
         !Object.keys(EXCLUDED).some((key) => matchesExclusion(route, key))
     ).map(routeKey)
     expect(uncovered).toEqual([])
@@ -54,7 +55,19 @@ describe('REST routes and MCP tools', () => {
 
   it('every REST route a tool calls exists in the router', () => {
     const known = new Set(ROUTES.map(routeKey))
-    const missing = TOOL_REST_ROUTES.filter((key) => !known.has(key))
+    const missing = [...TOOL_REST_ROUTES, ...ADMIN_TOOL_REST_ROUTES].filter((key) => !known.has(key))
     expect(missing).toEqual([])
+  })
+
+  it('no admin route is excluded: every /admin route is an admin tool route', () => {
+    const adminRoutes = ROUTES.filter((route) => route.path === '/admin' || route.path.startsWith('/admin/')).map(routeKey)
+    expect(adminRoutes.length).toBeGreaterThan(0)
+    expect(adminRoutes.filter((key) => !ADMIN_TOOL_REST_ROUTES.includes(key))).toEqual([])
+    expect(Object.keys(EXCLUDED).filter((key) => key.includes('/admin'))).toEqual([])
+  })
+
+  it('admin tool routes are /admin paths with a method, and normal tools never call one', () => {
+    for (const key of ADMIN_TOOL_REST_ROUTES) expect(key).toMatch(/^(GET|POST|PATCH|PUT|DELETE) \/admin\//)
+    expect(TOOL_REST_ROUTES.filter((key) => key.includes('/admin'))).toEqual([])
   })
 })

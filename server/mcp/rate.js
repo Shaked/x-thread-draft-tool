@@ -28,6 +28,19 @@ const AUTHORIZE_AND_COUNT = `
   )
   select a.*, (select calls from r) as calls from a`
 
+// One count for an admin tool call (plan A3). Not part of AUTHORIZE_AND_COUNT, so a normal call's statement is unchanged.
+const COUNT_ONE = `
+  insert into mcp_rate_limits (user_id, minute, calls)
+  values ($1, date_trunc('minute', now()), 1)
+  on conflict (user_id, minute) do update set calls = mcp_rate_limits.calls + 1
+  returning calls`
+
+/** Counts one admin tool call for `uid` in this minute. True when it is within the limit. */
+export async function withinToolRate(uid) {
+  const { rows } = await query(COUNT_ONE, [uid])
+  return rows[0].calls <= TOOL_CALLS_PER_MINUTE
+}
+
 /**
  * Checks the OAuth access token for `resource` and, when `count` is true, counts one tools/call.
  * Returns null when the token is not valid, else the caller with `withinRate` (true when the call
