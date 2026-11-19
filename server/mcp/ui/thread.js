@@ -4,7 +4,7 @@
 import * as client from './client.js'
 import { X_VARS_DARK, X_VARS_LIGHT } from '../../share/x-css.js'
 
-const STYLE = `
+export const STYLE = `
 :root { color-scheme: light; ${X_VARS_LIGHT} }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; ${X_VARS_DARK} } }
 :root[data-theme="dark"] { color-scheme: dark; ${X_VARS_DARK} }
@@ -74,7 +74,9 @@ const STARTER = `
 
 // Every function the view runs. Each is copied by its source text, so each must use only its own arguments,
 // the globals of the page and the other functions in this list (no module-level constants).
-const SCRIPT = [
+// The functions that draw a thread and talk to the host. The drafts view (drafts.js) copies the same list, so the code
+// is shared by reference, not written twice.
+export const RENDER_FUNCTIONS = [
   client.bridge,
   client.safeUrl,
   client.safeImage,
@@ -89,8 +91,8 @@ const SCRIPT = [
   client.renderError,
   client.threadFrom
 ]
-  .map((fn) => fn.toString())
-  .join('\n') + STARTER
+
+const SCRIPT = RENDER_FUNCTIONS.map((fn) => fn.toString()).join('\n') + STARTER
 
 /** The whole view document. */
 const THREAD_HTML = `<!doctype html>

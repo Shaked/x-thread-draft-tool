@@ -5,16 +5,17 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bridge, el, renderThread, safeUrl } from '../../server/mcp/ui/client.js'
-import { listUiResources, readUiResource, uiResourceUri } from '../../server/mcp/ui/index.js'
+import { listUiResources, readUiResource } from '../../server/mcp/ui/index.js'
 
 // Rule 9: no innerHTML, outerHTML, insertAdjacentHTML, document.write, eval, new Function, or on* attributes.
 const BANNED = [/innerHTML/, /outerHTML/, /insertAdjacentHTML/, /document\.write/, /\beval\b/, /new Function/, /[\s"'<]on[a-z]+\s*=/i]
 // Rule 10: nothing loaded from another host and no network calls from the view.
 const NETWORK = [/<script[^>]*\ssrc=/i, /<link/i, /\bfetch\s*\(/, /XMLHttpRequest/, /WebSocket/]
 
+// Every view (the thread view and the drafts list), each with the shared client source.
 function viewSources() {
-  const [view] = readUiResource(uiResourceUri('thread'))
-  return { html: view.text, client: readFileSync(join(process.cwd(), 'server/mcp/ui/client.js'), 'utf8') }
+  const client = readFileSync(join(process.cwd(), 'server/mcp/ui/client.js'), 'utf8')
+  return listUiResources().map((entry) => ({ name: entry.name, html: readUiResource(entry.uri)[0].text, client }))
 }
 
 afterEach(() => {
@@ -24,18 +25,20 @@ afterEach(() => {
 
 describe('the view source (rules 9 and 10)', () => {
   it('contains none of the banned write paths', () => {
-    const { html, client } = viewSources()
-    for (const pattern of BANNED) {
-      expect(html, `view HTML matches ${pattern}`).not.toMatch(pattern)
-      expect(client, `client.js matches ${pattern}`).not.toMatch(pattern)
+    for (const { name, html, client } of viewSources()) {
+      for (const pattern of BANNED) {
+        expect(html, `${name} view HTML matches ${pattern}`).not.toMatch(pattern)
+        expect(client, `client.js matches ${pattern}`).not.toMatch(pattern)
+      }
     }
   })
 
   it('loads nothing from another host and makes no network call', () => {
-    const { html, client } = viewSources()
-    for (const pattern of NETWORK) {
-      expect(html, `view HTML matches ${pattern}`).not.toMatch(pattern)
-      expect(client, `client.js matches ${pattern}`).not.toMatch(pattern)
+    for (const { name, html, client } of viewSources()) {
+      for (const pattern of NETWORK) {
+        expect(html, `${name} view HTML matches ${pattern}`).not.toMatch(pattern)
+        expect(client, `client.js matches ${pattern}`).not.toMatch(pattern)
+      }
     }
   })
 
