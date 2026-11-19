@@ -115,16 +115,17 @@ describe('tools/call rate limit (M8)', () => {
     expect((await callTool(token)).isError).toBe(false)
   })
 
-  it('deletes rows older than one day and keeps recent ones', async () => {
+  it('deletes rows older than eight days and keeps recent ones (admin plan A7: 8 days, was 1)', async () => {
     await db.pg.query(
       `insert into mcp_rate_limits (user_id, minute, calls) values
-         ($1, date_trunc('minute', now()) - interval '2 days', 3),
+         ($1, date_trunc('minute', now()) - interval '9 days', 3),
+         ($1, date_trunc('minute', now()) - interval '7 days', 5),
          ($1, date_trunc('minute', now()) - interval '1 hour', 4)`,
       [alice.id]
     )
     await cleanupExpired()
     const { rows } = await db.pg.query('select calls from mcp_rate_limits where user_id = $1 order by minute', [alice.id])
-    expect(rows.map((row) => row.calls)).toEqual([4])
+    expect(rows.map((row) => row.calls)).toEqual([5, 4])
   })
 })
 

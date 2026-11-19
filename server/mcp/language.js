@@ -9,3 +9,8 @@ const FORBIDDEN_TEXT =/[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/
 export function isCleanServerText(s) {
   return typeof s === 'string' && s === s.normalize('NFC') && Buffer.from(s, 'utf8').toString('utf8') === s && !FORBIDDEN_TEXT.test(s)
 }
+
+/** `s` with every bidi and invisible format character removed (the same class as FORBIDDEN_TEXT). */
+export function stripForbidden(s) {
+  return s.replace(new RegExp(FORBIDDEN_TEXT.source, 'g'), '')
+}

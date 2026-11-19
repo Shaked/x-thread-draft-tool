@@ -271,3 +271,37 @@ describe('connection time (plan P1, step 4)', () => {
     // 15 s: if a sandbox drops packets instead of refusing, the 8 s connect timeout still fits.
   }, 15000)
 })
+
+describe('admin read tools (plan A7): 3 statements each (token and count, the query)', () => {
+  /** An elevated admin grant (the owner's id) and a tools/call with its token. Test data only. */
+  async function adminCall(name, args = {}) {
+    const admin = await db.insertUser({ github_id: 960015, login: 'shaked' })
+    const { rows } = await db.pg.query(
+      "insert into oauth_grants (user_id, client_id, scope, resource, admin_until) values ($1, 'xtc_mcp_test', 'drafts', $2, now() + interval '1 day') returning id",
+      [admin.id, MCP]
+    )
+    const token = (await issuePair(rows[0].id)).access_token
+    return new Request(MCP, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        authorization: `Bearer ${token}`,
+        'mcp-protocol-version': MODERN,
+        'mcp-method': 'tools/call',
+        'mcp-name': name
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args, _meta: { 'io.modelcontextprotocol/protocolVersion': MODERN } } })
+    })
+  }
+
+  it('MCP admin_list_users: 3', async () => {
+    const spy = spyPerf()
+    expect(await roundTrips(spy, await adminCall('admin_list_users', { limit: 2 }))).toBe(3)
+  })
+
+  it('MCP admin_stats: 3', async () => {
+    const spy = spyPerf()
+    expect(await roundTrips(spy, await adminCall('admin_stats'))).toBe(3)
+  })
+})
