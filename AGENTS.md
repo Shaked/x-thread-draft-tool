@@ -27,7 +27,7 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 - `npm ci` once; the pre-commit hook runs build and unit tests.
 - Test files under `tests/api/` start with `// @vitest-environment node`.
 - GitHub work through the GitHub MCP tools; `gh` for search only. Every comment ends with the Claude Code footer.
-- After every push, comment `@codex review`. Codex answers in 2 to 3 minutes as a PR comment. Check at 3 min, ask again at 10, treat it as silent at 15. The `Codex review` check stays red while any Codex thread is unresolved; when the fix is on the head, reply and resolve.
+- Codex review is optional (decided by Shaked 2026-11-19, #154). After a push you may comment `@codex review`. If Codex says its usage limit is reached, or the `Codex review` check is red only for that reason, do not wait and do not ask Shaked: merge when CI is green and Opus has validated and judged the PR on the final head (if a commit comes after Opus read it, Opus re-reads it first). Say "Codex not available (limit); Opus validated" in the Handoff. If Codex does review, read its comments and resolve its threads once the fix is on the head. This does not weaken any test, the Opus review or the production smoke check.
 
 ### Models
 - Haiku executes every task. The task names its validator: Opus for SQL, auth, security, data deletion and design; Sonnet for other code. Opus judges every PR before merge.
@@ -40,3 +40,4 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 - Simple technical English, short sentences, no internal labels without a few words saying what they are (`T2 thread view`, `#76`).
 - Ask only what Shaked alone can decide: what is decided (as the user sees it), each option's result, your recommendation and what you do if nobody answers.
 - For a manual step: what to click, where (link), what it unblocks, and which automated route failed.
+- When you ask Shaked to try something on preview, add the label `try-preview` to the PR (he gets a Telegram message with the link if the label comes from his account; see the guide). When something only he can do exists, add the label `owner`. Details: `docs/operations/telegram.md`.
