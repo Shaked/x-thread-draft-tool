@@ -1,12 +1,11 @@
 // The MCP server at POST /api/mcp (plan Task 7.6). Streamable HTTP, stateless, JSON responses only.
 // Specification: revision 2026-07-28 (stateless, server/discover, per-request _meta and headers),
 // with the initialize handshake kept for clients on 2025-11-25 and 2025-06-18.
-import { resolveAccess } from '../oauth/tokens.js'
 import { runAs } from '../caller-context.js'
 import { callTool, hasTool, listTools } from './tools.js'
 import { getPrompt, listPrompts } from './prompts.js'
 import { getSkill, listSkillResources, listSkills, readSkillResource } from './skills.js'
-import { RATE_LIMIT_MESSAGE, withinToolRate } from './rate.js'
+import { RATE_LIMIT_MESSAGE, authorizeAndCount } from './rate.js'
 import { noteRpc } from '../perf.js'
 import { getVersion } from '../version.js'
 
@@ -93,11 +92,23 @@ function checkOrigin(request, origin) {
   return null
 }
 
-// Only an OAuth access token bound to this resource (`<origin>/api/mcp`) is accepted.
-// Cookies, xt_ tokens and CI tokens are never considered here.
-async function authorize(request, origin) {
-  const bearer = request.headers.get('authorization')?.match(/^Bearer (xta_[A-Za-z0-9_-]{43})$/)
-  return bearer ? await resolveAccess(bearer[1], `${origin}/api/mcp`) : null
+// Only an OAuth access token is accepted here, and only for this resource (`<origin>/api/mcp`, checked
+// in authorizeAndCount). Cookies, xt_ tokens and CI tokens are never considered here.
+function bearerToken(request) {
+  return request.headers.get('authorization')?.match(/^Bearer (xta_[A-Za-z0-9_-]{43})$/)?.[1] ?? null
+}
+
+/** The params as dispatch and the tool-call count read them: anything but an object is {}. */
+const paramsOf = (message) => (isPlainObject(message.params) ? message.params : {})
+
+/** The arguments as the tool sees them: absent and null are {}. Shared by the count and dispatch. */
+const argumentsOf = (params) => params.arguments ?? {}
+
+/** A tools/call that will run a known tool with object arguments: the only kind that counts (plan M8). */
+function isCountedToolCall(message) {
+  if (message.method !== 'tools/call') return false
+  const params = paramsOf(message)
+  return typeof params.name === 'string' && hasTool(params.name) && isPlainObject(argumentsOf(params))
 }
 
 /** Reads and validates the JSON-RPC envelope. Returns { message } or { response } for the error to send. */
@@ -165,36 +176,48 @@ function checkRequestHeaders(request, message, id, modern) {
   return null
 }
 
+/**
+ * The envelope checks that run after the body is read, in this order: protocol version, then the
+ * request headers (requests only). Returns { response } for the first failure, else { modern }.
+ */
+function checkEnvelope(request, message) {
+  const version = checkProtocolVersion(request, message, message.id)
+  if (version.response) return version
+  if (message.id !== undefined) {
+    const headerError = checkRequestHeaders(request, message, message.id, version.modern)
+    if (headerError) return { response: headerError }
+  }
+  return version
+}
+
 /** Handles one POST to the MCP endpoint. Always resolves to a Response. */
 export async function handleMcp(request) {
   const origin = appOrigin(request)
   const blocked = checkOrigin(request, origin)
   if (blocked) return blocked
 
-  const caller = await authorize(request, origin)
-  if (!caller) return unauthorized(origin)
+  // No access token of the right shape: 401 at once, without reading the body.
+  const token = bearerToken(request)
+  if (!token) return unauthorized(origin)
 
   const parsed = await readMessage(request)
-  if (parsed.response) return parsed.response
   const message = parsed.message
-  // Only the method and a known tool name reach the [perf] line, never the arguments.
-  noteRpc(message.method, message.method === 'tools/call' && hasTool(message.params?.name) ? message.params.name : null)
+  // The checks are worked out first, but their answer is sent only after the token check (401 first).
+  const checked = message ? checkEnvelope(request, message) : { response: parsed.response }
+  const counted = !checked.response && message.id !== undefined && isCountedToolCall(message)
+  const caller = await authorizeAndCount(token, `${origin}/api/mcp`, counted)
+  if (!caller) return unauthorized(origin)
+  if (message) {
+    // Only the method and a known tool name reach the [perf] line, never the arguments.
+    noteRpc(message.method, message.method === 'tools/call' && hasTool(message.params?.name) ? message.params.name : null)
+  }
+  if (checked.response) return checked.response
 
   // A request has an id; a notification does not and gets 202 with no body.
+  if (message.id === undefined) return new Response(null, { status: 202 })
+
   const id = message.id
-  const isRequest = id !== undefined
-
-  const version = checkProtocolVersion(request, message, id)
-  if (version.response) return version.response
-  const modern = version.modern
-
-  if (isRequest) {
-    const headerError = checkRequestHeaders(request, message, id, modern)
-    if (headerError) return headerError
-  }
-
-  if (!isRequest) return new Response(null, { status: 202 })
-
+  const { modern } = checked
   try {
     const result = await dispatch(message, { caller, origin, modern })
     return reply({ jsonrpc: '2.0', id, result: modern ? { resultType: 'complete', ...result } : result })
@@ -212,7 +235,7 @@ async function serverInfo() {
 }
 
 async function dispatch(message, ctx) {
-  const params = isPlainObject(message.params) ? message.params : {}
+  const params = paramsOf(message)
   switch (message.method) {
     case 'server/discover':
       return {
@@ -249,10 +272,11 @@ async function dispatch(message, ctx) {
       if (typeof params.name !== 'string' || !hasTool(params.name)) {
         throw new RpcError(-32602, `Invalid params: unknown tool ${JSON.stringify(params.name ?? null)}`)
       }
-      const args = params.arguments ?? {}
+      const args = argumentsOf(params)
       if (!isPlainObject(args)) throw new RpcError(-32602, 'Invalid params: arguments must be an object')
-      // Over the limit is a tool error (isError), not a JSON-RPC error, so the client can show it.
-      if (!(await withinToolRate(ctx.caller.uid))) {
+      // The call was counted in authorizeAndCount. Over the limit is a tool error (isError), not a
+      // JSON-RPC error, so the client can show it.
+      if (!ctx.caller.withinRate) {
         return { content: [{ type: 'text', text: RATE_LIMIT_MESSAGE }], isError: true }
       }
       return runAs(ctx.caller, () => callTool(params.name, args, { caller: ctx.caller, origin: ctx.origin }))

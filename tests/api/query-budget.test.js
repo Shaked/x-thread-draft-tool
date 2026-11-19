@@ -125,39 +125,39 @@ describe('query budget per flow (plan section 3.2)', () => {
     expect(await roundTrips(spy, legacy({ id: 2, method: 'tools/list' }))).toBe(1)
   })
 
-  it('MCP list_drafts: 3', async () => {
+  it('MCP list_drafts: 2', async () => {
     const spy = spyPerf()
-    expect(await roundTrips(spy, toolCall('list_drafts', { published: false }))).toBe(3)
+    expect(await roundTrips(spy, toolCall('list_drafts', { published: false }))).toBe(2)
   })
 
-  it('MCP get_draft: 3', async () => {
+  it('MCP get_draft: 2', async () => {
     const spy = spyPerf()
-    expect(await roundTrips(spy, toolCall('get_draft', { id: draft.id }))).toBe(3)
+    expect(await roundTrips(spy, toolCall('get_draft', { id: draft.id }))).toBe(2)
   })
 
-  it('MCP add_post: 4', async () => {
+  it('MCP add_post: 3', async () => {
     const spy = spyPerf()
-    expect(await roundTrips(spy, toolCall('add_post', { id: draft.id, text: 'A new post' }))).toBe(4)
+    expect(await roundTrips(spy, toolCall('add_post', { id: draft.id, text: 'A new post' }))).toBe(3)
   })
 
-  it('MCP update_post: 3', async () => {
+  it('MCP update_post: 2', async () => {
     const spy = spyPerf()
-    expect(await roundTrips(spy, toolCall('update_post', { id: draft.id, post_id: 'p3', text: 'Edited' }))).toBe(3)
+    expect(await roundTrips(spy, toolCall('update_post', { id: draft.id, post_id: 'p3', text: 'Edited' }))).toBe(2)
   })
 
-  it('MCP move_post: 4', async () => {
+  it('MCP move_post: 3', async () => {
     const spy = spyPerf()
-    expect(await roundTrips(spy, toolCall('move_post', { id: draft.id, post_id: 'p3', position: 1 }))).toBe(4)
+    expect(await roundTrips(spy, toolCall('move_post', { id: draft.id, post_id: 'p3', position: 1 }))).toBe(3)
   })
 
-  it('MCP remove_post without an image: 4', async () => {
+  it('MCP remove_post without an image: 3', async () => {
     const spy = spyPerf()
-    expect(await roundTrips(spy, toolCall('remove_post', { id: draft.id, post_id: 'p3' }))).toBe(4)
+    expect(await roundTrips(spy, toolCall('remove_post', { id: draft.id, post_id: 'p3' }))).toBe(3)
   })
 
-  it('MCP remove_post of the post with an image: 6', async () => {
+  it('MCP remove_post of the post with an image: 5', async () => {
     const spy = spyPerf()
-    expect(await roundTrips(spy, toolCall('remove_post', { id: draft.id, post_id: 'p2' }))).toBe(6)
+    expect(await roundTrips(spy, toolCall('remove_post', { id: draft.id, post_id: 'p2' }))).toBe(5)
   })
 
   it('REST GET /api/drafts with an xt_ token: 3', async () => {
