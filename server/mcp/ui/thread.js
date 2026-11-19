@@ -3,6 +3,7 @@
 // string so the module transform never rewrites its names. The colors are the X variables from server/share/x-css.js.
 import * as client from './client.js'
 import { X_VARS_DARK, X_VARS_LIGHT } from '../../share/x-css.js'
+import { embedOrigin } from './origin.js'
 
 export const STYLE = `
 :root { color-scheme: light; ${X_VARS_LIGHT} }
@@ -43,6 +44,8 @@ const STARTER = `
   var root = document.getElementById('root');
   var shown = false;
   var link = null;
+  // The image host, baked in by the server (T10 part 3, #238). Images use it before the tool result's _meta.
+  var IMAGE_ORIGIN = __IMAGE_ORIGIN__;
   // T10 (#238): ChatGPT's openExternal when it is there (the MCP Apps guide maps it to openLink); else ui/open-link.
   function open(url) {
     var safe = safeUrl(url, null);
@@ -67,6 +70,7 @@ const STARTER = `
     var thread = threadFrom(result);
     if (thread) {
       thread.expand = canExpand() ? expand : null;
+      thread.imageOrigin = IMAGE_ORIGIN || thread.imageOrigin;
       renderThread(root, thread, open);
     } else {
       renderError(root, 'This view cannot show that result.');
@@ -122,10 +126,12 @@ export const RENDER_FUNCTIONS = [
   client.threadFrom
 ]
 
-const SCRIPT = RENDER_FUNCTIONS.map((fn) => fn.toString()).join('\n') + STARTER
+// The page script for one image origin: the render functions, then the starter with the origin baked in.
+const scriptFor = (imageOrigin) => RENDER_FUNCTIONS.map((fn) => fn.toString()).join('\n') + STARTER.replace('__IMAGE_ORIGIN__', embedOrigin(imageOrigin))
 
-/** The whole view document. */
-const THREAD_HTML = `<!doctype html>
+/** The whole view document, for one image origin (null when the environment has none). */
+function threadHtml(imageOrigin) {
+  return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -136,14 +142,15 @@ const THREAD_HTML = `<!doctype html>
 </head>
 <body>
 <main id="root"><p>Loading thread…</p></main>
-<script>${SCRIPT}</script>
+<script>${scriptFor(imageOrigin)}</script>
 </body>
 </html>
 `
+}
 
 export const THREAD_VIEW = {
   name: 'thread',
   title: 'X thread',
   description: 'One draft as an X thread, read-only.',
-  html: THREAD_HTML
+  html: threadHtml
 }

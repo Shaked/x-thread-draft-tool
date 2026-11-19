@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createHash, randomBytes } from 'node:crypto'
-import { uiManifest } from '../server/mcp/ui/index.js'
+import { buildUiManifest } from '../server/mcp/ui/index.js'
+import { isBlobOrigin } from '../server/mcp/ui/origin.js'
 // Smoke test against a running deployment or the local dev server. Node 20 only, no dependencies.
 //
 //   XT_BASE_URL=http://127.0.0.1:8787 XT_TOKEN=xt_... node scripts/smoke.mjs
@@ -128,9 +129,12 @@ await step('openapi', async () => {
 // The MCP views (plan T2): the deployed manifest of view hashes must equal the views in this checkout.
 await step('mcp ui manifest matches this commit', async () => {
   const deployed = await call('GET', '/api/mcp/ui-manifest')
-  const local = uiManifest().views
   if (!Array.isArray(deployed.views) || deployed.views.length === 0) throw new Error('no views in the manifest')
-  if (JSON.stringify(deployed.views) !== JSON.stringify(local)) {
+  // The image origin is the only value an environment adds (T10 part 3, #238). It must be a Blob store origin, or null.
+  if (deployed.imageOrigin !== null && !isBlobOrigin(deployed.imageOrigin)) throw new Error('manifest image origin is not a Blob store origin')
+  // Rebuild the views from this checkout with the origin the deployment reports: every other byte must match.
+  const local = buildUiManifest(deployed.imageOrigin)
+  if (JSON.stringify(deployed) !== JSON.stringify(local)) {
     throw new Error(`deployed views ${deployed.views.map((v) => v.uri).join(', ')} do not match this commit`)
   }
 })
