@@ -5,7 +5,7 @@ Who this is for: the owner, and agents that work for the owner. This page is not
 ## Who is admin, and where that is set
 
 - Admin is one GitHub numeric id: `960015` (github.com/Shaked). It is in `server/admin/identity.js` as `ADMIN_GITHUB_IDS`. A login is never used, because a login can be renamed. `tests/api/admin-identity.test.js` pins the list.
-- No environment variable adds an admin. `ADMIN_DISABLED=1` only turns admin off. A new deploy is needed for that to take effect, because the value is read when the server starts (plan A5; not re-checked on Vercel here).
+- No environment variable adds an admin. `ADMIN_DISABLED=1` only turns admin off. The value is read on every check. Set it in the Vercel environment and make a new deploy so the change is live (how Vercel applies env changes: not checked here).
 - The admin account and the CI identity (`ci-smoke`) can never be suspended or deleted. This is enforced in code and in SQL, and does not depend on `ADMIN_DISABLED`.
 - Only two AI apps can hold admin tools: the exact return addresses `https://claude.ai/api/mcp/auth_callback` and `https://chatgpt.com/connector_platform_oauth_redirect` (`ADMIN_REDIRECT_URIS` in `server/admin/identity.js`). Claude Code, Codex and Grok cannot hold admin tools. To add an app, its exact return address must go into that list by a reviewed code change. A loopback address never qualifies.
 
@@ -30,7 +30,7 @@ To end admin at once, go to the Connected apps list on the settings page and dis
 
 ## The nine tools
 
-Admin tools are listed only to the elevated admin connection. Nobody else sees them.
+The elevated admin connection sees eight admin tools. A pending connection (a pairing code waiting) sees only `admin_activate`. Nobody else sees any of them.
 
 | Tool | Arguments | REST route |
 |---|---|---|
@@ -44,7 +44,7 @@ Admin tools are listed only to the elevated admin connection. Nobody else sees t
 | `admin_unsuspend_user` | `id`, `confirm_login` | `POST /api/admin/users/:id/unsuspend` |
 | `admin_delete_user` | `id`, `dry_run` (default true), `confirm_token`, `confirm_login` | `POST /api/admin/users/:id/delete` |
 
-The REST routes are under `/api/admin/`. They answer 404 to everyone except the elevated admin connection, the same answer as an unknown path. The smoke test checks this on the deployed site (`PASS admin paths answer like an unknown path (404)`).
+The REST routes are under `/api/admin/`. They answer 404 to everyone except the elevated admin connection (and, for `admin_activate` only, a pending one), the same answer as an unknown path. The smoke test checks this on the deployed site (`PASS admin paths answer like an unknown path (404)`).
 
 The answers hold account details and numbers only. They never hold draft text, token secrets, token hashes, client secrets or image URLs.
 
@@ -69,13 +69,13 @@ What the server does, in order:
 - It locks the user row and checks again that the user is still suspended, before any file is touched.
 - It removes the user's image files under `drafts/<user id>/` only. It removes nothing else.
 - Only when the file list is empty, it deletes the user in one database transaction. Everything of the user goes with it (cascade), and a `done` audit row is written in the same transaction.
-- If a step fails, the user stays suspended and a `failed` audit row is written. Running the delete again finishes the job.
+- If a step fails, the user stays suspended and a `failed` audit row is written. Finish the job with a fresh dry run: the old `confirm_token` no longer works once the content has changed (409 "The content changed. Run the dry run again.").
 - While a delete runs (up to 15 minutes), `admin_unsuspend_user` answers 409.
 
 ## The audit log
 
 - Table `admin_audit` (migration `009_admin.sql`). It has no foreign keys on purpose, so a row outlives the user it is about.
-- Each row keeps the admin's id and login, the action, the outcome (`started`, `done`, `failed`), and the target's id, GitHub id and login.
+- Each row keeps the admin's id and login, the action, the outcome (`started`, `done`, `failed`, `refused`), and the target's id, GitHub id and login.
 - The `details` field never holds a secret or a pairing code.
 - Read it with `admin_audit_log`, newest first.
 
@@ -87,5 +87,5 @@ The stats query (`GET /api/admin/stats`) is one statement of scalar subqueries, 
 
 - A wrong pairing code is counted. After 3 wrong codes, start again at step 1 of "How to get admin tools".
 - A user was suspended by mistake: run `admin_unsuspend_user` with the same login. Nothing was deleted.
-- A delete stopped in the middle: the user is still suspended. Run the same delete again. Each step is safe to repeat.
+- A delete stopped in the middle: the user is still suspended. Run a fresh dry run, then the real delete with the new token. Each step is safe to repeat.
 - `ADMIN_DISABLED=1` turns admin tools off. Set it in the environment and make a new deploy, so the server reads it.
