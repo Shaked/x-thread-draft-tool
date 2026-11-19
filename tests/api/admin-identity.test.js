@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import * as identity from '../../server/admin/identity.js'
 
-const { isAdminGithubId, isAdminRedirectUri, isProtectedGithubId, protectedGithubIds } = identity
+const { isAdminGithubId, isProtectedGithubId, protectedGithubIds } = identity
 
 describe('admin identity (plan A2)', () => {
   it('pins the only admin id to github.com/Shaked (960015)', () => {
@@ -39,32 +39,7 @@ describe('admin identity (plan A2)', () => {
     }
   })
 
-  it('accepts exactly the two real Claude and ChatGPT return addresses for admin', () => {
-    expect(isAdminRedirectUri('https://claude.ai/api/mcp/auth_callback')).toBe(true)
-    expect(isAdminRedirectUri('https://chatgpt.com/connector_platform_oauth_redirect')).toBe(true)
-    for (const uri of [
-      'https://claude.ai/api/mcp/auth_callback?x=1',
-      'https://claude.ai/api/mcp/auth_callback/',
-      'https://claude.ai/api/mcp/auth_callback/extra',
-      'http://claude.ai/api/mcp/auth_callback',
-      'https://claude.ai.evil.example/api/mcp/auth_callback',
-      'http://localhost/callback',
-      'http://127.0.0.1:1455/callback',
-      'https://evil.example/cb',
-      null,
-      undefined,
-      ''
-    ]) {
-      expect(isAdminRedirectUri(uri)).toBe(false)
-    }
-  })
-
-  it('exports exactly the four functions', () => {
-    expect(Object.keys(identity).sort()).toEqual([
-      'isAdminGithubId',
-      'isAdminRedirectUri',
-      'isProtectedGithubId',
-      'protectedGithubIds'
-    ])
+  it('exports exactly the three functions', () => {
+    expect(Object.keys(identity).sort()).toEqual(['isAdminGithubId', 'isProtectedGithubId', 'protectedGithubIds'])
   })
 })

@@ -7,19 +7,20 @@ Who this is for: the owner, and agents that work for the owner. This page is not
 - Admin is one GitHub numeric id: `960015` (github.com/Shaked). It is in `server/admin/identity.js` as `ADMIN_GITHUB_IDS`. A login is never used, because a login can be renamed. `tests/api/admin-identity.test.js` pins the list.
 - No environment variable adds an admin. `ADMIN_DISABLED=1` only turns admin off. The value is read on every check. Set it in the Vercel environment and make a new deploy so the change is live (how Vercel applies env changes: not checked here).
 - The admin account and the CI identity (`ci-smoke`) can never be suspended or deleted. This is enforced in code and in SQL, and does not depend on `ADMIN_DISABLED`.
-- Only two AI apps can hold admin tools: the exact return addresses `https://claude.ai/api/mcp/auth_callback` and `https://chatgpt.com/connector_platform_oauth_redirect` (`ADMIN_REDIRECT_URIS` in `server/admin/identity.js`). Claude Code, Codex and Grok cannot hold admin tools. To add an app, its exact return address must go into that list by a reviewed code change. A loopback address never qualifies.
+- Any AI app can hold admin tools after you tick the box and type the pairing code into that app. This includes Claude, ChatGPT, Grok, Claude Code and Codex. No list of app addresses is kept. A loopback address (localhost, used by command-line apps) is allowed too.
 
 ## How to get admin tools
 
 1. Sign out of X Thread Draft Tool, then sign in again.
-2. In Claude or ChatGPT on the web, go to the app's connector settings. Disconnect X Thread Draft Tool, then press Connect.
-3. On the "Allow access" page, tick "Also allow admin tools". Only tick it if you pressed Connect in your own AI app in the last minute. If a link brought you to this page, do not tick it.
+2. In your AI app (Claude or ChatGPT on the web, or a command-line app), go to the connector settings. Disconnect X Thread Draft Tool, then press Connect.
+3. On the "Allow access" page, check that the address shown is your own app. Tick "Also allow admin tools" only if you pressed Connect in your own AI app in the last minute. If a link brought you to this page, do not tick it.
 4. Approve. The page shows a pairing code once. Write it down. Press Continue.
 5. In the AI app, say: "activate admin with code <the code>". The tool `admin_activate` checks it.
 
 Rules that come from the code:
 
 - The pairing code is 8 characters. It is shown only in your own browser. Only its hash is stored.
+- The code is the only thing that stops a wrong app. Type it only into the app you connected yourself.
 - You get 3 tries. Three wrong codes cancel the code. A code also expires after 10 minutes.
 - A right code turns on admin for this connection for 24 hours. It covers every chat of that AI app in your account, not just one chat.
 - Any new approval of that app ends an active admin connection (`server/routes/oauth.js` sets `admin_until` to null).
