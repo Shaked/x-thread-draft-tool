@@ -161,7 +161,7 @@ describe('the header and long drafts', () => {
     expect([...bad.querySelectorAll('button')].map((b) => b.textContent)).not.toContain('Open in editor')
   })
 
-  it('a look-alike host or a base without a trailing slash does not pass the editor check', () => {
+  it('a look-alike host, http, or a path outside the base does not pass the editor check', () => {
     expect(underEditorBase('https://app.example.evil.com/draft/1', 'https://app.example')).toBe(false)
     expect(underEditorBase('https://app.example/draft/1', 'https://app.example')).toBe(true)
     expect(underEditorBase('http://app.example/draft/1', 'https://app.example/draft/')).toBe(false)
