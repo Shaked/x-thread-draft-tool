@@ -18,7 +18,9 @@ p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; unicode-bidi: pla
 const STARTER = `
 (function () {
   var root = document.getElementById('root');
+  var shown = false;
   function showResult(result) {
+    shown = true;
     if (result.isError) {
       var first = result.content && result.content[0];
       renderError(root, first && first.text ? first.text : 'The tool returned an error.');
@@ -30,7 +32,8 @@ const STARTER = `
   }
   var link = bridge({
     result: showResult,
-    error: function () { renderError(root, 'Could not connect to the host.'); }
+    // A late handshake failure must not replace a thread already shown from window.openai.
+    error: function () { if (!shown) renderError(root, 'Could not connect to the host.'); }
   });
   // ChatGPT's older path: when no tool result came, use window.openai.toolOutput if the page has it.
   setTimeout(function () {
