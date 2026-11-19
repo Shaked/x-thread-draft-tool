@@ -54,7 +54,7 @@ Delete either secret, `TELEGRAM_BOT_TOKEN` or `TELEGRAM_CHAT_ID`. Nothing else c
 - No login names, no draft text, no post text, no PR body, no diff, no log output.
 - Only: the short commit id, a commit or issue/PR title (cut to 120 characters), fixed text, and links. The production links go to the production address or to the failed run; the preview link goes to the preview address.
 
-The text is sent as HTML with escaping. If Telegram refuses the HTML, the same text is sent once more as plain text.
+The text is sent as HTML with escaping. Only if Telegram answers HTTP 400 with a parse error does the script send the same text once more as plain text (log line `notify: HTML rejected, sending plain text`). Any other refusal is not retried.
 
 ## How to test
 
@@ -74,7 +74,7 @@ Open the Actions run. The step log is the proof. A green check does not prove a 
 Read the last line of the step:
 
 - `notify skipped: no Telegram secrets`: one of the two secrets is missing, or its name is wrong. Check both names in the secrets page.
-- `notify skipped: this label event sends nothing`: the label is not `try-preview` or `owner`, `try-preview` was added to an issue, or the account that added the label is not the repository owner.
+- `notify skipped: this label event sends nothing`: `try-preview` was added to an issue, or the account that added the label is not the repository owner. (Other labels do not start this job at all.)
 - `notify failed: HTTP 400`: Telegram refused the chat. The usual cause is that the bot was not started in the chat (press Start in the bot), or the chat id is wrong. This was the cause at the first setup on 2026-11-19.
 - `notify failed: <error name>`: the request did not reach Telegram. Run again later. Not checked further.
 - `notify sent`: Telegram accepted the message. If it is still not in the chat, check the chat and the bot. Not checked further.

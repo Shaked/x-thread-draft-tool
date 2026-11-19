@@ -40,4 +40,4 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 - Simple technical English, short sentences, no internal labels without a few words saying what they are (`T2 thread view`, `#76`).
 - Ask only what Shaked alone can decide: what is decided (as the user sees it), each option's result, your recommendation and what you do if nobody answers.
 - For a manual step: what to click, where (link), what it unblocks, and which automated route failed.
-- When you ask Shaked to try something on preview, add the label `try-preview` to the PR (he gets a Telegram message with the link). When something only he can do exists, add the label `owner`. Details: `docs/operations/telegram.md`.
+- When you ask Shaked to try something on preview, add the label `try-preview` to the PR (he gets a Telegram message with the link if the label comes from his account; see the guide). When something only he can do exists, add the label `owner`. Details: `docs/operations/telegram.md`.
