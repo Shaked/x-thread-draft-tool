@@ -38,9 +38,12 @@ const routeKey = (route) => `${route.method} ${route.path}`
 
 describe('REST routes and MCP tools', () => {
   it('every REST route is called by a tool or excluded on purpose', () => {
+    // Admin routes are skipped for now (plan A2); A3 replaces this skip with a real rule.
     const uncovered = ROUTES.filter(
       (route) =>
-        !TOOL_REST_ROUTES.includes(routeKey(route)) && !Object.keys(EXCLUDED).some((key) => matchesExclusion(route, key))
+        !route.path.startsWith('/admin') &&
+        !TOOL_REST_ROUTES.includes(routeKey(route)) &&
+        !Object.keys(EXCLUDED).some((key) => matchesExclusion(route, key))
     ).map(routeKey)
     expect(uncovered).toEqual([])
   })

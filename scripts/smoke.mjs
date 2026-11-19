@@ -183,6 +183,29 @@ await step('bogus xt_ token is refused (401, invalid or expired)', async () => {
   if (error !== 'Invalid or expired API token') throw new Error(`unexpected message: ${String(error).slice(0, 120)}`)
 })
 
+// Admin paths answer like an unknown path (plan A2). The smoke identity is not an admin, so every
+// answer is the same 404 as an unknown route, with or without its token. No admin credential is used.
+await step('admin paths answer like an unknown path (404)', async () => {
+  const paths = [
+    ['GET', '/api/admin/status'],
+    ['GET', '/api/admin/users'],
+    ['POST', '/api/admin/users/00000000-0000-4000-8000-000000000000/delete'],
+    ['GET', '/api/zz-no-such-route']
+  ]
+  const variants = [['no token', {}]]
+  if (token) variants.push(['smoke token', { authorization: `Bearer ${token}` }])
+  for (const [name, auth] of variants) {
+    for (const [method, path] of paths) {
+      const init = { method, headers: { ...auth, ...(bypass ? { 'x-vercel-protection-bypass': bypass } : {}) } }
+      const response = await fetch(`${base}${path}`, init)
+      const body = JSON.parse(await response.text())
+      if (response.status !== 404 || body.error !== 'Not found') {
+        throw new Error(`${name}: ${method} ${path} returned ${response.status}`)
+      }
+    }
+  }
+})
+
 // Approval page (plan T7). Signed out, the authorize address shows the sign-in page: a read-only link
 // with a Copy link field, under the policy from server/oauth/consent.js signInHeaders. No cookie, no redirect.
 await step('approval page: signed-out sign-in page, copy-link field and strict headers', async () => {
