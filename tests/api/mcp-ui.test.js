@@ -61,6 +61,7 @@ function request(version, method, params = {}, { token = aliceToken, auth = true
     h['mcp-protocol-version'] = MODERN
     h['mcp-method'] = method
     if (method === 'resources/read') h['mcp-name'] = params.uri
+    if (method === 'tools/call') h['mcp-name'] = params.name
     body = { jsonrpc: '2.0', id: 1, method, params: { ...params, _meta: { 'io.modelcontextprotocol/protocolVersion': MODERN } } }
   } else {
     h['mcp-protocol-version'] = version
@@ -219,5 +220,64 @@ describe('GET /api/mcp/ui-manifest (plan T2): hashes only, public, no-store', ()
     const plain = await (await route(new Request(MANIFEST))).text()
     const signedIn = await (await route(new Request(MANIFEST, { headers: { authorization: `Bearer ${aliceToken}` } }))).text()
     expect(signedIn).toBe(plain)
+  })
+})
+
+describe('the tools that show the thread view (plan Task 4, #177)', () => {
+  const VIEW_TOOLS = ['get_draft', 'create_draft', 'split_text', 'create_thread_from_text']
+  const call = async (name, args) => (await rpc(MODERN, 'tools/call', { name, arguments: args })).body.result
+
+  it('tools/list gives the four tools the same view uri in all three keys, and no other tool a view', async () => {
+    const { body } = await rpc(MODERN, 'tools/list', {})
+    const uri = uiResourceUri('thread')
+    for (const tool of body.result.tools) {
+      if (VIEW_TOOLS.includes(tool.name)) {
+        expect(tool._meta).toEqual({ ui: { resourceUri: uri }, 'ui/resourceUri': uri, 'openai/outputTemplate': uri })
+      } else {
+        expect(tool._meta).toBeUndefined()
+      }
+    }
+    expect(body.result.tools.filter((tool) => tool._meta).map((tool) => tool.name).sort()).toEqual([...VIEW_TOOLS].sort())
+  })
+
+  it('get_draft: the outline, the editor base and the image host are in _meta; content is the REST body, unchanged', async () => {
+    const created = await call('create_draft', { title: 'Meta', posts: [{ text: 'Hello' }, { text: 'Second post' }] })
+    const got = await call('get_draft', { id: created.structuredContent.draft.id })
+    expect(got.isError).not.toBe(true)
+    expect(got.content[0].text).toBe(JSON.stringify(got.structuredContent))
+    expect(got._meta['x-thread/outline'].posts.map((post) => [post.index, post.chars])).toEqual([
+      [1, 5],
+      [2, 11]
+    ])
+    expect(got._meta['x-thread/editorBase']).toBe(`${APP_URL}/draft/`)
+    expect(got._meta['x-thread/imageOrigin']).toBe(blobOrigin() ?? undefined)
+  })
+
+  it('create_draft and create_thread_from_text: _meta carries the same outline as structuredContent.draft', async () => {
+    const made = await call('create_draft', { title: 'Two', posts: [{ text: 'One' }] })
+    expect(made._meta['x-thread/outline']).toEqual(made.structuredContent.draft)
+    const thread = await call('create_thread_from_text', { text: 'One. Two.' })
+    expect(thread.isError).not.toBe(true)
+    expect(thread._meta['x-thread/outline']).toEqual(thread.structuredContent.draft)
+  })
+
+  it('create tools: _meta has the full posts (text and images) in the same order; structuredContent has the outline only', async () => {
+    const made = await call('create_draft', { title: 'Full', posts: [{ text: 'First' }, { text: 'Second' }] })
+    expect(made.structuredContent.draft.posts[0]).not.toHaveProperty('text')
+    expect(made._meta['x-thread/posts'].map((post) => post.text)).toEqual(['First', 'Second'])
+    const thread = await call('create_thread_from_text', { text: 'Alpha. Beta.' })
+    expect(thread._meta['x-thread/posts'].map((post) => post.text)).toEqual(thread.structuredContent.draft.posts.map(() => expect.any(String)))
+  })
+
+  it('split_text: no draft wrapper (the view shows it as not saved), and the outline counts its posts', async () => {
+    const split = await call('split_text', { text: 'Short post.' })
+    expect(split.structuredContent.draft).toBeUndefined()
+    expect(split._meta['x-thread/outline'].posts.length).toBe(split.structuredContent.posts.length)
+  })
+
+  it('a failed call has no view keys in _meta', async () => {
+    const res = await call('get_draft', { id: '00000000-0000-4000-8000-000000000000' })
+    expect(res.isError).toBe(true)
+    expect(res._meta).toBeUndefined()
   })
 })

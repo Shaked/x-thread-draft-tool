@@ -66,7 +66,7 @@ const STARTER = `
   // ChatGPT's older path: when no tool result came, use window.openai.toolOutput if the page has it.
   setTimeout(function () {
     if (!link.delivered() && window.openai && window.openai.toolOutput) {
-      showResult({ structuredContent: window.openai.toolOutput });
+      showResult({ structuredContent: window.openai.toolOutput, _meta: window.openai.toolResponseMetadata });
     }
   }, 1000);
 })();

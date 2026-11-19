@@ -77,8 +77,12 @@ test('the official AppBridge shows the view: handshake, text, size, and the page
       bridge.oninitialized = () => {
         w.__bridgeLog.push('initialized')
         // The official host sends the input once before the result (its spec order).
-        bridge.sendToolInput({ arguments: {} })
-        bridge.sendToolResult(fixture)
+        Promise.resolve()
+          .then(() => bridge.sendToolInput({ arguments: {} }))
+          .then(() => bridge.sendToolResult(fixture))
+          .catch((err: unknown) => {
+            w.__bridgeError = String(err)
+          })
       }
       bridge.onsizechange = (size: unknown) => {
         w.__size = size

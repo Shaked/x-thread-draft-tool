@@ -151,6 +151,20 @@ Where to paste it (the steps were read on 2026-11-17 and not checked against eac
 - Codex: `AGENTS.md` in the project, or `~/.codex/AGENTS.md`.
 - Grok: its custom instructions setting (not checked).
 
+## Views in Claude and ChatGPT
+
+Four tools can show the thread as a small view inside an app that supports MCP Apps: `get_draft`,
+`create_draft`, `create_thread_from_text` and `split_text`. The view shows the X-style cards, the
+counter and our own images. Each of these tools also returns the same text and data as before, so
+a client without views gets the same answer it always got.
+
+- The host asks you once before it shows a view. Nothing is shown without that answer.
+- The view reads the draft from the tool result only. It loads no script and no image from any
+  host except our Blob store, and it sends nothing back to the server.
+- `list_drafts` and the other tools have no view.
+- Not checked: how Claude and ChatGPT draw the view. A robot cannot sign in there. The browser
+  tests use a test host (the hand-written one and the official AppBridge), not those apps.
+
 ## Disconnect
 
 On the Settings page, open **Connected apps** and remove the app. The app loses access right away.

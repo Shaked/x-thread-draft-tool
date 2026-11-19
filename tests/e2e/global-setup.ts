@@ -11,6 +11,7 @@ export default async function globalSetup() {
     build: {
       outDir: join(root, 'tests/e2e/.generated'),
       emptyOutDir: true,
+      publicDir: false,
       minify: false,
       lib: {
         entry: join(root, 'tests/e2e/fixtures/app-bridge-entry.js'),
