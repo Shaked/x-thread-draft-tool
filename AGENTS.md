@@ -23,7 +23,7 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 - When Shaked said to do something, do it; if his words can mean two things, take the likelier, act, say which.
 - Merge commits only, never squash. Update a branch by merging `main`, never rebase.
 - Every PR adds `docs/changelogs/<UTC YYYYMMDD-HHMMSS>-<slug>.md` (1 to 5 lines).
-- Net lines: product code in `src/ server/ api/ scripts/` must not grow unless the PR body says `Implements <plan reference> Task <n>` (see Q3 for the accepted forms).
+- Net lines: product code in `src/ server/ api/ scripts/` must not grow unless the PR body says `Implements docs/plans/<file>.md Task <n>` or `Implements #<issue> Task <n>`.
 - `npm ci` once; the pre-commit hook runs build and unit tests.
 - Test files under `tests/api/` start with `// @vitest-environment node`.
 - GitHub work through the GitHub MCP tools; `gh` for search only. Every comment ends with the Claude Code footer.
