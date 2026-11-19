@@ -81,7 +81,7 @@ describe.each([MODERN, LEGACY, EARLIER])('UI views, protocol %s', (version) => {
     const view = body.result.resources.find((r) => r.uri.startsWith('ui://'))
     expect(view).toMatchObject({ name: 'thread', mimeType: MIME })
     expect(view.uri).toMatch(VIEW_URI)
-    expect(view._meta.ui.csp).toEqual({ connectDomains: [], resourceDomains: [] })
+    expect(view._meta.ui.csp).toEqual({ connectDomains: [], resourceDomains: expectedImageHosts() })
     expect(view._meta.ui.prefersBorder).toBe(true)
     expect(view.size).toBeLessThan(32 * 1024)
     if (version !== EARLIER) expectValid(version, 'ListResourcesResult', body.result)
@@ -96,7 +96,7 @@ describe.each([MODERN, LEGACY, EARLIER])('UI views, protocol %s', (version) => {
     const [item] = body.result.contents
     expect(item).toMatchObject({ uri, mimeType: MIME })
     expect(item.text.startsWith('<!doctype html>')).toBe(true)
-    expect(item._meta.ui).toEqual({ csp: { connectDomains: [], resourceDomains: [] }, prefersBorder: true })
+    expect(item._meta.ui).toEqual({ csp: { connectDomains: [], resourceDomains: expectedImageHosts() }, prefersBorder: true })
   })
 
   it('a wrong ?v= is not found', async () => {
@@ -149,16 +149,30 @@ describe('the image host', () => {
     expect(origin).not.toContain('TOPSECRETVALUE')
   })
 
-  it('the list and read entries only ever name the one image host they were built with', () => {
-    const list = listUiResources()
-    for (const entry of list) {
-      expect(entry._meta.ui.csp.resourceDomains.length).toBeLessThanOrEqual(1)
+  it('with a token, the CSP allows exactly the store host and no other', async () => {
+    vi.stubEnv('BLOB_READ_WRITE_TOKEN', 'vercel_blob_rw_abc123_secretpart')
+    try {
+      vi.resetModules()
+      const fresh = await import('../../server/mcp/ui/index.js')
+      const [entry] = fresh.listUiResources()
+      expect(entry._meta.ui.csp.resourceDomains).toEqual(['https://abc123.public.blob.vercel-storage.com'])
+      const [content] = fresh.readUiResource(entry.uri)
+      expect(content._meta.ui.csp.resourceDomains).toEqual(['https://abc123.public.blob.vercel-storage.com'])
+    } finally {
+      vi.unstubAllEnvs()
+      vi.resetModules()
     }
   })
 })
 
 function readUiResourceForTest() {
   return readUiResource(uiResourceUri('thread'))
+}
+
+/** The image host this process was started with: one host from the token, or none. */
+function expectedImageHosts() {
+  const origin = blobOrigin(process.env)
+  return origin ? [origin] : []
 }
 
 describe('the view metadata against the official app schema', () => {

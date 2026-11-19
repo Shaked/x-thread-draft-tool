@@ -18,7 +18,9 @@ const FIXTURE = {
   }
 }
 
-test('the thread view handshakes, shows the text, reports a size and makes no network request', async ({ page }) => {
+// "No request from the page" only sees loads the page itself makes; the view's CSP (connect-src 'none') is what stops
+// a view's own fetch, and the unit test greps the view source for fetch.
+test('the thread view handshakes, shows the text, reports a size, and the page makes no request', async ({ page }) => {
   const requests: string[] = []
   page.on('request', (req) => requests.push(req.url()))
 

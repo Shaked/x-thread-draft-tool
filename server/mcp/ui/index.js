@@ -29,14 +29,14 @@ const ENTRIES = VIEWS.map((view) => {
 
 /** resources/list entries for the views (no HTML in the list). */
 export function listUiResources() {
-  return ENTRIES.map(({ html: _html, ...entry }) => ({ ...entry, _meta: { ui: UI } }))
+  return ENTRIES.map(({ html: _html, ...entry }) => ({ ...entry, _meta: { ui: structuredClone(UI) } }))
 }
 
 /** resources/read contents for an exact view uri, or null when it is not a view (a wrong ?v= is not found). */
 export function readUiResource(uri) {
   const entry = ENTRIES.find((e) => e.uri === uri)
   if (!entry) return null
-  return [{ uri: entry.uri, mimeType: MIME_TYPE, text: entry.html, _meta: { ui: UI } }]
+  return [{ uri: entry.uri, mimeType: MIME_TYPE, text: entry.html, _meta: { ui: structuredClone(UI) } }]
 }
 
 /** The current uri of a view by name, or null. */

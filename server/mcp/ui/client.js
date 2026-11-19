@@ -61,8 +61,11 @@ export function bridge(on) {
     } else if (msg.method === 'ui/resource-teardown') {
       if (msg.id !== undefined) post({ id: msg.id, result: {} })
       if (on.teardown) on.teardown()
+    } else if (msg.id !== undefined) {
+      // A request the view does not handle gets a JSON-RPC error, so the host does not wait for a reply.
+      post({ id: msg.id, error: { code: -32601, message: 'Method not found: ' + msg.method } })
     }
-    // Anything else is not answered.
+    // A notification the view does not handle is ignored.
   })
 
   request('ui/initialize', {
@@ -113,12 +116,19 @@ export function safeUrl(url, allowedHosts) {
   return parsed.href
 }
 
-/** An element with text children. Only the attributes href, src, alt, dir and title are ever set. */
+/** An element with text children. Only alt, dir and title, and href after the https check, are ever set. */
 export function el(tag, attrs, children) {
   const node = document.createElement(tag)
   const allowed = ['href', 'src', 'alt', 'dir', 'title']
   for (const name of Object.keys(attrs || {})) {
-    if (allowed.includes(name)) node.setAttribute(name, attrs[name])
+    if (!allowed.includes(name)) continue
+    // A link goes in only after the https check. No image src in T1: an image needs its own check (Task 3).
+    if (name === 'href') {
+      const safe = safeUrl(attrs[name], null)
+      if (safe) node.setAttribute('href', safe)
+    } else if (name !== 'src') {
+      node.setAttribute(name, attrs[name])
+    }
   }
   for (const child of children || []) {
     node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child)

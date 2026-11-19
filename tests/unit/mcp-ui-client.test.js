@@ -78,6 +78,13 @@ describe('draft text is plain text', () => {
     expect(node.hasAttribute('onclick')).toBe(false)
     expect(node.hasAttribute('class')).toBe(false)
   })
+
+  it('el sets href only for https, and never src', () => {
+    expect(el('a', { href: 'javascript:alert(1)' }, ['x']).hasAttribute('href')).toBe(false)
+    expect(el('a', { href: 'http://x.com/' }, ['x']).hasAttribute('href')).toBe(false)
+    expect(el('a', { href: 'https://x.com/' }, ['x']).getAttribute('href')).toBe('https://x.com/')
+    expect(el('img', { src: 'https://x.com/a.png' }, []).hasAttribute('src')).toBe(false)
+  })
 })
 
 describe('bridge handshake', () => {
