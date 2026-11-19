@@ -3,6 +3,8 @@
 //
 // Types are documented with JSDoc typedefs below.
 
+import { X_CSS, X_VARS_DARK } from './x-css.js'
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
@@ -267,65 +269,7 @@ export function renderHtml(payload) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>${htmlEscape(title)}</title>
-<style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #000; color: #e7e9ea; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-  a { color: #1d9bf0; text-decoration: none; }
-  a:hover { text-decoration: underline; }
-
-  .x-app { max-width: 600px; margin: 0 auto; border-left: 1px solid #2f3336; border-right: 1px solid #2f3336; min-height: 100vh; }
-  .x-header { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(12px); background: rgba(0,0,0,0.65); border-bottom: 1px solid #2f3336; padding: 14px 16px; display: flex; align-items: center; gap: 28px; }
-  .x-back { color: #e7e9ea; font-size: 20px; line-height: 1; padding: 6px 8px; border-radius: 999px; }
-  .x-back:hover { background: #181818; text-decoration: none; }
-  .x-header-title { font-size: 20px; font-weight: 800; }
-
-  .x-thread { display: flex; flex-direction: column; }
-
-  .x-post { display: grid; grid-template-columns: 56px 1fr; padding: 12px 16px 4px; border-bottom: 1px solid #2f3336; }
-  .x-post-last { border-bottom: 1px solid #2f3336; padding-bottom: 12px; }
-
-  .x-post-left { display: flex; flex-direction: column; align-items: center; }
-  .x-avatar { width: 40px; height: 40px; border-radius: 50%; background: #16181c; object-fit: cover; }
-  .x-avatar-fallback { display: flex; align-items: center; justify-content: center; color: #71767b; font-weight: 700; font-size: 18px; border: 1px solid #2f3336; }
-  .x-thread-line { flex: 1; width: 2px; background: #2f3336; margin-top: 6px; min-height: 12px; }
-
-  .x-post-body { min-width: 0; padding-bottom: 4px; }
-  .x-post-head { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; line-height: 1.2; padding: 2px 0 2px; }
-  .x-name { font-weight: 700; color: #e7e9ea; }
-  .x-verified { fill: #1d9bf0; flex-shrink: 0; }
-  .x-meta { color: #71767b; font-size: 15px; }
-
-  .x-text { font-size: 17px; line-height: 1.4; color: #e7e9ea; white-space: pre-wrap; word-wrap: break-word; padding: 4px 0 8px; }
-  .x-text[dir="rtl"] { text-align: right; }
-
-  .x-link { color: #1d9bf0; }
-
-  .x-media { display: grid; gap: 2px; margin: 4px 0 12px; border-radius: 16px; overflow: hidden; border: 1px solid #2f3336; }
-  .x-media-one { grid-template-columns: 1fr; }
-  .x-media-two { grid-template-columns: 1fr 1fr; }
-  .x-media-three { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-  .x-media-three .x-media-item:first-child { grid-row: span 2; }
-  .x-media-four { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-  .x-media-item { display: block; overflow: hidden; background: #16181c; aspect-ratio: 16/10; }
-  .x-media-one .x-media-item { aspect-ratio: auto; max-height: 510px; }
-  .x-media-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .x-media-one .x-media-item img { object-fit: contain; max-height: 510px; }
-
-  .x-embed { margin: 4px 0 12px; }
-  .x-embed-fallback { padding: 12px; border: 1px solid #2f3336; border-radius: 16px; word-break: break-all; }
-  .x-embed .twitter-tweet { margin: 0 !important; }
-
-  .x-actions { display: flex; align-items: center; gap: 0; margin-top: 8px; max-width: 425px; color: #71767b; }
-  .x-action { display: inline-flex; align-items: center; gap: 6px; flex: 1; font-size: 13px; cursor: default; padding: 4px 0; }
-  .x-action-end { flex: 0 0 auto; margin-left: auto; }
-  .x-action svg { fill: currentColor; }
-
-  @media (max-width: 640px) {
-    .x-app { border-left: none; border-right: none; }
-    .x-text { font-size: 16px; }
-  }
-</style>
+<style>:root { color-scheme: dark; ${X_VARS_DARK} }${X_CSS}</style>
 </head>
 <body>
   <div class="x-app">

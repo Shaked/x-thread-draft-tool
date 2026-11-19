@@ -1,0 +1,146 @@
+// Plan Task 3 (#173): the X-style thread view in the hand-written host (tests/e2e/fixtures/mcp-host.html), under the
+// host CSP of D4. A robot checks the layout and the rules: Hebrew and English direction, dark and light themes, no
+// horizontal scroll at 390 px, markup as text, and an image only from the one image origin. It cannot check how Claude
+// or ChatGPT draws the view (plan section 3). Screenshots go to test-results/screens/390 for a person to look at.
+import { mkdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { expect, test, type Page } from '@playwright/test'
+import { readUiResource, uiResourceUri } from '../../server/mcp/ui/index.js'
+
+const HOST_CSP =
+  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: https://store1.public.blob.vercel-storage.com; connect-src 'none'"
+const BLOB = 'https://store1.public.blob.vercel-storage.com'
+const XSS = '<img src=x onerror=alert(1)>'
+const TINY_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64'
+)
+
+const FIXTURE = {
+  content: [{ type: 'text', text: 'fixture' }],
+  structuredContent: {
+    draft: {
+      title: 'Thread ' + XSS,
+      is_published: true,
+      posts: [
+        { text: 'שלום, this is the first post of a thread that goes on for a while to check the wrapping of long lines', images: [{ url: `${BLOB}/drafts/u/1.png` }, { url: 'https://other.example/x.png' }] },
+        { text: 'Hello from an English post, with a link https://example.com/page and ' + XSS },
+        { text: 'a'.repeat(120) + ' ' + XSS, embeddedTweet: 'https://x.com/jack/status/20' }
+      ]
+    }
+  },
+  _meta: {
+    'x-thread/outline': {
+      posts: [
+        { chars: 150, over_limit: false },
+        { chars: 60, over_limit: false },
+        { chars: 285, over_limit: true }
+      ]
+    },
+    'x-thread/imageOrigin': BLOB
+  }
+}
+
+async function load(page: Page, fixture = FIXTURE) {
+  // The one image host of D4 answers with a tiny PNG, so no request leaves the test machine.
+  await page.route(`${BLOB}/**`, (route) => route.fulfill({ contentType: 'image/png', body: TINY_PNG }))
+  await page.setContent(readFileSync(join(process.cwd(), 'tests/e2e/fixtures/mcp-host.html'), 'utf8'))
+  const [view] = readUiResource(uiResourceUri('thread')) as Array<{ text: string }>
+  const srcdoc = view.text.replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="${HOST_CSP}">`)
+  await page.evaluate(
+    ({ srcdoc, fixture }) => {
+      ;(window as any).__fixture = fixture
+      document.getElementById('view')!.setAttribute('srcdoc', srcdoc)
+    },
+    { srcdoc, fixture }
+  )
+  // The view has rendered when its first post card is there.
+  await expect(page.frameLocator('#view').locator('article').first()).toBeVisible()
+}
+
+// Sends a host-context-changed (for example a theme change) to the view, as a host does.
+async function setTheme(page: Page, theme: 'dark' | 'light') {
+  await page.evaluate((theme) => {
+    const frame = document.getElementById('view') as HTMLIFrameElement
+    frame.contentWindow!.postMessage(
+      { jsonrpc: '2.0', method: 'ui/notifications/host-context-changed', params: { theme } },
+      '*'
+    )
+  }, theme)
+}
+
+// Sizes the frame to the content the view reported, so the screenshot shows the whole thread.
+async function fitFrame(page: Page) {
+  await expect.poll(() => page.evaluate(() => (window as any).__size?.height ?? 0)).toBeGreaterThan(0)
+  await page.evaluate(() => {
+    const frame = document.getElementById('view') as HTMLIFrameElement
+    frame.style.height = (window as any).__size.height + 'px'
+  })
+}
+
+test.use({ viewport: { width: 390, height: 900 }, deviceScaleFactor: 2 })
+
+test('the thread shows X-style cards, the counter, markup as text, and no horizontal scroll at 390 px', async ({ page }) => {
+  await load(page)
+  const frame = page.frameLocator('#view')
+
+  await expect(frame.locator('article')).toHaveCount(3)
+  await expect(frame.locator('article footer small').first()).toHaveText('150/280')
+  await expect(frame.locator('article footer strong')).toHaveText('285/280 · over by 5')
+  await expect(frame.getByText(XSS).first()).toBeVisible()
+  await expect(frame.locator('img')).toHaveCount(1)
+
+  const fits = await frame.locator('html').evaluate((el) => el.scrollWidth <= el.clientWidth)
+  expect(fits).toBe(true)
+})
+
+test('Hebrew posts run right to left and English posts left to right, in one thread', async ({ page }) => {
+  await load(page)
+  const frame = page.frameLocator('#view')
+  const hebrew = frame.locator('article p[dir="auto"]').nth(0)
+  const english = frame.locator('article p[dir="auto"]').nth(1)
+  await expect(hebrew).toHaveAttribute('dir', 'auto')
+  expect(await hebrew.evaluate((el) => getComputedStyle(el).direction)).toBe('rtl')
+  expect(await english.evaluate((el) => getComputedStyle(el).direction)).toBe('ltr')
+})
+
+test('an image loads only from the image origin, with alt text; another host becomes a link button', async ({ page }) => {
+  await load(page)
+  const frame = page.frameLocator('#view')
+  const image = frame.locator('article img')
+  await expect(image).toHaveAttribute('src', `${BLOB}/drafts/u/1.png`)
+  await expect(image).toHaveAttribute('alt', 'Image 1 of 2')
+  await expect(frame.locator('article ol button', { hasText: 'https://other.example/x.png' })).toBeVisible()
+  await expect(frame.locator('img[src*="other.example"]')).toHaveCount(0)
+})
+
+test('dark and light themes follow the host, and both screenshots are written at 390 px', async ({ page }) => {
+  await load(page)
+  await fitFrame(page)
+  const frame = page.frameLocator('#view')
+  const bodyBackground = () => frame.locator('body').evaluate((el) => getComputedStyle(el).backgroundColor)
+
+  expect(await bodyBackground()).toBe('rgb(255, 255, 255)')
+  mkdirSync(join('test-results', 'screens', '390'), { recursive: true })
+  await page.locator('#view').screenshot({ path: join('test-results', 'screens', '390', 'mcp-thread-light.png') })
+
+  await setTheme(page, 'dark')
+  await expect.poll(bodyBackground).toBe('rgb(0, 0, 0)')
+  await fitFrame(page)
+  await page.locator('#view').screenshot({ path: join('test-results', 'screens', '390', 'mcp-thread-dark.png') })
+})
+
+test('the view makes no request to any host other than the page itself', async ({ page }) => {
+  const requests: string[] = []
+  page.on('request', (req) => requests.push(req.url()))
+  // No images in this one: an image URL is the only other thing that could make a request.
+  const noImages = {
+    ...FIXTURE,
+    structuredContent: {
+      draft: { ...FIXTURE.structuredContent.draft, posts: FIXTURE.structuredContent.draft.posts.map(({ text, embeddedTweet }) => ({ text, embeddedTweet })) }
+    }
+  }
+  await load(page, noImages)
+  await expect(page.frameLocator('#view').locator('article')).toHaveCount(3)
+  expect(requests.filter((u) => !u.startsWith('about:') && !u.startsWith('data:'))).toEqual([])
+})

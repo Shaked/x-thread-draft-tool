@@ -1,8 +1,8 @@
 /* global window, document, ResizeObserver */
-// Browser code for the MCP views (plan Task 1, D1 and D2). No imports: index.js and thread.js copy these
-// functions into each view with Function.prototype.toString(), and the unit tests call them in jsdom.
-// Draft text reaches the page only through text nodes and a fixed list of attributes (plan rule 9).
-// Nothing here loads anything from another host, and nothing here sends data except postMessage (rule 10).
+// Browser code for the MCP views (plan Task 1 D1 and D2, Task 3). No imports and no module-level constants:
+// index.js and thread.js copy these functions into each view with Function.prototype.toString(), and the unit tests
+// call them in jsdom. Draft text reaches the page only through text nodes and a fixed list of attributes (plan
+// rule 9). Nothing here loads anything from another host, and nothing here sends data except postMessage (rule 10).
 
 /** The bridge to the host: JSON-RPC 2.0 over postMessage with window.parent. `on` takes the callbacks. */
 export function bridge(on) {
@@ -30,11 +30,17 @@ export function bridge(on) {
     const report = () => {
       post({
         method: 'ui/notifications/size-changed',
-        params: { width: Math.ceil(window.innerWidth), height: Math.ceil(document.documentElement.scrollHeight) }
+        // The body's height follows the content, so a view that shrinks reports a smaller frame too.
+        params: { width: Math.ceil(window.innerWidth), height: Math.ceil(document.body.getBoundingClientRect().height) }
       })
     }
     if (typeof ResizeObserver === 'function') new ResizeObserver(report).observe(document.body)
     report()
+  }
+
+  function setContext(params) {
+    state.hostContext = { ...state.hostContext, ...params }
+    if (on.context) on.context(state.hostContext)
   }
 
   window.addEventListener('message', (event) => {
@@ -57,7 +63,7 @@ export function bridge(on) {
       state.delivered = true
       if (on.result) on.result(msg.params || {})
     } else if (msg.method === 'ui/notifications/host-context-changed') {
-      state.hostContext = { ...state.hostContext, ...msg.params }
+      setContext(msg.params)
     } else if (msg.method === 'ui/resource-teardown') {
       if (msg.id !== undefined) post({ id: msg.id, result: {} })
       if (on.teardown) on.teardown()
@@ -74,7 +80,7 @@ export function bridge(on) {
     appCapabilities: {}
   }).then(
     (result) => {
-      state.hostContext = (result && result.hostContext) || {}
+      setContext((result && result.hostContext) || {})
       post({ method: 'ui/notifications/initialized', params: {} })
       observeSize()
     },
@@ -116,17 +122,47 @@ export function safeUrl(url, allowedHosts) {
   return parsed.href
 }
 
-/** An element with text children. Only alt, dir and title, and href after the https check, are ever set. */
+/**
+ * An image URL that may load (plan D4): https, and on exactly the one image origin the tool result names (the
+ * production Blob store). imageOrigin must look like https://<store>.public.blob.vercel-storage.com or be null.
+ */
+export function safeImage(url, imageOrigin) {
+  if (typeof imageOrigin !== 'string' || !/^https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com$/.test(imageOrigin)) {
+    return null
+  }
+  const safe = safeUrl(url, null)
+  return safe && new URL(safe).origin === imageOrigin ? safe : null
+}
+
+/** An embedded tweet's link and its "@handle / status id" label; null when the URL is not https. */
+export function tweetFrom(url) {
+  const safe = safeUrl(url, null)
+  if (!safe) return null
+  const match = new URL(safe).pathname.match(/^\/([A-Za-z0-9_]{1,15})\/status\/(\d+)/)
+  return { href: safe, label: match ? '@' + match[1] + ' / status ' + match[2] : safe }
+}
+
+/** The https links written in a post's text, each once. */
+export function linksIn(text) {
+  const found = []
+  for (const raw of String(text).match(/https?:\/\/[^\s]+/g) || []) {
+    const safe = safeUrl(raw.replace(/[.,;:!?)\]]+$/, ''), null)
+    if (safe && !found.includes(safe)) found.push(safe)
+  }
+  return found
+}
+
+/** An element with text children. Only alt, dir, title and href (after the https check) are ever set. */
 export function el(tag, attrs, children) {
   const node = document.createElement(tag)
-  const allowed = ['href', 'src', 'alt', 'dir', 'title']
+  const allowed = ['href', 'alt', 'dir', 'title']
   for (const name of Object.keys(attrs || {})) {
     if (!allowed.includes(name)) continue
-    // A link goes in only after the https check. No image src in T1: an image needs its own check (Task 3).
+    // A link goes in only after the https check. Images are made by postNode, after safeImage.
     if (name === 'href') {
       const safe = safeUrl(attrs[name], null)
       if (safe) node.setAttribute('href', safe)
-    } else if (name !== 'src') {
+    } else {
       node.setAttribute(name, attrs[name])
     }
   }
@@ -136,15 +172,93 @@ export function el(tag, attrs, children) {
   return node
 }
 
-/** Shows a thread (title and the text of each post) in root. Text is text: markup in a post stays plain text. */
-export function renderThread(root, thread) {
+/** A button that asks the host to open url (open is the bridge's openLink, which refuses non-https). */
+export function linkButton(label, url, open) {
+  const button = el('button', {}, [label])
+  if (open) button.addEventListener('click', () => open(url))
+  return button
+}
+
+/** One post as an X-style card: avatar, number, text, links, images, embedded tweet and counter. */
+export function postNode(thread, index, total, open) {
+  const post = thread.posts[index]
+  const text = typeof post === 'string' ? post : String((post && post.text) || '')
+  const images = post && Array.isArray(post.images) ? post.images : []
+  const tweet = post && typeof post.embeddedTweet === 'string' ? tweetFrom(post.embeddedTweet) : null
+  const count = thread.counts ? thread.counts[index] : null
+  const initial = Array.from(String(thread.title || '?').trim())[0] || '?'
+  const body = el('div', {}, [
+    el('header', {}, [el('strong', {}, ['Draft']), el('span', {}, [' ' + (index + 1) + '/' + total])]),
+    el('p', { dir: 'auto' }, [text])
+  ])
+  const links = linksIn(text)
+  if (links.length > 0) body.appendChild(el('ul', {}, links.map((url) => el('li', {}, [linkButton(url, url, open)]))))
+  if (images.length > 0) {
+    const items = []
+    images.forEach((img, n) => {
+      const url = typeof img === 'string' ? img : img && img.url
+      const safe = safeImage(url, thread.imageOrigin)
+      if (safe) {
+        const pic = document.createElement('img')
+        pic.setAttribute('src', safe)
+        pic.setAttribute('alt', 'Image ' + (n + 1) + ' of ' + images.length)
+        pic.loading = 'lazy'
+        items.push(el('li', {}, [pic]))
+      } else if (safeUrl(url, null)) {
+        items.push(el('li', {}, [linkButton(safeUrl(url, null), safeUrl(url, null), open)]))
+      }
+    })
+    if (items.length > 0) body.appendChild(el('ol', {}, items))
+  }
+  if (tweet) {
+    body.appendChild(
+      el('section', {}, [el('p', {}, [tweet.label]), linkButton('Open on X', tweet.href, open)])
+    )
+  }
+  if (count) {
+    const over = count.over_limit === true
+    const label = count.chars + '/280' + (over ? ' · over by ' + (count.chars - 280) : '')
+    body.appendChild(el('footer', {}, [el(over ? 'strong' : 'small', {}, [label])]))
+  }
+  return el('article', {}, [el('span', {}, [initial]), body])
+}
+
+/** The thread's heading: title, post count, Published badge, Open in editor (only for links under the app). */
+export function headerNode(thread, open) {
+  const count = thread.posts.length
+  const info = el('p', {}, [count + (count === 1 ? ' post' : ' posts')])
+  if (thread.is_published) info.appendChild(el('span', {}, [' · Published']))
+  const children = [el('h1', { dir: 'auto' }, [thread.title || 'Untitled draft']), info]
+  if (thread.url && thread.editorBase && thread.url.indexOf(thread.editorBase) === 0) {
+    children.push(linkButton('Open in editor', thread.url, open))
+  }
+  return el('header', {}, children)
+}
+
+/** Shows a thread in root: the heading, a banner when it is not saved, then the posts (25 at first). */
+export function renderThread(root, thread, open) {
+  const total = thread.posts.length
   root.textContent = ''
-  root.appendChild(el('h1', { dir: 'auto' }, [thread.title || 'Untitled draft']))
-  const posts = Array.isArray(thread.posts) ? thread.posts : []
-  if (posts.length === 0) root.appendChild(el('p', {}, ['This draft has no posts.']))
-  for (const post of posts) {
-    const text = typeof post === 'string' ? post : String((post && post.text) || '')
-    root.appendChild(el('article', {}, [el('p', { dir: 'auto' }, [text])]))
+  root.appendChild(headerNode(thread, open))
+  if (!thread.saved) root.appendChild(el('p', { dir: 'auto' }, ['Not saved yet.']))
+  if (total === 0) {
+    root.appendChild(el('p', {}, ['This draft has no posts.']))
+    return
+  }
+  const list = el('div', {}, [])
+  root.appendChild(list)
+  const first = 25
+  const showRange = (from, to) => {
+    for (let i = from; i < to; i++) list.appendChild(postNode(thread, i, total, open))
+  }
+  showRange(0, Math.min(total, first))
+  if (total > first) {
+    const more = linkButton('Show all ' + total + ' posts', null, null)
+    more.addEventListener('click', () => {
+      more.remove()
+      showRange(first, total)
+    })
+    root.appendChild(more)
   }
 }
 
@@ -154,9 +268,26 @@ export function renderError(root, message) {
   root.appendChild(el('p', { dir: 'auto' }, [message]))
 }
 
-/** The thread in a tool's structuredContent: { draft: { title, posts } } or { posts }; null for anything else. */
-export function threadFrom(structured) {
-  const draft = structured && structured.draft ? structured.draft : structured
-  if (draft && Array.isArray(draft.posts)) return { title: draft.title, posts: draft.posts }
-  return null
+/**
+ * The thread in a tool result: { draft } from get_draft (saved), or a bare { posts } (not saved, from split_text).
+ * The counts come from _meta["x-thread/outline"], the editor base from _meta["x-thread/editorBase"] and the image host
+ * from _meta["x-thread/imageOrigin"]; any of them may be missing. Null for anything else.
+ */
+export function threadFrom(result) {
+  const structured = (result && result.structuredContent) || {}
+  const meta = (result && result._meta) || {}
+  const saved = Boolean(structured.draft)
+  const source = structured.draft || structured
+  if (!Array.isArray(source.posts)) return null
+  const outline = meta['x-thread/outline']
+  return {
+    title: source.title,
+    posts: source.posts,
+    saved,
+    is_published: source.is_published === true,
+    url: typeof source.url === 'string' ? source.url : null,
+    counts: outline && Array.isArray(outline.posts) ? outline.posts : null,
+    editorBase: typeof meta['x-thread/editorBase'] === 'string' ? meta['x-thread/editorBase'] : null,
+    imageOrigin: typeof meta['x-thread/imageOrigin'] === 'string' ? meta['x-thread/imageOrigin'] : null
+  }
 }
