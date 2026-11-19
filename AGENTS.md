@@ -19,6 +19,7 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 
 ### Shipping (standing permission from Shaked)
 - For every queued task: open the PR, merge when checks are green and Opus approved, let it deploy, check production, post the Handoff. Do not ask. Never hold a finished task.
+- A merge whose changed files are all skipped by `scripts/vercel-ignore.mjs` (`docs/`, `.github/`, `tests/`, `.claude/`, `.githooks/`, any `.md`) creates no deployment: the production check is "no deployment created; production still runs <sha>, last smoke green". Do not wait for a smoke run.
 - When Shaked said to do something, do it; if his words can mean two things, take the likelier, act, say which.
 - Merge commits only, never squash. Update a branch by merging `main`, never rebase.
 - Every PR adds `docs/changelogs/<UTC YYYYMMDD-HHMMSS>-<slug>.md` (1 to 5 lines).
