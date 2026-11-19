@@ -20,7 +20,8 @@ const EXCLUDED = {
   'GET /openapi.json': 'Documentation, not a user function',
   'GET /health': 'Health check, not a user function',
   'GET /mcp/ui-manifest': 'Deploy check: view hashes for the production smoke step, not a user function',
-  'POST /mcp': 'The MCP endpoint itself'
+  'POST /mcp': 'The MCP endpoint itself',
+  '/admin/*': 'Admin routes (plan A2): reached only by admin MCP tools (A3 adds the rule for them)'
 }
 
 /** True when a route matches an EXCLUDED key. */
@@ -38,10 +39,8 @@ const routeKey = (route) => `${route.method} ${route.path}`
 
 describe('REST routes and MCP tools', () => {
   it('every REST route is called by a tool or excluded on purpose', () => {
-    // Admin routes are skipped for now (plan A2); A3 replaces this skip with a real rule.
     const uncovered = ROUTES.filter(
       (route) =>
-        !route.path.startsWith('/admin') &&
         !TOOL_REST_ROUTES.includes(routeKey(route)) &&
         !Object.keys(EXCLUDED).some((key) => matchesExclusion(route, key))
     ).map(routeKey)
