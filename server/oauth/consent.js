@@ -101,13 +101,10 @@ function copyBlock(link, text) {
 }
 
 // The admin part of the consent form, shown only to the owner. 'notice' says that approving gives admin tools
-// for 24 hours; 'stale' says how to get a fresh sign-in. Anything else (null) shows nothing.
+// for 24 hours. Anything else (null) shows nothing.
 function adminNote(state, redirectHost) {
   if (state === 'notice') {
     return `<p class="warn">Approving gives <strong>${escapeHtml(redirectHost)}</strong> admin tools (list all users, suspend users, delete users and their content) for 24 hours. Check that the address above is your own AI app.</p>`
-  }
-  if (state === 'stale') {
-    return '<p>To allow admin tools, sign out, sign in again and come back to this page within 10 minutes.</p>'
   }
   return ''
 }

@@ -13,15 +13,15 @@ Who this is for: the owner, and agents that work for the owner. This page is not
 
 Admin follows your GitHub identity. You do not need a code or a box.
 
-1. Sign out of X Thread Draft Tool, then sign in again with GitHub as `Shaked` (github id 960015).
+1. Be signed in to X Thread Draft Tool with GitHub as `Shaked` (github id 960015). The age of the sign-in does not matter.
 2. In your AI app (Claude or ChatGPT on the web, or a command-line app), go to the connector settings. Disconnect X Thread Draft Tool, then press Connect.
-3. On the "Allow access" page, check that the address shown is your own app. Approve within 10 minutes of signing in.
+3. On the "Allow access" page, check that the address shown is your own app, then approve.
 4. Admin tools appear at once on that connection and last 24 hours. To check, ask the app to run `admin_status`.
 
 Rules that come from the code:
 
-- The approval must be made within 10 minutes of your sign-in, on the MCP connection. Other users never get admin, and the REST API never does.
-- Each approval gives 24 hours of admin again, or clears it if the sign-in is old.
+- Only your account gets admin, and only on the MCP connection. Other users never get it, and the REST API never does.
+- Each approval of the MCP connection gives 24 hours of admin again.
 - To end admin at once, go to the Connected apps list on the settings page and disconnect (revoke) the app. A revoked grant stops working.
 - `ADMIN_DISABLED=1` in the environment turns admin off for everyone, including you. It is read on every check, so a new deploy is needed for a change to apply.
 - Use a separate chat for admin work. Do not let it share a chat that reads untrusted web pages or other text.
