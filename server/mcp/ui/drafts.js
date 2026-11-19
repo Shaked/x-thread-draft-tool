@@ -5,6 +5,7 @@
 // own (rule 10): it asks the host to call a tool, and the host does that.
 import { el, linkButton, underEditorBase } from './client.js'
 import { RENDER_FUNCTIONS, STYLE as THREAD_STYLE } from './thread.js'
+import { embedOrigin } from './origin.js'
 
 const LIST_STYLE = `
 main > header h1 { font-size: 20px; font-weight: 800; margin: 0; }
@@ -115,7 +116,7 @@ export function listFrom(result) {
 }
 
 // Every function the drafts view runs: the thread functions (shared, not copied) and the list functions above.
-const SCRIPT = [
+const SCRIPT_FUNCTIONS = [
   ...RENDER_FUNCTIONS,
   dateText,
   relativeTime,
@@ -134,6 +135,8 @@ const STARTER = `
   var link = null;
   var list = null;
   var shown = false;
+  // The image host, baked in by the server (T10 part 3, #238). Images use it before the tool result's _meta.
+  var IMAGE_ORIGIN = __IMAGE_ORIGIN__;
   function open(url) { return link.openLink(url).catch(function () { return null; }); }
   function locale() {
     var ctx = link.context();
@@ -150,7 +153,7 @@ const STARTER = `
     link.callTool('get_draft', { id: id }).then(function (result) {
       if (result.isError) { renderError(holder, errorText(result)); return; }
       var thread = threadFrom(result);
-      if (thread) renderThread(holder, thread, open);
+      if (thread) { thread.imageOrigin = IMAGE_ORIGIN || thread.imageOrigin; renderThread(holder, thread, open); }
       else renderError(holder, 'This view cannot show that draft.');
     }, function () {
       renderError(holder, 'Could not load this draft.');
@@ -181,8 +184,10 @@ const STARTER = `
 })();
 `
 
-/** The whole view document. */
-const DRAFTS_HTML = `<!doctype html>
+/** The whole view document, for one image origin (null when the environment has none). */
+function draftsHtml(imageOrigin) {
+  const script = SCRIPT_FUNCTIONS + '\n' + STARTER.replace('__IMAGE_ORIGIN__', embedOrigin(imageOrigin))
+  return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -193,15 +198,15 @@ const DRAFTS_HTML = `<!doctype html>
 </head>
 <body>
 <main id="root"><p>Loading drafts…</p></main>
-<script>${SCRIPT}
-${STARTER}</script>
+<script>${script}</script>
 </body>
 </html>
 `
+}
 
 export const DRAFTS_VIEW = {
   name: 'drafts',
   title: 'Your drafts',
   description: 'Your drafts as a list: open in the editor, or view a thread.',
-  html: DRAFTS_HTML
+  html: draftsHtml
 }

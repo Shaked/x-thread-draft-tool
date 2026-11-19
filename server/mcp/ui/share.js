@@ -208,5 +208,5 @@ export const SHARE_VIEW = {
   description: 'The two links of a share link, with when each one stops working. Open or copy them.',
   // The card copies a link, so the view declares clipboard write (the host grants it or not).
   permissions: { clipboardWrite: {} },
-  html: SHARE_HTML
+  html: () => SHARE_HTML
 }
