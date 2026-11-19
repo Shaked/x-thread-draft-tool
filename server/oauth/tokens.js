@@ -148,7 +148,8 @@ export async function rotate(refreshToken, clientId, resource = null) {
 export async function resolveAccess(token, expectedResource) {
   if (typeof token !== 'string' || !ACCESS_SHAPE.test(token)) return null
   const { rows } = await query(
-    `select g.id as grant_id, u.id as uid, u.github_id, u.login
+    `select g.id as grant_id, u.id as uid, u.github_id, u.login, g.resource,
+            (g.resource like '%/api/mcp' and g.admin_until is not null and g.admin_until > now()) as admin
        from oauth_tokens t
        join oauth_grants g on g.id = t.grant_id
        join users u on u.id = g.user_id
@@ -158,5 +159,13 @@ export async function resolveAccess(token, expectedResource) {
   )
   const row = rows[0]
   if (!row) return null
-  return { uid: row.uid, gh: String(row.github_id), login: row.login, via: 'oauth', grantId: row.grant_id }
+  return {
+    uid: row.uid,
+    gh: String(row.github_id),
+    login: row.login,
+    via: 'oauth',
+    grantId: row.grant_id,
+    resource: row.resource,
+    admin: row.admin === true
+  }
 }

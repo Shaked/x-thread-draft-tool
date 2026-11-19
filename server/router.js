@@ -1,4 +1,6 @@
 import { HttpError, error, json } from './http.js'
+import { requireAdmin } from './admin/guard.js'
+import { adminRoutes } from './routes/admin.js'
 import { authRoutes } from './routes/auth.js'
 import { deviceRoutes } from './routes/device.js'
 import { draftRoutes } from './routes/drafts.js'
@@ -25,6 +27,7 @@ function health() {
 }
 
 export const ROUTES = [
+  ...adminRoutes,
   ...authRoutes,
   ...deviceRoutes,
   ...draftRoutes,
@@ -91,6 +94,16 @@ async function dispatch(request) {
     const cookieless = request.method === 'POST' && NO_ORIGIN_CHECK.has(path)
     if (MUTATING.has(request.method) && request.headers.get('authorization') === null && !cookieless) {
       checkOrigin(request)
+    }
+
+    // Admin paths answer like an unknown path to everyone but the admin, whatever the method or token.
+    // This runs before the 405 answer and before the CI-token 401, so neither can reveal an admin path.
+    if (path === '/admin' || path.startsWith('/admin/')) {
+      try {
+        requireAdmin(request)
+      } catch {
+        return error(404, 'Not found')
+      }
     }
 
     const candidates = TABLE.filter((entry) => entry.regex.test(path))
