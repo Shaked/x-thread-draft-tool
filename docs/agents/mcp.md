@@ -157,8 +157,8 @@ Some tools can show their result as a small view inside an app that supports MCP
 
 - `get_draft`, `create_draft`, `create_thread_from_text` and `split_text` show the thread view: X-style
   post cards, a character counter, your images and an "Open in editor" link.
-- `list_drafts` shows the drafts list: one row per draft, with "Open in editor" and "View thread". "View
-  thread" asks the app to call `get_draft` again.
+- `list_drafts` shows the drafts list: one row per draft, with "View thread" and, when the link is ours,
+  "Open in editor". "View thread" asks the app to call `get_draft` again.
 - `create_share_link` shows the share card: the preview and markdown links, Copy (when the app allows
   it) and the time left until the link expires.
 
@@ -166,8 +166,9 @@ Each of these tools also returns the same text and data as before, so a client w
 same answer it always got.
 
 - The app may ask you once before it shows a view. Nothing is shown without that answer.
-- A view reads only the data in the tool result. It loads no script, and it loads images only from our
-  image host (the Blob store). It sends nothing back to the server.
+- A view reads only the data in the tool result. It makes no network request of its own, and it loads
+  images only from our image host (the Blob store). Its only call to the server is "View thread" in the
+  drafts list, which asks the app to call `get_draft`.
 - Showing the share card does not use up a one-time link. Opening the preview in the app does.
 - Not checked: how Claude and ChatGPT draw the views. A robot cannot sign in there. The browser tests
   use test hosts (a hand-written one and the official AppBridge), not those apps.
