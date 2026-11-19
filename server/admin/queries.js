@@ -176,3 +176,9 @@ export function userView(row) {
     mcp_calls_7d: row.mcp_calls_7d
   }
 }
+
+// The SQL repeats the protection on purpose (plan A8 step 2): a protected user never matches, even if the check above is skipped.
+export const SUSPEND_SQL = `update users set suspended_at = now(), suspended_reason = $2
+   where id = $1 and suspended_at is null and github_id <> all($3::bigint[]) returning id`
+export const UNSUSPEND_SQL = `update users set suspended_at = null, suspended_reason = null
+   where id = $1 and suspended_at is not null and github_id <> all($2::bigint[]) returning id`
