@@ -2,11 +2,11 @@
 // Specification: revision 2026-07-28 (stateless, server/discover, per-request _meta and headers),
 // with the initialize handshake kept for clients on 2025-11-25 and 2025-06-18.
 import { runAs } from '../caller-context.js'
-import { callTool, hasTool, listTools } from './tools.js'
+import { callTool, hasTool, isAdminCaller, isAdminToolName, listTools } from './tools.js'
 import { getPrompt, listPrompts } from './prompts.js'
 import { getSkill, listSkillResources, listSkills, readSkillResource } from './skills.js'
 import { listUiResources, readUiResource } from './ui/index.js'
-import { RATE_LIMIT_MESSAGE, authorizeAndCount } from './rate.js'
+import { RATE_LIMIT_MESSAGE, authorizeAndCount, withinToolRate } from './rate.js'
 import { noteRpc } from '../perf.js'
 import { getVersion } from '../version.js'
 
@@ -210,7 +210,7 @@ export async function handleMcp(request) {
   if (!caller) return unauthorized(origin)
   if (message) {
     // Only the method and a known tool name reach the [perf] line, never the arguments.
-    noteRpc(message.method, message.method === 'tools/call' && hasTool(message.params?.name) ? message.params.name : null)
+    noteRpc(message.method, message.method === 'tools/call' && hasTool(message.params?.name, caller, origin) ? message.params.name : null)
   }
   if (checked.response) return checked.response
 
@@ -259,7 +259,12 @@ async function dispatch(message, ctx) {
       if (ctx.modern) throw methodNotFound(message.method, ctx)
       return {}
     case 'tools/list':
-      return { tools: listTools(), ttlMs: LIST_TTL_MS, cacheScope: 'public' }
+      // The admin connection's list differs from everyone else's, so a shared cache must not keep it.
+      return {
+        tools: listTools(ctx.caller, ctx.origin),
+        ttlMs: LIST_TTL_MS,
+        cacheScope: isAdminCaller(ctx.caller, ctx.origin) ? 'private' : 'public'
+      }
     case 'prompts/list':
       noCursor(params)
       return { prompts: listPrompts(), ttlMs: LIST_TTL_MS, cacheScope: 'public' }
@@ -270,7 +275,8 @@ async function dispatch(message, ctx) {
       return got.result
     }
     case 'tools/call': {
-      if (typeof params.name !== 'string' || !hasTool(params.name)) {
+      // An admin tool name from a caller who is not the admin is the same unknown-tool error as any unknown name.
+      if (typeof params.name !== 'string' || !hasTool(params.name, ctx.caller, ctx.origin)) {
         throw new RpcError(-32602, `Invalid params: unknown tool ${JSON.stringify(params.name ?? null)}`)
       }
       const args = argumentsOf(params)
@@ -278,6 +284,10 @@ async function dispatch(message, ctx) {
       // The call was counted in authorizeAndCount. Over the limit is a tool error (isError), not a
       // JSON-RPC error, so the client can show it.
       if (!ctx.caller.withinRate) {
+        return { content: [{ type: 'text', text: RATE_LIMIT_MESSAGE }], isError: true }
+      }
+      // An admin tool is not in the counted path above. It gets its own count here (plan A3, step 4).
+      if (isAdminToolName(params.name) && !(await withinToolRate(ctx.caller.uid))) {
         return { content: [{ type: 'text', text: RATE_LIMIT_MESSAGE }], isError: true }
       }
       return runAs(ctx.caller, () => callTool(params.name, args, { caller: ctx.caller, origin: ctx.origin }))

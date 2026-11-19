@@ -9,6 +9,8 @@ import { runAs } from '../caller-context.js'
 import { randomUUID } from 'node:crypto'
 import { uiResourceUri } from './ui/index.js'
 import { blobOrigin } from './ui/origin.js'
+import { adminTool, listAdminTools } from './admin-tools.js'
+import { isAdminGithubId } from '../admin/identity.js'
 
 const UUID = { type: 'string', format: 'uuid' }
 const TITLE = { type: 'string', maxLength: 500, description: 'Draft title, at most 500 characters.' }
@@ -388,8 +390,37 @@ for (const tool of TOOLS) {
 
 const TOOL_BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]))
 
-export function hasTool(name) {
-  return TOOL_BY_NAME.has(name)
+// Admin tools (plan A3): every admin tool name starts with admin_, and no normal tool may (checked at load).
+for (const tool of TOOLS) {
+  if (tool.name.startsWith('admin_')) throw new Error(`normal tool name must not start with admin_: ${tool.name}`)
+}
+
+/**
+ * True for the one admin connection: an OAuth token for this app's MCP resource, on an elevated grant
+ * (server/mcp/rate.js sets `admin`), of an admin GitHub id. Everyone else gets the normal tools only.
+ */
+export function isAdminCaller(caller, origin) {
+  return caller?.via === 'oauth' && caller.resource === `${origin}/api/mcp` && caller.admin === true && isAdminGithubId(caller.gh)
+}
+
+/** True when `name` is an admin tool. It says nothing about who may call it: see isAdminCaller. */
+export function isAdminToolName(name) {
+  return adminTool(name) !== undefined
+}
+
+/** The tool called `name` for this caller, with `admin` true only for an admin tool an admin connection may call. */
+function findTool(name, caller, origin) {
+  if (TOOL_BY_NAME.has(name)) return { tool: TOOL_BY_NAME.get(name), admin: false }
+  const admin = isAdminCaller(caller, origin) ? adminTool(name) : undefined
+  return admin ? { tool: admin, admin: true } : null
+}
+
+/**
+ * True when the caller may call the tool. Without a caller, only the normal tools count (so a name
+ * from the admin list is unknown to a caller who is not known yet, as in the call counting).
+ */
+export function hasTool(name, caller, origin) {
+  return findTool(name, caller, origin) !== null
 }
 
 /** The tools/list entries (definitions only, no handlers). */
@@ -485,8 +516,9 @@ function describe(name, base) {
 // xMaxLength (X weighted limit) is checked here, not by JSON Schema, so clients get a plain schema without it.
 const publicSchema = (schema) => JSON.parse(JSON.stringify(schema, (key, value) => (key === 'xMaxLength' ? undefined : value)))
 
-export function listTools() {
-  return TOOLS.map(({ name, description, inputSchema }) => {
+/** The tools/list entries the caller may see: the normal tools, and the admin tools for the admin connection. */
+export function listTools(caller, origin) {
+  const normal = TOOLS.map(({ name, description, inputSchema }) => {
     const [title, readOnlyHint, destructiveHint, idempotentHint, openWorldHint] = META[name]
     const uri = VIEW_OF[name] ? uiResourceUri(VIEW_OF[name]) : null
     return {
@@ -499,6 +531,7 @@ export function listTools() {
       ...(uri ? { _meta: { ui: { resourceUri: uri }, 'ui/resourceUri': uri, 'openai/outputTemplate': uri } } : {})
     }
   })
+  return isAdminCaller(caller, origin) ? [...normal, ...listAdminTools()] : normal
 }
 
 /**
@@ -506,10 +539,15 @@ export function listTools() {
  * `isError: true` results (the model can read and correct them), never as JSON-RPC errors.
  */
 export async function callTool(name, args, { caller, origin }) {
-  const tool = TOOL_BY_NAME.get(name)
+  const found = findTool(name, caller, origin)
+  if (!found) return toolError(`Unknown tool: ${name}`)
+  const { tool, admin } = found
   const problem = argumentProblem(tool.inputSchema, args)
   if (problem) return toolError(problem)
-  const ctx = { caller, origin, rest: restAs(origin, caller) }
+  // Least privilege (plan A3, D21): a normal tool runs as a caller that is not an admin, so no REST
+  // route under /admin answers it. An admin tool runs as the admin caller naming that one tool.
+  const asTool = admin ? { ...caller, adminTool: name } : { ...caller, admin: false, adminTool: undefined }
+  const ctx = { caller: asTool, origin, rest: restAs(origin, asTool) }
   try {
     const res = await tool.run(args, ctx)
     const result = await toToolResult(res)
