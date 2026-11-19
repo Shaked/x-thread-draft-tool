@@ -152,10 +152,10 @@ describe.each([MODERN, LEGACY])('skills, protocol %s', (version) => {
   })
 
   it('resources/list: the SKILL.md resource and the thread view, valid against the official schema', async () => {
-    // The views are added in #170 (T1, thread) and #182 (T5, drafts), so the list has three entries on purpose.
+    // The views are added in #170 (T1, thread), #182 (T5, drafts) and #187 (T6, share card), so the list has four entries on purpose.
     const { body } = await rpc(version, 'resources/list')
     expectValid(version, 'ListResourcesResult', body.result)
-    expect(body.result.resources).toHaveLength(3)
+    expect(body.result.resources).toHaveLength(4)
     const [r] = body.result.resources.filter((x) => x.uri === URI)
     expect(r).toMatchObject({ uri: URI, name: 'x-thread-drafts', mimeType: 'text/markdown' })
     expect(r.size).toBe(Buffer.byteLength(await readSkillText(version), 'utf8'))

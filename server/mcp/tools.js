@@ -370,7 +370,15 @@ const VIEW_POSTS = new Set(['create_draft', 'create_thread_from_text'])
 // Where outlineResult keeps the saved posts on its Response (a symbol, so it never reaches the JSON body).
 const VIEW_POSTS_OF = Symbol('view posts')
 // The drafts list (plan Task 5, D8): list_drafts shows the list view. Its result carries the editor base only.
-const VIEW_OF = { get_draft: 'thread', create_draft: 'thread', create_thread_from_text: 'thread', split_text: 'thread', list_drafts: 'drafts' }
+// The share card (plan Task 6, #187): create_share_link shows its two links. Its result has no _meta: the URLs are in structuredContent.
+const VIEW_OF = {
+  get_draft: 'thread',
+  create_draft: 'thread',
+  create_thread_from_text: 'thread',
+  split_text: 'thread',
+  list_drafts: 'drafts',
+  create_share_link: 'share'
+}
 for (const tool of TOOLS) {
   if (VIEW_OUTLINE[tool.name]) {
     tool.resultMeta = (body, ctx, res) => threadMeta(ctx, VIEW_OUTLINE[tool.name](body), VIEW_POSTS.has(tool.name) ? res[VIEW_POSTS_OF] : undefined)
