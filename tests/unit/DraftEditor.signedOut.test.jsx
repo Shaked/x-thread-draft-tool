@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import DraftEditor from '../../src/pages/DraftEditor.jsx'
@@ -35,20 +35,30 @@ function renderEditor() {
   )
 }
 
-// Types one character into the title, which starts the debounced save (1 s).
+// Runs the editor's 1 s save debounce on a fake clock instead of waiting for it.
+async function runSaveDebounce() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1000)
+  })
+}
+
+// Types one character into the title, which starts the debounced save (1 s), and lets it fire.
 async function editTitle() {
   const title = await screen.findByLabelText('Draft title')
   await userEvent.type(title, '!')
+  await runSaveDebounce()
   return title
 }
 
 describe('DraftEditor when the session has ended', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     draftsApi.get.mockResolvedValue(structuredClone(DRAFT))
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     cleanup()
     vi.clearAllMocks()
     vi.restoreAllMocks()
@@ -76,6 +86,7 @@ describe('DraftEditor when the session has ended', () => {
     await screen.findByRole('alert', {}, { timeout: 3000 })
 
     await userEvent.type(screen.getByLabelText('Draft title'), '?')
+    await runSaveDebounce()
 
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument(), { timeout: 3000 })
     expect(screen.getByRole('status')).toHaveTextContent('Saved')

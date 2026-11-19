@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import DraftEditor from '../../src/pages/DraftEditor.jsx'
@@ -32,17 +32,23 @@ function renderEditor() {
 async function editAndReadSavedPosts() {
   const title = await screen.findByLabelText('Draft title')
   await userEvent.type(title, '!')
+  // Run the 1 s save debounce on a fake clock instead of waiting for it.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1000)
+  })
   await waitFor(() => expect(draftsApi.update).toHaveBeenCalled(), { timeout: 3000 })
   return draftsApi.update.mock.calls[0][1].posts
 }
 
 describe('DraftEditor and posts saved without an id', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.spyOn(console, 'error').mockImplementation(() => {})
     draftsApi.update.mockResolvedValue({})
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     cleanup()
     vi.clearAllMocks()
     vi.restoreAllMocks()

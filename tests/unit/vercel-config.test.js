@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Task 22 (docs/plans/hardening-finish.md): only main and the stable preview branch deploy.
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'

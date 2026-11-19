@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { keysMock, delManyMock } = vi.hoisted(() => ({ keysMock: vi.fn(), delManyMock: vi.fn() }))

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest'
 import { scan } from '../../scripts/slop-scan.mjs'
 
