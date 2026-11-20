@@ -3,6 +3,7 @@
 // token endpoint, and revocation. Tokens come from server/oauth/tokens.js (Task 7.4).
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { query, transaction } from '../db.js'
+import { isAdminGithubId } from '../admin/identity.js'
 import { HttpError, json, readJson } from '../http.js'
 import { clearSessionCookie, readSession, revokeSession } from '../session.js'
 import { hashToken } from '../tokens.js'
@@ -178,6 +179,13 @@ function parseAuthorize(params, base) {
   }
 }
 
+/** True when this consent is the admin's, for the MCP resource. Only informs the page: admin comes from identity, not from this page. */
+async function isAdminConsent(uid, resource, base) {
+  if (resource !== mcpResource(base)) return false
+  const { rows } = await query('select github_id from users where id = $1', [uid])
+  return rows.length === 1 && isAdminGithubId(String(rows[0].github_id))
+}
+
 /** This consent address, rebuilt only from validated values, for copying into another browser. */
 function authorizeLink(base, clientId, redirectUri, value, params) {
   const fields = [
@@ -242,7 +250,8 @@ async function authorizeGet({ request, url }) {
       redirectHost: new URL(redirectUri).host,
       requestToken,
       login: session.login,
-      link
+      link,
+      admin: await isAdminConsent(session.uid, value.resource, base)
     }),
     { status: 200, headers: consentHeaders(redirectOrigin) }
   )

@@ -187,20 +187,21 @@ const rpcRaw = (token) =>
 
 // ---- The consent page ---------------------------------------------------------------------------
 
-describe('the consent page says nothing about admin, to anyone', () => {
+describe('the consent page tells the admin, and only the admin, that the app gets admin tools', () => {
   const noAdminText = (html) => {
     expect(html).not.toMatch(/admin/i)
     expect(html).not.toContain('name="admin"')
-    expect(html).not.toContain('Approving gives')
-    expect(html).not.toContain('24 hours')
   }
 
-  it('shows nothing to the owner, on the MCP resource, any return address, any sign-in age', async () => {
+  it('shows the admin line to the owner on the MCP resource, any return address, any sign-in age, with the host in bold', async () => {
     for (const [redirect, age] of [[CLAUDE, 0], [CLAUDE, 86_400], [EVIL, 0], [LOOPBACK, 0]]) {
       const clientId = await registerClient(redirect)
       const res = await getPage(authorizePath(clientId, { redirectUri: redirect, challenge: pkce().challenge }), await cookieFor(admin, age))
       expect(res.status).toBe(200)
-      noAdminText(await res.text())
+      const html = await res.text()
+      expect(html).toContain('You are the admin.')
+      expect(html).toContain(`<strong>${new URL(redirect).host}</strong> will get the admin tools`)
+      expect(html).not.toContain('name="admin"')
     }
   })
 
