@@ -8,6 +8,7 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 - The queue is the one open issue labelled `dispatch`. Epics are issues labelled `epic`; each task is a sub-issue labelled `task` with its full plan. There are no plan files.
 - One session does one task: claim, build, ship, post the Handoff comment, end. Templates are in the queue issue.
 - Record every decision Shaked makes in the epic, with the date. "continue" is not an approval.
+- An open issue labelled `cleanup` is an eligible task of the Daily cleanup review epic (#255): executor Opus, at most one per day, and the session never merges. Rules: `docs/operations/cleanup-review.md`.
 
 ### Rules
 - Check a fact before you state it; otherwise write "not checked".
