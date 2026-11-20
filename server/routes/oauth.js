@@ -186,6 +186,18 @@ async function isAdminConsent(uid, resource, base) {
   return rows.length === 1 && isAdminGithubId(String(rows[0].github_id))
 }
 
+/**
+ * For the admin note (audit #276, R4): the host of a metadata client's id (null for a registered client: its
+ * id names no site), and whether the return address is on that site or its subdomains, or on this computer.
+ */
+function appSite(client, redirectUri) {
+  if (client.kind !== 'metadata') return { appHost: null, sameSite: false }
+  const app = new URL(client.client_id)
+  const back = new URL(redirectUri).hostname
+  const local = back === 'localhost' || back === '127.0.0.1'
+  return { appHost: app.host, sameSite: local || back === app.hostname || back.endsWith(`.${app.hostname}`) }
+}
+
 /** This consent address, rebuilt only from validated values, for copying into another browser. */
 function authorizeLink(base, clientId, redirectUri, value, params) {
   const fields = [
@@ -251,7 +263,8 @@ async function authorizeGet({ request, url }) {
       requestToken,
       login: session.login,
       link,
-      admin: await isAdminConsent(session.uid, value.resource, base)
+      admin: await isAdminConsent(session.uid, value.resource, base),
+      ...appSite(client, redirectUri)
     }),
     { status: 200, headers: consentHeaders(redirectOrigin) }
   )

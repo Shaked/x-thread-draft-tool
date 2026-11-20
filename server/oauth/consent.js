@@ -100,13 +100,20 @@ function copyBlock(link, text) {
 <script>${COPY_SCRIPT}</script>`
 }
 
+/** For the admin note (audit #276, R4): the app's own site, and a warning when the return address is not on it. */
+function appSiteText(appHost, sameSite) {
+  if (appHost === null) return 'This app did not say which site it belongs to.'
+  const site = `The app's own site is <strong>${escapeHtml(appHost)}</strong>.`
+  return sameSite ? site : `${site} <strong>The return address is not on the app's own site.</strong>`
+}
+
 /** The Approve / Deny page. `requestToken` is the signed decision; `link` is this same address. Everything shown is escaped. */
-export function consentPage({ clientName, unverified, redirectHost, requestToken, login, link, admin = false }) {
+export function consentPage({ clientName, unverified, redirectHost, requestToken, login, link, admin = false, appHost = null, sameSite = false }) {
   const warning = unverified
     ? '<p class="warn">This app is not verified. Approve only if you started it yourself.</p>'
     : ''
   const adminNote = admin
-    ? `<p class="warn">You are the admin. <strong>${escapeHtml(redirectHost)}</strong> will get the admin tools (list users, suspend users, delete users and their content). Check that this address is your own AI app.</p>`
+    ? `<p class="warn">You are the admin. <strong>${escapeHtml(redirectHost)}</strong> will get the admin tools (list users, suspend users, delete users and their content). Check that this address is your own AI app. ${appSiteText(appHost, sameSite)}</p>`
     : ''
   return page(
     'Allow access',
