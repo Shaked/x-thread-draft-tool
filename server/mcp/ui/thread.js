@@ -2,8 +2,10 @@
 // with one inline script: the client functions from client.js, copied in with toString(), then a starter written as a
 // string so the module transform never rewrites its names. The colors are the X variables from server/share/x-css.js.
 import * as client from './client.js'
+import { el } from './client.js'
 import { X_VARS_DARK, X_VARS_LIGHT } from '../../share/x-css.js'
 import { embedOrigin } from './origin.js'
+import { CARD_FUNCTIONS, CARD_STYLE, renderShare, shareFrom } from './share-card.js'
 
 export const STYLE = `
 :root { color-scheme: light; ${X_VARS_LIGHT} }
@@ -37,6 +39,7 @@ button { font: inherit; font-size: 14px; color: var(--x-link); background: none;
 footer small { color: var(--x-muted); }
 main > div > p { color: var(--x-muted); font-size: 13px; text-align: center; margin: 12px 0; }
 footer strong { color: #f4212e; }
+${CARD_STYLE}
 `
 
 const STARTER = `
@@ -60,6 +63,9 @@ const STARTER = `
   function expand() {
     try { return Promise.resolve(window.openai.requestDisplayMode({ mode: 'fullscreen' })).catch(function () { return null; }); } catch (e) { return Promise.resolve(null); }
   }
+  // Create and stop a share link (plan Task 7, #189). The host may ask the user first; the views say so while it waits.
+  function createShare(id) { return link.callTool('create_share_link', { id: id }); }
+  function revokeShare(id, token) { return link.callTool('revoke_share_link', { id: id, token: token }); }
   function showResult(result) {
     shown = true;
     if (result.isError) {
@@ -71,7 +77,12 @@ const STARTER = `
     if (thread) {
       thread.expand = canExpand() ? expand : null;
       thread.imageOrigin = IMAGE_ORIGIN || thread.imageOrigin;
+      // Only when the host can call tools from the view (hostCapabilities.serverTools); otherwise no share actions.
+      var ctx = link.context();
+      thread.share = link.canCallTools() ? { create: createShare, revoke: revokeShare, locale: ctx && typeof ctx.locale === 'string' ? ctx.locale : undefined } : null;
       renderThread(root, thread, open);
+      // Plan Task 7 (#189): a saved draft gets "Create share link" right under its heading.
+      if (thread.share && thread.id && thread.saved) root.insertBefore(createShareNode(thread, open), root.firstChild.nextSibling);
     } else {
       renderError(root, 'This view cannot show that result.');
     }
@@ -105,6 +116,48 @@ const STARTER = `
 })();
 `
 
+/**
+ * "Create share link" (plan Task 7, #189): one click calls create_share_link with the defaults (one use, one hour), then
+ * the card (renderShare) is shown in place. A refusal by the host removes the button; a timeout can be tried again.
+ */
+export function createShareNode(thread, open) {
+  const button = el('button', {}, ['Create share link'])
+  const note = el('p', { dir: 'auto' }, [])
+  const card = el('div', {}, [])
+  const box = el('div', {}, [button, note, card])
+  button.addEventListener('click', function () {
+    button.disabled = true
+    note.textContent = 'Waiting for your OK in the chat'
+    let call
+    try {
+      call = thread.share.create(thread.id)
+    } catch (err) {
+      call = Promise.reject(err)
+    }
+    Promise.resolve(call).then(
+      function (result) {
+        const share = result && !result.isError ? shareFrom(result) : null
+        if (!share) {
+          const first = result && result.content && result.content[0]
+          note.textContent = first && first.text ? first.text : 'The link could not be created.'
+          button.disabled = false
+          return
+        }
+        note.textContent = ''
+        button.remove()
+        renderShare(card, share, { open: open, now: function () { return Date.now(); }, locale: thread.share.locale, revoke: thread.share.revoke })
+      },
+      function (err) {
+        const timedOut = /timed out$/.test(String(err && err.message))
+        note.textContent = timedOut ? 'No answer from the host. Try again.' : 'Your app does not allow this here.'
+        if (timedOut) button.disabled = false
+        else button.remove()
+      }
+    )
+  })
+  return box
+}
+
 // Every function the view runs. Each is copied by its source text, so each must use only its own arguments,
 // the globals of the page and the other functions in this list (no module-level constants).
 // The functions that draw a thread and talk to the host. The drafts view (drafts.js) copies the same list, so the code
@@ -127,7 +180,8 @@ export const RENDER_FUNCTIONS = [
 ]
 
 // The page script for one image origin: the render functions, then the starter with the origin baked in.
-const scriptFor = (imageOrigin) => RENDER_FUNCTIONS.map((fn) => fn.toString()).join('\n') + STARTER.replace('__IMAGE_ORIGIN__', embedOrigin(imageOrigin))
+const scriptFor = (imageOrigin) =>
+  [...RENDER_FUNCTIONS, ...CARD_FUNCTIONS, createShareNode].map((fn) => fn.toString()).join('\n') + STARTER.replace('__IMAGE_ORIGIN__', embedOrigin(imageOrigin))
 
 /** The whole view document, for one image origin (null when the environment has none). */
 function threadHtml(imageOrigin) {

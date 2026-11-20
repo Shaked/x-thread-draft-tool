@@ -43,11 +43,14 @@ beforeEach(() => {
 
 describe('shareFrom', () => {
   it('reads both https URLs, the expiry and one_time', () => {
+    // The token here is not a UUID, so the stop action has no token to use (null), as the card expects.
     expect(shareFrom(result())).toEqual({
       preview: PREVIEW,
       markdown: MARKDOWN,
       expiresAt: NOW + 3600 * 1000,
-      oneTime: true
+      oneTime: true,
+      token: null,
+      draftId: null
     })
   })
 

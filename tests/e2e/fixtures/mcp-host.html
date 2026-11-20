@@ -20,7 +20,7 @@ window.addEventListener('message', function (event) {
   if (msg.method) window.__log.push(msg.method)
   if (msg.method === 'ui/initialize') {
     frame.contentWindow.postMessage({ jsonrpc: '2.0', id: msg.id, result: {
-      protocolVersion: '2026-01-26', hostInfo: { name: 'fixture', version: '1' }, hostCapabilities: {},
+      protocolVersion: '2026-01-26', hostInfo: { name: 'fixture', version: '1' }, hostCapabilities: window.__caps || {},
       hostContext: { theme: window.__theme || 'light', locale: 'en-US' }
     } }, '*')
   } else if (msg.method === 'ui/notifications/initialized') {
@@ -28,7 +28,8 @@ window.addEventListener('message', function (event) {
   } else if (msg.method === 'tools/call') {
     // A call the view makes through the host (plan Task 5: View thread calls get_draft); the test sets the answer.
     window.__calls.push(msg.params)
-    frame.contentWindow.postMessage({ jsonrpc: '2.0', id: msg.id, result: window.__callReply }, '*')
+    // window.__holdCall keeps the answer back, as a host does while it waits for the user's OK in the chat.
+    if (!window.__holdCall) frame.contentWindow.postMessage({ jsonrpc: '2.0', id: msg.id, result: window.__callReply }, '*')
   } else if (msg.method === 'ui/notifications/size-changed') {
     window.__size = msg.params
   }

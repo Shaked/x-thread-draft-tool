@@ -1,0 +1,2 @@
+- MCP views (#189, T7): the share card can stop its link ("Stop this link", with an "Are you sure?" step), and the thread view can create one ("Create share link"). Both show only when the host can call tools from the view.
+- `create_share_link` returns `draft_id`, so the card can stop the link it made.

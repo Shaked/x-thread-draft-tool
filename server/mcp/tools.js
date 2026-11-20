@@ -137,6 +137,8 @@ const TOOLS = [
       return json(
         {
           token,
+          // The draft's id, so the share card can stop this link (plan Task 7, #189). Not a secret: the caller's own draft.
+          draft_id: args.id,
           expires_at: expiresAt,
           one_time: oneTime,
           preview_url: `${origin}/x-thread-preview/${token}`,

@@ -300,6 +300,8 @@ describe('the tools that show the thread view (plan Task 4, #177), the drafts li
     expect(link._meta).toBeUndefined()
     expect(link.structuredContent.preview_url).toContain(link.structuredContent.token)
     expect(link.structuredContent.markdown_url).toContain(link.structuredContent.token)
+    // Plan Task 7 (#189): the draft id is in the result, so the card can stop this link (revoke_share_link needs it).
+    expect(link.structuredContent.draft_id).toBe(created.structuredContent.draft.id)
   })
 
   it('create tools: _meta has the full posts (text and images) in the same order; structuredContent has the outline only', async () => {
