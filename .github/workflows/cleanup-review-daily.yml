@@ -1,0 +1,116 @@
+name: Cleanup review (daily)
+
+# Daily check for the cleanup review (epic #255, task C1). Deterministic: no model, no tokens.
+# If nothing changed since the last run (tag `cleanup-review-last`), it prints a line and ends.
+# If something changed (commits outside docs/changelogs/), it opens ONE issue `Cleanup review <date>`
+# with labels `task` and `cleanup`, moves the tag and sends one Telegram line. The dispatcher picks
+# the issue up. While a `cleanup` issue is still open, nothing is created and the tag stays.
+#
+# Schedule: 04:17 UTC every day (not on the hour, so it does not collide with the rush).
+# Manual runs: `workflow_dispatch` with `dry_run` (default true): prints what it would do, writes nothing.
+#
+# Safety: `contents: write` only to move the tag (through the GitHub API, not a git push), and
+# `issues: write` for the issue. The checkout does not keep the token in .git. Commit titles reach
+# the script only through a file and environment variables, never inside shell text.
+# The Telegram step never fails the job (scripts/notify-telegram.mjs).
+
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only print what would happen (no issue, no tag, no Telegram)'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: cleanup-review
+  cancel-in-progress: false
+
+jobs:
+  review:
+    name: Cleanup review check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Check out (full history, for the commit range)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      - name: Read the last reviewed commit and count open cleanup issues
+        id: state
+        run: |
+          set -euo pipefail
+          # Missing tag: the API answers 404, so the value stays empty (first run).
+          LAST_SHA=$(gh api "repos/$REPO/git/ref/tags/cleanup-review-last" --jq .object.sha 2>/dev/null || true)
+          OPEN=$(gh issue list --repo "$REPO" --label cleanup --state open --json number --jq 'length')
+          HEAD_SHA=$(git rev-parse HEAD)
+          {
+            echo "last=$LAST_SHA"
+            echo "head=$HEAD_SHA"
+            echo "open=$OPEN"
+          } >> "$GITHUB_OUTPUT"
+          echo "head $HEAD_SHA, last ${LAST_SHA:-none}, open cleanup issues $OPEN"
+
+      - name: Decide (no model)
+        id: plan
+        env:
+          LAST_SHA: ${{ steps.state.outputs.last }}
+          HEAD_SHA: ${{ steps.state.outputs.head }}
+          OPEN_CLEANUP: ${{ steps.state.outputs.open }}
+          BODY_FILE: ${{ runner.temp }}/cleanup-body.md
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        run: node scripts/cleanup-review-check.mjs
+
+      - name: Open the cleanup issue
+        id: issue
+        if: steps.plan.outputs.action == 'create' && inputs.dry_run != true
+        env:
+          TITLE: ${{ steps.plan.outputs.title }}
+          BODY_FILE: ${{ runner.temp }}/cleanup-body.md
+        run: |
+          set -euo pipefail
+          # Labels first: `task` exists; `cleanup` is created on the first run.
+          gh label create cleanup --repo "$REPO" --force --description "Daily cleanup review" --color 5319e7
+          URL=$(gh issue create --repo "$REPO" --title "$TITLE" --body-file "$BODY_FILE" --label task --label cleanup)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "opened $URL"
+
+      - name: Move the tag to HEAD (only after the issue exists, or for changelog-only changes)
+        if: steps.plan.outputs.move_tag == 'true' && inputs.dry_run != true
+        env:
+          HEAD_SHA: ${{ steps.state.outputs.head }}
+          LAST_SHA: ${{ steps.state.outputs.last }}
+        run: |
+          set -euo pipefail
+          if [ -z "$LAST_SHA" ]; then
+            gh api -X POST "repos/$REPO/git/refs" -f ref=refs/tags/cleanup-review-last -f sha="$HEAD_SHA"
+          else
+            gh api -X PATCH "repos/$REPO/git/refs/tags/cleanup-review-last" -f sha="$HEAD_SHA" -F force=true
+          fi
+          echo "tag cleanup-review-last now at $HEAD_SHA"
+
+      - name: Telegram: one line about the new issue
+        if: steps.plan.outputs.action == 'create' && inputs.dry_run != true && steps.issue.outcome == 'success'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ISSUE_TITLE: ${{ steps.plan.outputs.title }}
+          ISSUE_URL: ${{ steps.issue.outputs.url }}
+        run: node scripts/cleanup-review-check.mjs notify
