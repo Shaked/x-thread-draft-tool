@@ -1,7 +1,8 @@
 name: Notify labels (Telegram)
 
-# Telegram notices for two labels (epic #241, task N2): `try-preview` on a PR and `owner` on an
-# issue or PR. Only a label added by the repository owner sends (scripts/notify-label.mjs).
+# Telegram notices for three labels: `try-preview` on a PR and `owner` on an issue or PR (epic #241,
+# task N2), and `cleanup-pr` on a PR (epic #255, task C3). Only a label added by the repository
+# owner sends (scripts/notify-label.mjs).
 #
 # Safety: this workflow never checks out or runs code from a PR branch. It checks out the default
 # branch and runs the script from there; the event values reach the script only as environment
@@ -20,7 +21,7 @@ permissions:
 jobs:
   notify:
     name: Telegram label notice
-    if: github.event.label.name == 'try-preview' || github.event.label.name == 'owner'
+    if: github.event.label.name == 'try-preview' || github.event.label.name == 'owner' || github.event.label.name == 'cleanup-pr'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -41,4 +42,5 @@ jobs:
           TARGET_IS_PR: ${{ github.event.pull_request && 'true' || 'false' }}
           TARGET_TITLE: ${{ github.event.pull_request.title || github.event.issue.title }}
           TARGET_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
+          TARGET_BODY: ${{ github.event.pull_request.body }}
         run: node scripts/notify-label.mjs

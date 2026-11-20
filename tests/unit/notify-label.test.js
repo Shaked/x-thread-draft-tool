@@ -33,6 +33,18 @@ describe('labelMessage', () => {
     expect(labelMessage({ ...base, label: 'try-preview', isPr: false, url: ISSUE_URL })).toBeNull()
   })
 
+  it('picks the cleanup kind for cleanup-pr on a PR, with the body for the summary line', () => {
+    expect(labelMessage({ ...base, label: 'cleanup-pr', isPr: true, body: 'Summary: x' })).toEqual({
+      kind: 'cleanup',
+      data: { title: 'Add the thing', url: PR_URL, body: 'Summary: x' },
+    })
+  })
+
+  it('sends nothing for cleanup-pr on an issue, or when someone other than the owner adds it', () => {
+    expect(labelMessage({ ...base, label: 'cleanup-pr', isPr: false, url: ISSUE_URL })).toBeNull()
+    expect(labelMessage({ ...base, label: 'cleanup-pr', isPr: true, sender: 'someone-else' })).toBeNull()
+  })
+
   it('sends nothing for any other label', () => {
     for (const label of ['bug', 'task', 'stop', '']) {
       expect(labelMessage({ ...base, label, isPr: true })).toBeNull()
@@ -125,6 +137,22 @@ describe('run', () => {
     await run({ ...env, LABEL_NAME: 'try-preview' }, { fetchImpl, log })
     const body = JSON.parse(fetchImpl.mock.calls[0][1].body)
     expect(body.text.indexOf(PREVIEW_URL)).toBeLessThan(body.text.indexOf(PR_URL))
+  })
+
+  it('sends the cleanup notice with the quote block and the summary line from the PR body', async () => {
+    const fetchImpl = fakeFetch({ status: 200 })
+    const { lines, log } = logger()
+    const result = await run(
+      { ...env, LABEL_NAME: 'cleanup-pr', TARGET_BODY: 'Summary: Drop dead helpers\n\nDetails' },
+      { fetchImpl, log },
+    )
+    expect(result).toBe('sent')
+    const body = JSON.parse(fetchImpl.mock.calls[0][1].body)
+    expect(body.text).toContain('🧹 <b>Cleanup review</b>')
+    expect(body.text).toContain('<blockquote>T</blockquote>')
+    expect(body.text).toContain(`href="${PR_URL}">Open PR #12</a>`)
+    expect(body.text.endsWith('Drop dead helpers')).toBe(true)
+    expect(lines).toEqual(['notify sent'])
   })
 
   it('escapes a title with markup before it is sent', async () => {

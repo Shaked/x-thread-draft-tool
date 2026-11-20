@@ -6,6 +6,7 @@ import {
   escapeHtml,
   safeUrl,
   clip,
+  summaryLine,
   notify,
   MAX_TITLE,
   PROD_URL,
@@ -103,6 +104,74 @@ describe('buildMessage: the four kinds', () => {
 
   it('uses a placeholder for an empty title', () => {
     expect(buildMessage('owner', { title: '', url: ISSUE_URL }).html).toContain('(no title)')
+  })
+})
+
+describe('buildMessage: cleanup review (epic #255, task C3)', () => {
+  const PR_BODY = 'Summary: Drop two duplicate parser tests\n\nLong details here'
+
+  it('cleanup: headline, the PR title in a quote block, the PR link with its number, then the summary', () => {
+    const msg = buildMessage('cleanup', { title: 'Remove duplicate tests', url: PR_URL, body: PR_BODY })
+    expect(msg.html).toBe(
+      [
+        '🧹 <b>Cleanup review</b>',
+        '<blockquote>Remove duplicate tests</blockquote>',
+        `<a href="${PR_URL}">Open PR #12</a>`,
+        'Drop two duplicate parser tests',
+      ].join('\n'),
+    )
+    expect(msg.plain).toBe(
+      ['🧹 Cleanup review', 'Remove duplicate tests', `Open PR #12: ${PR_URL}`, 'Drop two duplicate parser tests'].join('\n'),
+    )
+  })
+
+  it('cleanup: no summary line when the first body line does not start with "Summary:", or is empty', () => {
+    expect(buildMessage('cleanup', { title: 'T', url: PR_URL, body: 'Some text\nSummary: later' }).html.split('\n')).toHaveLength(3)
+    expect(buildMessage('cleanup', { title: 'T', url: PR_URL }).html.split('\n')).toHaveLength(3)
+    expect(buildMessage('cleanup', { title: 'T', url: PR_URL, body: 'Summary:   \nx' }).html.split('\n')).toHaveLength(3)
+  })
+
+  it('cleanup: the summary is cut to 120 characters and escaped', () => {
+    const msg = buildMessage('cleanup', { title: 'T', url: PR_URL, body: `Summary: <b>${'x'.repeat(300)}</b>` })
+    const last = msg.html.split('\n').pop()
+    expect(last.startsWith('&lt;b&gt;')).toBe(true)
+    expect(last).not.toContain('<b>')
+    expect(Array.from(msg.plain.split('\n').pop()).length).toBe(MAX_TITLE)
+  })
+
+  it('cleanup: a title that closes the quote block cannot add markup', () => {
+    const msg = buildMessage('cleanup', { title: '</blockquote><script>x</script>', url: PR_URL })
+    expect(msg.html.match(/<blockquote>/g)).toHaveLength(1)
+    expect(msg.html.match(/<\/blockquote>/g)).toHaveLength(1)
+    expect(msg.html).not.toContain('<script')
+  })
+
+  it('cleanup: a link that is not https is dropped and the label stays as text', () => {
+    const msg = buildMessage('cleanup', { title: 'T', url: 'http://evil.example/pull/3' })
+    expect(msg.html).not.toContain('<a ')
+    expect(msg.html).toContain('Open PR #3')
+  })
+
+  it('cleanup-started: the issue headline, the title in a quote block, the issue link, and no summary', () => {
+    const msg = buildMessage('cleanup-started', { title: 'Cleanup review 2026-11-20', url: ISSUE_URL, body: 'Summary: ignored' })
+    expect(msg.html).toBe(
+      [
+        '🧹 <b>Cleanup review started</b>',
+        '<blockquote>Cleanup review 2026-11-20</blockquote>',
+        `<a href="${ISSUE_URL}">Open issue #34</a>`,
+      ].join('\n'),
+    )
+    expect(msg.plain).toBe(
+      ['🧹 Cleanup review started', 'Cleanup review 2026-11-20', `Open issue #34: ${ISSUE_URL}`].join('\n'),
+    )
+  })
+
+  it('summaryLine reads only the first line, after "Summary:"', () => {
+    expect(summaryLine('Summary: a\nb')).toBe('a')
+    expect(summaryLine('\r\nSummary: a')).toBe('')
+    expect(summaryLine('x\nSummary: a')).toBe('')
+    expect(summaryLine('')).toBe('')
+    expect(summaryLine(undefined)).toBe('')
   })
 })
 
