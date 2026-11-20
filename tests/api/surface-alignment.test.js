@@ -61,10 +61,6 @@ function matchesKey(route, key) {
 /** True when a UI path is covered by a UI item: the same path, or a "/x/*" prefix. */
 const coversPage = (item, page) => (item.endsWith('/*') ? page.startsWith(item.slice(0, -1)) : page === item)
 
-/**
- * Every problem with the table, as readable strings. An empty list means aligned. Pure: the inputs
- * are the parsed tables, the route list, the tool and prompt names and the UI paths.
- */
 /** Problems with one capability row: cell shape, reasons and names that do not exist (checks d and e). */
 function rowProblems(row, { routes, toolNames, promptNames, uiPaths }) {
   if (row.length !== 5) return [`capability row must have 5 cells: ${row[0] ?? '(empty)'}`]
