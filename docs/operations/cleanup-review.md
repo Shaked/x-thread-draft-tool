@@ -4,11 +4,16 @@ Epic #255. Shaked decided the goal on 2026-11-19. This file decides what the age
 
 ## How a run starts
 
-- The workflow `.github/workflows/cleanup-review-daily.yml` (task C1, #256) runs every day at **04:17 UTC**.
+**On demand only** (decided by Shaked on 2026-11-20, task C4 #269). There is no daily schedule.
+
+- Start it by hand: Actions tab, workflow **Cleanup review (on demand)**, **Run workflow**. The default `dry_run` is off, so the run does the real thing.
+- Dry run: in the same form, set `dry_run` to true. It only prints what it would do and writes nothing (no issue, no tag, no Telegram).
+- The workflow file is `.github/workflows/cleanup-review-daily.yml` (task C1, #256). The file name is kept so links and the tag still work.
 - It does nothing when no commit since the last run changed anything outside `docs/changelogs/`. That check costs no tokens.
 - When something changed, it opens **one** issue `Cleanup review <date>` with the labels `task` and `cleanup`. The issue body is `.github/cleanup-review-issue.md` plus the commit list and the changed files. The dispatcher then starts an agent session for it.
 - It opens no new issue while an earlier `cleanup` issue is still open.
-- Telegram: labelling a PR `cleanup-pr` (by the repository owner's account) sends one message, the cleanup kind in `docs/operations/telegram.md` (task C3, #258). Opening the daily issue sends one "Cleanup review started" message.
+- Telegram: labelling a PR `cleanup-pr` (by the repository owner's account) sends one message, the cleanup kind in `docs/operations/telegram.md` (task C3, #258). Opening the cleanup issue sends one "Cleanup review started" message.
+- To turn the daily schedule back on: add `schedule:` with `- cron: '17 4 * * *'` under `on:` in the workflow file.
 
 ## Goal
 

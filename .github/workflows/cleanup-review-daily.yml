@@ -1,13 +1,14 @@
-name: Cleanup review (daily)
+name: Cleanup review (on demand)
 
-# Daily check for the cleanup review (epic #255, task C1). Deterministic: no model, no tokens.
+# Cleanup review check (epic #255, task C1; on demand only since C4 #269). Deterministic: no model, no tokens.
 # If nothing changed since the last run (tag `cleanup-review-last`), it prints a line and ends.
 # If something changed (commits outside docs/changelogs/), it opens ONE issue `Cleanup review <date>`
 # with labels `task` and `cleanup`, moves the tag and sends one Telegram line. The dispatcher picks
 # the issue up. While a `cleanup` issue is still open, nothing is created and the tag stays.
 #
-# Schedule: 04:17 UTC every day (not on the hour, so it does not collide with the rush).
-# Manual runs: `workflow_dispatch` with `dry_run` (default true): prints what it would do, writes nothing.
+# On demand only: Actions tab, workflow "Cleanup review (on demand)", Run workflow.
+# There is no schedule. Manual runs: `dry_run` (default false = do the real thing); set it to true to
+# only print what would happen (writes nothing). See docs/operations/cleanup-review.md.
 #
 # Safety: `contents: write` only to move the tag (through the GitHub API, not a git push), and
 # `issues: write` for the issue. The checkout does not keep the token in .git. Commit titles reach
@@ -15,15 +16,13 @@ name: Cleanup review (daily)
 # The Telegram step never fails the job (scripts/notify-telegram.mjs).
 
 on:
-  schedule:
-    - cron: '17 4 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Only print what would happen (no issue, no tag, no Telegram)'
+        description: 'Only print what would happen (no issue, no tag, no Telegram). Off = real run.'
         required: true
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: write
@@ -36,9 +35,9 @@ concurrency:
 jobs:
   review:
     name: Cleanup review check
-    # Scheduled runs and the default branch can write. A manual run on another branch only prints
-    # (dry_run true); a manual run with dry_run false on another branch does nothing at all.
-    if: github.event_name == 'schedule' || inputs.dry_run == true || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    # Only the default branch can write. A manual run on another branch only prints (dry_run true);
+    # a manual run with dry_run false on another branch does nothing at all.
+    if: inputs.dry_run == true || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
