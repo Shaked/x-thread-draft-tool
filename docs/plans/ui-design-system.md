@@ -206,7 +206,7 @@ follows the page order in section 5.
 | Component | Props | States / notes | Example |
 |---|---|---|---|
 | `List` / `ListItem` (one file) | List: `children`, `label?`. ListItem: `title`, `meta?: node[]`, `badge?`, `to?` (whole row is a link), `actions?: node`, `dir = 'auto'` on the title | Rows inside one card with 1 px dividers; padding 16; title 18/600; meta 14 soft with 12 px gaps (no "·" glyphs, so a wrap never leaves a dot alone); under 600 px the actions move to their own row, end-aligned. | `<ListItem title={d.title} to={`/draft/${d.id}`} meta={[…]} actions={…} />` |
-| `Table` | `columns: [{key, label, align?, width?, render?}]`, `rows`, `rowKey`, `empty`, `loading`, `caption` | For admin pages. Real `<table>` from 768 px; under 768 px each row becomes a card of label/value pairs. Header 14/600 soft. Built by #286. | `<Table caption="Users" columns={COLS} rows={users} rowKey="id" />` |
+| `Table` | `columns: [{key, label, align?, width?, render?}]`, `rows`, `rowKey`, `empty`, `loading`, `caption` | For admin pages. Real `<table>` from 768 px; under 768 px each row becomes a card of label/value pairs. Header 14/600 soft. Built by #285. | `<Table caption="Users" columns={COLS} rows={users} rowKey="id" />` |
 | `DescriptionList` | `items: [{term, value}]`, `columns: 1\|2` | `<dl>` grid; terms soft. Replaces `.about-details`; used by admin user details. | `<DescriptionList items={[{term: 'Commit', value: sha}]} />` |
 | `CodeBlock` | `code`, `copyLabel?` (shows a Copy button), `wrap = true` | Mono 14 px on `--color-bg`, radius 10; long values break anywhere. Replaces `.token-secret`, `.connect-app-row code`. | `<CodeBlock code={token} copyLabel="Copy" />` |
 | `Badge` | `tone: 'accent'\|'neutral'\|'success'\|'warning'\|'danger'`, `children`, `live = false` | 12 px / 600, full radius, soft background. Text only, never the only signal. `live` wraps it in `role="status" aria-live="polite"` (the editor's "Saving… / Saved / Not saved", which keeps its texts and its tones warning, success, danger). | `<Badge tone="success">Active</Badge>` |
@@ -288,7 +288,7 @@ One PR per page or small group. Each PR:
 | T11 | Login, loading and error screens, X preview page frame | — | login, login-suspended, preview; editor-401 and editor-404 (new scenes) | Sign in starts `/api/auth/login`; "This account is suspended." shows; the preview iframe sandbox attributes unchanged. |
 | T12 | Server pages: OAuth consent and device | `server/oauth/style.js` exports the few values the page uses (accent, text, soft text, border, bg, danger, warning, radius, font), light and dark; a unit test checks each equals `tokens.css` (a full copy would fail `npm run dup`, which scans `server/` at 0.8 %) | consent-signed-out, consent | Every consent check (#299 site name, Origin check, CSP) unchanged; only the inline CSS changes. |
 | T13 | Cleanup | — | all pages | Nothing visible changes; old class names and aliases are gone. |
-| #285 to #288 | Admin shell, stats, users, user details, actions, audit log | Table (#286), Toggle if needed | admin-stats, admin-users, admin-user, admin-audit | Their own tasks' behaviours. They are built with `src/ui/` from the start (no per-page CSS). |
+| #285 to #288 | Admin shell, stats, users, user details, actions, audit log | Table (#285), Toggle if needed | admin-stats, admin-users, admin-user, admin-audit | Their own tasks' behaviours. They are built with `src/ui/` from the start (no per-page CSS). |
 | #291 | "Viewing as" bar | Banner (`tone="warning"`, sticky variant) | view-as-bar | Its own task. Controls use `disabledReason`. |
 
 The "Rules for every migration PR":
@@ -427,24 +427,26 @@ docs/plans/ui-design-system.md Task <n>`.
 Build tasks start after #281 has shipped (dispatcher's order on #305). They should finish before #285 to #288 and
 #289 to #291; those tasks use `src/ui/` from the start.
 
-| Task | What | Size | Executor | Validator | Depends on |
-|---|---|---|---|---|---|
-| 1 | Tokens file, `base.css`, purple colours everywhere through the alias block (old size variables renamed `--legacy-*`), theme meta from tokens (`tests/unit/theme.test.js` stubs `getComputedStyle` and asserts the meta equals the body colour; the light/dark switch assertions stay), token lint (with `LEGACY`), contrast test on tokens | M | Haiku 5.5 | Opus | #281 |
-| 2 | First components (Page, PageHeader, Section, Card, Stack, Inline, Button, IconButton, Banner, DescriptionList, Skeleton; `Icon` moves to `src/ui/`); About and Changelog migrated; component list doc + test; UI audit spec with axe and the CI artifact upload | M | Haiku 5.5 (Sonnet for the audit spec if a step fails twice) | Opus | 1 |
-| 3 | The `ui-design` skill file | S | Haiku 5.5 | Opus | 2, #294 |
-| 4 | API tokens and Connected apps pages (Field, Input, Select, CodeBlock, List/ListItem, Badge) | M | Haiku 5.5 | Opus | 2, #281 |
-| 5 | Dialog, useConfirm, Toast, useToast; replace all 11 `alert`/`confirm` | M | **Sonnet** (focus trap, async confirm in 4 files) | Opus | 4 |
-| 6 | Draft list (Tabs, EmptyState; rows become links; date formatter) | S | Haiku 5.5 | Opus | 5 |
-| 7 | App shell: menu drawer on Dialog `sheet-start`, phone bar, SegmentedControl theme setting, sign-out | M | Haiku 5.5 | Opus | 5 |
-| 8 | Editor header and actions (Menu for Share and Export) | M | Haiku 5.5 | Opus | 7 |
-| 9 | Editor posts: ThreadComposer and PostBox | M | Haiku 5.5 (Sonnet fallback) | Opus | 8 |
-| 10 | Editor media: ImageUpload, carousel, TweetEmbed, EmojiPicker | S | Haiku 5.5 | Opus | 9 |
-| 11 | Login, loading and error screens, preview page frame | S | Haiku 5.5 | Opus | 2 |
-| 12 | Server consent and device pages use the token values (`server/oauth/style.js` exports the few values used; a test checks they equal `tokens.css`) | M | Haiku 5.5 | Opus (auth pages) | 1 |
-| 13 | Cleanup: delete legacy aliases, dead rules and `App.css` remains; empty `LEGACY` list | S | Haiku 5.5 | Opus | 6, 10, 11 |
+| Task | Issue | What | Size | Executor | Validator | Depends on |
+|---|---|---|---|---|---|---|
+| 1 | #316 | Tokens file, `base.css`, purple colours everywhere through the alias block (old size variables renamed `--legacy-*`), theme meta from tokens (`tests/unit/theme.test.js` stubs `getComputedStyle` and asserts the meta equals the body colour; the light/dark switch assertions stay), token lint (with `LEGACY`), contrast test on tokens | M | Haiku 5.5 | Opus | #281 |
+| 2 | #317 | First components (Page, PageHeader, Section, Card, Stack, Inline, Button, IconButton, Banner, DescriptionList, Skeleton; `Icon` moves to `src/ui/`); About and Changelog migrated; component list doc + test; UI audit spec with axe and the CI artifact upload | M | Haiku 5.5 (Sonnet for the audit spec if a step fails twice) | Opus | #316 |
+| 3 | #319 | The `ui-design` skill file | S | Haiku 5.5 | Opus | #317, #294 |
+| 4 | #320 | API tokens and Connected apps pages (Field, Input, Select, CodeBlock, List/ListItem, Badge) | M | Haiku 5.5 | Opus | #317, #281 |
+| 5 | #321 | Dialog, useConfirm, Toast, useToast; replace all 11 `alert`/`confirm` | M | **Sonnet** (focus trap, async confirm in 4 files) | Opus | #320 |
+| 6 | #322 | Draft list (Tabs, EmptyState; rows become links; date formatter) | S | Haiku 5.5 | Opus | #321 |
+| 7 | #323 | App shell: menu drawer on Dialog `sheet-start`, phone bar, SegmentedControl theme setting, sign-out | M | Haiku 5.5 | Opus | #321 |
+| 8 | #326 | Editor header and actions (Menu for Share and Export) | M | Haiku 5.5 | Opus | #323 |
+| 9 | #327 | Editor posts: ThreadComposer and PostBox | M | Haiku 5.5 (Sonnet fallback) | Opus | #326 |
+| 10 | #328 | Editor media: ImageUpload, carousel, TweetEmbed, EmojiPicker | S | Haiku 5.5 | Opus | #327 |
+| 11 | #324 | Login, loading and error screens, preview page frame | S | Haiku 5.5 | Opus | #317 |
+| 12 | #325 | Server consent and device pages use the token values (`server/oauth/style.js` exports the few values used; a test checks they equal `tokens.css`) | M | Haiku 5.5 | Opus (auth pages) | #316 |
+| 13 | #329 | Cleanup: delete legacy aliases, dead rules and `App.css` remains; empty `LEGACY` list | S | Haiku 5.5 | Opus | #322, #328, #324 |
 
-Admin and view-as tasks (#285 to #288, #291): a comment on each says to build with `src/ui/` and the `ui-design`
-skill, which components to use, and that their screenshots join the UI audit spec. No change to their scope.
+Admin and view-as tasks: a comment on each (2026-11-20) says to build with `src/ui/` and the `ui-design` skill,
+which components to use, and that their pages join the UI audit spec. Their scope does not change. Following the
+dispatcher's order on #305, each comment adds dependencies: #285 on #320 and #323 (and #285 builds `Table`); #286 on
+#320; #287 on #321; #288 on #320; #291 on #328.
 
 ## Decisions recorded (planner, 2026-11-20)
 - Palette, scales and names as in section 2; buttons no longer pill-shaped; no web font; phone bar 56 px.
