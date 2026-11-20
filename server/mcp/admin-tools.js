@@ -181,6 +181,12 @@ const ADMIN_TRIGGERS = {
 /** The REST routes of the admin tools, as route keys ("METHOD /admin/users/:id" style, as the router names them). */
 export const ADMIN_TOOL_REST_ROUTES = [...new Set(Object.values(ADMIN_REST_ROUTES).flat().map((key) => key.replace(NIL_ID, ':id')))]
 
+/** The route keys ("METHOD /admin/...", as the router names them) that the admin tool `name` may reach. Empty for an unknown name. */
+export function adminToolRouteKeys(name) {
+  if (!Object.hasOwn(ADMIN_REST_ROUTES, name)) return []
+  return ADMIN_REST_ROUTES[name].map((key) => key.replace(NIL_ID, ':id'))
+}
+
 for (const tool of ADMIN_TOOLS) {
   if (!tool.name.startsWith('admin_')) throw new Error(`admin tool name must start with admin_: ${tool.name}`)
   if (!ADMIN_META[tool.name] || !ADMIN_REST_ROUTES[tool.name] || !ADMIN_TRIGGERS[tool.name]) {
