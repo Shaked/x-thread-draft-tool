@@ -1,0 +1,2 @@
+- Daily cleanup review, step 2 (#257, C2): the agent's rules (`docs/operations/cleanup-review.md`) and the issue body (`.github/cleanup-review-issue.md`).
+- The dispatcher rule for `cleanup` issues is added to AGENTS.md. Docs only: no deployment is created.
