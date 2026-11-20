@@ -41,18 +41,25 @@ const FIXTURE = {
   }
 }
 
-async function load(page: Page, fixture = FIXTURE) {
+// The host's answers: capabilities (serverTools lets the view call tools), the answer to a tools/call, and a hold.
+type HostSetup = { caps?: object; reply?: unknown; hold?: boolean }
+
+async function load(page: Page, fixture = FIXTURE, host: HostSetup = {}) {
   // The one image host of D4 answers with a tiny PNG, so no request leaves the test machine.
   await page.route(`${BLOB}/**`, (route) => route.fulfill({ contentType: 'image/png', body: TINY_PNG }))
   await page.setContent(readFileSync(join(process.cwd(), 'tests/e2e/fixtures/mcp-host.html'), 'utf8'))
   const [view] = readUiResource(uiResourceUri('thread')) as Array<{ text: string }>
   const srcdoc = view.text.replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="${HOST_CSP}">`)
   await page.evaluate(
-    ({ srcdoc, fixture }) => {
-      ;(window as any).__fixture = fixture
+    ({ srcdoc, fixture, host }) => {
+      const w = window as any
+      w.__caps = host.caps || {}
+      w.__callReply = host.reply
+      w.__holdCall = host.hold === true
+      w.__fixture = fixture
       document.getElementById('view')!.setAttribute('srcdoc', srcdoc)
     },
-    { srcdoc, fixture }
+    { srcdoc, fixture, host }
   )
   // The view has rendered when its first post card is there.
   await expect(page.frameLocator('#view').locator('article').first()).toBeVisible()
@@ -143,4 +150,40 @@ test('the view makes no request to any host other than the page itself', async (
   await load(page, noImages)
   await expect(page.frameLocator('#view').locator('article')).toHaveCount(3)
   expect(requests.filter((u) => !u.startsWith('about:') && !u.startsWith('data:'))).toEqual([])
+})
+
+// Plan Task 7 (#189): a saved draft with its id, and the share link that create_share_link returns for it.
+const DRAFT_ID = '11111111-2222-4333-8444-555555555555'
+const LINK_TOKEN = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
+const SAVED_WITH_ID = {
+  ...FIXTURE,
+  structuredContent: { draft: { ...FIXTURE.structuredContent.draft, id: DRAFT_ID } }
+}
+const SHARE_REPLY = {
+  content: [{ type: 'text', text: 'link created' }],
+  structuredContent: {
+    draft_id: DRAFT_ID,
+    token: LINK_TOKEN,
+    expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+    one_time: true,
+    preview_url: `https://app.example/x-thread-preview/${LINK_TOKEN}`,
+    markdown_url: `https://app.example/api/share/${LINK_TOKEN}.md`
+  }
+}
+
+test('"Create share link" sends one create_share_link with the draft id, then shows the card in place', async ({ page }) => {
+  await load(page, SAVED_WITH_ID, { caps: { serverTools: {} }, reply: SHARE_REPLY })
+  const frame = page.frameLocator('#view')
+  await frame.getByRole('button', { name: 'Create share link' }).click()
+  await expect(frame.getByText('Preview link')).toBeVisible()
+  await expect(frame.getByRole('button', { name: 'Create share link' })).toHaveCount(0)
+  await expect(frame.getByRole('button', { name: 'Stop this link' })).toBeVisible()
+  const calls = await page.evaluate(() => (window as any).__calls.map((c: any) => ({ name: c.name, arguments: c.arguments })))
+  expect(calls).toEqual([{ name: 'create_share_link', arguments: { id: DRAFT_ID } }])
+})
+
+test('without a host that can call tools, the thread has no "Create share link"', async ({ page }) => {
+  await load(page, SAVED_WITH_ID, { caps: {} })
+  await expect(page.frameLocator('#view').getByText('Start of thread')).toBeVisible()
+  await expect(page.frameLocator('#view').getByRole('button', { name: 'Create share link' })).toHaveCount(0)
 })

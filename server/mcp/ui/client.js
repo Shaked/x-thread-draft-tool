@@ -8,19 +8,19 @@
 export function bridge(on) {
   const pending = new Map()
   let nextId = 1
-  const state = { hostContext: null, delivered: false }
+  const state = { hostContext: null, hostCapabilities: {}, delivered: false }
 
   function post(message) {
     window.parent.postMessage({ jsonrpc: '2.0', ...message }, '*')
   }
 
-  function request(method, params) {
+  function request(method, params, ms) {
     const id = nextId++
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         pending.delete(id)
         reject(new Error(method + ' timed out'))
-      }, 15000)
+      }, ms || 15000)
       pending.set(id, { resolve, reject, timer })
       post({ id, method, params })
     })
@@ -81,6 +81,7 @@ export function bridge(on) {
   }).then(
     (result) => {
       setContext((result && result.hostContext) || {})
+      state.hostCapabilities = (result && result.hostCapabilities) || {}
       post({ method: 'ui/notifications/initialized', params: {} })
       observeSize()
     },
@@ -96,9 +97,16 @@ export function bridge(on) {
       if (!safe) return Promise.reject(new Error('link refused'))
       return request('ui/open-link', { url: safe })
     },
-    /** Calls one of the server's tools as the signed-in user (a read-only call in these views). */
-    callTool(name, args) {
-      return request('tools/call', { name, arguments: args || {} })
+    /**
+     * Calls one of the server's tools as the signed-in user, with a 15 s wait unless ms is given. The write actions pass
+     * 120000: the host may ask the user first. A view calls a write tool only when canCallTools() is true (plan Task 7).
+     */
+    callTool(name, args, ms) {
+      return request('tools/call', { name, arguments: args || {} }, ms)
+    },
+    /** True when the host says it can proxy tool calls from the view (hostCapabilities.serverTools). */
+    canCallTools() {
+      return Boolean(state.hostCapabilities && state.hostCapabilities.serverTools)
     },
     context() {
       return state.hostContext
@@ -321,6 +329,8 @@ export function threadFrom(result) {
     url: typeof source.url === 'string' ? source.url : typeof structured.url === 'string' ? structured.url : null,
     counts: outline && Array.isArray(outline.posts) ? outline.posts : null,
     editorBase: typeof meta['x-thread/editorBase'] === 'string' ? meta['x-thread/editorBase'] : null,
-    imageOrigin: typeof meta['x-thread/imageOrigin'] === 'string' ? meta['x-thread/imageOrigin'] : null
+    imageOrigin: typeof meta['x-thread/imageOrigin'] === 'string' ? meta['x-thread/imageOrigin'] : null,
+    // The draft's id (a UUID), for the share actions of plan Task 7 (#189); null when the result has none.
+    id: typeof source.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(source.id) ? source.id : null
   }
 }

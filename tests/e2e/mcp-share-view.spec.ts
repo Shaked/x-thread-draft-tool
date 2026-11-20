@@ -20,23 +20,48 @@ function fixture(oneTime: boolean) {
   }
 }
 
+// The host's answers for this card: its capabilities (serverTools lets the view call tools), the answer to a tools/call,
+// and whether that answer is held back (the host waits for the user's OK in the chat).
+type HostSetup = { caps?: object; reply?: unknown; hold?: boolean }
+
 // Loads the share card in the fixture host. The clock is installed first, so the countdown follows page.clock.
-async function show(page: Page, structuredContent: unknown) {
+async function show(page: Page, structuredContent: unknown, host: HostSetup = {}) {
   await page.clock.install({ time: NOW })
   await page.setContent(readFileSync(join(process.cwd(), 'tests/e2e/fixtures/mcp-host.html'), 'utf8'))
   const [view] = readUiResource(uiResourceUri('share')) as Array<{ text: string }>
   const srcdoc = view.text.replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="${HOST_CSP}">`)
   await page.evaluate(
-    ({ srcdoc, fixture }) => {
+    ({ srcdoc, fixture, host }) => {
       const w = window as any
       w.__theme = 'light'
+      w.__caps = host.caps || {}
+      w.__callReply = host.reply
+      w.__holdCall = host.hold === true
       w.__fixture = { content: [{ type: 'text', text: 'fixture' }], structuredContent: fixture }
       document.getElementById('view')!.setAttribute('srcdoc', srcdoc)
     },
-    { srcdoc, fixture: structuredContent }
+    { srcdoc, fixture: structuredContent, host }
   )
   return page.frameLocator('#view')
 }
+
+// Plan Task 7 (#189): a link with both ids (the stop action needs them), as create_share_link returns it now.
+const DRAFT = '11111111-2222-4333-8444-555555555555'
+const UUID_TOKEN = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
+const STOPPED = { content: [{ type: 'text', text: '{"ok":true}' }], structuredContent: { ok: true } }
+
+function withIds(oneTime = true) {
+  return {
+    ...fixture(oneTime),
+    draft_id: DRAFT,
+    token: UUID_TOKEN,
+    preview_url: `https://app.example/x-thread-preview/${UUID_TOKEN}`,
+    markdown_url: `https://app.example/api/share/${UUID_TOKEN}.md`
+  }
+}
+
+// The calls the host has received from the view (tools/call only).
+const hostCalls = (page: Page) => page.evaluate(() => (window as any).__calls.map((c: any) => ({ name: c.name, arguments: c.arguments })))
 
 test('the card shows both links and counts down; after the expiry it says Expired and its buttons stop', async ({ page }) => {
   const requests: string[] = []
@@ -68,4 +93,39 @@ test('a reusable link says "Works until it expires"; the token is only in the tw
     `https://app.example/x-thread-preview/${TOKEN}`,
     `https://app.example/api/share/${TOKEN}.md`
   ])
+})
+
+test('without a host that can call tools, the card has no "Stop this link"', async ({ page }) => {
+  const frame = await show(page, withIds(true), { caps: {} })
+  await expect(frame.getByText('Works once · Expires in 1:00:00')).toBeVisible()
+  await expect(frame.getByRole('button', { name: 'Stop this link' })).toHaveCount(0)
+  expect(await hostCalls(page)).toEqual([])
+})
+
+test('"Stop this link" sends nothing until "Yes": then exactly one revoke_share_link with the draft id and this link\'s token', async ({ page }) => {
+  const frame = await show(page, withIds(true), { caps: { serverTools: {} }, reply: STOPPED })
+
+  await frame.getByRole('button', { name: 'Stop this link' }).click()
+  await expect(frame.getByText('Are you sure? The link stops working at once.')).toBeVisible()
+  expect(await hostCalls(page)).toEqual([])
+
+  // Cancel goes back without a call.
+  await frame.getByRole('button', { name: 'Cancel' }).click()
+  await expect(frame.getByRole('button', { name: 'Stop this link' })).toBeVisible()
+  expect(await hostCalls(page)).toEqual([])
+
+  await frame.getByRole('button', { name: 'Stop this link' }).click()
+  await frame.getByRole('button', { name: 'Yes, stop this link' }).click()
+  await expect(frame.getByText('Stopped')).toBeVisible()
+  expect(await hostCalls(page)).toEqual([{ name: 'revoke_share_link', arguments: { id: DRAFT, token: UUID_TOKEN } }])
+  await expect(frame.getByRole('button', { name: 'Stop this link' })).toHaveCount(0)
+})
+
+test('while the host has not answered, the card says it waits for the OK in the chat', async ({ page }) => {
+  const frame = await show(page, withIds(false), { caps: { serverTools: {} }, reply: STOPPED, hold: true })
+
+  await frame.getByRole('button', { name: 'Stop this link' }).click()
+  await frame.getByRole('button', { name: 'Yes, stop this link' }).click()
+  await expect(frame.getByText('Waiting for your OK in the chat')).toBeVisible()
+  expect(await hostCalls(page)).toHaveLength(1)
 })
