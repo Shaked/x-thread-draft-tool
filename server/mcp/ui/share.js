@@ -33,7 +33,7 @@ const STARTER = `
   var stop = null;
   function open(url) { return link.openLink(url).catch(function () { return null; }); }
   // Stops one link (revoke_share_link). The host may ask the user first; the card waits for its answer.
-  function revoke(id, token) { return link.callTool('revoke_share_link', { id: id, token: token }); }
+  function revoke(id, token) { return link.callTool('revoke_share_link', { id: id, token: token }, 120000); }
   function locale() {
     var ctx = link.context();
     return ctx && typeof ctx.locale === 'string' ? ctx.locale : undefined;

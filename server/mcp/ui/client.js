@@ -98,11 +98,11 @@ export function bridge(on) {
       return request('ui/open-link', { url: safe })
     },
     /**
-     * Calls one of the server's tools as the signed-in user. The host may ask the user first, so the wait is 2 minutes.
-     * Views call it only when canCallTools() says the host proxies tool calls (MCP Apps serverTools, plan Task 7).
+     * Calls one of the server's tools as the signed-in user, with a 15 s wait unless ms is given. The write actions pass
+     * 120000: the host may ask the user first. A view calls a write tool only when canCallTools() is true (plan Task 7).
      */
-    callTool(name, args) {
-      return request('tools/call', { name, arguments: args || {} }, 120000)
+    callTool(name, args, ms) {
+      return request('tools/call', { name, arguments: args || {} }, ms)
     },
     /** True when the host says it can proxy tool calls from the view (hostCapabilities.serverTools). */
     canCallTools() {

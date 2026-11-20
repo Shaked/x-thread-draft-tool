@@ -64,8 +64,8 @@ const STARTER = `
     try { return Promise.resolve(window.openai.requestDisplayMode({ mode: 'fullscreen' })).catch(function () { return null; }); } catch (e) { return Promise.resolve(null); }
   }
   // Create and stop a share link (plan Task 7, #189). The host may ask the user first; the views say so while it waits.
-  function createShare(id) { return link.callTool('create_share_link', { id: id }); }
-  function revokeShare(id, token) { return link.callTool('revoke_share_link', { id: id, token: token }); }
+  function createShare(id) { return link.callTool('create_share_link', { id: id }, 120000); }
+  function revokeShare(id, token) { return link.callTool('revoke_share_link', { id: id, token: token }, 120000); }
   function showResult(result) {
     shown = true;
     if (result.isError) {

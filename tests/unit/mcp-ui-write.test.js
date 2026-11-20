@@ -66,7 +66,7 @@ describe('share card: Stop this link', () => {
     expect(button(root, 'Stop this link')).toBeDefined()
   })
 
-  it('sends exactly one revoke with the draft id and this link\'s token, then says Stopped and turns the buttons off', async () => {
+  it('sends exactly one revoke with the draft id and this link\'s token, and keeps the buttons off while it waits', async () => {
     const revoke = vi.fn(() => new Promise(() => {}))
     const root = card(revoke)
     button(root, 'Stop this link').click()
