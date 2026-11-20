@@ -251,7 +251,7 @@ test('no menu button on the login page or the shared preview', async ({ browser 
     await expect(page.getByRole('button', { name: 'Sign in with GitHub' })).toBeVisible()
     await expect(hamburger(page)).toHaveCount(0)
     await page.goto(`${BASE}/x-thread-preview/${shareToken}`)
-    await expect(page.locator('body')).toContainText('Post 1 for the menu check')
+    await expect(page.frameLocator('iframe[title="Thread preview"]').locator('body')).toContainText('Post 1 for the menu check')
     await expect(hamburger(page)).toHaveCount(0)
   } finally {
     await context.close()

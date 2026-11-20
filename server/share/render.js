@@ -43,8 +43,25 @@ export function textResponse(body, status = 200) {
   return response(body, 'text/markdown', status)
 }
 
+// Share HTML is user-controlled. The CSP sandbox gives it an opaque origin (no cookie, no same-origin
+// fetch), blocks scripts, and allows only https/data images and inline styles.
+export const SHARE_HTML_CSP =
+  "sandbox allow-popups allow-popups-to-escape-sandbox; default-src 'none'; img-src https: data:; style-src 'unsafe-inline'"
+
 export function htmlResponse(body, status = 200) {
-  return response(body, 'text/html', status)
+  const res = response(body, 'text/html', status)
+  res.headers.set('Content-Security-Policy', SHARE_HTML_CSP)
+  return res
+}
+
+/** Returns the URL string only when it parses and its scheme is https:, else null. */
+export function httpsUrl(value) {
+  if (typeof value !== 'string') return null
+  try {
+    return new URL(value).protocol === 'https:' ? value : null
+  } catch {
+    return null
+  }
 }
 
 export function extractTokenAndFormat(url) {
@@ -145,7 +162,7 @@ export function tweetIdFrom(url) {
 }
 
 export function renderImages(images) {
-  const urls = images.map(imageUrl).filter((u) => !!u)
+  const urls = images.map(imageUrl).map(httpsUrl).filter((u) => !!u)
   if (urls.length === 0) return ''
 
   const layout = urls.length === 1 ? 'one' : urls.length === 2 ? 'two' : urls.length === 3 ? 'three' : 'four'
@@ -162,6 +179,7 @@ export function renderImages(images) {
 }
 
 export function renderEmbed(url) {
+  if (!httpsUrl(url)) return ''
   const safeUrl = htmlEscape(url)
   const id = tweetIdFrom(url)
   if (!id) {
@@ -170,7 +188,7 @@ export function renderEmbed(url) {
   return (
     `<div class="x-embed">` +
     `<blockquote class="twitter-tweet" data-theme="dark" data-conversation="none" data-dnt="true">` +
-    `<a href="${safeUrl}"></a>` +
+    `<a class="x-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>` +
     `</blockquote>` +
     `</div>`
   )
@@ -206,7 +224,7 @@ function actionBar() {
 }
 
 function avatarHtml(name, avatar) {
-  if (avatar) {
+  if (httpsUrl(avatar)) {
     return `<img class="x-avatar" src="${htmlEscape(avatar)}" alt="${htmlEscape(name)}" loading="lazy">`
   }
   const initial = (name || '?').trim().charAt(0).toUpperCase() || '?'
@@ -226,7 +244,7 @@ export function renderHtml(payload) {
   const dateStr = formatDate(created)
   const avatarMarkup = avatarHtml(authorName, payload.author_avatar)
 
-  const hasEmbed = posts.some((p) => !!p.embeddedTweet)
+  const hasEmbed = posts.some((p) => !!httpsUrl(p.embeddedTweet))
 
   const postsHtml = posts
     .map((post, i) => {
@@ -258,6 +276,7 @@ export function renderHtml(payload) {
     })
     .join('')
 
+  // The CSP blocks this script; it stays so the markup is unchanged. The blockquote link still shows.
   const widgetScript = hasEmbed
     ? '<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>'
     : ''
@@ -274,7 +293,6 @@ export function renderHtml(payload) {
 <body>
   <div class="x-app">
     <header class="x-header">
-      <a class="x-back" href="javascript:history.back()" aria-label="Back">←</a>
       <h1 class="x-header-title">Post</h1>
     </header>
     <main class="x-thread">
