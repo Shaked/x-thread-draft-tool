@@ -14,32 +14,36 @@ from a slow Ubuntu mirror on every run. Fixing that step and splitting the unit 
 
 - **Feature to deployment**: from the last push of a PR to the end of the production smoke test run
   for its merge commit. Four stages:
-  - **(a) CI**: from the first required workflow run created for the PR's last head commit to the
-    last of those runs completed. Required workflows here: `Tests`, `Security`, `CodeQL`, `Net lines`.
-    (`Codex gate` is optional since #154; `Neon preview cleanup` takes 17 s and runs alongside.)
+  - **(a) CI**: for the PR's last head commit, take the first run of each required workflow (`Tests`,
+    `Security`, `CodeQL`, `Net lines`); (a) is from the earliest `run_started_at` to the latest
+    completion of those runs (latest attempt). Later runs for the same commit, such as `Net lines`
+    after a PR body edit, are waiting, not CI. (`Codex gate` is optional since #154; `Neon preview
+    cleanup` takes 17 s and runs alongside.)
   - **(b) Merge**: from the end of (a) to `merged_at`. This is all waiting (Opus review, the agent's
     turn, or a person). Its running time counts as 0 s.
   - **(c) Vercel**: from `merged_at` to the deployment's `success` status (the `deployment_status`
     event that starts `Smoke test (deployed)`). Includes Vercel's own queue, build and upload.
-  - **(d) Smoke**: the `Smoke test (deployed)` run for the merge commit, from created to completed.
+  - **(d) Smoke**: the `Smoke test (deployed)` run for the merge commit, from `run_started_at` of its
+    latest attempt to completed. Time before that (a re-run waiting to start) is queue time.
 - **Docs-only change**: every changed file matches the `SKIP` list in `scripts/vercel-ignore.mjs`.
   Vercel cancels the build, so stages (c) and (d) do not exist; the total is (a).
 - **Running time**: the time a job really runs (`started_at` to `completed_at`).
   **Queue time**: waiting for a runner (`created_at` to `started_at`), for another check, for a
   review or for a person. Queue time is reported on its own and is not part of the target.
-- **Median and p90**: over the last N merged PRs (N = 50 here), nearest-rank p90.
+- **Median and p90**: over the last N merged PRs (N = 50 here). p90 is nearest-rank: sort the n
+  values and take the one at position ceil(0.9 × n) (1-based). For n = 9 that is the largest value.
 
 ### Targets (running time, product code change)
 
 | Stage | Median target | p90 limit | Today median | Today p90 |
 |---|---|---|---|---|
-| (a) CI | 75 s | 90 s | 98 s | 177 s |
+| (a) CI | 75 s | 90 s | 98 s | 169 s |
 | (b) Merge | 0 s (waiting only) | reported, no limit | 109 s wait | 316 s wait |
 | (c) Vercel | 25 s | 35 s | 22 s | 27 s |
-| (d) Smoke | 15 s | 25 s | 23 s | 32 s |
-| **Total** | **120 s** | **150 s** | **144 s** | **224 s** |
+| (d) Smoke | 15 s | 25 s | 23 s | 29 s |
+| **Total** | **120 s** | **150 s** | **144 s** | **218 s** |
 
-Docs-only change: the total is (a), median target 75 s, p90 limit 90 s (today 84 s and 98 s).
+Docs-only change: the total is (a), median target 75 s, p90 limit 90 s (today 84 s and 99 s).
 The owner's 2 to 3 minute goal is 120 to 180 s; the p90 limit of 150 s keeps a margin below 3 minutes.
 
 ## 2. Baseline (real data, last 50 merged PRs: #168 to #303, 2026-11-19 04:53 to 2026-11-20 19:22 UTC)
@@ -55,20 +59,22 @@ deployment's build events.
 
 | Stage (seconds) | Product code median | p90 | max | Docs-only median | p90 |
 |---|---|---|---|---|---|
-| (a) CI, all required runs | 98 | 177 | 450 | 84 | 98 |
-| `Tests` run alone | 98 | 169 | 450 | 84 | 98 |
-| `CodeQL` run (35 PRs had it) | 68 | 79 | 88 | 65 | 71 |
+| (a) CI, all required runs | 98 | 169 | 450 | 84 | 99 |
+| `Tests` run alone | 98 | 169 | 450 | 84 | 99 |
+| `CodeQL` run (35 PRs had it) | 68 | 79 | 88 | 65 | 85 |
 | `Security` run | 20 | 24 | 29 | 19 | 21 |
-| `Net lines` run | 10 | 20 | 22 | 8 | 12 |
-| (b) Merge wait (queue) | 109 | 316 | 8906 | 120 | 194 |
+| `Net lines` run | 10 | 20 | 22 | 8 | 17 |
+| (b) Merge wait (queue) | 109 | 316 | 8906 | 120 | 23355 |
 | (c) Vercel: merge to deployment created | 3 | 4 | 15 | 3 | 4 |
 | (c) Vercel: merge to `success` | 22 | 27 | 32 | n/a | n/a |
-| (d) Smoke run | 23 | 32 | 290 | n/a | n/a |
-| **Running total (a)+(c)+(d)** | **144** | **224** | 497 | **84** | **98** |
-| Wall clock incl. waiting | 254 | 512 | 9059 | 203 | 272 |
+| (d) Smoke run | 23 | 29 | 35 | n/a | n/a |
+| **Running total (a)+(c)+(d)** | **144** | **218** | 497 | **84** | **99** |
+| Wall clock incl. waiting | 254 | 512 | 9059 | 203 | 23451 |
 
 Queue time for a GitHub runner: 2 s in every one of the 6 sampled `Tests` runs and the sampled smoke
-run (job `created_at` to `started_at`). It is not a problem. The waiting is all in (b).
+run (job `created_at` to `started_at`). It is not a problem. The waiting is all in (b), plus one
+smoke re-run: #246's smoke run is attempt 2, created 22:53:18, started 22:57:47 (269 s queue), ran 21 s.
+The docs-only p90 of (b) and of the wall clock is one PR (#267) that waited 6.5 hours for a person.
 
 ### Where the time goes: the `Tests` run of #303 (a normal run, 97 s)
 
@@ -92,7 +98,7 @@ The job log of #216 shows why: the browser cache hit (292 MB in 2 s), but `--wit
 (`fonts-ipafont-gothic`, `fonts-freefont-ttf`, `fonts-unifont`, `fonts-wqy-zenhei`, `xfonts-*`):
 `Fetched 21.9 MB in 5min 58s (61.1 kB/s)` from `us-east-2.ec2.archive.ubuntu.com`. Every library
 Chromium needs was "already the newest version". The same step runs in `ui-image-upload.yml` and
-on every push to `main` (`Tests` on `main`: median 90 s, p90 254 s, max 646 s).
+on every push to `main` (`Tests` on `main`, last 50 runs: median 90 s, p90 254 s, max 646 s).
 
 ### Slowest unit and API test files (local run, 4 CPUs, 3 workers, 2026-11-20)
 
@@ -132,7 +138,6 @@ deployments, as `vercel-ignore` intends.
 - `[perf]` log lines: they time API requests in production, not delivery. Not used.
 - Which checks branch protection requires: **not checked** (no tool here reads branch protection).
   Task S2 keeps every existing check name reporting, so it does not matter.
-- Smoke run #246 took 290 s: cause **not checked** (no other smoke run over 35 s).
 - Per-test e2e times: not checked (see above).
 - The pre-commit hook (lint, build, all unit tests; about 55 s locally) runs before the push, so it is
   outside the definition. Measured only once, locally.
@@ -141,59 +146,58 @@ All 50 PRs (seconds; "-" = no deployment):
 
 | PR | Kind | (a) CI | Tests run | CodeQL | Merge wait | (c) Vercel | (d) Smoke | Running total |
 |---|---|---|---|---|---|---|---|---|
-| #303 | code | 97 | 97 | 79 | 122 | 20 | 21 | 138 |
-| #302 | code | 98 | 98 | 74 | 8906 | 21 | 33 | 152 |
-| #300 | code | 99 | 99 | 69 | 457 | 22 | 22 | 143 |
+| #303 | code | 97 | 97 | 79 | 122 | 21 | 21 | 139 |
+| #302 | code | 98 | 98 | 74 | 8906 | 22 | 33 | 153 |
+| #300 | code | 99 | 99 | 69 | 457 | 23 | 22 | 144 |
 | #296 | docs | 98 | 98 | 62 | 16 | - | - | 98 |
-| #272 | code | 100 | 100 | 66 | 110 | 30 | 24 | 154 |
+| #272 | code | 100 | 100 | 66 | 110 | 31 | 24 | 155 |
 | #267 | docs | 96 | 96 | 85 | 23355 | - | - | 96 |
 | #270 | docs | 90 | 90 | 65 | 120 | - | - | 90 |
 | #268 | code | 182 | 182 | 73 | 33 | 21 | 24 | 227 |
 | #264 | code | 94 | 94 | 66 | 17 | 20 | 21 | 135 |
 | #263 | docs | 79 | 79 | 55 | 124 | - | - | 79 |
-| #262 | code | 318 | 318 | 67 | 68 | 21 | 27 | 366 |
+| #262 | code | 318 | 318 | 67 | 68 | 32 | 27 | 377 |
 | #261 | code | 78 | 78 | 58 | 127 | 23 | 22 | 123 |
 | #259 | docs | 80 | 80 | 71 | 25 | - | - | 80 |
 | #260 | code | 119 | 119 | 74 | 87 | 18 | 19 | 156 |
-| #254 | code | 80 | 80 | 51 | 8 | 20 | 21 | 121 |
+| #254 | code | 80 | 80 | 51 | 8 | 21 | 21 | 122 |
 | #253 | code | 98 | 98 | 75 | 110 | 20 | 22 | 140 |
-| #251 | code | 112 | 112 | 63 | 24 | 21 | 28 | 161 |
+| #251 | code | 112 | 112 | 63 | 24 | 20 | 28 | 160 |
 | #252 | code | 79 | 79 | 72 | 31 | 20 | 27 | 126 |
 | #234 | docs | 78 | 78 | 69 | 194 | - | - | 78 |
 | #249 | code | 70 | 70 | 57 | 107 | 21 | 22 | 113 |
-| #248 | code | 95 | 95 | 68 | 111 | 21 | 19 | 135 |
-| #247 | code | 90 | 90 | 77 | 117 | 21 | 21 | 132 |
-| #246 | code | 97 | 97 | 69 | 104 | 21 | 290 | 408 |
-| #245 | code | 101 | 101 | 55 | 342 | 18 | 29 | 148 |
+| #248 | code | 95 | 95 | 68 | 111 | 22 | 19 | 136 |
+| #247 | code | 90 | 90 | 77 | 117 | 20 | 21 | 131 |
+| #246 | code | 97 | 97 | 69 | 104 | 21 | 21 | 139 |
+| #245 | code | 101 | 101 | 55 | 342 | 19 | 29 | 149 |
 | #240 | code | 80 | 80 | 68 | 130 | 21 | 23 | 124 |
 | #239 | code | 98 | 98 | 67 | 61 | 23 | 24 | 145 |
 | #236 | docs | 99 | 99 | 54 | 95 | - | - | 99 |
-| #235 | code | 97 | 97 | 64 | 16 | 23 | 18 | 138 |
+| #235 | code | 97 | 97 | 64 | 16 | 24 | 18 | 139 |
 | #232 | code | 88 | 71 | 88 | 116 | 22 | 22 | 132 |
 | #231 | code | 100 | 100 | 68 | 109 | 22 | 22 | 144 |
 | #230 | code | 84 | 84 | 79 | 145 | 21 | 20 | 125 |
-| #228 | code | 83 | 83 | 80 | 316 | 23 | 28 | 134 |
-| #227 | code | 99 | 99 | 63 | 141 | 21 | 35 | 155 |
+| #228 | code | 83 | 83 | 80 | 316 | 24 | 28 | 135 |
+| #227 | code | 99 | 99 | 63 | 141 | 22 | 35 | 156 |
 | #226 | code | 98 | 98 | 71 | 117 | 23 | 22 | 143 |
 | #225 | code | 117 | 117 | 70 | 181 | 24 | 22 | 163 |
 | #224 | code | 163 | 163 | - | 51 | 27 | 33 | 223 |
 | #223 | code | 96 | 96 | - | 8510 | 26 | 25 | 147 |
-| #222 | code | 77 | 77 | - | 132 | 27 | 26 | 130 |
-| #221 | code | 168 | 94 | - | -7 | 23 | 32 | 223 |
+| #222 | code | 77 | 77 | - | 132 | 28 | 26 | 131 |
+| #221 | code | 94 | 94 | - | 67 | 23 | 32 | 149 |
 | #220 | code | 110 | 110 | - | 130 | 21 | 27 | 158 |
-| #219 | code | 177 | 113 | - | -7 | 21 | 26 | 224 |
-| #218 | code | 169 | 169 | - | 38 | 25 | 23 | 217 |
+| #219 | code | 113 | 113 | - | 57 | 21 | 26 | 160 |
+| #218 | code | 169 | 169 | - | 38 | 26 | 23 | 218 |
 | #217 | code | 91 | 91 | - | 68 | 21 | 19 | 131 |
 | #216 | code | 450 | 450 | - | 117 | 21 | 26 | 497 |
-| #215 | code | 161 | 161 | - | 44 | 26 | 28 | 215 |
-| #214 | code | 180 | 180 | - | 35 | 21 | 23 | 224 |
+| #215 | code | 161 | 161 | - | 44 | 27 | 28 | 216 |
+| #214 | code | 180 | 180 | - | 35 | 21 | 17 | 218 |
 | #213 | docs | 84 | 84 | - | 122 | - | - | 84 |
-| #211 | code | 85 | 85 | - | 28 | 24 | 20 | 129 |
-| #209 | docs | 84 | 84 | - | 71 | - | - | 84 |
+| #211 | code | 85 | 85 | - | 28 | 26 | 20 | 131 |
+| #209 | docs | 71 | 71 | - | 28 | - | - | 71 |
 | #168 | code | 72 | 72 | - | 7 | 23 | 25 | 120 |
 
-A negative merge wait (#221, #219) means the PR merged while a non-test required run (`Security` or
-`Net lines`, re-run after a body edit) was still finishing. CodeQL "-": CodeQL did not run on PRs then.
+CodeQL "-": CodeQL did not run on PRs then.
 
 ## 3. Findings and fixes
 
@@ -201,10 +205,10 @@ Saving = expected change of the running time; "p90" means it mostly removes slow
 
 | # | Finding | Fix | Expected saving | Task |
 |---|---|---|---|---|
-| F1 | `npx playwright install --with-deps chromium` re-installs 9 font packages from apt on every e2e run; 2 to 6.5 min on slow mirror days | Install the browser without `--with-deps` (every library Chromium needs is already on the image); key the browser cache on the Playwright version, not the whole lockfile. Same in `ui-image-upload.yml` | p90 of (a): 177 s to about 100 s; normal runs about 6 s | S1 |
-| F2 | The unit job runs build, lint, knip, slop, jscpd and migration lint, then 67 s of tests, all in one job | Split: a `checks` job (build and static checks) and the tests in 2 shards (`vitest --shard`), plus a small final job named `Unit tests (vitest)` so the existing check name still reports | Unit path 93 s to about 55 s; (a) median about 98 s to 75 s (then CodeQL, about 70 s, is the longest run) | S2 |
+| F1 | `npx playwright install --with-deps chromium` re-installs 9 font packages from apt on every e2e run; 2 to 6.5 min on slow mirror days | Install the browser without `--with-deps` in `e2e` and `ui-image-upload.yml` (every library Chromium needs is already on the image); key the browser cache on the Playwright version. The manual `screens` job keeps `--with-deps`. If a layout test changes, install only the needed fonts; never loosen an assertion | p90 of (a): 169 s to about 100 s; normal runs about 6 s | S1 |
+| F2 | The unit job runs build, lint, knip, slop, jscpd and migration lint, then 67 s of tests, all in one job | Split: a `checks` job (build and static checks) and the tests in 2 shards (`vitest --shard`), plus a final job named `Unit tests (vitest)` with `if: always()` that fails unless every needed job succeeded (a skipped check counts as passing, so it must never be skipped) | Unit path 93 s to about 55 s; (a) median about 98 s to 75 s (then CodeQL, about 70 s, is the longest run) | S2 |
 | F3 | E2E runs with 1 worker in CI (`workers: process.env.CI ? 1 : undefined`) on a 4-CPU runner | 2 workers in CI, only if 5 runs in a row have no flaky retry | e2e test step 39 s to about 22 s | S3 |
-| F4 | `Smoke test (deployed)` runs `npm ci` (6 s) and the npm cache restore, but `scripts/smoke.mjs` imports only `node:` modules and repository files (checked: it loads with no `node_modules`) | Remove `npm ci` and the npm cache from that job; a unit test fails if the smoke script ever imports a package | (d) 23 s to about 15 s | S4 |
+| F4 | `Smoke test (deployed)` runs `npm ci` (6 s) and the npm cache restore, but `scripts/smoke.mjs` and everything it imports use only `node:` modules and repository files (checked: it loads with no `node_modules`); so does `scripts/notify-telegram.mjs` | Remove `npm ci` and the npm cache from that job; a unit test follows the imports of both scripts and fails on any package import | (d) 23 s to about 15 s | S4 |
 | F5 | No repeatable measurement exists; this plan was measured by hand | `scripts/speed-metrics.mjs` and a workflow (section 4) | none directly; it shows the next slowdown | S5 |
 | F6 | Nothing warns when a stage gets slower | Per-merge speed budget check, warn first, then fail (section 5) | none directly | S5, S6 |
 | F7 | No weekly view | Speed signal in the weekly review (section 6) | none directly | S7 |
@@ -223,8 +227,8 @@ Looked at and decided, no task (Opus, 2026-11-20):
 - **CodeQL** (68 s median, runs in parallel): kept as is. After F2 it is the longest required run;
   cutting its query set would weaken a security check.
 - **Codex review wait**: already optional (#154, 2026-11-19); it is part of (b), not of the target.
-- **Fixed waits**: the only `sleep` in workflows is the 1 s loop that waits for the local API to
-  start (3 s in practice). No fixed waits in the smoke or deploy path. `waitForTimeout(300)` exists only
+- **Fixed waits**: the only `sleep`s in workflows are 1 s loops that wait for the local servers to
+  start (the local smoke job, 3 s in practice, and the manual `screens` job). No fixed waits in the smoke or deploy path. `waitForTimeout(300)` exists only
   in `screens.spec.ts`, which is not part of the default run.
 - **Screenshots**: in the default e2e run only 2 specs write screenshot files (`mcp-thread-view`,
   `signed-out-editor`, light and dark); they are files for people, not comparisons. Not worth chasing.
@@ -232,6 +236,8 @@ Looked at and decided, no task (Opus, 2026-11-20):
   docs-only builds cancelled. Nothing to change.
 - **Bundle size**: `EmojiPicker` chunk is 506 kB (Vite warns). It does not slow the build (0.4 s); it is
   a page-load question, not a delivery one. Out of scope.
+- **Local smoke and deployed smoke**: both kept. The local one (18 s, parallel, before merge) tests
+  the code; the deployed one tests the real deployment (OIDC sign-in, Neon, Blob). Different checks.
 - **Pre-commit hook**: kept. It is before the push, outside the definition, and it is the local guard
   the agents rely on.
 - **Node 20 download**: `setup-node` downloads Node 20 on each job (about 3 s) because the runner image
@@ -252,21 +258,26 @@ cached or with cheaper setup.
     statuses for every build; that is what starts `Smoke test (deployed)` today. This avoids a Vercel
     token (a new secret). Decided by Opus, 2026-11-20.
   - Changed files of the merge commit (`/commits/{sha}`), classified with `shouldSkip` imported from
-    `scripts/vercel-ignore.mjs` (one function, no copy).
+    `scripts/vercel-ignore.mjs` (one function, no copy), called as
+    `shouldSkip({ VERCEL_ENV: 'production' }, files)` because it returns false for any other env.
 - **Output**: `speed.json` (per PR: the four stages, running and queue time, kind; summary: median and
   p90 per stage and kind; the limits; `over` flags) and `speed.md` (the same as a markdown table, plus
   the change against the previous run: `+12 s` / `-30 s` per stage). Keys sorted, numbers rounded to
   whole seconds, PRs sorted by number, so the same input gives byte-identical output.
-- **Modes**: `--last 50` (weekly and on demand) and `--merge <sha>` (one merge, section 5).
-  `--previous <file>` adds the trend.
+- **Modes**: `--last 50` (on demand), `--since 7d` (weekly: every merge of the last 7 days; about 25
+  merges a day means `--last 50` is only 2 days) and `--merge <sha>` (one merge, section 5).
+  `--previous <file>` adds the trend. Stage times use the first run per workflow and the latest
+  attempt's `run_started_at`, as in section 1; p90 is nearest-rank as in section 1.
 - **Where it is kept**: an Actions artifact `speed-metrics` (90 days) and the job summary. No file under
   `docs/metrics/`. The weekly run (section 6) reads the previous week's artifact for the trend.
 - **Telegram**: one line, only when a stage's p90 is over its limit in `--last` mode, using a new kind
   `speed` in `scripts/notify-telegram.mjs` (existing secrets `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`).
 - **Workflow** `.github/workflows/speed-metrics.yml`: `workflow_dispatch` (input `last`, default 50)
-  and `workflow_run` of `Smoke test (deployed)` on `main` for the per-merge check. Permissions:
-  `contents: read`, `actions: read`, `pull-requests: read`, `deployments: read`. Checks out the default
-  branch only, `persist-credentials: false`. Commit titles and PR titles never enter shell text.
+  and `workflow_run` of `Smoke test (deployed)` for the per-merge check, running only when that run
+  was for the `Production` environment (read from the run's deployment through the API) and its
+  conclusion is not `cancelled`. Permissions:
+  `contents: read`, `actions: read`, `pull-requests: read`, `deployments: read`, and nothing with
+  `write` (a test asserts it). Checks out the default branch only, `persist-credentials: false`. Commit titles and PR titles never enter shell text.
 - **Tests**: `tests/unit/speed-metrics.test.js` with a saved sample (a trimmed copy of real API
   responses for about 5 PRs, with logins and emails removed) under `tests/unit/fixtures/speed/`:
   stage math, median and p90, docs-only classification, negative merge wait clamped to 0 and flagged,
@@ -281,7 +292,8 @@ cached or with cheaper setup.
   The run stays green. No Telegram for single merges (one slow merge is noise).
 - **Fail later** (task S6): once tasks S1 to S4 are merged and the last 20 merges are all within the
   limits, S6 makes the per-merge check fail (red run) when a stage is over its limit for 3 merges in a
-  row, and sends the Telegram `speed` line. It never blocks a merge or a deployment: it runs after them.
+  row, and sends the Telegram `speed` line. "3 in a row" is computed from the API for the last 3
+  production merges each time; no state is stored. It never blocks a merge or a deployment: it runs after them.
 - The existing `npm run test:budget` (per file 5 s, total 70 s) stays; S2 sets a per-shard total that is
   lower, never higher.
 
@@ -290,8 +302,9 @@ cached or with cheaper setup.
 Task S7, after #295 (the weekly review workflow) and S5.
 
 - The weekly workflow (`.github/workflows/weekly-review.yml`, #295) runs
-  `node scripts/speed-metrics.mjs --last 50 --previous <last week's artifact>` and uploads the new
-  artifact.
+  `node scripts/speed-metrics.mjs --since 7d --previous <file>` and uploads its own artifact
+  `speed-metrics-weekly`. `--previous` is the `speed-metrics-weekly` artifact of the last successful
+  run of that same workflow. If there is none, `slower` is false for every stage.
 - The speed signal that goes into the weekly fingerprint is small and stable: for each stage, `over`
   (p90 over its limit: true or false) and `slower` (median at least 20 % and at least 10 s higher than
   last week: true or false). Raw seconds are not in the fingerprint, so a normal week changes nothing.
@@ -307,13 +320,13 @@ does not change. Rules: the Rules section of #275.
 
 | Task | Issue | What | Complexity | Expected saving | Depends on | PR body line |
 |---|---|---|---|---|---|---|
-| S1 | #TBD1 | E2E browser install without apt fonts; cache key on the Playwright version (`tests.yml`, `ui-image-upload.yml`) | S | p90 (a) about -75 s | none | `Implements #306 Task 1` |
-| S5 | #TBD5 | `scripts/speed-metrics.mjs`, its tests, `speed-metrics.yml`, warn-only per-merge check, Telegram kind `speed`, `docs/operations/ci-cd.md` section | M | none (measurement) | none | `Implements #306 Task 5` |
-| S2 | #TBD2 | Split the unit job: `checks` job, 2 test shards, final `Unit tests (vitest)` job; `test:budget` per-shard total | M | (a) median about -23 s | S1 | `Implements #306 Task 2` |
-| S3 | #TBD3 | E2E with 2 workers in CI, after recording per-test times | S | e2e step about -17 s | S1 | `Implements #306 Task 3` |
-| S4 | #TBD4 | Smoke (deployed) without `npm ci`; test that `scripts/smoke.mjs` imports no package | S | (d) about -8 s | none | `Implements #306 Task 4` |
-| S6 | #TBD6 | Per-merge budget check from warn to fail (3 merges in a row) | S | none (guard) | S1, S2, S3, S4, S5 | `Implements #306 Task 6` |
-| S7 | #TBD7 | Speed signal in the weekly review | S | none (weekly view) | #295, S5 | `Implements #306 Task 7` |
+| S1 | #309 | E2E browser install without apt fonts; cache key on the Playwright version (`tests.yml` e2e job, `ui-image-upload.yml`) | S | p90 (a) about -70 s | none | `Implements #306 Task 1` |
+| S5 | #310 | `scripts/speed-metrics.mjs`, its tests, `speed-metrics.yml`, warn-only per-merge check, Telegram kind `speed`, `docs/operations/ci-cd.md` section | M | none (measurement) | none | `Implements #306 Task 5` |
+| S2 | #312 | Split the unit job: `checks` job, 2 test shards, final `Unit tests (vitest)` job; `test:budget` per-shard total | M | (a) median about -23 s | S1 (#309) | `Implements #306 Task 2` |
+| S3 | #313 | E2E with 2 workers in CI, after recording per-test times | S | e2e step about -17 s | S1 | `Implements #306 Task 3` |
+| S4 | #311 | Smoke (deployed) without `npm ci`; test that `scripts/smoke.mjs` imports no package | S | (d) about -8 s | none | `Implements #306 Task 4` |
+| S6 | #314 | Per-merge budget check from warn to fail (3 merges in a row) | S | none (guard) | S1, S2, S3, S4, S5 | `Implements #306 Task 6` |
+| S7 | #315 | Speed signal in the weekly review | S | none (weekly view) | #295, S5 | `Implements #306 Task 7` |
 
 Expected result after S1 to S4: (a) about 70 s median and 85 s p90 (CodeQL becomes the longest run),
 (c) unchanged at about 22 s and 27 s, (d) about 15 s and 22 s. Total about 107 s median and 134 s p90.
