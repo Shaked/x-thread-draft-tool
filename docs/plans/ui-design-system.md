@@ -105,9 +105,9 @@ Decisions (planner):
   and `index.html` already set). This removes today's three copies. `light-dark()` is in Chrome 123, Firefox 120 and
   Safari 17.5 (from their release notes; not checked again in this session). Checked here: the pre-installed Chromium
   (`/opt/pw-browsers/chromium-1243`) resolves it; the mock-up screenshots are rendered with it.
-- **Contrast** (all 74 pairs pass, light and dark; lowest 3.42:1 for a border, 4.72:1 for text): text, soft text,
-  accent, danger, success and warning on every surface; text on accent, on danger and on each soft background;
-  borders and the focus ring at 3:1. The pair list is in section 6.
+- **Contrast** (all 102 pairs pass, 51 per theme; lowest 4.83:1 for text, success on `surface-2`, and 3.11:1 for a
+  border on `surface-2`): text, soft text, accent, danger, success and warning on every surface; text on accent, on
+  danger and on each soft background; borders and the focus ring at 3:1. The pair list is in section 6.
 - **No web font.** The system font stack stays (fast, offline-safe PWA, no third-party request). Hebrew gets
   `Noto Sans Hebrew` if installed, else the system fallback.
 - **Type scale:** 12, 14, 16, 18, 20, 24, 28 px (`--font-size-xs` … `--font-size-3xl`), weights 400/500/600/700,
@@ -125,18 +125,50 @@ Decisions (planner):
 - **Sizes:** touch target 44 px (`--hit-min`); control heights 36 / 44 / 52 (36 becomes 44 on `pointer: coarse`);
   icons 20 / 24; phone bar 56 (today 44); page widths 640 (settings), 880 (lists, editor), 1200 (admin tables);
   gutter 16 px, 24 px from 768 px.
-- **Breakpoints:** only 360, 600 and 768 px (custom properties cannot be used in media queries, so the lint allows
-  exactly these three numbers in `@media`). Today the code uses 359, 600, 768 and 1024.
-- **Layers:** sticky 100, phone bar 150, popover 300, drawer 400, dialog 500, toast 600.
-- `src/utils/theme.js` writes `#000000` / `#ffffff` into `<meta name="theme-color">`. Task 1 makes it read the computed
-  `background-color` of `<body>` instead, so the tokens stay the only source. `index.html` keeps a literal for the
-  first paint; a unit test checks it equals the light `--color-bg`.
+- **Breakpoints:** only 360, 600 and 768 px (custom properties cannot be used in media queries), always in range
+  syntax: `(width < 768px)` or `(width >= 768px)`, so no width matches both sides. The lint accepts only these forms.
+  Today the code uses `max-width` 359, 768, 1024 and `min-width` 600, and `max-width: 768px` and a `min-width: 768px`
+  would both match at exactly 768.
+- **Layers:** raised 1 (inside a component), sticky 100, phone bar 150, popover 300, drawer 400, dialog 500, toast 600.
+- **Spinner and shimmer:** `--ease-linear`, `--duration-spin` (900 ms), `--duration-shimmer` (1500 ms); 0 under reduced motion.
+- `src/utils/theme.js` writes `#000000` / `#ffffff` into `<meta name="theme-color">`. Task 1 makes it write the computed
+  `background-color` of `<body>` instead (an `rgb(...)` string), so the tokens stay the only source. Visible result:
+  the browser bar is `#100c1c` instead of black in dark mode. `index.html` keeps a literal `#ffffff` for the first
+  paint; a unit test checks it equals the light `--color-bg`.
+- **Old names in Task 1.** `App.css` already defines `--space-1..6`, `--radius`, `--radius-sm` and `--bar-h` with other
+  values (`--space-5` is 24 there, 20 here; `--radius-sm` 8 vs 6; `--bar-h` 44 vs 56). Task 1 renames those old size
+  variables in `App.css` to `--legacy-space-*`, `--legacy-radius*` and `--legacy-bar-h` (same values, so no size changes),
+  and replaces the three old colour blocks with this alias block, so only the colours change:
+
+  | Old | New | Old | New |
+  |---|---|---|---|
+  | `--bg` | `--color-bg` | `--accent-tint-10`, `--accent-tint-20` | `--color-accent-soft` |
+  | `--surface-0` | `--color-surface-raised` | `--accent-tint-40` | `--color-accent` |
+  | `--surface` | `--color-surface` | `--danger`, `--danger-hover` | `--color-danger`, `--color-danger-hover` |
+  | `--surface-2` | `--color-surface-2` | `--danger-tint-20` | `--color-danger-soft` |
+  | `--border`, `--border-strong`, `--neutral-600` | `--color-border` | `--success`, `--success-hover`, `--success-tint-40` | `--color-success` |
+  | `--border-soft` | `--color-border-soft` | `--success-tint-10` | `--color-success-soft` |
+  | `--text`, `--text-strong` | `--color-text` | `--warning`, `--warning-strong`, `--warning-tint-40` | `--color-warning` |
+  | `--text-soft`, `--muted` | `--color-text-soft` | `--warning-tint-10` | `--color-warning-soft` |
+  | `--accent`, `--accent-hover` | `--color-accent`, `--color-accent-hover` | `--focus` | `--color-focus` |
+  | `--accent-text` | `--color-text-on-accent` | `--overlay-30`, `--overlay-70`, `--overlay-90`, `--on-overlay` | `--color-scrim`, `--color-overlay`, `--color-overlay-strong`, `--color-on-overlay` |
+
+  Import order: `src/main.jsx` imports `./styles/tokens.css`, then `./ui/base.css`, then `./styles/App.css`
+  (`App.jsx` stops importing `App.css` a second time). Publish stays green until Task 8 (white on `#067647` is 5.69:1;
+  today it is 3.36:1).
 
 ## 3. Components (configuration only)
 Where: `src/ui/<Name>.jsx` and, when it needs styles, `src/ui/<Name>.css` imported by the component. CSS class names
-are `ui-<name>` and `ui-<name>--<variant>`. Every component forwards `className` only for tests (`data-testid` is
-preferred); **pages pass props, never CSS for layout or spacing.** `src/pages/*` and page-level components have
-no CSS file.
+are `ui-<name>` and `ui-<name>--<variant>`. Components take no `className` prop (tests use roles, labels or
+`data-testid`); **pages pass props, never CSS for layout or spacing.**
+- Pages have no CSS file: `src/pages/**`, `src/components/DraftList.jsx`, `src/components/LoginPage.jsx`.
+- Editor parts are domain components, not kit components: `ThreadComposer`, `PostBox`, `ImageUpload`, `TweetEmbed`,
+  `EmojiPicker` and a new `src/components/ImageCarousel.jsx` (moved out of `PostBox.jsx`, where it is a local function
+  today). Each may have one CSS file next to it (`PostBox.css` …), token values only, checked by the same lint. They
+  use kit components (`IconButton`, `Button`, `Banner`) for every control.
+- `src/ui/base.css` (Task 1) is the only global style: the box-sizing reset, `body` font and colours, the focus ring,
+  and the resets for `h1-h6, p, ul, ol, dl, dd, fieldset, legend, button, input, select, textarea, a` (margin 0,
+  `font: inherit`, `color: inherit`), so browser defaults (h1 margin 21.44 px, button font 13.33 px) never show.
 
 The living list is `docs/architecture/ui-components.md` (Task 2 creates it from this section): name, file, props,
 states, example, status (`built` or `not built: <reason>`). A unit test checks it against `src/ui/` (section 6).
@@ -148,7 +180,7 @@ follows the page order in section 5.
 | Component | Props | States / notes | Example |
 |---|---|---|---|
 | `Page` | `width: 'narrow'\|'default'\|'wide'` (640/880/1200), `children` | Centers, gutter, top padding 24, bottom padding leaves room for the phone bar (`--bar-space`). One per route. | `<Page width="narrow">…</Page>` |
-| `PageHeader` | `title`, `subtitle?`, `back?: {to, label}`, `actions?: node` (goes into the AppBar), `menu = true` | Menu button, title (`h1`), subtitle; actions are in the header from 768 px and in the fixed bottom bar below. Min height 64. Space 24 below. | `<PageHeader title="API tokens" subtitle="Let an agent use the API as you." actions={<Button …/>} />` |
+| `PageHeader` | `title`, `subtitle?`, `back?: {to, label}`, `actions?: node` (goes into the AppBar), `menu = true`, `sticky = false`, `titleSlot?: node` (replaces the `h1`, e.g. the editor's title input; an `h1` stays for screen readers), `status?: node` (e.g. the editor's save status) | Menu button, title (`h1`), subtitle; actions are in the header from 768 px and in the fixed bottom bar below. Min height 64. Space 24 below. `sticky` keeps it at the top with `--z-sticky` and a bottom border (the editor). | `<PageHeader title="API tokens" subtitle="Let an agent use the API as you." actions={<Button …/>} />` |
 | `Section` | `title`, `description?`, `actions?`, `children`, `headingLevel = 2` | `h2` + soft description; gap 16 inside, 32 between sections. `aria-labelledby` set from the title. | `<Section title="Your tokens">…</Section>` |
 | `Card` | `children`, `padding: 'md'\|'none'`, `tone: 'default'\|'raised'` | Surface, 1 px soft border, radius 14, padding `--card-pad` (16, 20 from 768). | `<Card>…</Card>` |
 | `Stack` | `gap: 1\|2\|3\|4\|6\|8` (default 3), `as`, `children` | Vertical flex. The only way to space siblings vertically. | `<Stack gap={4}>…</Stack>` |
@@ -177,21 +209,21 @@ follows the page order in section 5.
 | `Table` | `columns: [{key, label, align?, width?, render?}]`, `rows`, `rowKey`, `empty`, `loading`, `caption` | For admin pages. Real `<table>` from 768 px; under 768 px each row becomes a card of label/value pairs. Header 14/600 soft. Built by #286. | `<Table caption="Users" columns={COLS} rows={users} rowKey="id" />` |
 | `DescriptionList` | `items: [{term, value}]`, `columns: 1\|2` | `<dl>` grid; terms soft. Replaces `.about-details`; used by admin user details. | `<DescriptionList items={[{term: 'Commit', value: sha}]} />` |
 | `CodeBlock` | `code`, `copyLabel?` (shows a Copy button), `wrap = true` | Mono 14 px on `--color-bg`, radius 10; long values break anywhere. Replaces `.token-secret`, `.connect-app-row code`. | `<CodeBlock code={token} copyLabel="Copy" />` |
-| `Badge` | `tone: 'accent'\|'neutral'\|'success'\|'warning'\|'danger'`, `children` | 12 px / 600, full radius, soft background. Text only, never the only signal. | `<Badge tone="success">Active</Badge>` |
+| `Badge` | `tone: 'accent'\|'neutral'\|'success'\|'warning'\|'danger'`, `children`, `live = false` | 12 px / 600, full radius, soft background. Text only, never the only signal. `live` wraps it in `role="status" aria-live="polite"` (the editor's "Saving… / Saved / Not saved", which keeps its texts and its tones warning, success, danger). | `<Badge tone="success">Active</Badge>` |
 | `Banner` | `tone: 'info'\|'success'\|'warning'\|'danger'`, `title?`, `children`, `actions?`, `role` (`status` default, `alert` for errors) | Soft background, 1 px tone border, radius 14, padding 16. Replaces `.signed-out-note`, `.token-created`, `.login-error`, `.editor-hint`, `.published-badge`, page `.error`. | `<Banner tone="warning" title="Copy this token now.">…</Banner>` |
 | `EmptyState` | `title`, `description?`, `action?` | Centered, 48 px padding, one action button. | `<EmptyState title="No drafts yet" action={<Button …>Create your first draft</Button>} />` |
 | `Skeleton` | `lines = 3`, `variant: 'text'\|'row'\|'card'` | Shimmer that stops under reduced motion; `aria-busy` on the parent, one "Loading…" text for screen readers. Replaces "Loading…" text blocks. | `<Skeleton variant="row" lines={3} />` |
-| `Tabs` | `tabs: [{id, label, count?}]`, `value`, `onChange`, `label` | `role="tablist"`, `tab`, `aria-selected`, arrow keys; 2 px accent underline; count shown as a Badge. | `<Tabs label="Threads" tabs={…} value={tab} onChange={setTab} />` |
+| `Tabs` | `tabs: [{id, label, count?}]`, `value`, `onChange`, `label` | `role="tablist"`, `tab`, `aria-selected`, arrow keys; 2 px accent underline. The count stays in the text as today, " (3)", in soft colour, so the tab's name stays "Drafts (3)". | `<Tabs label="Threads" tabs={…} value={tab} onChange={setTab} />` |
 
 ### Overlays
 | Component | Props | States / notes | Example |
 |---|---|---|---|
-| `Dialog` | `open`, `onClose`, `title`, `description?`, `children?`, `actions: [{label, variant, onClick, autoFocus?}]`, `placement: 'center'\|'sheet-start'` (drawer), `dismissible = true` | Focus trap, Escape closes, focus returns to the opener, page behind is `inert` and does not scroll (the logic `AppMenu` has today moves here). Centered from 600 px, a bottom sheet below. `sheet-start` is the menu drawer (slides from inline start, so it mirrors in RTL). | see `useConfirm` |
+| `Dialog` | `open`, `onClose`, `title`, `description?`, `children?`, `actions: [{label, variant, onClick, autoFocus?}]`, `placement: 'center'\|'sheet-start'` (drawer), `dismissible = true` | Rendered in a portal on `document.body`, outside `#root`, because `#root` is made `inert` while it is open. Focus trap, Escape closes, focus returns to the opener, page behind does not scroll (the logic `AppMenu` has today moves here). Centered from 600 px, a bottom sheet below. `sheet-start` is the menu drawer (slides from inline start, so it mirrors in RTL). | see `useConfirm` |
 | `useConfirm()` (in `Dialog.jsx`) | returns `confirm({title, body, confirmLabel, tone: 'danger'\|'primary'}) → Promise<boolean>` | Replaces every `window.confirm`. Cancel is focused first for a destructive action. | `if (!(await confirm({title: 'Delete this draft?', body: 'Are you sure you want to delete this draft?', confirmLabel: 'Delete draft', tone: 'danger'}))) return` |
-| `Toast` + `useToast()` | `toast({message, tone: 'neutral'\|'success'\|'danger', action?})` | One at a time, bottom (above the phone bar), 4 s (errors stay until closed), `role="status"` (`alert` for danger). Replaces every `alert()` and the share tooltips. | `toast({message: 'Thread copied!', tone: 'success'})` |
+| `Toast` + `useToast()` | `toast({message, tone: 'neutral'\|'success'\|'danger', action?})` | `ToastProvider` wraps the routes in `App.jsx`, so a toast survives a navigation (publish shows its message, then goes to `/`). Its live region is mounted empty at start, so the first message is announced. One at a time, bottom (above the phone bar), 4 s (errors stay until closed), `role="status"` (`alert` for danger). Replaces every `alert()` and the share tooltips. | `toast({message: 'Thread copied!', tone: 'success'})` |
 
 ### Icons
-`Icon` stays (`src/components/Icon.jsx` moves to `src/ui/Icon.jsx`) with `name`, `size: 'md'\|'lg'`, `mirror` (flips in RTL
+`Icon` stays and moves to `src/ui/Icon.jsx` in Task 2, with `name`, `size: 'md'\|'lg'`, `mirror` (flips in RTL
 for arrows and chevrons). The emoji used as icons in the editor toolbar and login page (📷 🔗 😀 ✍️ …) become line icons
 from the same set, so they share colour and size and work in dark mode. New icon paths: `plus, copy, trash, image,
 link, emoji, back, check, alert`.
@@ -205,14 +237,14 @@ Rules that apply to every interactive component:
 | Focus-visible | `outline: 2px solid var(--color-focus); outline-offset: 2px` on every focusable thing, set once in `src/ui/base.css`. Inside a clipped list row the offset is -2 px. Never `outline: none` without this. |
 | Disabled | Native `disabled` and `--opacity-disabled` (0.5), `cursor: not-allowed`, no hover. When the user should know why (#291 "Not available while viewing as <login>"), pass `disabledReason`: the button gets `aria-disabled="true"` instead (stays focusable), ignores clicks, and the reason is shown as help text linked by `aria-describedby` and as `title`. |
 | Loading | `loading` keeps the button the same width: the label and `loadingLabel` sit in one grid cell, the inactive one `visibility: hidden`. A 16 px spinner replaces the icon. `aria-busy="true"`, clicks ignored. Today's texts stay as the `loadingLabel` ("Creating…", "Redirecting to GitHub…"). |
-| Touch target | Every button, link-as-button, tab, menu item, toggle and input is at least 44 x 44 on touch (`pointer: coarse`) and on any screen under 768 px. A smaller icon gets an invisible 44 px hit area, never a smaller box. Inline text links inside a sentence are exempt (WCAG 2.2 target-size exception). |
+| Touch target | Every button, link-as-button, tab, menu item, toggle and input is at least 44 x 44 on touch (`pointer: coarse`) and on any screen under 768 px. A small visual (an 8 px carousel dot, a 20 px icon) sits inside a 44 px box made with padding, so the element's own box is 44 (a pseudo-element hit area would not count). Inline text links inside a sentence are exempt (WCAG 2.2 target-size exception). One deliberate exception: the phone bar's "Show toolbar" tab is 44 wide and at most 36 high (`tests/e2e/app-bar.spec.ts` pins it); it is listed in the audit's `EXEMPT_TARGETS`. |
 | Button width | Content width by default, min width 96 px only in dialog and form footers. `fullWidth` for the one main action of a narrow form. Under 600 px: dialog actions stack full width (the main action on top); a form row stacks its fields and its button full width. A group of equal choices uses `Inline equal`. Never `.btn { width: 100% }` globally. |
 | Field spacing | Label → control 8 px; control → help or error 4 px; field → next field 16 px; last field → form actions 24 px. Label above the control, never placeholder-only. |
 | Transitions | Name the properties (`background-color, border-color, color, transform, opacity`), never `all`. Hover and press: fast. Menus, tabs, toasts: base. Dialog and drawer: slow, enter with `--ease-standard`, exit with `--ease-exit`. Reduced motion: 0 through the tokens. |
 | Right to left | Only logical properties (`margin-inline-start`, `padding-block`, `inset-inline-end`, `border-inline-start`, `text-align: start`); the lint fails on `left`, `right`, `margin-left` etc. User text (titles, posts, names, changelog) gets `dir="auto"`. Direction icons use `Icon mirror`. Counts like `1/3` are wrapped in `<bdi>`. The drawer opens from the inline start (already true for the menu). |
 | Text overflow | Titles wrap (no ellipsis) except in the editor's title input; long codes and URLs break anywhere (`overflow-wrap: anywhere`). No horizontal page scroll at 320 px and up. |
 | Colour meaning | Status is never colour alone: badges and banners have words; the over-limit counter keeps its number. |
-| Dates | One formatter `formatDateTime` (`Intl.DateTimeFormat` in the browser's locale, `dateStyle: 'medium', timeStyle: 'short'`): in English "Nov 20, 2026, 8:32 PM" instead of "11/20/2026, 8:32:25 PM" (no seconds, so it fits one line on a phone). |
+| Dates | Draft list only (Task 6): `Intl.DateTimeFormat` in the browser's locale with `dateStyle: 'medium', timeStyle: 'short'`, in English "Nov 20, 2026, 8:32 PM" instead of "11/20/2026, 8:32:25 PM" (no seconds, so it fits one line on a phone). The other pages keep their own formats (`src/utils/version.js`, `TokensPage`, `ChangelogPage`). |
 
 Per component, beyond the table:
 - **Button.** Heights: sm 36 (44 on touch), md 44, lg 52. Padding inline 12 / 16 / 20. Icon gap 8. Text 16 (sm 14) / 600, no wrap.
@@ -222,7 +254,7 @@ Per component, beyond the table:
 - **Dialog.** Width 480, padding 24, gap 16, radius 20, `shadow-lg`, scrim `--color-scrim`. Enters with fade + scale
   0.98→1 (centered) or slide up (sheet) in 280 ms. A destructive dialog focuses Cancel; others focus the main action.
 - **Toast.** Inverted colours (`--color-text` background, `--color-bg` text), radius 10, max width 480, 12 px above the phone bar.
-- **Tabs.** 44 high, padding inline 16, underline animates in 200 ms; count Badge 4 px after the label.
+- **Tabs.** 44 high, padding inline 16, underline animates in 200 ms; the count " (3)" in soft colour.
 - **ListItem.** The title link covers the whole row (a `::after` overlay) so the row is one big target, while the
   action buttons stay separate targets above it.
 - **Input / Select.** Placeholder in `--color-text-soft`; read-only shows `--color-surface` background.
@@ -230,30 +262,37 @@ Per component, beyond the table:
   the hide tab stays (owner feature, `src/utils/barPref.js`).
 
 ## 5. Page migration order
-One PR per page or small group. Each PR: before and after screenshots at 390 and 1280 px, light and dark, committed
-under `docs/screenshots/ui-<task>/` (the `before-*` from `main`, the `after-*` from the branch), and the behaviours
-listed must still pass their existing tests.
+One PR per page or small group. Each PR:
+1. first adds its scenes to `tests/e2e/screens.spec.ts` if they are missing (today the harness has: login,
+   login-suspended, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden, preview, share,
+   menu-open, menu-open-dark, tokens, tokens-dark, tokens-created, tokens-created-dark, changelog, changelog-dark,
+   consent-signed-out, consent);
+2. takes the `before-*` shots with that harness from a `main` worktree (`git worktree add ../main-shots origin/main`),
+   and the `after-*` shots from the branch;
+3. commits only **390 px light and 1280 px dark** of each scene under `docs/screenshots/ui-<task>/` (the repo's
+   `docs/screenshots` is already 4.2 MB); the other combinations are in the `ui-audit` CI artifact;
+4. keeps the behaviours listed below passing their existing tests.
 
 | # | Page(s) | Components first built here | Screenshots (each at 390 and 1280, light and dark) | Behaviours that must not change |
 |---|---|---|---|---|
 | T1 | all (colours only) | tokens, `base.css` | drafts-three, editor, tokens, menu-open | Theme choice (light, dark, match device) and its `localStorage` key `xt-theme`; first paint has no flash; `theme-color` meta follows the theme. |
-| T2 | About, Changelog | Page, PageHeader, Section, Card, Stack, Inline, Button, IconButton, DescriptionList, Skeleton | about, changelog | Changelog "Show older" pages and moves focus to the first new entry; About shows "A newer version is live" + Reload; copy commit text. |
-| T4 | API tokens (`/settings/tokens`) and Connected apps (`/settings/apps`, from #281) | Field, Input, Select, Banner, CodeBlock, List/ListItem, Badge | tokens, tokens-created, apps | The token secret shows once with Copy; Create is disabled while empty or busy; revoke and app revoke still ask first; old link `/settings/tokens` works. |
-| T5 | (cross-page) confirms and alerts | Dialog, useConfirm, Toast, useToast | dialog-delete, dialog-revoke, toast-copied | Every action that asked before still asks with the same sentence, and Cancel does nothing; publish still saves first, then publishes, then goes to `/`. |
-| T6 | Draft list (`/`) | Tabs, EmptyState | drafts-empty, drafts-three, drafts-published, drafts-hebrew | New draft, Duplicate and Delete do the same calls; the empty Drafts tab shows "Create your first draft" and hides the header New draft; a row now opens with Enter. |
+| T2 | About, Changelog | Page, PageHeader, Section, Card, Stack, Inline, Button, IconButton, Banner, DescriptionList, Skeleton; `Icon` moves to `src/ui/` | about (new scene), changelog | Changelog "Show older" pages and moves focus to the first new entry; About shows "A newer version is live" + Reload; copy commit text. |
+| T4 | API tokens (`/settings/tokens`) and Connected apps (`/settings/apps`, from #281) | Field, Input, Select, CodeBlock, List/ListItem, Badge | tokens, tokens-created, apps (new scene) | The token secret shows once with Copy; Create is disabled while empty or busy; revoke and app revoke still ask first; old link `/settings/tokens` works. |
+| T5 | (cross-page) confirms and alerts | Dialog, useConfirm, Toast, useToast | dialog-delete, dialog-revoke, toast-copied (all new scenes) | Every action that asked before still asks with the same sentence, and Cancel does nothing; publish still saves first, then publishes, then goes to `/`. |
+| T6 | Draft list (`/`) | Tabs, EmptyState | drafts-empty, drafts-three, drafts-published and drafts-hebrew (new scenes) | New draft, Duplicate and Delete do the same calls; the empty Drafts tab shows "Create your first draft" and hides the header New draft; a row now opens with Enter. |
 | T7 | App shell: menu drawer, phone bar, theme setting, sign-out | SegmentedControl, Dialog `sheet-start` | menu-open, menu-open-dark, editor-bar-hidden | Menu closes on route change and Escape, traps focus, returns focus; bar hide state is remembered (`barPref`); sign-out clears cached drafts. |
-| T8 | Editor header and its actions | Menu | editor, editor-export-menu, editor-share-menu | Share lifetimes, Agent link, X Thread link, Export formats, Publish; "Saving… / Saved / Not saved" status; sticky header. |
-| T9 | Editor posts: ThreadComposer, PostBox | (editor CSS file, tokens only) | editor, editor-over-limit, editor-hebrew | Drag to reorder (dnd-kit), insert between posts, remove, copy post, 280 counting with `xLength`, Hebrew auto direction, autosave. |
-| T10 | Editor media: ImageUpload, carousel, TweetEmbed, EmojiPicker | — | editor-images, editor-embed, editor-emoji | Paste, drop and pick images (max 4), carousel next/previous/dots, embed lazy load, emoji insert at the cursor. |
-| T11 | Login, loading and error screens, X preview page frame | — | login, login-suspended, editor-401, editor-404, preview | Sign in starts `/api/auth/login`; "This account is suspended." shows; the preview iframe sandbox attributes unchanged. |
-| T12 | Server pages: OAuth consent and device | — | consent-signed-out, consent | Every consent check (#299 site name, Origin check, CSP) unchanged; only the inline CSS changes. |
+| T8 | Editor header and its actions | Menu; PageHeader `sticky`, `titleSlot`, `status`; Badge `live` | editor, editor-export-menu, editor-share-menu (new) | Share lifetimes, Agent link, X Thread link, Export formats, Publish (becomes the primary purple button); "Saving… / Saved / Not saved" texts; sticky header. |
+| T9 | Editor posts: ThreadComposer, PostBox | `ThreadComposer.css`, `PostBox.css` (tokens only) | editor, editor-over-limit and editor-hebrew (new scenes) | Drag to reorder (dnd-kit), insert between posts, remove, copy post, 280 counting with `xLength`, Hebrew auto direction, autosave. |
+| T10 | Editor media: ImageUpload, carousel, TweetEmbed, EmojiPicker | `ImageCarousel.jsx` (moved out of PostBox) and the CSS files next to each | editor-images, editor-embed, editor-emoji (new scenes) | Paste, drop and pick images (max 4), carousel next/previous/dots, embed lazy load, emoji insert at the cursor. |
+| T11 | Login, loading and error screens, X preview page frame | — | login, login-suspended, preview; editor-401 and editor-404 (new scenes) | Sign in starts `/api/auth/login`; "This account is suspended." shows; the preview iframe sandbox attributes unchanged. |
+| T12 | Server pages: OAuth consent and device | `server/oauth/style.js` exports the few values the page uses (accent, text, soft text, border, bg, danger, warning, radius, font), light and dark; a unit test checks each equals `tokens.css` (a full copy would fail `npm run dup`, which scans `server/` at 0.8 %) | consent-signed-out, consent | Every consent check (#299 site name, Origin check, CSP) unchanged; only the inline CSS changes. |
 | T13 | Cleanup | — | all pages | Nothing visible changes; old class names and aliases are gone. |
 | #285 to #288 | Admin shell, stats, users, user details, actions, audit log | Table (#286), Toggle if needed | admin-stats, admin-users, admin-user, admin-audit | Their own tasks' behaviours. They are built with `src/ui/` from the start (no per-page CSS). |
 | #291 | "Viewing as" bar | Banner (`tone="warning"`, sticky variant) | view-as-bar | Its own task. Controls use `disabledReason`. |
 
 The "Rules for every migration PR":
 - No feature change and no text change, except: a native `confirm()` becomes a Dialog with the **same sentence** as
-  its body and a short title; an `alert()` becomes a Toast with the same sentence; dates use `formatDateTime`.
+  its body and a short title; an `alert()` becomes a Toast with the same sentence; the draft list's date format (Task 6).
 - Remove no test assertion. Tests that mocked `window.confirm` click the dialog button instead and keep the same
   expected calls. E2E selectors that used a removed class move to roles and labels with the same expectations.
 - Delete each old rule from `App.css` when its last user moves; remove the file from the token-lint allow list in the
@@ -261,43 +300,58 @@ The "Rules for every migration PR":
 - Add the page to the `MIGRATED` list of the UI audit spec (section 6).
 
 ## 6. Checks that run without a person
-All free, deterministic, no network, no model. Unit tests stay under the 70 s budget (`npm run test:budget`).
+All free, deterministic, no network, no model. Unit tests stay under the 70 s budget (`npm run test:budget`). The
+budget is tight: this plan's docs-only PR measured 73.1 s on one CI run against 70 s (main passed the run before). New
+unit test files must each stay under 300 ms and read files once.
 
-1. **Token lint**, `tests/unit/design-tokens.test.js` (Task 1). Reads every `src/**/*.{css,jsx,js}` as text.
-   Outside `src/styles/tokens.css` it fails on:
-   - a colour literal (`#…`, `rgb(`, `hsl(`, a named colour except `transparent`, `currentColor`, `inherit`);
-   - a length with a unit (`px`, `rem`, `em`, `vh`, `vw`, `dvh`, `ch`) other than `0`, except `100%`, `100dvh`, `100vh`
-     and the three breakpoint numbers inside `@media`;
-   - `font-family`, `font-size`, `font-weight`, `line-height`, `border-radius`, `box-shadow`, `z-index`, `transition`
-     or `animation` with a value that is not a `var(--…)` (timing keywords such as `ease` are refused too);
-   - `transition: all`; `outline: none` without a `:focus-visible` rule in the same file;
-   - a physical property: `left`, `right`, `margin-left/right`, `padding-left/right`, `border-left/right`,
-     `text-align: left/right`, `float`;
-   - `style={{` in JSX, except the entries of an allow list with a reason (dnd-kit's drag transform in
-     `ThreadComposer.jsx`; nothing else);
-   - a CSS file in `src/pages/`.
-   During the migration a frozen list `LEGACY` (inside the test) names the files not migrated yet. The test fails if
-   a listed file is now clean (so the list only shrinks) and if a file not listed breaks a rule. Task 13 deletes the list.
+1. **Token lint**, `tests/unit/design-tokens.test.js` (Task 1). Pure text checks, one read per file, well under 1 s.
+   Comments are stripped first (`/* */` in CSS, `//` and `/* */` in JS), so "#111" in a comment is not a colour.
+   **CSS files** in `src/` other than `src/styles/tokens.css` fail on:
+   - a colour literal (`#…`, `rgb(`, `hsl(`, or a named colour; allowed: `transparent`, `currentColor`);
+   - a number with a unit (`px`, `rem`, `em`, `vh`, `vw`, `dvh`, `ch`, `ms`, `s`) other than `0`, except `100%`,
+     `100vh`, `100dvh`, the fallback `0px` inside `env(safe-area-inset-*, 0px)`, and the breakpoints below;
+   - `font-family`, `font-size`, `font-weight`, `line-height`, `border-radius`, `box-shadow`, `z-index`,
+     `transition`, `animation`, `opacity` with a value that is not built from `var(--…)`. Allowed without a token:
+     the CSS-wide keywords (`inherit`, `initial`, `unset`, `revert`), `none`, `0`, `auto`, and `font: inherit`
+     (so `base.css` resets pass); animation names and `infinite`, `alternate`, `both`, `forwards` next to `var()` times;
+   - `transition: all`; `outline: none` unless the same file has a `:focus-visible` rule;
+   - a physical property, matched on the property name: any name containing `left` or `right` (`left`, `margin-left`,
+     `border-top-left-radius` …), `text-align: left|right`, `float`;
+   - an `@media` width that is not `(width < 360px)`, `(width < 600px)`, `(width >= 600px)`, `(width < 768px)` or
+     `(width >= 768px)` (`hover`, `pointer`, `prefers-*` queries are fine).
+   **JSX and JS files** fail on: any `style=` prop (allow list with a reason per entry: `ThreadComposer.jsx` dnd-kit
+   `style={style}`, until Task 9 moves the transform into a CSS custom property set on the node); a colour literal or a
+   CSS length inside a `style` object; a `.css` import in `src/pages/**`, `DraftList.jsx` or `LoginPage.jsx`; a
+   `src/ui/X.css` imported by any file other than `src/ui/X.jsx`. Non-style JS values are not checked (for example
+   `rootMargin: '200px'` in `PostBox.jsx`, which IntersectionObserver needs as a string).
+   During the migration a frozen list `LEGACY` (inside the test) names the files not migrated yet, starting with
+   `src/styles/App.css` and every JSX file that has a `style=` today. The test fails if a listed file is now clean (so
+   the list only shrinks) and if a file not listed breaks a rule. Task 13 deletes the list.
 2. **Contrast**, `tests/unit/contrast.test.js` (Task 1 changes its source from the `App.css` blocks to the
    `light-dark()` pairs of `tokens.css`; every existing pair keeps its minimum under the new names, and the pairs
-   below are added). Light and dark: text, soft text, accent, danger, success, warning on `bg`, `surface`,
-   `surface-2`, `surface-raised`; `text-on-accent` on accent, accent-hover, accent-pressed; `text-on-danger` on
-   danger and danger-hover; each status on its soft background; `accent-soft-text` on accent-soft; `bg` on `text`
-   (toast) at 4.5:1; `border` and `focus` on every surface at 3:1. It also fails on a `--color-*` token that is not
+   below are added). Per theme, 51 pairs: text, soft text, accent, danger, success, warning on `bg`, `surface`,
+   `surface-2`, `surface-raised` (24); `text-on-accent` on accent, accent-hover, accent-pressed (3); `text-on-danger`
+   on danger and danger-hover (2); accent and `accent-soft-text` on accent-soft, danger, success and warning on their
+   soft backgrounds (5); text and soft text on each of the four soft backgrounds (8, Banner bodies); `bg` on `text`
+   (1, the toast); all at 4.5:1; `border` and `focus` on the four surfaces at 3:1 (8). It also fails on a `--color-*` token that is not
    written as `light-dark()` (except the three overlay colours, which are the same in both themes).
 3. **UI audit spec**, `tests/e2e/ui-audit.spec.ts` (Task 2; runs in the required e2e job). For each page in
-   `MIGRATED`, at 390 px (touch emulation, `isMobile`, `hasTouch`) and 1280 px, light and dark, plus one RTL pass
-   (`<html dir="rtl">`) at 390 px:
+   `MIGRATED`, at 390 px (touch emulation: `isMobile`, `hasTouch`; checked in Chromium that this makes
+   `(pointer: coarse)` and `(hover: none)` match) and 1280 px, light and dark, plus one RTL pass (`<html dir="rtl">`)
+   at 390 px. Every context uses `reducedMotion: 'reduce'`, so no transition is caught halfway.
    - no horizontal scroll (`scrollWidth <= innerWidth`);
    - every visible `button`, `a` styled as a button, `input`, `select`, `textarea`, `[role=tab]`, `[role=menuitem]`,
-     `[role=switch]` is at least 44 x 44 at 390 px (inline links inside `p` and `li` text are exempt);
-   - computed styles stay on the scale: `font-size` is a type-scale value; `border-radius` is a radius token;
-     `padding`, `margin` and `gap` values are on the space scale or 0 or `auto`; `color`, `background-color`, and the
-     border colour of any border wider than 0 resolve to a `--color-*` token of the current theme (the spec reads the
-     token values at run time through a probe element) or `transparent`. Exempt: the share iframe, the X embed, user
-     images, and the emoji picker (third-party);
+     `[role=switch]` has a bounding box of at least 44 x 44 at 390 px. Exempt: inline links inside `p` and `li` text,
+     and the `EXEMPT_TARGETS` list in the spec, each with a reason (today only the "Show toolbar" tab);
+   - computed styles of elements with a `ui-` class stay on the scale: `font-size` is a type-scale value;
+     `border-radius` is a radius token; `padding` and `gap` are on the space scale or 0 (margins are not checked:
+     `margin-inline: auto` computes to pixels); `color`, `background-color` and the colour of any border wider than 0
+     equal a `--color-*` token of the current theme (read at run time through a probe element) or `transparent`.
+     Exempt: the share iframe, the X embed, user images and the emoji picker (third-party);
    - **axe-core** (`@axe-core/playwright`, MPL-2.0, a new dev dependency pinned to an exact version) with tags
-     `wcag2a, wcag2aa, wcag21aa, wcag22aa`: no `serious` or `critical` violations;
+     `wcag2a, wcag2aa, wcag21aa, wcag22aa`: no `serious` or `critical` violations. One rule is disabled with a reason:
+     `meta-viewport`, because `index.html` sets `maximum-scale=1.0, user-scalable=no` (page zoom is blocked) and
+     changing that is owner decision U-O1 below;
    - a screenshot per case to `test-results/ui-audit/`, uploaded as a CI artifact (the e2e job gets one more
      `upload-artifact` path), so the validator sees real pages.
 4. **Component list**, `tests/unit/ui-components.test.js` (Task 2): every `src/ui/*.jsx` has a row in
@@ -323,7 +377,7 @@ and for new pages (admin, view-as bar).
 
 ## Add or change a page
 1. Start from Page + PageHeader + Section. Pick the page width (narrow, default, wide).
-2. Use only src/ui components and their props. No CSS file in src/pages. No style={{}}.
+2. Use only src/ui components and their props. No CSS file in src/pages. No style= prop.
 3. Need something the kit does not have? First check the component list. Then add a prop to an existing component,
    or a new component in src/ui with a row in the list (props, states, example) in the same PR.
 4. One primary button per screen. Destructive actions use variant danger or danger-quiet and useConfirm.
@@ -340,7 +394,8 @@ and for new pages (admin, view-as bar).
 ## Checklist before the PR (copy into the PR body)
 - [ ] npm run test:unit passes (token lint, contrast, component list).
 - [ ] npx playwright test tests/e2e/ui-audit.spec.ts passes; the page is in MIGRATED.
-- [ ] Screenshots before/after at 390 and 1280, light and dark, in docs/screenshots/ui-<task>/.
+- [ ] New scenes added to tests/e2e/screens.spec.ts; before (from a main worktree) and after shots at 390 light and
+      1280 dark in docs/screenshots/ui-<task>/; the rest in the ui-audit CI artifact.
 - [ ] No text or behaviour change beyond what the task says.
 - [ ] Hebrew text checked (one RTL screenshot for a page that shows user text).
 
@@ -353,7 +408,8 @@ and for new pages (admin, view-as bar).
   when the repo's Playwright version differs.
 
 ## Keeping this skill current
-- The weekly review (#294, docs/operations/weekly-review.md) reads this file. It checks: browser support of the CSS
+- The weekly review (#294: .claude/skills/product-care.md and docs/operations/weekly-review.md, both created by #294)
+  reads this file. It checks: browser support of the CSS
   features used (light-dark(), :focus-visible, logical properties, dvh), the axe-core version and its WCAG tags,
   and the WCAG version.
 - Each fact it checks gets a source URL and a "last checked" date. Facts it did not check say "not checked".
@@ -372,10 +428,10 @@ Build tasks start after #281 has shipped (dispatcher's order on #305). They shou
 
 | Task | What | Size | Executor | Validator | Depends on |
 |---|---|---|---|---|---|
-| 1 | Tokens file, `base.css`, purple colours everywhere, theme meta from tokens, token lint (with `LEGACY`), contrast test on tokens | M | Haiku 5.5 | Opus | #281 |
-| 2 | First components (Page, PageHeader, Section, Card, Stack, Inline, Button, IconButton, DescriptionList, Skeleton); About and Changelog migrated; component list doc + test; UI audit spec with axe | M | Haiku 5.5 (Sonnet for the audit spec if a step fails twice) | Opus | 1 |
-| 3 | The `ui-design` skill file | S | Haiku 5.5 | Opus | 2 |
-| 4 | API tokens and Connected apps pages (Field, Input, Select, Banner, CodeBlock, List/ListItem, Badge) | M | Haiku 5.5 | Opus | 2, #281 |
+| 1 | Tokens file, `base.css`, purple colours everywhere through the alias block (old size variables renamed `--legacy-*`), theme meta from tokens (`tests/unit/theme.test.js` stubs `getComputedStyle` and asserts the meta equals the body colour; the light/dark switch assertions stay), token lint (with `LEGACY`), contrast test on tokens | M | Haiku 5.5 | Opus | #281 |
+| 2 | First components (Page, PageHeader, Section, Card, Stack, Inline, Button, IconButton, Banner, DescriptionList, Skeleton; `Icon` moves to `src/ui/`); About and Changelog migrated; component list doc + test; UI audit spec with axe and the CI artifact upload | M | Haiku 5.5 (Sonnet for the audit spec if a step fails twice) | Opus | 1 |
+| 3 | The `ui-design` skill file | S | Haiku 5.5 | Opus | 2, #294 |
+| 4 | API tokens and Connected apps pages (Field, Input, Select, CodeBlock, List/ListItem, Badge) | M | Haiku 5.5 | Opus | 2, #281 |
 | 5 | Dialog, useConfirm, Toast, useToast; replace all 11 `alert`/`confirm` | M | **Sonnet** (focus trap, async confirm in 4 files) | Opus | 4 |
 | 6 | Draft list (Tabs, EmptyState; rows become links; date formatter) | S | Haiku 5.5 | Opus | 5 |
 | 7 | App shell: menu drawer on Dialog `sheet-start`, phone bar, SegmentedControl theme setting, sign-out | M | Haiku 5.5 | Opus | 5 |
@@ -383,7 +439,7 @@ Build tasks start after #281 has shipped (dispatcher's order on #305). They shou
 | 9 | Editor posts: ThreadComposer and PostBox | M | Haiku 5.5 (Sonnet fallback) | Opus | 8 |
 | 10 | Editor media: ImageUpload, carousel, TweetEmbed, EmojiPicker | S | Haiku 5.5 | Opus | 9 |
 | 11 | Login, loading and error screens, preview page frame | S | Haiku 5.5 | Opus | 2 |
-| 12 | Server consent and device pages use the tokens (a copy of `tokens.css` kept equal by a test) | M | Haiku 5.5 | Opus (auth pages) | 1 |
+| 12 | Server consent and device pages use the token values (`server/oauth/style.js` exports the few values used; a test checks they equal `tokens.css`) | M | Haiku 5.5 | Opus (auth pages) | 1 |
 | 13 | Cleanup: delete legacy aliases, dead rules and `App.css` remains; empty `LEGACY` list | S | Haiku 5.5 | Opus | 6, 10, 11 |
 
 Admin and view-as tasks (#285 to #288, #291): a comment on each says to build with `src/ui/` and the `ui-design`
@@ -397,12 +453,27 @@ skill, which components to use, and that their screenshots join the UI audit spe
 - Component build order follows the page order (knip forbids unused files).
 - Visual checks are invariants (scale, size, contrast, axe), not pixel baselines: pixel baselines differ between this
   container and the GitHub runner's fonts and would churn. Screenshots are kept as artifacts for the Opus validator.
+- Media queries in range syntax only; the old size variables become `--legacy-*` in Task 1 so the first PR changes
+  colours only.
+- Publish becomes the one primary (purple) button of the editor in Task 8; until then it stays green.
+- The second Opus review of this plan (CHANGES, 12 must-fix items) is applied: contrast fix (light warning
+  `#955207`), legacy names and alias map, lint false positives, range breakpoints, audit limited to `ui-` elements with
+  reduced motion, padded hit areas and the Show-tab exemption, the axe `meta-viewport` question, no full token copy in
+  `server/`, the theme test change, Banner and Icon in Task 2, the editor header props, and the screenshot policy.
 
-Nothing here needs Shaked: no product behaviour changes. If he wants a different purple or a different look, he can
-say so on the PR; the work follows this plan if nobody answers.
+## Question for Shaked (product behaviour)
+- **U-O1. Allow pinch zoom?** Today `index.html` blocks page zoom (`maximum-scale=1.0, user-scalable=no`). Blocking
+  zoom fails WCAG 1.4.4 (axe reports it), but it may have been added on purpose (for example so a drag in the editor
+  never zooms). Options: (a) allow zoom: people with low vision can enlarge text; inputs are 16 px, so iOS still does
+  not zoom on focus. (b) keep it blocked. **Recommendation: (a).** If nobody answers: (b), nothing changes, and the
+  UI audit keeps `meta-viewport` disabled with this reason.
+
+Apart from U-O1 nothing here needs Shaked: no product behaviour changes. If he wants a different purple or a
+different look, he can say so on the PR; the work follows this plan if nobody answers.
 
 ## Not checked
 - `light-dark()` and `@media (pointer: coarse)` in Firefox and Safari: from memory of their release notes, not
   checked in this session. The pre-installed Chromium renders the mock-up correctly (checked).
 - `@axe-core/playwright` exact current version and licence: not checked; Task 2 reads it from the npm registry and pins it.
 - How the consent page looks today: not screenshotted (the screens run was limited to the app pages).
+- The impact level axe gives `meta-viewport` (critical or serious): not checked; Task 2 sees it on the first run.
