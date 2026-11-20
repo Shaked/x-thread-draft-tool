@@ -153,7 +153,7 @@ test.describe('screens', () => {
       const previewToken = (await apiJson<{ token: string }>(request, owner, 'POST', `/api/drafts/${editorId}/share-tokens`)).token
       const shareToken = (await apiJson<{ token: string }>(request, owner, 'POST', `/api/drafts/${editorId}/share-tokens`)).token
       await shoot(browser, width, 'preview', `/x-thread-preview/${previewToken}`, { ready: (p) => p.frameLocator('iframe[title="Thread preview"]').getByText('Opening post') })
-      await shoot(browser, width, 'share', `/api/share/${shareToken}.html`, { ready: (p) => p.frameLocator('iframe[title="Thread preview"]').getByText('Opening post') })
+      await shoot(browser, width, 'share', `/api/share/${shareToken}.html`, { ready: (p) => p.getByText('Opening post') })
 
       // The menu drawer: light on both widths, dark on phones.
       const openMenu = async (p: Page) => {
