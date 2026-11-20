@@ -15,6 +15,7 @@ import { ciAudience, OIDC_ISSUER, setJwksForTests, verifyCiToken } from '../../s
 import { resolveAccess, issuePair } from '../../server/oauth/tokens.js'
 import { createApiToken } from '../../server/tokens.js'
 import { adminRoutes } from '../../server/routes/admin.js'
+import { ADMIN_TOOLS, adminToolRouteKeys } from '../../server/mcp/admin-tools.js'
 import { apiRequest, setupTestDb, APP_URL } from './helpers/db.js'
 
 const API = `${APP_URL}/api`
@@ -247,5 +248,38 @@ describe('runAs is called only by the MCP server and its tool runner', () => {
       .map((file) => relative(root, file))
       .sort()
     expect(callers).toEqual(['server/mcp/server.js', 'server/mcp/tools.js'])
+  })
+})
+
+describe('an admin tool reaches only its own admin routes (audit R3, #298)', () => {
+  const NIL_DELETE = `/api/admin/users/00000000-0000-0000-0000-000000000000/delete`
+
+  it('refuses admin_status on a delete route with the unknown-route 404', async () => {
+    const { caller } = await elevatedCaller()
+    const unknown = await bodyOf(await route(apiRequest('/api/zz-no-such-route')))
+    const got = await bodyOf(await runAs({ ...caller, adminTool: 'admin_status' }, () => route(apiRequest(NIL_DELETE, { method: 'POST' }))))
+    expect(got).toEqual(unknown)
+  })
+
+  it('lets admin_delete_user reach its own delete route (a real user, dry run: 409, not 404)', async () => {
+    const { caller } = await elevatedCaller()
+    const res = await runAs({ ...caller, adminTool: 'admin_delete_user' }, () =>
+      route(apiRequest(`/api/admin/users/${normal.id}/delete`, { method: 'POST', body: { dry_run: true } }))
+    )
+    expect(res.status).not.toBe(404)
+  })
+
+  it('lists the route keys of each admin tool, with the nil UUID mapped back to :id', () => {
+    expect(adminToolRouteKeys('admin_get_user')).toEqual(['GET /admin/users/:id'])
+    expect(adminToolRouteKeys('admin_delete_user')).toEqual(['POST /admin/users/:id/delete'])
+    expect(adminToolRouteKeys('get_draft')).toEqual([])
+    expect(adminToolRouteKeys('constructor')).toEqual([])
+  })
+
+  it('maps every admin tool to at least one admin route, and every admin route to some tool', () => {
+    const adminKeys = ROUTES.filter((entry) => entry.path.startsWith('/admin/')).map((entry) => `${entry.method} ${entry.path}`)
+    for (const tool of ADMIN_TOOLS) expect(adminToolRouteKeys(tool.name).length, tool.name).toBeGreaterThan(0)
+    const toolKeys = ADMIN_TOOLS.flatMap((tool) => adminToolRouteKeys(tool.name))
+    expect(adminKeys.filter((key) => !toolKeys.includes(key))).toEqual([])
   })
 })
