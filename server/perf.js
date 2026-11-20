@@ -6,6 +6,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 const als = new AsyncLocalStorage()
 // Only these MCP methods reach the log; anything else a client sends is logged as 'other'.
 const RPC_METHODS = new Set([
+  'server/discover',
   'initialize',
   'notifications/initialized',
   'ping',

@@ -8,7 +8,7 @@ import { route } from '../../server/router.js'
 import { runAs } from '../../server/caller-context.js'
 import { issuePair, resolveAccess } from '../../server/oauth/tokens.js'
 import { ADMIN_TOOLS, ADMIN_NOTE, ADMIN_REST_ROUTES, listAdminTools } from '../../server/mcp/admin-tools.js'
-import { listTools, callTool } from '../../server/mcp/tools.js'
+import { adminListReason, listTools, callTool } from '../../server/mcp/tools.js'
 import { isCleanServerText } from '../../server/mcp/language.js'
 import { RATE_LIMIT_MESSAGE } from '../../server/mcp/rate.js'
 import { APP_URL, setupTestDb } from './helpers/db.js'
@@ -229,5 +229,40 @@ describe('admin calls are counted once per minute, in the same row as normal cal
     const { token } = await tokenAndCaller(await grantFor(normal))
     await rpc(MODERN, token, 'tools/call', { name: 'admin_status', arguments: {} })
     expect(await callsNow(normal)).toBeUndefined()
+  })
+})
+
+describe('the tools/list log line says why a list was or was not the admin one (issue #271)', () => {
+  const caller = (over = {}) => ({ via: 'oauth', resource: MCP, admin: true, gh: String(ADMIN_GITHUB_ID), ...over })
+
+  it.each([
+    ['the admin', caller(), null],
+    ['not an OAuth token', caller({ via: 'device' }), 'via'],
+    ['another resource', caller({ resource: `${APP_URL}/api/mcp/` }), 'resource'],
+    ['no admin flag', caller({ admin: false }), 'flag'],
+    ['another GitHub id', caller({ gh: '1' }), 'gh'],
+    ['no caller', null, 'via']
+  ])('%s -> %s', (_label, who, reason) => {
+    expect(adminListReason(who, APP_URL)).toBe(reason)
+  })
+
+  it('ADMIN_DISABLED=1 gives "disabled" for the admin and "gh" for anyone else', () => {
+    vi.stubEnv('ADMIN_DISABLED', '1')
+    expect(adminListReason(caller(), APP_URL)).toBe('disabled')
+    expect(adminListReason(caller({ gh: '1' }), APP_URL)).toBe('gh')
+  })
+
+  it('logs one line per tools/list with the reason and no id, token or login', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      const adminToken = (await elevated()).token
+      const normalToken = (await tokenAndCaller(await grantFor(normal))).token
+      await rpc(LEGACY, adminToken, 'tools/list')
+      await rpc(LEGACY, normalToken, 'tools/list')
+      const lines = log.mock.calls.map((call) => String(call[0])).filter((line) => line.startsWith('[mcp] tools/list'))
+      expect(lines).toEqual(['[mcp] tools/list admin_list=true', '[mcp] tools/list admin_list=false reason=gh'])
+    } finally {
+      log.mockRestore()
+    }
   })
 })
