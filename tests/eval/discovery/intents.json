@@ -1,0 +1,187 @@
+{
+  "intents": [
+    {
+      "id": "create_thread",
+      "phrases": [
+        { "lang": "en", "text": "Write a thread about remote work", "expect": ["create_thread_from_text", "create_draft"] },
+        { "lang": "en", "text": "Plan a 5-post thread announcing my new newsletter about cooking", "expect": ["create_thread_from_text", "create_draft"] },
+        { "lang": "en", "text": "Turn these notes into a thread of short tweets", "expect": ["create_thread_from_text", "create_draft"] },
+        { "lang": "en", "text": "Draft a thread for my product launch", "expect": ["create_thread_from_text", "create_draft"] },
+        { "lang": "he", "text": "כתוב לי שרשור על קפה", "expect": ["create_thread_from_text", "create_draft"] },
+        { "lang": "he", "text": "תכתוב לי שרשור על ההשקה של המוצר שלנו", "expect": ["create_thread_from_text", "create_draft"] },
+        { "lang": "he", "text": "הפוך את ההערות האלה לשרשור של כמה ציוצים", "expect": ["create_thread_from_text", "create_draft"] },
+        { "lang": "he", "text": "כתוב טיוטה של שרשור על מה שלמדתי השבוע", "expect": ["create_thread_from_text", "create_draft"] }
+      ]
+    },
+    {
+      "id": "list_drafts",
+      "phrases": [
+        { "lang": "en", "text": "Show my saved threads", "expect": ["list_drafts"] },
+        { "lang": "en", "text": "What threads have I saved so far?", "expect": ["list_drafts"] },
+        { "lang": "en", "text": "Show my drafts", "expect": ["list_drafts"] },
+        { "lang": "en", "text": "List the threads I already published", "expect": ["list_drafts"] },
+        { "lang": "he", "text": "תציג את כל השרשורים שיש לי", "expect": ["list_drafts"] },
+        { "lang": "he", "text": "איזה שרשורים שמרתי?", "expect": ["list_drafts"] },
+        { "lang": "he", "text": "תראה לי את הטיוטות שלי", "expect": ["list_drafts"] },
+        { "lang": "he", "text": "הראה לי את השרשורים שפורסמו", "expect": ["list_drafts"] }
+      ]
+    },
+    {
+      "id": "open_draft",
+      "phrases": [
+        { "lang": "en", "text": "Open my thread about coffee", "expect": ["get_draft"] },
+        { "lang": "en", "text": "Show me the text of my last thread", "expect": ["get_draft"] },
+        { "lang": "en", "text": "Read the posts of my remote-work thread", "expect": ["get_draft"] },
+        { "lang": "en", "text": "Open draft 42", "expect": ["get_draft"] },
+        { "lang": "he", "text": "פתח לי את השרשור על קפה", "expect": ["get_draft"] },
+        { "lang": "he", "text": "תראה לי את הטקסט של השרשור האחרון", "expect": ["get_draft"] },
+        { "lang": "he", "text": "מה כתוב בשרשור ההשקה שלי?", "expect": ["get_draft"] },
+        { "lang": "he", "text": "הצג את הטיוטה מספר 42", "expect": ["get_draft"] }
+      ]
+    },
+    {
+      "id": "edit_post",
+      "phrases": [
+        { "lang": "en", "text": "Change the second post of my thread", "expect": ["update_post"] },
+        { "lang": "en", "text": "Edit the first tweet in my coffee thread", "expect": ["update_post"] },
+        { "lang": "en", "text": "Rewrite post 3 so it reads better", "expect": ["update_post"] },
+        { "lang": "en", "text": "Fix the wording of the last post in the launch thread", "expect": ["update_post"] },
+        { "lang": "he", "text": "שנה את הציוץ השני בשרשור", "expect": ["update_post"] },
+        { "lang": "he", "text": "ערוך את הפוסט הראשון בשרשור על קפה", "expect": ["update_post"] },
+        { "lang": "he", "text": "תכתוב מחדש את הציוץ השלישי", "expect": ["update_post"] },
+        { "lang": "he", "text": "תתקן את הנוסח של הפוסט האחרון", "expect": ["update_post"] }
+      ]
+    },
+    {
+      "id": "shorten",
+      "phrases": [
+        { "lang": "en", "text": "Shorten post 4, it is too long", "expect": ["update_post"] },
+        { "lang": "en", "text": "Make the second tweet shorter", "expect": ["update_post"] },
+        { "lang": "en", "text": "This post is over 280 characters, cut it down", "expect": ["update_post"] },
+        { "lang": "en", "text": "Shorten the last tweet of my thread", "expect": ["update_post"] },
+        { "lang": "he", "text": "קצר את הפוסט הרביעי, הוא ארוך מדי", "expect": ["update_post"] },
+        { "lang": "he", "text": "תקצר לי את הציוץ השני", "expect": ["update_post"] },
+        { "lang": "he", "text": "הציוץ הזה ארוך מדי, תקצר אותו", "expect": ["update_post"] },
+        { "lang": "he", "text": "תקצר את הפוסט האחרון בשרשור", "expect": ["update_post"] }
+      ]
+    },
+    {
+      "id": "share_link",
+      "phrases": [
+        { "lang": "en", "text": "Make a link I can send someone to read my thread", "expect": ["create_share_link"] },
+        { "lang": "en", "text": "Create a share link for my coffee thread", "expect": ["create_share_link"] },
+        { "lang": "en", "text": "Give me a preview link of this thread", "expect": ["create_share_link"] },
+        { "lang": "en", "text": "Can I share this draft with a friend?", "expect": ["create_share_link"] },
+        { "lang": "he", "text": "תיצור לי קישור לשיתוף של השרשור", "expect": ["create_share_link"] },
+        { "lang": "he", "text": "אני רוצה קישור לתצוגה מקדימה של השרשור", "expect": ["create_share_link"] },
+        { "lang": "he", "text": "איך אני משתף את השרשור עם מישהו?", "expect": ["create_share_link"] },
+        { "lang": "he", "text": "תן לי קישור לשלוח למישהו כדי שיקרא את השרשור", "expect": ["create_share_link"] }
+      ]
+    },
+    {
+      "id": "revoke_link",
+      "phrases": [
+        { "lang": "en", "text": "Stop the share link for my thread", "expect": ["revoke_share_link"] },
+        { "lang": "en", "text": "Disable the link I sent earlier", "expect": ["revoke_share_link"] },
+        { "lang": "en", "text": "Make my shared thread private again", "expect": ["revoke_share_link"] },
+        { "lang": "en", "text": "Cancel the sharing of this draft", "expect": ["revoke_share_link"] },
+        { "lang": "he", "text": "תפסיק לשתף את השרשור דרך הקישור", "expect": ["revoke_share_link"] },
+        { "lang": "he", "text": "נטרל את הקישור ששלחתי", "expect": ["revoke_share_link"] },
+        { "lang": "he", "text": "אני רוצה שהקישור לא יעבוד יותר", "expect": ["revoke_share_link"] },
+        { "lang": "he", "text": "סגור את השיתוף של הטיוטה", "expect": ["revoke_share_link"] }
+      ]
+    },
+    {
+      "id": "export",
+      "phrases": [
+        { "lang": "en", "text": "Copy my thread as plain text", "expect": ["export_draft"] },
+        { "lang": "en", "text": "Export the coffee thread as text with numbers", "expect": ["export_draft"] },
+        { "lang": "en", "text": "Give me the thread as JSON", "expect": ["export_draft"] },
+        { "lang": "en", "text": "Copy the whole thread so I can paste it", "expect": ["export_draft"] },
+        { "lang": "he", "text": "תעתיק לי את השרשור לטקסט פשוט", "expect": ["export_draft"] },
+        { "lang": "he", "text": "ייצא את השרשור לקובץ JSON", "expect": ["export_draft"] },
+        { "lang": "he", "text": "תן לי את כל הציוצים מוכנים להדבקה", "expect": ["export_draft"] },
+        { "lang": "he", "text": "תייצא את השרשור עם מספור לכל ציוץ", "expect": ["export_draft"] }
+      ]
+    },
+    {
+      "id": "add_image",
+      "phrases": [
+        { "lang": "en", "text": "Add this picture to the second post", "expect": ["add_image_from_url"] },
+        { "lang": "en", "text": "Attach an image from this link to my thread", "expect": ["add_image_from_url"] },
+        { "lang": "en", "text": "Put a photo from a URL into post 1", "expect": ["add_image_from_url"] },
+        { "lang": "en", "text": "Add an image to my draft", "expect": ["add_image_from_url"] },
+        { "lang": "he", "text": "הוסף את התמונה הזאת לציוץ השני", "expect": ["add_image_from_url"] },
+        { "lang": "he", "text": "צרף תמונה מהקישור הזה לשרשור", "expect": ["add_image_from_url"] },
+        { "lang": "he", "text": "שים תמונה בפוסט הראשון", "expect": ["add_image_from_url"] },
+        { "lang": "he", "text": "הוסף תמונה לטיוטה", "expect": ["add_image_from_url"] }
+      ]
+    },
+    {
+      "id": "delete_draft",
+      "phrases": [
+        { "lang": "en", "text": "Delete the coffee thread", "expect": ["delete_draft"] },
+        { "lang": "en", "text": "Remove this thread, I do not need it", "expect": ["delete_draft"] },
+        { "lang": "en", "text": "Throw away my old launch thread", "expect": ["delete_draft"] },
+        { "lang": "en", "text": "Delete the draft about remote work", "expect": ["delete_draft"] },
+        { "lang": "he", "text": "מחק את השרשור על קפה", "expect": ["delete_draft"] },
+        { "lang": "he", "text": "הסר את השרשור הישן, אני לא צריך אותו", "expect": ["delete_draft"] },
+        { "lang": "he", "text": "תמחק את הטיוטה הישנה", "expect": ["delete_draft"] },
+        { "lang": "he", "text": "מחק את שרשור ההשקה", "expect": ["delete_draft"] }
+      ]
+    },
+    {
+      "id": "publish_mark",
+      "phrases": [
+        { "lang": "en", "text": "Mark my launch thread as published", "expect": ["publish_draft"] },
+        { "lang": "en", "text": "I already posted this thread, record it as published", "expect": ["publish_draft"] },
+        { "lang": "en", "text": "Mark this thread as published in the app", "expect": ["publish_draft"] },
+        { "lang": "en", "text": "Set the remote-work draft to published", "expect": ["publish_draft"] },
+        { "lang": "he", "text": "סמן את שרשור ההשקה כפורסם", "expect": ["publish_draft"] },
+        { "lang": "he", "text": "פרסמתי את השרשור הזה, תסמן אותו כמפורסם", "expect": ["publish_draft"] },
+        { "lang": "he", "text": "תסמן לי את השרשור כמפורסם", "expect": ["publish_draft"] },
+        { "lang": "he", "text": "סמן את הטיוטה כפורסמה", "expect": ["publish_draft"] }
+      ]
+    },
+    {
+      "id": "whoami",
+      "phrases": [
+        { "lang": "en", "text": "Which account am I connected as?", "expect": ["whoami"] },
+        { "lang": "en", "text": "Who am I logged in as?", "expect": ["whoami"] },
+        { "lang": "en", "text": "What is my account name here?", "expect": ["whoami"] },
+        { "lang": "en", "text": "Which GitHub login is connected here?", "expect": ["whoami"] },
+        { "lang": "he", "text": "על איזה חשבון אני עובד עכשיו?", "expect": ["whoami"] },
+        { "lang": "he", "text": "איזה חשבון GitHub מחובר עכשיו?", "expect": ["whoami"] },
+        { "lang": "he", "text": "באיזה משתמש אני מחובר?", "expect": ["whoami"] },
+        { "lang": "he", "text": "באיזה חשבון GitHub אני מחובר כאן?", "expect": ["whoami"] }
+      ]
+    },
+    {
+      "id": "version",
+      "phrases": [
+        { "lang": "en", "text": "Is the newest version running on the server now?", "expect": ["app_version"] },
+        { "lang": "en", "text": "What changed in the latest release?", "expect": ["app_version"] },
+        { "lang": "en", "text": "When was the app last updated?", "expect": ["app_version"] },
+        { "lang": "en", "text": "What is the commit that is running now?", "expect": ["app_version"] },
+        { "lang": "he", "text": "איזו גרסה רצה עכשיו באתר?", "expect": ["app_version"] },
+        { "lang": "he", "text": "מה השתנה בעדכון האחרון?", "expect": ["app_version"] },
+        { "lang": "he", "text": "מתי האפליקציה עודכנה לאחרונה?", "expect": ["app_version"] },
+        { "lang": "he", "text": "מה הקומיט שרץ עכשיו?", "expect": ["app_version"] }
+      ]
+    }
+  ],
+  "negatives": [
+    { "lang": "en", "text": "How long can a tweet be?" },
+    { "lang": "en", "text": "What makes a good thread hook?" },
+    { "lang": "en", "text": "Is it better to post threads in the morning or the evening?" },
+    { "lang": "en", "text": "What is a tweetstorm?" },
+    { "lang": "en", "text": "Why do people use threads on X?" },
+    { "lang": "en", "text": "Who invented the hashtag?" },
+    { "lang": "he", "text": "מה זה שרשור?" },
+    { "lang": "he", "text": "מה האורך המקסימלי של ציוץ?" },
+    { "lang": "he", "text": "איך כותבים פתיחה טובה לשרשור?" },
+    { "lang": "he", "text": "מה ההבדל בין ציוץ לפוסט?" },
+    { "lang": "he", "text": "למה שרשורים עובדים טוב?" },
+    { "lang": "he", "text": "עדיף לפרסם בבוקר או בערב?" }
+  ]
+}
