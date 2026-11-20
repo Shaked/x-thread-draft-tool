@@ -1,0 +1,3 @@
+- Daily cleanup review, step 1 (#256, C1): a scheduled workflow (04:17 UTC) that does nothing when no commit changed outside docs/changelogs/, and otherwise opens one `Cleanup review <date>` issue.
+- The decision logic is in `scripts/cleanup-review-check.mjs` and is unit-tested without GitHub.
+- Manual runs default to `dry_run: true` (print only). The tag `cleanup-review-last` moves only after the issue exists.
