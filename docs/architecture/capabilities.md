@@ -2,7 +2,7 @@
 
 Every user capability, the REST routes it uses (API), the MCP tools or prompts that expose it (MCP) and the React pages that show it (UI). A cell says `no: <reason>` when a surface is missing on purpose.
 
-`tests/api/surface-alignment.test.js` reads the two tables below. It fails when a route, tool, prompt or page is missing from them, or when a cell names something that does not exist. Update this file in the same PR as any change to a route, tool, prompt or page.
+`tests/api/surface-alignment.test.js` reads the two tables below. It fails when a route, tool, prompt or page is missing from them, or when a cell names something that does not exist. UI cells are checked for page existence only: a UI cell says which page exists, not that the page offers the capability. Parity is verified by reading the page. Notes name every known gap where the UI does not call the route the rule asks for.
 
 Cell format: comma separated. API items are route keys as in `server/router.js` (`GET /drafts/:id`). MCP items are tool names, prompts as `prompt:<name>`. UI items are React Router paths; `/x/*` covers nested paths.
 
@@ -13,18 +13,18 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | List drafts | `GET /drafts` | `list_drafts` | `/` | Home page |
 | Create draft | `POST /drafts` | `create_draft` | `/` | |
 | Read draft | `GET /drafts/:id` | `get_draft` | `/draft/:id` | Editor page |
-| Draft outline | `GET /drafts/:id/outline` | `get_draft_outline` | `/draft/:id` | |
+| Draft outline | `GET /drafts/:id/outline` | `get_draft_outline` | `no: no page shows the outline, the UI never calls this route` | Rule gap: no UI |
 | Edit draft settings | `PATCH /drafts/:id` | `update_draft` | `/draft/:id` | |
-| Edit one post | `PATCH /drafts/:id/posts/:postId` | `update_post` | `/draft/:id` | |
+| Edit one post | `PATCH /drafts/:id/posts/:postId` | `update_post` | `/draft/:id` | Rule gap: the editor saves the whole draft with `PATCH /drafts/:id`, not this route |
 | Add, move or remove a post | `GET /drafts/:id`, `PATCH /drafts/:id` | `add_post`, `move_post`, `remove_post` | `/draft/:id` | The tools read the draft, then write it back |
 | Add image from URL | `POST /images`, `POST /images/from-url` | `add_image_from_url` | `/draft/:id` | `POST /images` takes raw bytes, so no tool calls it |
-| Remove image | `DELETE /images` | `remove_image` | `/draft/:id` | |
-| Duplicate draft | `POST /drafts/:id/duplicate` | `duplicate_draft` | `/draft/:id` | |
-| Export draft | `GET /drafts/:id/export` | `export_draft` | `/draft/:id` | |
+| Remove image | `GET /drafts/:id`, `PATCH /drafts/:id`, `DELETE /images` | `remove_image`, `remove_post` | `/draft/:id` | The tools read and write the draft, and `remove_post` also removes its images |
+| Duplicate draft | `POST /drafts/:id/duplicate` | `duplicate_draft` | `/` | Rule gap: the home list copies the draft in the browser and calls `POST /drafts`, not this route |
+| Export draft | `GET /drafts/:id/export` | `export_draft` | `/draft/:id` | Rule gap: the UI formats the export in the browser (`ExportOptions.jsx`) and never calls this route |
 | Publish draft | `POST /drafts/:id/publish` | `publish_draft` | `/draft/:id` | |
-| Delete draft | `DELETE /drafts/:id` | `delete_draft` | `/draft/:id` | |
-| Split text into posts | `POST /threads/split` | `split_text`, `create_thread_from_text` | `/draft/:id` | `create_thread_from_text` also calls `POST /drafts` |
-| Share link | `POST /drafts/:id/share-tokens`, `DELETE /drafts/:id/share-tokens`, `DELETE /drafts/:id/share-tokens/:token`, `GET /share/:token` | `create_share_link`, `revoke_share_link` | `/draft/:id`, `/x-thread-preview/:token` | The share page reads the public link |
+| Delete draft | `DELETE /drafts/:id` | `delete_draft` | `/` | Delete button on the home list |
+| Split text into posts | `POST /threads/split` | `split_text`, `create_thread_from_text` | `no: the UI never calls this route, the editor splits text in the browser` | Rule gap: `create_thread_from_text` also calls `POST /drafts` |
+| Share link | `POST /drafts/:id/share-tokens`, `DELETE /drafts/:id/share-tokens`, `DELETE /drafts/:id/share-tokens/:token`, `GET /share/:token` | `create_share_link`, `revoke_share_link` | `/draft/:id`, `/x-thread-preview/:token` | Rule gap: the UI creates links only; no UI revokes them. The share page reads `GET /share/:token` |
 | Signed-in user | `GET /auth/me` | `whoami` | `no: the app reads the user once at start, no page of its own` | |
 | Version and changelog | `GET /version`, `GET /changelog` | `app_version` | `/about`, `/changelog` | |
 | API tokens | `GET /tokens`, `POST /tokens`, `DELETE /tokens/:id` | `no: S-5: a person creates and revokes credentials on the Settings page` | `/settings/tokens` | |
@@ -41,12 +41,11 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 
 ## Infrastructure
 
-Routes that are not user capabilities. Each has a reason. The keys follow the same format as the API column; `/x/*` covers the path and everything below it.
+Routes that are not user capabilities. Each has a reason. The keys follow the same format as the API column; `/x/*` covers the path and everything below it. A wildcard also covers any future route under that prefix, so a new user capability there needs its own row in the table above.
 
 | Route | Reason |
 |---|---|
-| `/auth/*` | Sign-in and session (the connection signs in with GitHub on its own) |
-| `/auth/device/*` | Device sign-in steps, part of sign-in, not a user function |
+| `/auth/*` | Sign-in and session (the connection signs in with GitHub on its own), including the device sign-in steps |
 | `/oauth/*` | OAuth protocol endpoints |
 | `/.well-known/*` | OAuth metadata documents |
 | `GET /openapi.json` | Documentation, not a user function |
