@@ -17,6 +17,7 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 - Never sleep-poll. Schedule one wake-up and end the turn.
 - A test must run without a person.
 - Deployed checks only in GitHub Actions or with Vercel's fetch tool on https://x-thread-draft-tool-preview.vercel.app. Never fetch production with it.
+- UI, API and MCP stay aligned: a new or changed capability goes to all three surfaces in the same PR, or its row in `docs/architecture/capabilities.md` says `no: <reason>` for that surface. One server function per capability; MCP tools call the REST route in-process and the UI calls the same REST route.
 
 ### Shipping (standing permission from Shaked)
 - For every queued task: open the PR, merge when checks are green and Opus approved, let it deploy, check production, post the Handoff. Do not ask. Never hold a finished task.
