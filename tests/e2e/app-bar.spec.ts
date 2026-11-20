@@ -354,7 +354,7 @@ test.describe('app bar on phones', () => {
       await expect(page.locator('.app-bar')).toHaveCount(0)
 
       await page.goto(`${BASE}/x-thread-preview/${shareToken}`)
-      await expect(page.locator('body')).toContainText(LAST)
+      await expect(page.frameLocator('iframe[title="Thread preview"]').locator('body')).toContainText(LAST)
       await expect(page.locator('.app-bar')).toHaveCount(0)
     } finally {
       await context.close()
