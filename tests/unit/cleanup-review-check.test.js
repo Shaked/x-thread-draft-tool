@@ -111,6 +111,14 @@ describe('planCleanupReview', () => {
     expect(calls).toContainEqual(['diff', '--name-only', '--no-renames', EMPTY_TREE, HEAD])
   })
 
+  it('throws, and creates nothing, when git cannot read the log', () => {
+    const git = (args) => {
+      if (args[0] === 'log') throw new Error('fatal: bad revision')
+      return ''
+    }
+    expect(() => planCleanupReview({ last: LAST, head: HEAD, git })).toThrow('fatal: bad revision')
+  })
+
   it('requires a head sha', () => {
     expect(() => planCleanupReview({ last: LAST, head: '', git: fakeGit().git })).toThrow('head is required')
   })

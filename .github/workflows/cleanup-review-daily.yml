@@ -36,6 +36,9 @@ concurrency:
 jobs:
   review:
     name: Cleanup review check
+    # Scheduled runs and the default branch can write. A manual run on another branch only prints
+    # (dry_run true); a manual run with dry_run false on another branch does nothing at all.
+    if: github.event_name == 'schedule' || inputs.dry_run == true || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -57,8 +60,17 @@ jobs:
         id: state
         run: |
           set -euo pipefail
-          # Missing tag: the API answers 404, so the value stays empty (first run).
-          LAST_SHA=$(gh api "repos/$REPO/git/ref/tags/cleanup-review-last" --jq .object.sha 2>/dev/null || true)
+          # Only a 404 (no tag yet) means first run. Any other API error stops the job, so an outage
+          # can never look like a first run and open a wrong issue.
+          if OUT=$(gh api "repos/$REPO/git/ref/tags/cleanup-review-last" --jq .object.sha 2>err.txt); then
+            LAST_SHA=$OUT
+          elif grep -q 'HTTP 404' err.txt; then
+            LAST_SHA=''
+          else
+            cat err.txt
+            exit 1
+          fi
+          rm -f err.txt
           OPEN=$(gh issue list --repo "$REPO" --label cleanup --state open --json number --jq 'length')
           HEAD_SHA=$(git rev-parse HEAD)
           {
