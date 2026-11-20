@@ -106,7 +106,7 @@ jobs:
           fi
           echo "tag cleanup-review-last now at $HEAD_SHA"
 
-      - name: Telegram: one line about the new issue
+      - name: "Telegram: one line about the new issue"
         if: steps.plan.outputs.action == 'create' && inputs.dry_run != true && steps.issue.outcome == 'success'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
