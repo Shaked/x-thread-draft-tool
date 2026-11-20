@@ -1,29 +1,27 @@
 import { HttpError } from '../http.js'
 import { currentCaller } from '../caller-context.js'
-import { isAdminGithubId } from './identity.js'
+import { mcpAdminReason } from './role.js'
 
 const GUARDED = new WeakSet()
 
-/** The MCP resource of this deployment, `<origin>/api/mcp` (same rule as server/mcp/server.js). */
-function mcpResource(request) {
-  const origin = (process.env.PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/$/, '')
-  return `${origin}/api/mcp`
+/** The app origin of this deployment (same rule as server/mcp/server.js). */
+function appOrigin(request) {
+  return (process.env.PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/$/, '')
 }
 
 /**
  * The one admin check. The caller must be an in-process MCP call (set by runAs, never read from the
- * network) of an OAuth token for the MCP resource on an elevated grant, running an admin tool, and
- * the user's GitHub id must be an admin id. Everything else is 404, the same answer as an unknown route.
+ * network): an MCP OAuth connection of the admin identity (role.js decides that), running an admin tool.
+ * Everything else is 404, the same answer as an unknown route.
  */
 function requireAdmin(request) {
   const caller = currentCaller()
-  const base =
+  const ok =
     caller !== null &&
     request.headers.get('authorization') === null &&
-    caller.via === 'oauth' &&
-    caller.resource === mcpResource(request) &&
-    isAdminGithubId(caller.gh)
-  const ok = base && caller.admin === true && typeof caller.adminTool === 'string' && caller.adminTool.startsWith('admin_')
+    mcpAdminReason(caller, appOrigin(request)) === null &&
+    typeof caller.adminTool === 'string' &&
+    caller.adminTool.startsWith('admin_')
   if (!ok) throw new HttpError(404, 'Not found')
   return caller
 }

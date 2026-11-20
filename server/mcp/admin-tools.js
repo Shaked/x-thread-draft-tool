@@ -1,4 +1,4 @@
-// Admin tools (plan A3, issue #183). Only the elevated admin MCP connection sees them: server/mcp/tools.js
+// Admin tools (plan A3, issue #183). Only an MCP OAuth connection of the admin identity sees them: server/mcp/tools.js
 // decides that, and an admin tool runs as the caller with `adminTool` set to its name (the admin guard
 // in server/admin/guard.js checks it). Same shapes as META, REST_ROUTES and TRIGGERS in tools.js.
 import { json } from '../http.js'
@@ -12,7 +12,7 @@ const NIL_ID = '00000000-0000-0000-0000-000000000000'
 const ADMIN_TOOLS = [
   {
     name: 'admin_status',
-    description: 'Check that this connection has admin tools, and until when.',
+    description: 'Check that this connection has admin tools.',
     inputSchema: { type: 'object', properties: {} },
     run: (args, { rest }) => rest('GET', '/admin/status')
   },

@@ -3,7 +3,7 @@
 // token endpoint, and revocation. Tokens come from server/oauth/tokens.js (Task 7.4).
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { query, transaction } from '../db.js'
-import { isAdminGithubId } from '../admin/identity.js'
+import { roleOf } from '../admin/role.js'
 import { HttpError, json, readJson } from '../http.js'
 import { clearSessionCookie, readSession, revokeSession } from '../session.js'
 import { hashToken } from '../tokens.js'
@@ -183,7 +183,7 @@ function parseAuthorize(params, base) {
 async function isAdminConsent(uid, resource, base) {
   if (resource !== mcpResource(base)) return false
   const { rows } = await query('select github_id from users where id = $1', [uid])
-  return rows.length === 1 && isAdminGithubId(String(rows[0].github_id))
+  return rows.length === 1 && roleOf(String(rows[0].github_id)) === 'admin'
 }
 
 /** This consent address, rebuilt only from validated values, for copying into another browser. */
