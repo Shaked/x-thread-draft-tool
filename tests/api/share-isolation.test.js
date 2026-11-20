@@ -30,7 +30,7 @@ describe('share HTML isolation', () => {
       'https://example.com/me.png'
     )
     expect(html).toContain('<img src="https://example.com/a.png"')
-    expect(html).toContain('<a href="https://x.com/u/status/123"></a>')
+    expect(html).toContain('href="https://x.com/u/status/123" target="_blank" rel="noopener noreferrer">https://x.com/u/status/123</a>')
     expect(html).toContain('src="https://example.com/me.png"')
   })
 

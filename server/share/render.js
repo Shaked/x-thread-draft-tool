@@ -188,7 +188,7 @@ export function renderEmbed(url) {
   return (
     `<div class="x-embed">` +
     `<blockquote class="twitter-tweet" data-theme="dark" data-conversation="none" data-dnt="true">` +
-    `<a href="${safeUrl}"></a>` +
+    `<a class="x-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>` +
     `</blockquote>` +
     `</div>`
   )
