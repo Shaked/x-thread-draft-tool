@@ -14,6 +14,10 @@ describe('cleanup review workflow runs on demand only', () => {
 
   it('can be started by hand, and a hand-started run does the real thing by default', () => {
     expect(WORKFLOW).toMatch(/^on:\n\s+workflow_dispatch:/m)
-    expect(WORKFLOW).toMatch(/^\s+dry_run:\n(?:\s+.*\n)*?\s+default: false\n/m)
+    // Line-based, not a nested regex: the input block is a few lines below its `dry_run:` key.
+    const lines = WORKFLOW.split('\n')
+    const at = lines.findIndex((l) => /^\s+dry_run:\s*$/.test(l))
+    expect(at).toBeGreaterThan(-1)
+    expect(lines.slice(at + 1, at + 6).some((l) => /^\s+default: false$/.test(l))).toBe(true)
   })
 })
