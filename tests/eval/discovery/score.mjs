@@ -7,7 +7,7 @@
 //
 // The test in tests/api/mcp-discovery.test.js calls the same functions and fails when a number falls below
 // the recorded floor. See docs/architecture/mcp-discovery.md for how to read the report and raise a floor.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { WRITE_TOOLS } from '../mcp-default-use.eval.mjs'
 
@@ -272,7 +272,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const { report } = await runCorpus()
   if (process.argv.includes('--record')) {
     const path = new URL('./baseline.json', here)
-    const previous = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null
+    let previous = null
+    try {
+      previous = JSON.parse(readFileSync(path, 'utf8'))
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err
+    }
     const lowered = previous && !process.argv.includes('--allow-lower') ? loweredFloors(previous, report) : []
     if (lowered.length) {
       console.error('refused: this run lowers floors. Fix the regression, or pass --allow-lower on purpose:')
