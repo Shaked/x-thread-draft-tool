@@ -1,0 +1,1 @@
+Telegram: cleanup review messages (#258, task C3). A PR labelled `cleanup-pr` by the owner sends a "Cleanup review" message (PR title, PR link, first Summary line); the daily cleanup issue sends "Cleanup review started" through the same template.

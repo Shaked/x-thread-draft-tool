@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// Telegram notice for the labels `try-preview` (on a PR) and `owner` (on an issue or PR).
-// Epic #241, task N2; template from N4 (#250). Node 20, no dependencies. Run by
-// .github/workflows/notify-labels.yml from the default branch; the event values come in through
-// environment variables:
+// Telegram notice for the labels `try-preview` (on a PR), `owner` (on an issue or PR) and
+// `cleanup-pr` (on a PR, epic #255 task C3). Epic #241, task N2; template from N4 (#250). Node 20,
+// no dependencies. Run by .github/workflows/notify-labels.yml from the default branch; the event
+// values come in through environment variables:
 //
-//   LABEL_NAME, SENDER_LOGIN, OWNER_LOGIN, TARGET_IS_PR ('true'|'false'), TARGET_TITLE, TARGET_URL
+//   LABEL_NAME, SENDER_LOGIN, OWNER_LOGIN, TARGET_IS_PR ('true'|'false'), TARGET_TITLE, TARGET_URL,
+//   TARGET_BODY (the PR body; only its first line is read, and only for cleanup-pr)
 //
 // Only a label added by the repository owner sends. Without the two Telegram secrets it prints a
 // skip line and exits 0 (see notify-telegram.mjs). It never throws and never prints a secret.
@@ -13,10 +14,11 @@ import { pathToFileURL } from 'node:url'
 import { buildMessage, notify } from './notify-telegram.mjs'
 
 // Returns { kind, data } for the label event, or null when this event sends nothing.
-export function labelMessage({ label = '', sender = '', owner = '', isPr = false, title = '', url = '' }) {
+export function labelMessage({ label = '', sender = '', owner = '', isPr = false, title = '', url = '', body = '' }) {
   if (!owner || String(sender).toLowerCase() !== String(owner).toLowerCase()) return null
   if (label === 'try-preview') return isPr ? { kind: 'preview', data: { title, url } } : null
   if (label === 'owner') return { kind: 'owner', data: { title, url } }
+  if (label === 'cleanup-pr') return isPr ? { kind: 'cleanup', data: { title, url, body } } : null
   return null
 }
 
@@ -29,6 +31,7 @@ export async function run(env = {}, { fetchImpl = fetch, log = console.log } = {
     isPr: env.TARGET_IS_PR === 'true',
     title: env.TARGET_TITLE || '',
     url: env.TARGET_URL || '',
+    body: env.TARGET_BODY || '',
   })
   const message = picked && buildMessage(picked.kind, picked.data)
   if (!message) {

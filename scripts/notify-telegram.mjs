@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // Telegram notices (epic #241, tasks N1, N2, N4). Node 20, no dependencies.
 //
-// One template for all four kinds: buildMessage(kind, data) returns { html, plain }.
-//   live    production is live and the smoke test passed
-//   failed  production smoke test failed (the only urgent one)
-//   preview a PR got the label try-preview: try it on the preview URL
-//   owner   the repository owner added the label owner: needs you
+// One template for all the kinds: buildMessage(kind, data) returns { html, plain }.
+//   live           production is live and the smoke test passed
+//   failed         production smoke test failed (the only urgent one)
+//   preview        a PR got the label try-preview: try it on the preview URL
+//   owner          the repository owner added the label owner: needs you
+//   cleanup        a PR got the label cleanup-pr (epic #255, task C3): review the cleanup PR
+//   cleanup-started the daily workflow opened a cleanup review issue (same kind "cleanup")
 //
 // CLI (the workflows pass every value through environment variables, never inside the shell text):
 //   NOTIFY_KIND, NOTIFY_SHA, NOTIFY_TITLE, NOTIFY_URL, NOTIFY_RUN_URL, NOTIFY_PREVIEW_URL,
@@ -27,6 +29,8 @@ const KINDS = {
   failed: { emoji: '🚨', headline: 'Production smoke FAILED', extra: 'The smoke test did not pass.' },
   preview: { emoji: '👀', headline: 'Try it on preview' },
   owner: { emoji: '🙋', headline: 'Needs you' },
+  cleanup: { emoji: '🧹', headline: 'Cleanup review' },
+  'cleanup-started': { emoji: '🧹', headline: 'Cleanup review started' },
 }
 
 // Escapes the three characters Telegram HTML needs, plus the double quote for attribute values.
@@ -56,11 +60,37 @@ function linkPlain(label, url) {
   return href ? `${label}: ${href}` : label
 }
 
+// The first line of a PR body, when it starts with "Summary:": the text after that label, cut to
+// MAX_TITLE. Any other first line gives ''. The body is written by the PR author, so it is only read here.
+export function summaryLine(body) {
+  const first = String(body || '').split(/\r?\n/, 1)[0].trim()
+  return first.startsWith('Summary:') ? clip(first.slice('Summary:'.length).trim()) : ''
+}
+
+// Cleanup messages: a headline, the title in a quote block, one link (PR or issue number), and for
+// the PR the summary line when there is one.
+function cleanupMessage(kind, spec, data) {
+  const title = clip(data.title || '(no title)')
+  const isPr = kind === 'cleanup'
+  const number = String(data.url || '').match(isPr ? /\/pull\/(\d+)$/ : /\/issues\/(\d+)$/)?.[1]
+  const noun = isPr ? 'PR' : 'issue'
+  const link = [number ? `Open ${noun} #${number}` : `Open ${noun}`, data.url]
+  const summary = isPr ? summaryLine(data.body) : ''
+  const html = [`${spec.emoji} <b>${escapeHtml(spec.headline)}</b>`, `<blockquote>${escapeHtml(title)}</blockquote>`, linkHtml(...link)]
+  const plain = [`${spec.emoji} ${spec.headline}`, title, linkPlain(...link)]
+  if (summary) {
+    html.push(escapeHtml(summary))
+    plain.push(summary)
+  }
+  return { html: html.join('\n'), plain: plain.join('\n') }
+}
+
 // Returns { html, plain } for a kind, or null for an unknown kind. The first link is the main
 // one, so Telegram's link preview is drawn from it.
 export function buildMessage(kind, data = {}) {
   const spec = KINDS[kind]
   if (!spec) return null
+  if (kind === 'cleanup' || kind === 'cleanup-started') return cleanupMessage(kind, spec, data)
   const title = clip(data.title || '(no title)')
   const sha = String(data.sha || '').slice(0, 7)
 

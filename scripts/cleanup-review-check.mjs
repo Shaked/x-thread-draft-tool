@@ -10,7 +10,7 @@
 //
 // CLI (the workflow passes every value through environment variables):
 //   node scripts/cleanup-review-check.mjs           plan; writes GITHUB_OUTPUT and the issue body file
-//   node scripts/cleanup-review-check.mjs notify    one Telegram line after the issue is opened
+//   node scripts/cleanup-review-check.mjs notify    one Telegram message (template kind cleanup-started) after the issue is opened
 // Env for the plan: LAST_SHA (empty on the first run), HEAD_SHA, OPEN_CLEANUP (count),
 // BODY_FILE (where the issue body is written), DRY_RUN ('true' prints only), GITHUB_OUTPUT.
 // Env for notify: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, ISSUE_TITLE, ISSUE_URL.
@@ -18,7 +18,7 @@
 import { execFileSync } from 'node:child_process'
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { notify } from './notify-telegram.mjs'
+import { buildMessage, notify } from './notify-telegram.mjs'
 
 export const TAG = 'cleanup-review-last'
 export const CHANGELOG = /^docs\/changelogs\//
@@ -164,8 +164,8 @@ async function planMain(env) {
 }
 
 async function notifyMain(env) {
-  const plain = `🧹 ${env.ISSUE_TITLE || 'Cleanup review'}: one issue opened\n${env.ISSUE_URL || ''}`.trim()
-  await notify({ token: env.TELEGRAM_BOT_TOKEN || '', chatId: env.TELEGRAM_CHAT_ID || '', plain })
+  const message = buildMessage('cleanup-started', { title: env.ISSUE_TITLE || '', url: env.ISSUE_URL || '' })
+  await notify({ token: env.TELEGRAM_BOT_TOKEN || '', chatId: env.TELEGRAM_CHAT_ID || '', ...message })
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -1,14 +1,16 @@
 # Telegram messages
 
-Short notices in a Telegram chat with the owner. They are sent only by GitHub Actions. The app itself sends nothing. Epic #241 (tasks N1, N2, N4).
+Short notices in a Telegram chat with the owner. They are sent only by GitHub Actions. The app itself sends nothing. Epic #241 (tasks N1, N2, N4) and epic #255 (task C3, the cleanup kind).
 
 Code:
 - `scripts/notify-telegram.mjs`: builds the text and sends it.
 - `scripts/notify-label.mjs`: decides when a label sends a message.
+- `scripts/cleanup-review-check.mjs`: sends the "Cleanup review started" message when the daily workflow opens an issue.
 - `.github/workflows/smoke-deployed.yml`: the two production kinds, after the deployed smoke test.
-- `.github/workflows/notify-labels.yml`: the two label kinds.
+- `.github/workflows/notify-labels.yml`: the three label kinds.
+- `.github/workflows/cleanup-review-daily.yml`: starts the cleanup message (see `docs/operations/cleanup-review.md`).
 
-## The four kinds
+## The five kinds
 
 | Kind | Headline | When it is sent | Links |
 |---|---|---|---|
@@ -16,12 +18,14 @@ Code:
 | Production smoke FAILED | 🚨 Production smoke FAILED | The smoke test on a production deployment failed or was skipped. Not sent when the run was cancelled, for example when a newer deployment replaced it. Step "Telegram: production smoke failed". | See the failed run |
 | Try it on preview | 👀 Try it on preview | A pull request gets the label `try-preview`, added by the repository owner's account. The same label on an issue sends nothing. | Open preview, and PR #n |
 | Needs you | 🙋 Needs you | The label `owner` is added to an issue or a pull request, by the repository owner's account. | Open (the issue or PR) |
+| Cleanup review | 🧹 Cleanup review | A pull request gets the label `cleanup-pr`, added by the repository owner's account. The same label on an issue sends nothing. Also "🧹 Cleanup review started" when the daily workflow opens a cleanup issue (same kind, different headline). | Open PR #n (or Open issue #n for the started message) |
 
 What a message looks like:
 - Line 1: the emoji and the headline, in bold (in the HTML version; the plain-text fallback has no bold).
-- Line 2: for the two production kinds, the short commit id (7 characters, in code font) and the commit title. For the other two kinds, the issue or PR title.
+- Line 2: for the two production kinds, the short commit id (7 characters, in code font) and the commit title. For the other kinds, the issue or PR title. The cleanup kinds show the title in a quote block.
 - Line 3 (production kinds only): "Smoke tests passed." or "The smoke test did not pass."
-- Last line: the links, separated by " · ".
+- Cleanup kind only, line 4 (after the link): the first line of the PR body, when it starts with `Summary:` (the text after `Summary:`, cut to 120 characters). No such line means no summary line.
+- Links line, separated by " · " (for the cleanup kind it is line 3, and the summary, when there is one, comes after it).
 
 Titles are cut to 120 characters.
 
@@ -52,7 +56,8 @@ Delete either secret, `TELEGRAM_BOT_TOKEN` or `TELEGRAM_CHAT_ID`. Nothing else c
 
 - No token, no chat id, no other secret.
 - No login names, no draft text, no post text, no PR body, no diff, no log output.
-- Only: the short commit id, a commit or issue/PR title (cut to 120 characters), fixed text, and links. The production links go to the production address or to the failed run; the preview link goes to the preview address; the try-preview and needs-you messages also link to the PR or issue.
+- Only: the short commit id, a commit or issue/PR title (cut to 120 characters), fixed text, and links. The production links go to the production address or to the failed run; the preview link goes to the preview address; the try-preview, needs-you and cleanup messages also link to the PR or issue.
+- From a PR body, only the first line, and only when it starts with `Summary:` (cut to 120 characters). The rest of the PR body is never sent.
 
 The text is sent as HTML with escaping. Only if Telegram answers HTTP 400 with a parse error does the script send the same text once more as plain text (log line `notify: HTML rejected, sending plain text`). Any other refusal is not retried.
 
@@ -60,6 +65,7 @@ The text is sent as HTML with escaping. Only if Telegram answers HTTP 400 with a
 
 - Try-preview: add the label `try-preview` to a pull request. The pull request's code must contain `.github/workflows/notify-labels.yml`. A pull request event starts the workflow only if that file is there (not checked: whether GitHub uses the pull request's own commit or its test merge). Use a pull request opened after #249.
 - Needs you: add the label `owner` to an issue or a pull request.
+- Cleanup review: add the label `cleanup-pr` to a pull request. The label workflow must be in the default branch (it runs the script from there). A PR whose first body line starts with `Summary:` shows that line.
 - Production: merge a change that creates a production deployment. The message comes from the smoke test that runs after that deployment. A docs-only merge sends nothing.
 
 Use only a pull request that is still open and that you want to test with.
@@ -83,7 +89,7 @@ The label check: it is not known yet whether a label that an agent adds comes fr
 
 ## Ideas for later (not in the code)
 
-- Quote blocks (`<blockquote>`) in the message. Not used. Telegram's API docs were not checked when this was written.
+- Quote blocks (`<blockquote>`) are used by the cleanup messages only. Telegram's support for them was not checked against the live API. If Telegram refuses the HTML, the plain-text fallback sends the same text.
 - Link preview options. The code asks for link previews (`disable_web_page_preview` is false). The newer `link_preview_options` setting is not used. Not checked.
 - A passed count ("N/N passed") in the production message.
 - A line in the try-preview message that says what to try.

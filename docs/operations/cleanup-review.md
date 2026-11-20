@@ -8,7 +8,7 @@ Epic #255. Shaked decided the goal on 2026-11-19. This file decides what the age
 - It does nothing when no commit since the last run changed anything outside `docs/changelogs/`. That check costs no tokens.
 - When something changed, it opens **one** issue `Cleanup review <date>` with the labels `task` and `cleanup`. The issue body is `.github/cleanup-review-issue.md` plus the commit list and the changed files. The dispatcher then starts an agent session for it.
 - It opens no new issue while an earlier `cleanup` issue is still open.
-- Telegram: labelling a PR `cleanup-pr` sends one message. That is task C3 (#258). Until C3 is merged, nothing is sent.
+- Telegram: labelling a PR `cleanup-pr` (by the repository owner's account) sends one message, the cleanup kind in `docs/operations/telegram.md` (task C3, #258). Opening the daily issue sends one "Cleanup review started" message.
 
 ## Goal
 
