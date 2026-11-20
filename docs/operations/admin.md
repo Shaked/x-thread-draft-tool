@@ -14,7 +14,7 @@ Who this is for: the owner, and agents that work for the owner. This page is not
 Admin follows your GitHub identity and nothing else. There is no code, no box, no time limit and no extra approval.
 
 1. Sign in to X Thread Draft Tool with GitHub as `Shaked` (github id 960015).
-2. In your AI app (Claude, ChatGPT, Grok or a command-line app), connect X Thread Draft Tool through its MCP connector as usual and approve it.
+2. In your AI app (Claude, ChatGPT, Grok or a command-line app), connect X Thread Draft Tool through its MCP connector as usual and approve it. The approval page shows "You are the admin" and the address of the app. This line only informs you: admin comes from your identity, not from this page. Check that the address is your own app.
 3. The admin tools appear in that connection's tool list. To check, ask the app to run `admin_status`.
 
 Rules that come from the code:

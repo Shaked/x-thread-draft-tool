@@ -101,9 +101,12 @@ function copyBlock(link, text) {
 }
 
 /** The Approve / Deny page. `requestToken` is the signed decision; `link` is this same address. Everything shown is escaped. */
-export function consentPage({ clientName, unverified, redirectHost, requestToken, login, link }) {
+export function consentPage({ clientName, unverified, redirectHost, requestToken, login, link, admin = false }) {
   const warning = unverified
     ? '<p class="warn">This app is not verified. Approve only if you started it yourself.</p>'
+    : ''
+  const adminNote = admin
+    ? `<p class="warn">You are the admin. <strong>${escapeHtml(redirectHost)}</strong> will get the admin tools (list users, suspend users, delete users and their content). Check that this address is your own AI app.</p>`
     : ''
   return page(
     'Allow access',
@@ -113,6 +116,7 @@ export function consentPage({ clientName, unverified, redirectHost, requestToken
 Not you?<button type="submit">Sign out</button>
 </form>
 ${warning}
+${adminNote}
 <p>It will be able to read, create, edit, publish, share and delete your drafts.</p>
 <p>After you choose, it sends you back to <strong>${escapeHtml(redirectHost)}</strong>.</p>
 <form method="post" action="/api/oauth/authorize">
