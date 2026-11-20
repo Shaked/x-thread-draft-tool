@@ -13,6 +13,7 @@ import { INSTRUCTIONS } from '../../server/mcp/server.js'
 import { getPrompt, listPrompts } from '../../server/mcp/prompts.js'
 import { listSkillResources, listSkills, readSkillResource } from '../../server/mcp/skills.js'
 import { listTools } from '../../server/mcp/tools.js'
+import { listUiResources, readUiResource } from '../../server/mcp/ui/index.js'
 import { APP_URL, setupTestDb } from './helpers/db.js'
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..')
@@ -56,6 +57,15 @@ describe('the word admin is absent from public text', () => {
       const got = getPrompt(prompt.name, args, { origin: APP_URL })
       expect(got.problem).toBeUndefined()
       expect(JSON.stringify(got.result)).not.toMatch(ADMIN_WORD)
+    }
+  })
+
+  it('the UI resources that resources/list and resources/read return', () => {
+    const resources = listUiResources()
+    expect(resources.length).toBeGreaterThan(0)
+    for (const resource of resources) {
+      expect(JSON.stringify(resource)).not.toMatch(ADMIN_WORD)
+      expect(JSON.stringify(readUiResource(resource.uri))).not.toMatch(ADMIN_WORD)
     }
   })
 

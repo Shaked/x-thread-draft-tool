@@ -5,6 +5,7 @@ Who this is for: the owner, and agents that work for the owner. This page is not
 ## Who is admin, and where that is set
 
 - Admin is one GitHub numeric id: `960015` (github.com/Shaked). It is in `server/admin/identity.js` as `ADMIN_GITHUB_IDS`. A login is never used, because a login can be renamed. `tests/api/admin-identity.test.js` pins the list.
+- Who is admin is decided only in `server/admin/role.js`. `tests/api/admin-role-arch.test.js` fails if any other module decides it.
 - No environment variable adds an admin. `ADMIN_DISABLED=1` only turns admin off. The value is read on every check. Set it in the Vercel environment and make a new deploy so the change is live (how Vercel applies env changes: not checked here).
 - The admin account and the CI identity (`ci-smoke`) can never be suspended or deleted. This is enforced in code and in SQL, and does not depend on `ADMIN_DISABLED`.
 - Any AI app you connect while signed in as the owner can hold admin tools. No list of app addresses is kept, and no code or time limit is used.

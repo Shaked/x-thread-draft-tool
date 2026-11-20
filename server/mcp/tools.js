@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto'
 import { uiResourceUri } from './ui/index.js'
 import { blobOrigin } from './ui/origin.js'
 import { adminTool, listAdminTools } from './admin-tools.js'
-import { isAdminGithubId } from '../admin/identity.js'
+import { mcpAdminReason } from '../admin/role.js'
 
 const UUID = { type: 'string', format: 'uuid' }
 const TITLE = { type: 'string', maxLength: 500, description: 'Draft title, at most 500 characters.' }
@@ -398,23 +398,16 @@ for (const tool of TOOLS) {
 }
 
 /**
- * True for the one admin connection: an OAuth token for this app's MCP resource, on an elevated grant
- * (server/mcp/rate.js sets `admin`), of an admin GitHub id. Everyone else gets the normal tools only.
+ * True for the one admin connection: an MCP OAuth connection of the admin identity (role.js decides that).
+ * Everyone else gets the normal tools only.
  */
 export function isAdminCaller(caller, origin) {
   return adminListReason(caller, origin) === null
 }
 
-/**
- * Why this caller does not get the admin list: the FIRST failing condition by name, or null for the admin.
- * Order: via, resource, flag, disabled, gh. Names only, never a value (no id, token, login or address).
- */
+/** Why this caller does not get the admin list: the first failing condition by name, or null (see role.js). */
 export function adminListReason(caller, origin) {
-  if (caller?.via !== 'oauth') return 'via'
-  if (caller.resource !== `${origin}/api/mcp`) return 'resource'
-  if (caller.admin !== true) return 'flag'
-  if (isAdminGithubId(caller.gh)) return null
-  return isAdminGithubId(caller.gh, { ...process.env, ADMIN_DISABLED: undefined }) ? 'disabled' : 'gh'
+  return mcpAdminReason(caller, origin)
 }
 
 /** True when `name` is an admin tool. It says nothing about who may call it: see isAdminCaller. */
