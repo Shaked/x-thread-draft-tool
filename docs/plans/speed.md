@@ -324,7 +324,7 @@ does not change. Rules: the Rules section of #275.
 | S5 | #310 | `scripts/speed-metrics.mjs`, its tests, `speed-metrics.yml`, warn-only per-merge check, Telegram kind `speed`, `docs/operations/ci-cd.md` section | M | none (measurement) | none | `Implements #306 Task 5` |
 | S2 | #312 | Split the unit job: `checks` job, 2 test shards, final `Unit tests (vitest)` job; `test:budget` per-shard total | M | (a) median about -23 s | S1 (#309) | `Implements #306 Task 2` |
 | S3 | #313 | E2E with 2 workers in CI, after recording per-test times | S | e2e step about -17 s | S1 | `Implements #306 Task 3` |
-| S4 | #311 | Smoke (deployed) without `npm ci`; test that `scripts/smoke.mjs` imports no package | S | (d) about -8 s | none | `Implements #306 Task 4` |
+| S4 | #311 | Smoke (deployed) without `npm ci`; test that `scripts/smoke.mjs` and `scripts/notify-telegram.mjs` import no package (transitively) | S | (d) about -8 s | none | `Implements #306 Task 4` |
 | S6 | #314 | Per-merge budget check from warn to fail (3 merges in a row) | S | none (guard) | S1, S2, S3, S4, S5 | `Implements #306 Task 6` |
 | S7 | #315 | Speed signal in the weekly review | S | none (weekly view) | #295, S5 | `Implements #306 Task 7` |
 
