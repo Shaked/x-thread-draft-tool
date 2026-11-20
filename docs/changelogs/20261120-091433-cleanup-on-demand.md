@@ -1,0 +1,2 @@
+- Cleanup review is on demand only (#269, C4): the daily schedule is removed; `dry_run` now defaults to a real run; `docs/operations/cleanup-review.md` says how to start it and how to turn the schedule back on.
+- Guard test `tests/unit/cleanup-review-workflow.test.js` fails if a `schedule:` trigger comes back. Docs and workflow only: no deployment created.
