@@ -3,7 +3,7 @@
 // with the initialize handshake kept for clients on 2025-11-25 and 2025-06-18.
 import { runAs } from '../caller-context.js'
 import { HttpError } from '../http.js'
-import { callTool, hasTool, isAdminCaller, isAdminToolName, listTools } from './tools.js'
+import { adminListReason, callTool, hasTool, isAdminCaller, isAdminToolName, listTools } from './tools.js'
 import { getPrompt, listPrompts } from './prompts.js'
 import { getSkill, listSkillResources, listSkills, readSkillResource } from './skills.js'
 import { listUiResources, readUiResource } from './ui/index.js'
@@ -268,13 +268,18 @@ async function dispatch(message, ctx) {
       // Removed in 2026-07-28; still answered for the legacy versions.
       if (ctx.modern) throw methodNotFound(message.method, ctx)
       return {}
-    case 'tools/list':
+    case 'tools/list': {
+      // One line per list, so the owner's try can be read from the runtime logs: why it was or was not the admin list.
+      const reason = adminListReason(ctx.caller, ctx.origin)
+      // eslint-disable-next-line no-console
+      console.log(`[mcp] tools/list admin_list=${reason === null}${reason === null ? '' : ` reason=${reason}`}`)
       // The admin connection's list differs from everyone else's, so a shared cache must not keep it.
       return {
         tools: listTools(ctx.caller, ctx.origin),
         ttlMs: LIST_TTL_MS,
-        cacheScope: isAdminCaller(ctx.caller, ctx.origin) ? 'private' : 'public'
+        cacheScope: reason === null ? 'private' : 'public'
       }
+    }
     case 'prompts/list':
       noCursor(params)
       return { prompts: listPrompts(), ttlMs: LIST_TTL_MS, cacheScope: 'public' }

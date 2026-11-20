@@ -402,7 +402,19 @@ for (const tool of TOOLS) {
  * (server/mcp/rate.js sets `admin`), of an admin GitHub id. Everyone else gets the normal tools only.
  */
 export function isAdminCaller(caller, origin) {
-  return caller?.via === 'oauth' && caller.resource === `${origin}/api/mcp` && caller.admin === true && isAdminGithubId(caller.gh)
+  return adminListReason(caller, origin) === null
+}
+
+/**
+ * Why this caller does not get the admin list: the FIRST failing condition by name, or null for the admin.
+ * Order: via, resource, flag, disabled, gh. Names only, never a value (no id, token, login or address).
+ */
+export function adminListReason(caller, origin) {
+  if (caller?.via !== 'oauth') return 'via'
+  if (caller.resource !== `${origin}/api/mcp`) return 'resource'
+  if (caller.admin !== true) return 'flag'
+  if (isAdminGithubId(caller.gh)) return null
+  return isAdminGithubId(caller.gh, { ...process.env, ADMIN_DISABLED: undefined }) ? 'disabled' : 'gh'
 }
 
 /** True when `name` is an admin tool. It says nothing about who may call it: see isAdminCaller. */
