@@ -17,20 +17,21 @@ Remove what is useless, so the repository is easier to read and cheaper to run:
 1. Tests that repeat another test, or check the same behaviour twice.
 2. Brittle tests: snapshot tests or tests of internal details that fail on every harmless change and check nothing a user sees.
 3. Dead or unused code.
-4. Docs that are wrong, duplicated, or unlinked. A doc is unlinked when no other file links to it and no index lists it.
+4. Docs that are wrong, duplicated, or unlinked. A doc is unlinked when no other file links to it and no index lists it. Unlinked is a signal to check, never a reason to delete on its own: see the never-touch list.
 5. Slop: filler in comments and docs, such as comments that only repeat the code, empty phrases, and boilerplate.
 
 The agent only proposes changes. Shaked merges them.
 
 ## Never touch
 
-- **Security tests**: auth, admin, OAuth, CSP, share links, deletion.
+- **Security tests**: auth, admin, OAuth, CSP, share links, deletion. A test is a security test if its file name or test title contains auth, token, session, cookie, admin, suspend, oauth, csp, share, delete or revoke, or if it checks a 401, 403 or 404 response. Do not remove these.
 - **Smoke checks**: `scripts/smoke.mjs` and the smoke tests run after a deploy.
 - **Regression tests**: any test that pins a bug that was fixed. Keep it even when it looks like a duplicate.
 - **The gates**: the net-lines check (`scripts/net-lines.mjs`), the duplicate check (`npm run dup`), the time budget (`npm run test:budget`), and the slop scan (`npm run slop`). Do not weaken a limit to make a PR pass.
 - **Decisions**: anything an issue records as decided. Search the issues before you remove a feature's tests or docs.
 - **History**: `docs/changelogs/` (these are the record of what changed).
-- **Workflows and scripts** under `.github/workflows/` and `scripts/` that run in CI or deploy. A cleanup PR does not change how CI or deployment behaves.
+- **Owner and agent docs**: everything under `docs/operations/`, `docs/agents/`, `docs/plans/`, `public/`, `AGENTS.md`, `CLAUDE.md`, `.claude/` and `.githooks/`. Being unlinked is not a reason to remove these.
+- **Everything under `.github/` and `scripts/`**: only filler in comments may change.
 - **Migrations, secrets and environment handling.**
 
 When unsure, do not remove. Write the item in the PR body (or the issue comment) as "not removed: reason".
@@ -39,7 +40,7 @@ When unsure, do not remove. Write the item in the PR body (or the issue comment)
 
 Every removal needs written evidence in the PR body.
 
-- **Duplicate test**: name the test that still covers the same behaviour (file and test title). Show it passes after the removal.
+- **Duplicate test**: name the test that still covers the same behaviour (file and test title). Quote the assertion lines of the removed test and of the test that stays. Every removed assertion must appear, with the same input and the same expected value, in the test that stays. Show it passes after the removal. Also run `git log --follow` on the test file and quote the commit that added it. If that commit or its PR fixes a bug or names an issue, the test is a regression test: do not remove it.
 - **Brittle test**: name the user-visible behaviour that another test still covers.
 - **Behaviour that no longer exists**: show a search for the old code path (`rg`) with no hits.
 - **Unused code**: show that `npm run knip` lists it, and that a search for the name across `src`, `server`, `api`, `scripts` and `tests` finds no use.
@@ -84,10 +85,10 @@ Close the issue with the comment "nothing to clean", and list the commands you r
    - branch from the latest `main`;
    - add the changelog file;
    - put the evidence and the before and after numbers in the PR body;
-   - add the label `cleanup-pr`.
-5. A second, separate Opus subagent reads each PR diff and this file, and judges it before you open the PR for review. If it rejects a PR, fix it or drop it.
-6. **Never merge.** Stop after the label. Shaked merges.
-7. Post the Handoff on the issue and close the issue as completed.
+   - a second, separate Opus subagent reads the PR diff and this file, and judges it. If it rejects the PR, close the PR and its branch. Do not leave a rejected PR open. If the fix is small, fix it and ask the subagent to judge again first;
+   - only after the judgement passes, add the label `cleanup-pr`.
+5. **Never merge.** Stop after the label. Shaked merges.
+6. Post the Handoff on the issue and close the issue as completed.
 
 ## Standing rules that still apply
 
