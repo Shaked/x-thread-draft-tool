@@ -263,12 +263,13 @@ Per component, beyond the table:
 
 ## 5. Page migration order
 One PR per page or small group. Each PR:
-1. first adds its scenes to `tests/e2e/screens.spec.ts` if they are missing (today the harness has: login,
-   login-suspended, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden, preview, share,
-   menu-open, menu-open-dark, tokens, tokens-dark, tokens-created, tokens-created-dark, changelog, changelog-dark,
-   consent-signed-out, consent);
-2. takes the `before-*` shots with that harness from a `main` worktree (`git worktree add ../main-shots origin/main`),
-   and the `after-*` shots from the branch;
+1. first adds its scenes to `tests/e2e/screens.spec.ts` if they are missing, and a dark variant at both widths for
+   each of its scenes (today the harness has: login, login-suspended, drafts-empty, drafts-three, editor,
+   editor-export-menu, editor-bar-hidden, preview, share, menu-open, tokens, tokens-created, changelog,
+   consent-signed-out, consent, consent-admin; dark only for tokens and tokens-created at both widths, and for
+   menu-open and changelog on phones);
+2. takes the `before-*` shots from a `main` worktree (`git worktree add ../main-shots origin/main`) with the
+   branch's `tests/e2e/screens.spec.ts` copied into it, and the `after-*` shots from the branch;
 3. commits only **390 px light and 1280 px dark** of each scene under `docs/screenshots/ui-<task>/` (the repo's
    `docs/screenshots` is already 4.2 MB); the other combinations are in the `ui-audit` CI artifact;
 4. keeps the behaviours listed below passing their existing tests.
@@ -312,7 +313,7 @@ unit test files must each stay under 300 ms and read files once.
      `100vh`, `100dvh`, the fallback `0px` inside `env(safe-area-inset-*, 0px)`, and the breakpoints below;
    - `font-family`, `font-size`, `font-weight`, `line-height`, `border-radius`, `box-shadow`, `z-index`,
      `transition`, `animation`, `opacity` with a value that is not built from `var(--…)`. Allowed without a token:
-     the CSS-wide keywords (`inherit`, `initial`, `unset`, `revert`), `none`, `0`, `auto`, and `font: inherit`
+     the CSS-wide keywords (`inherit`, `initial`, `unset`, `revert`), `none`, `0`, `auto`, `opacity: 1`, and `font: inherit`
      (so `base.css` resets pass); animation names and `infinite`, `alternate`, `both`, `forwards` next to `var()` times;
    - `transition: all`; `outline: none` unless the same file has a `:focus-visible` rule;
    - a physical property, matched on the property name: any name containing `left` or `right` (`left`, `margin-left`,
