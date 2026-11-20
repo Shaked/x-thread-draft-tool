@@ -1,0 +1,1 @@
+Cleanup review 2026-11-20 (#266): removed two unlinked agent docs, `docs/skills/index.md` (an old, incomplete copy of the skill map in `claude.md`) and `docs/skills/required.md` (a generic list no file links to).
