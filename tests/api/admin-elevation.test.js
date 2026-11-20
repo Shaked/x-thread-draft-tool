@@ -215,6 +215,50 @@ describe('the consent page tells the admin, and only the admin, that the app get
     noAdminText(await (await getPage(path, await cookieFor(admin))).text())
   })
 
+  // Audit #276, R4: the owner sees which site the app belongs to, and a warning when the code would go elsewhere.
+  /** A metadata-document client (client_id is an https URL), as cached after a fetch: no network. */
+  async function metadataClient(clientId, redirectUri) {
+    await db.pg.query(
+      "insert into oauth_clients (client_id, kind, client_name, redirect_uris, metadata_fetched_at) values ($1, 'metadata', 'Claude', $2, now())",
+      [clientId, [redirectUri]]
+    )
+    return clientId
+  }
+  const adminPage = async (clientId, redirect, user = admin) =>
+    (await getPage(authorizePath(clientId, { redirectUri: redirect, challenge: pkce().challenge }), await cookieFor(user))).text()
+  const MISMATCH = "The return address is not on the app's own site."
+
+  it('names the app site of a metadata client and warns only when the return address is elsewhere', async () => {
+    const own = await adminPage(await metadataClient('https://claude.ai/oauth/client.json', CLAUDE), CLAUDE)
+    expect(own).toContain("The app's own site is <strong>claude.ai</strong>.")
+    expect(own).not.toContain(MISMATCH)
+
+    const sub = await adminPage(await metadataClient('https://example.com/client.json', 'https://app.example.com/cb'), 'https://app.example.com/cb')
+    expect(sub).not.toContain(MISMATCH)
+
+    const local = await adminPage(await metadataClient('https://cli.example/client.json', LOOPBACK), LOOPBACK)
+    expect(local).not.toContain(MISMATCH)
+
+    for (const [clientId, redirect] of [
+      ['https://claude.ai.evil.example/client.json', EVIL],
+      ['https://evil.example/client.json', 'https://notevil.example/cb'],
+      ['https://app.example.com/client.json', 'https://example.com/cb']
+    ]) {
+      const html = await adminPage(await metadataClient(clientId, redirect), redirect)
+      expect(html).toContain(`The app's own site is <strong>${new URL(clientId).host}</strong>.`)
+      expect(html).toContain(`<strong>${MISMATCH}</strong>`)
+    }
+  })
+
+  it('says a registered client names no site, and shows no site line to a normal user', async () => {
+    const registered = await adminPage(await registerClient(EVIL), EVIL)
+    expect(registered).toContain('This app did not say which site it belongs to.')
+    expect(registered).not.toContain(MISMATCH)
+    const userPage = await adminPage(await metadataClient('https://evil.example/client.json', 'https://other.example/cb'), 'https://other.example/cb', alice)
+    expect(userPage).not.toContain("app's own site")
+    expect(userPage).not.toContain(MISMATCH)
+  })
+
   it('escapes the state in the consent link', async () => {
     const clientId = await registerClient(CLAUDE)
     const html = await (

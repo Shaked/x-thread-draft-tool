@@ -24,6 +24,7 @@ Rules that come from the code:
 - To end admin for one app, go to the Connected apps list on the settings page and revoke the app. A revoked connection stops working.
 - `ADMIN_DISABLED=1` in the environment turns admin off for everyone, including you. It is read on every check, so a new deploy is needed for a change to apply.
 - Any app you approve while signed in as you can use admin tools, with no time limit. Approve only apps you started yourself, and revoke apps you no longer use.
+- The consent page names the app's own site (the host of its client_id), and says in bold when the return address is not on that site. Do not approve then. A registered app names no site, so the page says that instead.
 
 ## The eight tools
 
