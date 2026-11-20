@@ -24,8 +24,8 @@ What a message looks like:
 - Line 1: the emoji and the headline, in bold (in the HTML version; the plain-text fallback has no bold).
 - Line 2: for the two production kinds, the short commit id (7 characters, in code font) and the commit title. For the other kinds, the issue or PR title. The cleanup kinds show the title in a quote block.
 - Line 3 (production kinds only): "Smoke tests passed." or "The smoke test did not pass."
-- Cleanup kind only, line 3 after the link: the first line of the PR body, when it starts with `Summary:` (the text after `Summary:`, cut to 120 characters). No such line means no summary line.
-- Last line: the links, separated by " · ".
+- Cleanup kind only, line 4 (after the link): the first line of the PR body, when it starts with `Summary:` (the text after `Summary:`, cut to 120 characters). No such line means no summary line.
+- Links line, separated by " · " (for the cleanup kind it is line 3, and the summary, when there is one, comes after it).
 
 Titles are cut to 120 characters.
 
