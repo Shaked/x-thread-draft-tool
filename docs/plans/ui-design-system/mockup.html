@@ -1,0 +1,238 @@
+<!doctype html>
+<!--
+  Mock-up of the proposed look (docs/plans/ui-design-system.md). Static HTML, not product code.
+  Open with ?screen=tokens|drafts|dialog&theme=light|dark. Every value in the <style> below comes from tokens.css;
+  the only raw numbers are 0, 1 (flex) and the icon stroke width, as the token lint will allow in src/.
+-->
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UI mock-up</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); font-size: var(--font-size-md); line-height: var(--line-height-normal); background: var(--color-bg); color: var(--color-text); }
+:focus-visible { outline: var(--focus-ring-width) solid var(--color-focus); outline-offset: var(--focus-ring-offset); }
+
+/* Page, PageHeader, Section, Stack, Inline */
+.ui-page { max-width: var(--page-w); margin-inline: auto; padding: var(--space-6) var(--page-gutter) var(--space-16); }
+.ui-page--narrow { max-width: var(--page-w-narrow); }
+.ui-page-header { display: flex; align-items: center; gap: var(--space-3); min-height: var(--header-h); margin-block-end: var(--space-6); }
+.ui-page-header__titles { flex: 1; min-width: 0; }
+.ui-page-header h1 { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); line-height: var(--line-height-tight); }
+.ui-page-header p { color: var(--color-text-soft); font-size: var(--font-size-sm); margin-block-start: var(--space-1); }
+.ui-section { display: flex; flex-direction: column; gap: var(--space-4); margin-block-end: var(--space-8); }
+.ui-section__head h2 { font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight); }
+.ui-section__head p { color: var(--color-text-soft); margin-block-start: var(--space-1); }
+.ui-stack { display: flex; flex-direction: column; gap: var(--space-3); }
+.ui-inline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+@media (min-width: 768px) { .ui-page-header h1 { font-size: var(--font-size-3xl); } }
+
+/* Card */
+.ui-card { background: var(--color-surface); border: var(--border-width) solid var(--color-border-soft); border-radius: var(--radius-lg); padding: var(--space-5); }
+
+/* Button, IconButton */
+.ui-button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: var(--control-h-md); padding-inline: var(--space-4); border-radius: var(--radius-md);
+  border: var(--border-width) solid transparent; font: inherit; font-weight: var(--font-weight-semibold); cursor: pointer; white-space: nowrap;
+  transition: background-color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard); }
+.ui-button:active { transform: scale(var(--press-scale)); }
+.ui-button--primary { background: var(--color-accent); color: var(--color-text-on-accent); }
+.ui-button--primary:hover { background: var(--color-accent-hover); }
+.ui-button--secondary { background: var(--color-surface-raised); color: var(--color-text); border-color: var(--color-border); }
+.ui-button--secondary:hover { background: var(--color-accent-soft); border-color: var(--color-accent); }
+.ui-button--ghost { background: transparent; color: var(--color-accent); }
+.ui-button--ghost:hover { background: var(--color-accent-soft); }
+.ui-button--danger { background: var(--color-danger); color: var(--color-text-on-danger); }
+.ui-button--danger-quiet { background: transparent; color: var(--color-danger); border-color: var(--color-border-soft); }
+.ui-button--danger-quiet:hover { background: var(--color-danger-soft); border-color: var(--color-danger); }
+.ui-button--sm { min-height: var(--control-h-sm); padding-inline: var(--space-3); font-size: var(--font-size-sm); }
+.ui-icon-button { display: inline-flex; align-items: center; justify-content: center; width: var(--hit-min); height: var(--hit-min);
+  border-radius: var(--radius-md); border: 0; background: transparent; color: var(--color-text); cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard); }
+.ui-icon-button:hover { background: var(--color-surface-2); }
+.ui-icon { width: var(--icon-size); height: var(--icon-size); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Field, Input, Select */
+.ui-form-row { display: flex; flex-direction: column; gap: var(--space-3); }
+.ui-field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.ui-field__label { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); }
+.ui-field__help { font-size: var(--font-size-sm); color: var(--color-text-soft); }
+.ui-input, .ui-select { width: 100%; min-height: var(--control-h-md); padding-inline: var(--space-3); border-radius: var(--radius-md);
+  border: var(--border-width) solid var(--color-border); background: var(--color-bg); color: var(--color-text); font: inherit;
+  transition: border-color var(--duration-fast) var(--ease-standard); }
+.ui-input:hover, .ui-select:hover { border-color: var(--color-accent); }
+.ui-input::placeholder { color: var(--color-text-soft); }
+@media (min-width: 600px) {
+  .ui-form-row { flex-direction: row; align-items: flex-end; }
+  .ui-form-row > .ui-field:first-child { flex: 1; }
+}
+
+/* Banner */
+.ui-banner { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg);
+  border: var(--border-width) solid var(--color-warning); background: var(--color-warning-soft); }
+.ui-banner__title { font-weight: var(--font-weight-semibold); color: var(--color-text); }
+.ui-banner__title span { color: var(--color-warning); }
+
+/* CodeBlock */
+.ui-code { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  background: var(--color-bg); border: var(--border-width) solid var(--color-border-soft); border-radius: var(--radius-md); }
+.ui-code code { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
+
+/* List, ListItem */
+.ui-list { list-style: none; background: var(--color-surface); border: var(--border-width) solid var(--color-border-soft); border-radius: var(--radius-lg); overflow: hidden; }
+.ui-list-item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-4); min-height: var(--control-h-lg); }
+.ui-list-item + .ui-list-item { border-block-start: var(--border-width) solid var(--color-border-soft); }
+.ui-list-item__main { flex: 1 1 0; min-width: 0; color: inherit; text-decoration: none; border-radius: var(--radius-sm); }
+.ui-list-item__title { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight); }
+.ui-list-item__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); margin-block-start: var(--space-1); font-size: var(--font-size-sm); color: var(--color-text-soft); }
+.ui-list-item__actions { display: flex; gap: var(--space-2); flex-shrink: 0; }
+@media (max-width: 599.98px) { .ui-list-item__main { flex-basis: 100%; } .ui-list-item__actions { margin-inline-start: auto; } }
+.ui-list-item--link { cursor: pointer; transition: background-color var(--duration-fast) var(--ease-standard); }
+.ui-list-item--link:hover { background: var(--color-surface-2); }
+
+/* Badge */
+.ui-badge { display: inline-flex; align-items: center; padding: 0 var(--space-2); border-radius: var(--radius-full); font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); line-height: var(--line-height-normal); }
+.ui-badge--accent { background: var(--color-accent-soft); color: var(--color-accent-soft-text); }
+.ui-badge--success { background: var(--color-success-soft); color: var(--color-success); }
+.ui-badge--neutral { background: var(--color-surface-2); color: var(--color-text-soft); }
+
+/* Tabs */
+.ui-tabs { display: flex; gap: var(--space-1); border-block-end: var(--border-width) solid var(--color-border-soft); margin-block-end: var(--space-4); }
+.ui-tab { min-height: var(--control-h-md); padding-inline: var(--space-4); border: 0; background: transparent; font: inherit; font-weight: var(--font-weight-semibold);
+  color: var(--color-text-soft); border-block-end: var(--border-width-strong) solid transparent; cursor: pointer;
+  transition: color var(--duration-base) var(--ease-standard), border-color var(--duration-base) var(--ease-standard); }
+.ui-tab[aria-selected='true'] { color: var(--color-accent); border-block-end-color: var(--color-accent); }
+.ui-tab .ui-badge { margin-inline-start: var(--space-1); }
+
+/* App bar on phones (bottom); in the header from 768 px */
+.ui-app-bar { display: flex; align-items: center; gap: var(--space-2); }
+@media (max-width: 767.98px) {
+  .ui-app-bar { position: fixed; inset-inline: 0; inset-block-end: 0; z-index: var(--z-bar); height: var(--bar-h);
+    padding-inline: var(--space-3); background: var(--color-surface-raised); box-shadow: var(--shadow-md); }
+  .ui-app-bar .ui-button--primary { margin-inline-start: auto; }
+}
+
+/* Dialog */
+.ui-scrim { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--color-scrim); display: flex; align-items: flex-end; justify-content: center; padding: var(--space-4); }
+.ui-dialog { width: 100%; max-width: var(--dialog-w); background: var(--color-surface-raised); border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-4); }
+.ui-dialog h2 { font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight); }
+.ui-dialog p { color: var(--color-text-soft); }
+.ui-dialog__actions { display: flex; flex-direction: column-reverse; gap: var(--space-2); margin-block-start: var(--space-2); }
+.ui-dialog__actions .ui-button { width: 100%; }
+@media (min-width: 600px) {
+  .ui-scrim { align-items: center; }
+  .ui-dialog__actions { flex-direction: row; justify-content: flex-end; }
+  .ui-dialog__actions .ui-button { width: auto; min-width: var(--space-16); }
+}
+
+/* Toast */
+.ui-toast { position: fixed; z-index: var(--z-toast); inset-inline: var(--space-4); inset-block-end: calc(var(--bar-h) + var(--space-3));
+  display: flex; align-items: center; gap: var(--space-3); max-width: var(--dialog-w); margin-inline: auto; padding: var(--space-3) var(--space-4);
+  background: var(--color-text); color: var(--color-bg); border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-weight: var(--font-weight-medium); }
+@media (min-width: 768px) { .ui-toast { inset-block-end: var(--space-6); } }
+
+.mock-hidden { display: none; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-signout" viewBox="0 0 24 24"><path d="M10 4H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 8l4 4-4 4M19 12H9"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h10v10H9zM5 15V5h10"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+</svg>
+
+<!-- Screen 1: API tokens (after the #281 split) -->
+<main id="tokens" class="ui-page ui-page--narrow">
+  <header class="ui-page-header">
+    <button class="ui-icon-button" aria-label="Menu"><svg class="ui-icon"><use href="#i-menu"/></svg></button>
+    <div class="ui-page-header__titles">
+      <h1>API tokens</h1>
+      <p>Let an agent use the API as you.</p>
+    </div>
+    <div class="ui-app-bar"><button class="ui-icon-button" aria-label="Sign out"><svg class="ui-icon"><use href="#i-signout"/></svg></button></div>
+  </header>
+
+  <section class="ui-section">
+    <div class="ui-section__head">
+      <h2>Create a token</h2>
+      <p>Each token has the same permissions as your account. See <code>/llms.txt</code> for how agents use it.</p>
+    </div>
+    <div class="ui-card ui-stack">
+      <div class="ui-form-row">
+        <label class="ui-field"><span class="ui-field__label">Name</span><input class="ui-input" placeholder="e.g. Claude agent" value="Laptop agent" /></label>
+        <label class="ui-field"><span class="ui-field__label">Expires after</span><select class="ui-select"><option>7 days</option></select></label>
+        <button class="ui-button ui-button--primary">Create token</button>
+      </div>
+      <div class="ui-banner" role="status">
+        <p class="ui-banner__title"><span>Copy this token now.</span> It won't be shown again.</p>
+        <div class="ui-code"><code>xt_N3Kt3-DnUEG45CESIVY5OXQ3yQfJKXbifsovXZhSzhU</code><button class="ui-button ui-button--secondary ui-button--sm"><svg class="ui-icon"><use href="#i-copy"/></svg>Copy</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ui-section">
+    <div class="ui-section__head"><h2>Your tokens</h2></div>
+    <ul class="ui-list">
+      <li class="ui-list-item"><div class="ui-list-item__main"><div class="ui-list-item__title">Laptop agent <span class="ui-badge ui-badge--success">Active</span></div>
+        <div class="ui-list-item__meta"><code>xt_N3Kt3…</code><span>Expires 27 Nov</span><span>Never used</span></div></div>
+        <div class="ui-list-item__actions"><button class="ui-button ui-button--danger-quiet ui-button--sm">Revoke</button></div></li>
+      <li class="ui-list-item"><div class="ui-list-item__main"><div class="ui-list-item__title">CI smoke <span class="ui-badge ui-badge--neutral">Revoked</span></div>
+        <div class="ui-list-item__meta"><code>xt_W0vu0…</code><span>Revoked 18 Nov</span></div></div></li>
+    </ul>
+    <p><a href="#" class="ui-button ui-button--ghost">Connected apps →</a></p>
+  </section>
+</main>
+
+<!-- Screen 2: draft list -->
+<main id="drafts" class="ui-page">
+  <header class="ui-page-header">
+    <button class="ui-icon-button" aria-label="Menu"><svg class="ui-icon"><use href="#i-menu"/></svg></button>
+    <div class="ui-page-header__titles"><h1>Your threads</h1></div>
+    <div class="ui-app-bar">
+      <button class="ui-button ui-button--primary"><svg class="ui-icon"><use href="#i-plus"/></svg>New draft</button>
+      <button class="ui-icon-button" aria-label="Sign out"><svg class="ui-icon"><use href="#i-signout"/></svg></button>
+    </div>
+  </header>
+  <div class="ui-tabs" role="tablist">
+    <button class="ui-tab" role="tab" aria-selected="true">Drafts<span class="ui-badge ui-badge--accent">3</span></button>
+    <button class="ui-tab" role="tab" aria-selected="false">Published<span class="ui-badge ui-badge--neutral">0</span></button>
+  </div>
+  <ul class="ui-list">
+    <li class="ui-list-item ui-list-item--link"><a class="ui-list-item__main" href="#"><div class="ui-list-item__title">Launch thread</div>
+      <div class="ui-list-item__meta"><span>3 posts</span><span>Updated 20 Nov, 20:32</span></div></a>
+      <div class="ui-list-item__actions"><button class="ui-button ui-button--ghost ui-button--sm"><svg class="ui-icon"><use href="#i-copy"/></svg>Duplicate</button><button class="ui-button ui-button--danger-quiet ui-button--sm"><svg class="ui-icon"><use href="#i-trash"/></svg>Delete draft</button></div></li>
+    <li class="ui-list-item ui-list-item--link"><a class="ui-list-item__main" href="#"><div class="ui-list-item__title">Weekly notes</div>
+      <div class="ui-list-item__meta"><span>1 post</span><span>Updated 20 Nov, 20:32</span></div></a>
+      <div class="ui-list-item__actions"><button class="ui-button ui-button--ghost ui-button--sm"><svg class="ui-icon"><use href="#i-copy"/></svg>Duplicate</button><button class="ui-button ui-button--danger-quiet ui-button--sm"><svg class="ui-icon"><use href="#i-trash"/></svg>Delete draft</button></div></li>
+    <li class="ui-list-item ui-list-item--link"><a class="ui-list-item__main" href="#"><div class="ui-list-item__title" dir="auto">רעיונות לשרשור</div>
+      <div class="ui-list-item__meta"><span>1 post</span><span>Updated 19 Nov, 09:10</span></div></a>
+      <div class="ui-list-item__actions"><button class="ui-button ui-button--ghost ui-button--sm"><svg class="ui-icon"><use href="#i-copy"/></svg>Duplicate</button><button class="ui-button ui-button--danger-quiet ui-button--sm"><svg class="ui-icon"><use href="#i-trash"/></svg>Delete draft</button></div></li>
+  </ul>
+</main>
+
+<!-- Screen 3: dialog over the draft list -->
+<div id="dialog" class="ui-scrim">
+  <div class="ui-dialog" role="alertdialog" aria-modal="true" aria-labelledby="dlg-title" aria-describedby="dlg-desc">
+    <h2 id="dlg-title">Delete “Launch thread”?</h2>
+    <p id="dlg-desc">The draft and its 3 posts are deleted for good. Its images are removed too.</p>
+    <div class="ui-dialog__actions">
+      <button class="ui-button ui-button--secondary">Cancel</button>
+      <button class="ui-button ui-button--danger">Delete draft</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="ui-toast" role="status">Thread copied with numbers</div>
+
+<script>
+  const q = new URLSearchParams(location.search)
+  const screen = q.get('screen') || 'tokens'
+  document.documentElement.dataset.theme = q.get('theme') || 'light'
+  const show = { tokens: ['tokens'], drafts: ['drafts', 'toast'], dialog: ['drafts', 'dialog'] }[screen]
+  for (const id of ['tokens', 'drafts', 'dialog', 'toast']) document.getElementById(id).classList.toggle('mock-hidden', !show.includes(id))
+</script>
+</body>
+</html>
