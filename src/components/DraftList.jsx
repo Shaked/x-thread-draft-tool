@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { draftsApi } from '../utils/api'
-import AppMenu from './AppMenu'
-import AppBar from './AppBar'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Dialog'
+import Banner from '../ui/Banner'
+import Button from '../ui/Button'
+import Card from '../ui/Card'
+import EmptyState from '../ui/EmptyState'
+import { List, ListItem } from '../ui/List'
+import Page from '../ui/Page'
+import PageHeader from '../ui/PageHeader'
+import Skeleton from '../ui/Skeleton'
+import Stack from '../ui/Stack'
+import Tabs from '../ui/Tabs'
+
+const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
 export default function DraftList({ user }) {
   const [activeTab, setActiveTab] = useState('drafts') // 'drafts' or 'published'
@@ -100,108 +110,77 @@ export default function DraftList({ user }) {
     }
   }
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleString()
-  }
+  const formatDate = (dateString) => dateFormat.format(new Date(dateString))
 
   const getPostCount = (draft) => {
     return Array.isArray(draft.posts) ? draft.posts.length : 0
   }
 
   const currentList = activeTab === 'drafts' ? drafts : published
+  const loaded = !loading && !error
+  const showNewDraft = !(activeTab === 'drafts' && loaded && drafts.length === 0)
 
   return (
-    <div className="draft-list-page">
-      <div className="draft-list-header">
-        <div className="page-title">
-          <AppMenu />
-          <h1>Your Threads</h1>
-        </div>
-        <AppBar>
-          {!(activeTab === 'drafts' && !loading && !error && drafts.length === 0) && (
-            <button className="new-draft-btn" onClick={createNewDraft}>
-              New draft
-            </button>
-          )}
-        </AppBar>
-      </div>
+    <Page width="default">
+      <PageHeader
+        title="Your Threads"
+        actions={showNewDraft ? <Button variant="primary" onClick={createNewDraft}>New draft</Button> : null}
+      />
+      <Stack gap={4}>
+        <Tabs
+          label="Threads"
+          tabs={[
+            { id: 'drafts', label: 'Drafts', count: drafts.length },
+            { id: 'published', label: 'Published', count: published.length }
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
 
-      <div className="draft-tabs">
-        <button
-          className={`tab ${activeTab === 'drafts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('drafts')}
-        >
-          Drafts ({drafts.length})
-        </button>
-        <button
-          className={`tab ${activeTab === 'published' ? 'active' : ''}`}
-          onClick={() => setActiveTab('published')}
-        >
-          Published ({published.length})
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="loading" role="status" aria-live="polite">Loading your threads…</div>
-      ) : error ? (
-        <div className="error" role="alert">Could not load your threads: {error}</div>
-      ) : currentList.length === 0 ? (
-        <div className="empty-state">
-          {activeTab === 'drafts' ? (
-            <>
-              <p>No drafts yet. Create your first thread to get started.</p>
-              <button className="new-draft-btn" onClick={createNewDraft}>
-                Create your first draft
-              </button>
-            </>
+        {loading ? (
+          <Skeleton variant="row" lines={3} />
+        ) : error ? (
+          <Banner tone="danger" role="alert">Could not load your threads: {error}</Banner>
+        ) : currentList.length === 0 ? (
+          activeTab === 'drafts' ? (
+            <EmptyState
+              title="No drafts yet."
+              description="Create your first thread to get started."
+              action={<Button variant="primary" onClick={createNewDraft}>Create your first draft</Button>}
+            />
           ) : (
-            <p>No published threads yet.</p>
-          )}
-        </div>
-      ) : (
-        <div className="draft-list">
-          {currentList.map((draft) => (
-            <div key={draft.id} className="draft-item">
-              <div
-                className="draft-info"
-                onClick={() => navigate(`/draft/${draft.id}`)}
-              >
-                <h3>{draft.title}</h3>
-                <div className="draft-meta">
-                  <span>{getPostCount(draft)} {getPostCount(draft) === 1 ? 'post' : 'posts'}</span>
-                  <span>•</span>
-                  <span>
-                    {activeTab === 'published'
+            <EmptyState title="No published threads yet." />
+          )
+        ) : (
+          <Card padding="none">
+            <List>
+              {currentList.map((draft) => (
+                <ListItem
+                  key={draft.id}
+                  title={draft.title}
+                  to={`/draft/${draft.id}`}
+                  meta={[
+                    `${getPostCount(draft)} ${getPostCount(draft) === 1 ? 'post' : 'posts'}`,
+                    activeTab === 'published'
                       ? `Published ${formatDate(draft.published_at)}`
-                      : `Updated ${formatDate(draft.updated_at)}`}
-                  </span>
-                </div>
-              </div>
-              <div className="draft-actions">
-                <button
-                  className="duplicate-btn"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    duplicateDraft(draft)
-                  }}
-                >
-                  Duplicate
-                </button>
-                <button
-                  className="delete-btn"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    deleteDraft(draft.id)
-                  }}
-                >
-                  Delete draft
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+                      : `Updated ${formatDate(draft.updated_at)}`
+                  ]}
+                  actions={
+                    <>
+                      <Button variant="ghost" size="sm" onClick={() => duplicateDraft(draft)}>
+                        Duplicate
+                      </Button>
+                      <Button variant="danger-quiet" size="sm" onClick={() => deleteDraft(draft.id)}>
+                        Delete draft
+                      </Button>
+                    </>
+                  }
+                />
+              ))}
+            </List>
+          </Card>
+        )}
+      </Stack>
+    </Page>
   )
 }

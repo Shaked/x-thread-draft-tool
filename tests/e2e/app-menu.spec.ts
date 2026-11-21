@@ -154,7 +154,7 @@ for (const size of SIZES) {
       try {
         await page.goto(`${BASE}/`)
         await page.getByRole('heading', { name: 'Your Threads' }).waitFor()
-        const header = page.locator('.draft-list-header')
+        const header = page.locator('header.ui-page-header')
         await expect(header.getByText('Theme')).toHaveCount(0)
         await expect(header.getByRole('button', { name: 'API tokens' })).toHaveCount(0)
         await expect(page.getByRole('button', { name: 'API tokens' })).toHaveCount(0)

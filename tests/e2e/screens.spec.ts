@@ -112,6 +112,7 @@ test.describe('screens', () => {
 
       // Empty list: a user with no drafts.
       await shoot(browser, width, 'drafts-empty', '/', { token: empty })
+      await shoot(browser, width, 'drafts-empty-dark', '/', { token: empty, theme: 'dark', ready: (p) => p.getByRole('button', { name: 'Create your first draft' }) })
 
       // Three drafts for the owner; the editor draft has three posts, one with an image.
       const imageUrl = `${BASE}/pwa-192x192.png`
@@ -130,6 +131,26 @@ test.describe('screens', () => {
       await shoot(browser, width, 'login-suspended', '/?suspended=1', { ready: (p) => p.getByRole('alert').getByText('This account is suspended.') })
       await shoot(browser, width, 'drafts-three', '/', { token: owner, ready: (p) => p.getByText('Launch thread') })
       await shoot(browser, width, 'drafts-three-dark', '/', { token: owner, theme: 'dark', ready: (p) => p.getByText('Launch thread') })
+
+      // The draft list with a Hebrew title (plan T6): the Drafts tab, and the Published tab with one published draft.
+      const hebrew = await devToken(request, `screens-hebrew-${run}`)
+      const hebrewPublished = await apiJson<{ draft: { id: string } }>(request, hebrew, 'POST', '/api/drafts', {
+        title: 'שרשור שפורסם',
+        posts: [{ id: 'hp1', text: 'טקסט בעברית לדוגמה', images: [], embeddedTweet: null }]
+      })
+      await apiJson(request, hebrew, 'POST', `/api/drafts/${hebrewPublished.draft.id}/publish`)
+      await apiJson(request, hebrew, 'POST', '/api/drafts', {
+        title: 'טיוטה חדשה',
+        posts: [{ id: 'hd1', text: 'עוד טקסט בעברית', images: [], embeddedTweet: null }]
+      })
+      const showPublished = async (p: Page) => {
+        await p.getByRole('tab', { name: 'Published (1)' }).click()
+        await p.getByText('שרשור שפורסם').waitFor()
+      }
+      await shoot(browser, width, 'drafts-hebrew', '/', { token: hebrew, ready: (p) => p.getByText('טיוטה חדשה') })
+      await shoot(browser, width, 'drafts-hebrew-dark', '/', { token: hebrew, theme: 'dark', ready: (p) => p.getByText('טיוטה חדשה') })
+      await shoot(browser, width, 'drafts-published', '/', { token: hebrew, ready: (p) => p.getByText('טיוטה חדשה'), before: showPublished })
+      await shoot(browser, width, 'drafts-published-dark', '/', { token: hebrew, theme: 'dark', ready: (p) => p.getByText('טיוטה חדשה'), before: showPublished })
       await shoot(browser, width, 'editor', `/draft/${editorId}`, { token: owner, ready: (p) => p.locator('.draft-title-input') })
       await shoot(browser, width, 'editor-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.locator('.draft-title-input') })
       await shoot(browser, width, 'editor-export-menu', `/draft/${editorId}`, {
