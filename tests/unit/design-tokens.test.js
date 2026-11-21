@@ -107,6 +107,12 @@ export function lintJs(text, file = '') {
     if (lengthIn(inner)) broken.add('style-length')
   }
   if (NO_CSS_IMPORT(file) && /import\s[^'"]*['"][^'"]+\.css['"]/.test(js)) broken.add('css-import')
+  // A src/ui/X.css (other than base.css) is imported only by src/ui/X.jsx.
+  for (const [, spec] of js.matchAll(/import\s[^'"]*['"]([^'"]+\.css)['"]/g)) {
+    const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), spec))
+    const name = path.posix.basename(target, '.css')
+    if (target.startsWith('src/ui/') && target !== 'src/ui/base.css' && path.posix.basename(file) !== name + '.jsx') broken.add('ui-css-import')
+  }
   return [...broken].sort()
 }
 
@@ -155,6 +161,9 @@ describe('token lint: self-check', () => {
     expect(lintJs('const a = <div style={{ color: "#fff" }} />', 'src/x.jsx')).toEqual(['style-colour', 'style-prop'])
     expect(lintJs('const a = <div style={{ top: 4 }} />', 'src/x.jsx')).toEqual(['style-prop'])
     expect(lintJs('import "../x.css"', 'src/pages/P.jsx')).toEqual(['css-import'])
+    expect(lintJs('import "../ui/Card.css"', 'src/components/Foo.jsx')).toEqual(['ui-css-import'])
+    expect(lintJs('import "./Card.css"', 'src/ui/Card.jsx')).toEqual([])
+    expect(lintJs('import "./ui/base.css"', 'src/main.jsx')).toEqual([])
     expect(lintJs('// <div style={{ color: "#fff" }} />\nconst a = 1', 'src/x.jsx')).toEqual([])
   })
 })
