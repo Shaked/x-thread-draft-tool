@@ -6,6 +6,7 @@ import Dialog from '../ui/Dialog'
 import IconButton from '../ui/IconButton'
 import Section from '../ui/Section'
 import Stack from '../ui/Stack'
+import { useCurrentUser } from '../utils/currentUser'
 import { signOut } from './LogoutButton'
 import ThemeSetting from './ThemeSetting'
 import './AppMenu.css'
@@ -22,6 +23,7 @@ export default function AppMenu() {
 
   const close = () => setOpen(false)
   const menuButton = useRef(null)
+  const user = useCurrentUser()
   const build = localBuildInfo()
   const version = formatVersion(build, new Date())
 
@@ -48,9 +50,11 @@ export default function AppMenu() {
               <Button variant="ghost" fullWidth to="/settings/apps" onClick={close}>
                 Connected apps
               </Button>
-              <Button variant="ghost" fullWidth to="/changelog" onClick={close}>
-                Changelog
-              </Button>
+              {user?.admin === true && (
+                <Button variant="ghost" fullWidth to="/changelog" onClick={close}>
+                  Changelog
+                </Button>
+              )}
             </Stack>
           </Section>
           <div className="app-menu-foot">

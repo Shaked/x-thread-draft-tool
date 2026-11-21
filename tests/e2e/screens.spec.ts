@@ -26,8 +26,8 @@ const OUT = path.join('test-results', 'screens')
 // A POST sent from the preview origin is therefore re-sent with the API origin (same trick as app-menu.spec.ts).
 const APP_ORIGIN = ORIGIN === 'http://127.0.0.1:4173' || ORIGIN === 'http://localhost:4173' ? 'http://127.0.0.1:8787' : ORIGIN
 
-async function devToken(request: APIRequestContext, login: string): Promise<string> {
-  const res = await request.post(`${BASE}/api/dev/token`, { data: { login } })
+async function devToken(request: APIRequestContext, login: string, admin = false): Promise<string> {
+  const res = await request.post(`${BASE}/api/dev/token`, { data: { login, admin } })
   expect(res.ok()).toBeTruthy()
   return (await res.json()).token as string
 }
@@ -109,6 +109,7 @@ test.describe('screens', () => {
       const run = `${width}-${Date.now()}`
       const owner = await devToken(request, `screens-owner-${run}`)
       const empty = await devToken(request, `screens-empty-${run}`)
+      const admin = await devToken(request, 'screens-admin', true) // the changelog is admin only (#368)
 
       // Empty list: a user with no drafts.
       await shoot(browser, width, 'drafts-empty', '/', { token: empty })
@@ -250,8 +251,8 @@ test.describe('screens', () => {
 
       // The changelog page (settings-menu.md Task 6): light at both widths, dark on phones.
       const changelogReady = (p: Page) => p.locator('article').first()
-      await shoot(browser, width, 'changelog', '/changelog', { token: owner, ready: changelogReady })
-      await shoot(browser, width, 'changelog-dark', '/changelog', { token: owner, theme: 'dark', ready: changelogReady })
+      await shoot(browser, width, 'changelog', '/changelog', { token: admin, ready: changelogReady })
+      await shoot(browser, width, 'changelog-dark', '/changelog', { token: admin, theme: 'dark', ready: changelogReady })
 
       // The About page (plan U2): light and dark at both widths. Ready once the server's version has loaded.
       const aboutReady = (p: Page) => p.getByRole('heading', { name: 'About', level: 1 })

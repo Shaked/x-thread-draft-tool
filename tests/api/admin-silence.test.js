@@ -16,11 +16,13 @@ import { listTools } from '../../server/mcp/tools.js'
 import { listUiResources, readUiResource } from '../../server/mcp/ui/index.js'
 import { APP_URL, setupTestDb } from './helpers/db.js'
 
+let db
+
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..')
 const ADMIN_WORD = /admin/i
 
 beforeAll(async () => {
-  await setupTestDb()
+  db = await setupTestDb()
 })
 
 const readRepoFile = (path) => readFileSync(join(ROOT, path), 'utf8')
@@ -74,5 +76,17 @@ describe('the word admin is absent from public text', () => {
     for (const resource of listSkillResources()) {
       expect(JSON.stringify(readSkillResource(resource.uri))).not.toMatch(ADMIN_WORD)
     }
+  })
+})
+
+describe('the changelog is hidden from a normal user (#368)', () => {
+  it('the REST route answers like an unknown path, and the tool list names no changelog', async () => {
+    await db.reset()
+    const cookie = await db.cookieFor(await db.insertUser({ github_id: 1, login: 'alice' }))
+    const unknown = await (await route(new Request(`${APP_URL}/api/zz-no-such-route`))).text()
+    const res = await route(new Request(`${APP_URL}/api/changelog`, { headers: { cookie } }))
+    expect(res.status).toBe(404)
+    expect(await res.text()).toBe(unknown)
+    expect(JSON.stringify(listTools())).not.toMatch(/changelog/i)
   })
 })
