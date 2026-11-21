@@ -196,17 +196,10 @@ const TOOLS = [
       const uploaded = await ctx.rest('POST', '/images/from-url', pick(args, ['draftId', 'url']))
       if (uploaded.status >= 400) return uploaded
       const { url } = await uploaded.json()
-      // Re-read after the upload, so edits made while it ran are kept. The PATCH sends the version of
-      // this read, so a write in between is a 412 and nothing is overwritten (#354).
-      const current = await fetchOwnedDraft(ctx, args.draftId)
-      if (current.failure) return current.failure
-      const currentIndex = current.draft.posts.findIndex((post) => post.id === args.postId)
-      if (currentIndex < 0) return json({ error: 'Post not found in this draft' }, 404)
-      if ((current.draft.posts[currentIndex].images ?? []).length >= 4) return json({ error: 'This post already has 4 images' }, 422)
-      const posts = current.draft.posts.map((post, i) => (i === currentIndex ? { ...post, images: [...(post.images ?? []), { url }] } : post))
-      // Here `url` is the image's url, so it replaces the editor link.
-      const patched = await ctx.rest('PATCH', `/drafts/${enc(args.draftId)}`, { posts }, ifMatch(current.draft.version))
-      return outlineResult(await staleOr(patched), ctx.origin, { url, postId: args.postId })
+      const attached = await attachImage(ctx, args.draftId, args.postId, url)
+      // Not attached: delete the uploaded file, so a failed call leaves no file behind (#367).
+      if (attached.status >= 400) await ctx.rest('DELETE', '/images', { url, if_unused: true })
+      return attached
     }
   },
   {
@@ -479,7 +472,7 @@ const REST_ROUTES = {
   split_text: ['POST /threads/split'],
   create_share_link: ['POST /drafts/:id/share-tokens'],
   revoke_share_link: ['DELETE /drafts/:id/share-tokens/:token', 'DELETE /drafts/:id/share-tokens'],
-  add_image_from_url: ['POST /images/from-url', 'GET /drafts/:id', 'PATCH /drafts/:id'],
+  add_image_from_url: ['POST /images/from-url', 'GET /drafts/:id', 'PATCH /drafts/:id', 'DELETE /images'],
   publish_draft: ['POST /drafts/:id/publish'],
   delete_draft: ['DELETE /drafts/:id'],
   add_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
@@ -723,6 +716,30 @@ async function staleOr(res) {
   if (res.status !== 412) return res
   const { version } = await res.json()
   return json({ error: 'The draft changed since you read it. Nothing was written. Call get_draft to read it again, then repeat the change if it still applies.', version }, 412)
+}
+
+// A post holds at most 4 images, so parallel calls for one post make at most 4 writes: a call that
+// lost the race 4 times sees 4 images on its 5th read and stops with that error, never a 412.
+const ATTACH_ATTEMPTS = 5
+
+/**
+ * add_image_from_url with postId: appends the uploaded image to the post. An assistant that adds
+ * several images at once makes parallel calls, and all but one get a 412 on the first write (#367).
+ * Each call re-reads and tries again: its image url is new and unique, and a 412 wrote nothing,
+ * so a retry cannot add it twice. Edits made by others in between are kept.
+ */
+async function attachImage(ctx, draftId, postId, url) {
+  for (let attempt = 1; ; attempt += 1) {
+    const current = await fetchOwnedDraft(ctx, draftId)
+    if (current.failure) return current.failure
+    const index = current.draft.posts.findIndex((post) => post.id === postId)
+    if (index < 0) return json({ error: 'Post not found in this draft' }, 404)
+    if ((current.draft.posts[index].images ?? []).length >= 4) return json({ error: 'This post already has 4 images' }, 422)
+    const posts = current.draft.posts.map((post, i) => (i === index ? { ...post, images: [...(post.images ?? []), { url }] } : post))
+    const patched = await ctx.rest('PATCH', `/drafts/${enc(draftId)}`, { posts }, ifMatch(current.draft.version))
+    // Here `url` is the image's url, so it replaces the editor link.
+    if (patched.status !== 412 || attempt === ATTACH_ATTEMPTS) return outlineResult(await staleOr(patched), ctx.origin, { url, postId })
+  }
 }
 
 /** Runs a post edit and answers with the outline (see outlineResult). */
