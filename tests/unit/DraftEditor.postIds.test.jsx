@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import DraftEditor from '../../src/pages/DraftEditor.jsx'
 import { draftsApi } from '../../src/utils/api'
+import { ToastProvider } from '../../src/ui/Toast.jsx'
+import { ConfirmProvider } from '../../src/ui/Dialog.jsx'
 
 vi.mock('../../src/utils/api', () => ({
   draftsApi: { get: vi.fn(), update: vi.fn() },
@@ -20,11 +22,15 @@ vi.mock('../../src/components/AppMenu', () => ({ default: () => null }))
 
 function renderEditor() {
   return render(
+    <ToastProvider>
     <MemoryRouter initialEntries={['/draft/d1']}>
+      <ConfirmProvider>
       <Routes>
         <Route path="/draft/:id" element={<DraftEditor user={{ login: 'owner' }} />} />
       </Routes>
+      </ConfirmProvider>
     </MemoryRouter>
+    </ToastProvider>
   )
 }
 

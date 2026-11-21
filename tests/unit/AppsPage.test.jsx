@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { PASTE_IN } from '../../src/utils/connectApps.js'
 import AppsPage from '../../src/pages/AppsPage.jsx'
 import { grantsApi } from '../../src/utils/api'
+import { ConfirmProvider } from '../../src/ui/Dialog.jsx'
 
 // Pins what the Connected apps page does (moved from the API tokens page, #281). Written by role and text only.
 vi.mock('../../src/utils/api', () => ({
@@ -18,7 +19,9 @@ const GRANT = { id: 'g1', client_name: 'Claude Desktop', kind: 'oauth', redirect
 function renderPage() {
   return render(
     <MemoryRouter>
-      <AppsPage />
+      <ConfirmProvider>
+        <AppsPage />
+      </ConfirmProvider>
     </MemoryRouter>
   )
 }
@@ -32,7 +35,6 @@ describe('AppsPage', () => {
     writeText = vi.fn().mockResolvedValue(undefined)
     user = userEvent.setup()
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
   afterEach(() => {
     cleanup()
@@ -57,17 +59,20 @@ describe('AppsPage', () => {
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'Revoke access for Claude Desktop' }))
 
-    expect(window.confirm).toHaveBeenCalledWith('Revoke access for Claude Desktop? It stops working right away.')
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Revoke access for Claude Desktop? It stops working right away.')
+    expect(grantsApi.revoke).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Revoke access' }))
     await waitFor(() => expect(grantsApi.revoke).toHaveBeenCalledWith('g1'))
     expect(await screen.findByText('Access for Claude Desktop was revoked.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Revoke access for Claude Desktop' })).toBeNull()
   })
 
   it('cancelling the connected-app revoke calls nothing and shows no status text', async () => {
-    window.confirm.mockReturnValue(false)
     grantsApi.list.mockResolvedValue({ grants: [GRANT] })
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'Revoke access for Claude Desktop' }))
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
     expect(grantsApi.revoke).not.toHaveBeenCalled()
     expect(screen.queryByText(/was revoked/)).toBeNull()

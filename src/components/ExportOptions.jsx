@@ -2,11 +2,13 @@ import { useRef, useState } from 'react'
 import { exportAsNumberedText, exportAsPlainText } from '../utils/exportFormats.js'
 import { useDismiss } from '../utils/useDismiss'
 import Icon from '../ui/Icon'
+import { useToast } from '../ui/Toast'
 
 /** Export: a button with a menu of copy and download actions for the whole thread. */
 export default function ExportOptions({ draft }) {
   const posts = draft?.posts || []
   const [open, setOpen] = useState(false)
+  const toast = useToast()
   const container = useRef(null)
   useDismiss(open, container, setOpen)
 
@@ -71,10 +73,10 @@ export default function ExportOptions({ draft }) {
 
     try {
       await navigator.clipboard.writeText(text)
-      alert(includeNumbers ? 'Thread copied with numbers!' : 'Thread copied!')
+      toast({ message: includeNumbers ? 'Thread copied with numbers!' : 'Thread copied!', tone: 'success' })
     } catch (error) {
       console.error('Copy failed:', error)
-      alert('Failed to copy to clipboard')
+      toast({ message: 'Failed to copy to clipboard', tone: 'danger' })
     }
   }
 

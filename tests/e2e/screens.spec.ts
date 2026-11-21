@@ -7,7 +7,7 @@
 // twice, and the second request hits the one-use share link and gets 410.
 // Writes test-results/screens/<width>/<name>.png for 390 px and 1280 px wide:
 // login, login-suspended, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens, apps, changelog,
-// consent-signed-out and consent (the OAuth approval pages, plan T3).
+// dialog-delete, dialog-revoke, toast-copied (plan U5), consent-signed-out and consent (the OAuth approval pages, plan T3).
 // Under 800 px wide, each shot also writes <name>-viewport.png: what is on the screen, with the fixed bar.
 //
 // Signed-in pages use a dev API token (POST /api/dev/token), sent as a bearer header on /api calls.
@@ -63,11 +63,12 @@ async function shoot(
   width: number,
   name: string,
   pagePath: string,
-  options: { token?: string; cookie?: string; theme?: 'dark'; ready?: (page: Page) => Locator; before?: (page: Page) => Promise<void> } = {}
+  options: { token?: string; cookie?: string; theme?: 'dark'; ready?: (page: Page) => Locator; before?: (page: Page) => Promise<void>; viewportOnly?: boolean } = {}
 ) {
   const context = await browser.newContext({
     viewport: { width, height: width < 800 ? 844 : 800 },
-    serviceWorkers: 'block'
+    serviceWorkers: 'block',
+    permissions: ['clipboard-read', 'clipboard-write']
   })
   if (options.token) {
     const bearer = `Bearer ${options.token}`
@@ -94,7 +95,7 @@ async function shoot(
   if (options.before) await options.before(page)
   const dir = path.join(OUT, String(width))
   mkdirSync(dir, { recursive: true })
-  await page.screenshot({ path: path.join(dir, `${name}.png`), fullPage: true })
+  await page.screenshot({ path: path.join(dir, `${name}.png`), fullPage: !options.viewportOnly })
   if (width < 800) await page.screenshot({ path: path.join(dir, `${name}-viewport.png`), fullPage: false })
   await context.close()
 }
@@ -178,6 +179,32 @@ test.describe('screens', () => {
       await shoot(browser, width, 'tokens-dark', '/settings/tokens', { token: owner, theme: 'dark', ready: tokensReady })
       await shoot(browser, width, 'tokens-created', '/settings/tokens', { cookie, ready: tokensReady, before: createToken })
       await shoot(browser, width, 'tokens-created-dark', '/settings/tokens', { cookie, theme: 'dark', ready: tokensReady, before: createToken })
+
+      // Dialog and Toast (plan U5), light and dark: delete asks on the draft list, revoke asks on API tokens, a toast after Copy.
+      const openDelete = async (p: Page) => {
+        await p.getByRole('button', { name: 'Delete draft' }).first().click()
+        await p.getByRole('dialog', { name: 'Delete this draft?' }).waitFor()
+        await p.waitForTimeout(400)
+      }
+      const openRevoke = async (p: Page) => {
+        await createToken(p)
+        await p.getByRole('button', { name: 'Revoke' }).first().click()
+        await p.getByRole('dialog', { name: 'Revoke this token?' }).waitFor()
+        await p.waitForTimeout(400)
+      }
+      const copyThread = async (p: Page) => {
+        await p.getByRole('button', { name: 'Export' }).click()
+        await p.getByRole('button', { name: 'Copy thread' }).click()
+        await p.getByRole('status').filter({ hasText: 'Thread copied!' }).waitFor()
+        await p.waitForTimeout(400)
+      }
+      const draftsReady = (p: Page) => p.getByText('Launch thread')
+      await shoot(browser, width, 'dialog-delete', '/', { token: owner, ready: draftsReady, viewportOnly: true, before: openDelete })
+      await shoot(browser, width, 'dialog-delete-dark', '/', { token: owner, theme: 'dark', ready: draftsReady, viewportOnly: true, before: openDelete })
+      await shoot(browser, width, 'dialog-revoke', '/settings/tokens', { cookie, ready: tokensReady, viewportOnly: true, before: openRevoke })
+      await shoot(browser, width, 'dialog-revoke-dark', '/settings/tokens', { cookie, theme: 'dark', ready: tokensReady, viewportOnly: true, before: openRevoke })
+      await shoot(browser, width, 'toast-copied', `/draft/${editorId}`, { token: owner, ready: (p) => p.locator('.draft-title-input'), viewportOnly: true, before: copyThread })
+      await shoot(browser, width, 'toast-copied-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.locator('.draft-title-input'), viewportOnly: true, before: copyThread })
 
       // The Connected apps page (plan T4), light and dark.
       const appsReady = (p: Page) => p.getByRole('heading', { name: 'Connected apps', level: 1 })
