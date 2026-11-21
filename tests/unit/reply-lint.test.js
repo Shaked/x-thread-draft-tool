@@ -34,6 +34,7 @@ describe('reply-lint rules', () => {
     expect(rules('`main` blocked by CI.')).toEqual(['blocked'])
     expect(rules('Waiting for your answer.')).toEqual(['waiting-human'])
     expect(rules('BM25 scores')).toEqual([])
+    expect(rules('Implements #273 Task R0')).toEqual([])
     expect(rules('Done ✅. Let us delve in.')).toEqual(['emoji', 'slop'])
     expect(rules('x'.repeat(161))).toEqual(['long-line'])
   })

@@ -109,6 +109,23 @@ function checkTemplate(lines, force, add) {
   if (done && !/\bchecked\b/i.test(done.body.join(' '))) add(done.line, 'evidence', 'say "checked" or "not checked"')
 }
 
+/** The word and line checks every kind gets. */
+function checkWords(raw, line, n, add) {
+  const unquoted = raw.replace(/["'`]([A-Z])["'`]/g, '$1')
+  if (OPTION_LETTERS.some((re) => re.test(unquoted))) add(n, 'option-letters', 'name each option by what it does, not by a letter')
+  if (UNCHANGED.test(line)) add(n, 'unchanged', 'say what it is and what happens next')
+  for (const m of line.matchAll(BLOCK_WORD)) {
+    const before = line.slice(0, m.index)
+    if (/\bcode\s+$/i.test(before) || BLOCK_ON_HUMAN.test(line.slice(m.index + m[0].length))) continue
+    add(n, 'blocked', 'only a human blocks: write "Blocked on you", or "waiting for" an agent or system')
+  }
+  if (WAITING_HUMAN.test(line)) add(n, 'waiting-human', 'a human decision goes under "Blocked on you"')
+  if (!/^\s*\|/.test(raw) && raw.replace(/\[([^\]]*)\]\([^)\s]*\)/g, '$1').replace(/https?:\/\/\S+/g, 'link').length > MAX_LINE) add(n, 'long-line', `over ${MAX_LINE} characters`)
+  if (EMOJI.test(line)) add(n, 'emoji', 'no emoji')
+  const slop = SLOP.exec(line)
+  if (slop) add(n, 'slop', `filler phrase "${slop[1]}"`)
+}
+
 /** Shape of a changelog entry or a Telegram message (the two kinds that are not replies). */
 function checkShape(lines, kind, add) {
   const body = lines.filter(({ text }) => text.trim())
@@ -135,7 +152,8 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
     if (/^\s*(```|~~~)/.test(raw)) { fenced = !fenced; return }
     if (fenced) return
     prose.push({ text: raw, n })
-    const line = visible(raw)
+    // The net-lines line of a PR body ("Implements #273 Task R0") must stay in that exact form.
+    const line = /^Implements #\d+ Task /.test(raw) ? '' : visible(raw)
     if (kind === 'changelog' && (LABEL.test(line) || /`/.test(raw))) add(n, 'internal-label', 'plain words only: no issue numbers, task ids or code')
     LABEL.lastIndex = 0
     for (const m of line.matchAll(LABEL)) {
@@ -143,19 +161,7 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
       seen.add(m[1])
       if (!described(line, m.index, m.index + m[0].length)) add(n, 'bare-label', `${m[1]}: add a link and 3 to 6 words saying what it is`)
     }
-    const unquoted = raw.replace(/["'`]([A-Z])["'`]/g, '$1')
-    if (OPTION_LETTERS.some((re) => re.test(unquoted))) add(n, 'option-letters', 'name each option by what it does, not by a letter')
-    if (UNCHANGED.test(line)) add(n, 'unchanged', 'say what it is and what happens next')
-    for (const m of line.matchAll(BLOCK_WORD)) {
-      const before = line.slice(0, m.index)
-      if (/\bcode\s+$/i.test(before) || BLOCK_ON_HUMAN.test(line.slice(m.index + m[0].length))) continue
-      add(n, 'blocked', 'only a human blocks: write "Blocked on you", or "waiting for" an agent or system')
-    }
-    if (WAITING_HUMAN.test(line)) add(n, 'waiting-human', 'a human decision goes under "Blocked on you"')
-    if (!/^\s*\|/.test(raw) && raw.replace(/\[([^\]]*)\]\([^)\s]*\)/g, '$1').replace(/https?:\/\/\S+/g, 'link').length > MAX_LINE) add(n, 'long-line', `over ${MAX_LINE} characters`)
-    if (EMOJI.test(line)) add(n, 'emoji', 'no emoji')
-    const slop = SLOP.exec(line)
-    if (slop) add(n, 'slop', `filler phrase "${slop[1]}"`)
+    checkWords(raw, line, n, add)
   })
   if (kind === 'reply') checkTemplate(prose, template, add)
   else checkShape(prose, kind, add)
@@ -166,6 +172,7 @@ function main() {
   const args = process.argv.slice(2)
   const template = args.includes('--template')
   const kind = args.find((a) => a.startsWith('--kind='))?.slice(7) || 'reply'
+  if (!['reply', 'changelog', 'telegram'].includes(kind)) throw new Error(`unknown --kind=${kind}`)
   const file = args.find((a) => !a.startsWith('--'))
   const text = readFileSync(file ?? 0, 'utf8')
   const findings = lint(text, { template, kind })

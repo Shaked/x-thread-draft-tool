@@ -18,7 +18,7 @@ owner question uses one template below, follows the hard rules, and passes the l
 | Something failed (CI, deploy, production, a session) | [`incident`](templates/incident.md) | Chat reply, and a comment on the issue or PR |
 | Anything else to Shaked: a reminder, a progress note, an answer to his question | [`status-report`](templates/status-report.md) | Chat reply, or a comment where he asked |
 | A changelog file for a PR | [`changelog-entry`](templates/changelog-entry.md) | `docs/changelogs/<UTC YYYYMMDD-HHMMSS>-<slug>.md`; the app shows it to users |
-| The text of a Telegram notice | [`telegram-message`](templates/telegram-message.md) | The code that sends it (`scripts/notify-telegram.mjs`) |
+| The text of a Telegram notice | [`telegram-message`](templates/telegram-message.md) | Target format: `scripts/notify-telegram.mjs` sends the old text until task #369 changes it |
 
 A reply that fits two kinds uses one template and puts the other part under its headings.
 Example: a status report with a question puts the question under `Blocked on you`, with the
@@ -38,10 +38,13 @@ These two are read by people outside the work, so they have their own shape and 
 Apply `pstack-unslop` and `pstack-technical-writing` to both.
 
 - **Changelog entry:** a `#` title that says what changed for a person, in 3 to 8 words, then 1 to 5
-  short lines. The app shows the title and the first three lines, so the most useful line goes first.
+  short lines. The app shows the title and the first three lines, cut at 280 characters, so the most
+  useful line goes first and the first three lines stay short.
   Plain words only: no issue numbers, task ids, file names or code spans. Say what a person can now
   do or see, not how it was built.
-- **Telegram message:** one message per event, at most 5 lines. Line 1 is the headline in bold and
+- **Telegram message (target format):** the script still sends the old text, with an emoji per
+  headline, until task #369 changes the script, its tests and `docs/operations/telegram.md`.
+  The template is Markdown; the script turns it into HTML. One message per event, at most 5 lines. Line 1 is the headline in bold and
   says the kind in words, with no emoji. Then the title, one line with the fact or the action, and
   the links. Never a secret, a login name, draft text or log output (`docs/operations/telegram.md`).
 - Check them with `npm run reply-lint -- --kind=changelog <file>` or `--kind=telegram <file>`.

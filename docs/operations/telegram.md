@@ -12,6 +12,9 @@ Code:
 
 ## The five kinds
 
+This section describes what the script sends today. The target format, with no emoji and one action line, is `.claude/skills/reply-style/templates/telegram-message.md`; task #369 moves the script to it.
+
+
 | Kind | Headline | When it is sent | Links |
 |---|---|---|---|
 | Production is live and tested | ✅ Production is live and tested | A production deployment is live and the deployed smoke test passed. Step "Telegram: production is live and tested". | Open production |

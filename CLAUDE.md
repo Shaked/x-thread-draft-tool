@@ -1,8 +1,7 @@
 # Claude + Codex Working Guide
 
-Read [`AGENTS.md`](./AGENTS.md) first: it holds the rules for every session in this repo. Every reply to Shaked,
-every HANDOFF, every owner question and every PR or issue comment meant for him uses the
-[`reply-style` skill](./.claude/skills/reply-style/SKILL.md).
+Read [`AGENTS.md`](./AGENTS.md) first: it holds the rules for every session in this repo, starting with
+"Replies to Shaked" at its top ([`reply-style` skill](./.claude/skills/reply-style/SKILL.md)).
 
 This file is the primary, actionable map for what to use.
 
