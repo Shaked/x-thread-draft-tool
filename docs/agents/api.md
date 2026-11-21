@@ -287,7 +287,7 @@ Every write (PATCH a draft, PATCH one post, publish) runs in one transaction on 
 adds 1 to the draft `version`. `GET /api/drafts/:id` and every write response carry `ETag: "<version>"`.
 
 - Send `If-Match: "<version>"` with a write to refuse it when the draft changed since you read it.
-  A stale tag is `412` with `{ "error": "...", "version": <current> }` (and the `ETag` header); nothing is written.
+  A stale tag is `412` with `{ "error": "...", "version": <current>, "draft": <current draft> }` (and the `ETag` header); nothing is written.
   Re-read, then decide whether to repeat the change. Do not retry blindly.
 - `If-Match: *` matches any current version. No header means no check.
 - A weak tag (`W/"3"`) never matches on a write (RFC 9110 strong comparison): `412`.
@@ -297,6 +297,7 @@ adds 1 to the draft `version`. `GET /api/drafts/:id` and every write response ca
   write that already landed succeeds even though its tag is now stale.
 - Errors: `400` malformed header or body, `404` not found or not yours, `409` published draft (post routes),
   `412` stale version.
-- MCP: `add_post`, `remove_post`, `move_post` send the version they read as If-Match; a conflict is a tool error
-  (`isError`) telling you to call `get_draft` again. `add_post` takes an optional `post_id`: the same id and text
+- MCP: `add_post`, `remove_post`, `move_post`, `remove_image` and `add_image_from_url` send the version they read as
+  If-Match; `update_draft` and `update_post` take an optional `version` (from `get_draft`). A conflict is a tool error
+  (`isError`) with the current `version`, telling you to call `get_draft` again. `add_post` takes an optional `post_id`: the same id and text
   again changes nothing; the same id with other text is a 409 tool error.

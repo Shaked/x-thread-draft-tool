@@ -14,7 +14,7 @@ const IF_MATCH = {
   schema: { type: 'string' }
 }
 const PRECONDITION_FAILED = {
-  description: 'If-Match does not match the current version. Nothing was written. Body: { error, version } with the current version; the ETag header has it too.',
+  description: 'If-Match does not match the current version. Nothing was written. Body: { error, version, draft } with the current version and draft; the ETag header has the version too.',
   content: errorContent()
 }
 const BAD_REQUEST = { description: 'Invalid input', content: errorContent() }

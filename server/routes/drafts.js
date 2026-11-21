@@ -64,8 +64,9 @@ const preconditionHolds = (expected, version) => expected === null || expected.a
 
 const etagHeaders = (version) => ({ etag: `"${version}"` })
 
+/** A stale If-Match: nothing written. The current draft is in the answer, so the client needs no extra read. */
 const staleResponse = (draft) =>
-  json({ error: 'The draft changed since you read it', version: draft.version }, 412, etagHeaders(draft.version))
+  json({ error: 'The draft changed since you read it', version: draft.version, draft }, 412, etagHeaders(draft.version))
 
 /**
  * The If-Match tag a write checks in its WHERE: null for no check (no header, or `*`), -1 for a tag
