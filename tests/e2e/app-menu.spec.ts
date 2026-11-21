@@ -297,7 +297,7 @@ for (const size of SIZES) {
       await expect(page.getByRole('heading', { name: 'This app' })).toBeVisible()
       await expect(page.getByRole('heading', { name: 'Server' })).toBeVisible()
       // Locally the server may answer with a null commit: the page still renders its details.
-      await expect(page.locator('#about-server-heading ~ .about-version')).toContainText('Commit')
+      await expect(page.getByRole('region', { name: 'Server' }).locator('.ui-description-list')).toContainText('Commit')
     } finally {
       await context.close()
     }
@@ -347,7 +347,7 @@ for (const size of SIZES) {
         await expect(drawer(page)).toHaveCount(0)
         await expect(page.getByRole('heading', { name: 'Changelog', level: 1 })).toBeVisible()
 
-        const entries = page.locator('.changelog-entry')
+        const entries = page.locator('article')
         await expect(entries.first()).toBeVisible()
         expect(await overflows(page)).toBe(false)
 
@@ -365,12 +365,12 @@ for (const size of SIZES) {
             return (hi + 0.05) / (lo + 0.05)
           }
           const colour = (el: Element | null, prop: 'color' | 'backgroundColor') => getComputedStyle(el!)[prop]
-          const entry = document.querySelector('.changelog-entry')!
+          const entry = document.querySelector('article .ui-card')!
           const page = getComputedStyle(document.body).backgroundColor
           return {
             entry: ratio(colour(entry.querySelector('p') ?? entry, 'color'), colour(entry, 'backgroundColor')),
-            day: ratio(colour(document.querySelector('.changelog-day h2'), 'color'), page),
-            version: ratio(colour(document.querySelector('.changelog-version'), 'color'), page)
+            day: ratio(colour(document.querySelector('.ui-section h2'), 'color'), page),
+            version: ratio(colour(document.querySelector('.ui-page-header__subtitle'), 'color'), page)
           }
         })
         for (const [name, value] of Object.entries(ratios)) expect(value, name).toBeGreaterThanOrEqual(4.5)
@@ -386,7 +386,7 @@ for (const size of SIZES) {
         await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
         const clear = await entries.last().evaluate((el) => {
           const r = el.getBoundingClientRect()
-          return !!document.elementFromPoint(r.left + r.width / 2, r.bottom - 6)?.closest('.changelog-entry')
+          return !!document.elementFromPoint(r.left + r.width / 2, r.bottom - 6)?.closest('article')
         })
         expect(clear).toBe(true)
       } finally {

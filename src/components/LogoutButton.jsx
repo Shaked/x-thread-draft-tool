@@ -1,6 +1,6 @@
 import { authApi } from '../utils/api'
 import { clearCachedDrafts } from '../utils/draftCache'
-import Icon from './Icon'
+import Icon from '../ui/Icon'
 
 /** Signs out of this browser (the server ends the session), drops the drafts cached here, then reloads. */
 export async function signOut() {

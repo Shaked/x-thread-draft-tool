@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { draftsApi } from '../utils/api'
 import { useDismiss } from '../utils/useDismiss'
-import Icon from './Icon'
+import Icon from '../ui/Icon'
 
 // The lifetimes the Share menu offers. One hour is the default.
 const LIFETIMES = [

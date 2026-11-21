@@ -1,3 +1,5 @@
+import './Icon.css'
+
 // Line icons, drawn with the current text colour.
 const PATHS = {
   share: 'M12 3v12M8 7l4-4 4 4M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7',
@@ -10,9 +12,11 @@ const PATHS = {
   chevron: 'M6 9l6 6 6-6'
 }
 
-export default function Icon({ name }) {
+// Moved from src/components/Icon.jsx (plan task 2). `size` md is 20 px, lg is 24 px; `mirror` flips it in RTL.
+export default function Icon({ name, size = 'md', mirror = false }) {
+  const className = ['icon', 'ui-icon', `ui-icon--${size}`, mirror ? 'ui-icon--mirror' : ''].filter(Boolean).join(' ')
   return (
-    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d={PATHS[name]} />
     </svg>
   )

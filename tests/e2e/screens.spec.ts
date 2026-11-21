@@ -180,11 +180,17 @@ test.describe('screens', () => {
       await shoot(browser, width, 'tokens-created-dark', '/settings/tokens', { cookie, theme: 'dark', ready: tokensReady, before: createToken })
 
       // The changelog page (settings-menu.md Task 6): light at both widths, dark on phones.
-      const changelogReady = (p: Page) => p.locator('.changelog-entry').first()
+      const changelogReady = (p: Page) => p.locator('article').first()
       await shoot(browser, width, 'changelog', '/changelog', { token: owner, ready: changelogReady })
-      if (width < 800) {
-        await shoot(browser, width, 'changelog-dark', '/changelog', { token: owner, theme: 'dark', ready: changelogReady })
+      await shoot(browser, width, 'changelog-dark', '/changelog', { token: owner, theme: 'dark', ready: changelogReady })
+
+      // The About page (plan U2): light and dark at both widths. Ready once the server's version has loaded.
+      const aboutReady = (p: Page) => p.getByRole('heading', { name: 'About', level: 1 })
+      const aboutLoaded = async (p: Page) => {
+        await p.getByText('Deployed').nth(1).waitFor()
       }
+      await shoot(browser, width, 'about', '/about', { token: owner, ready: aboutReady, before: aboutLoaded })
+      await shoot(browser, width, 'about-dark', '/about', { token: owner, theme: 'dark', ready: aboutReady, before: aboutLoaded })
     })
 
     // The OAuth approval pages (server HTML, plan T3): signed out, and signed in with a browser session.

@@ -1,0 +1,51 @@
+/* Page header: one bar (menu, back link, actions), then the title and an optional subtitle. */
+.ui-page-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-block-end: var(--space-6);
+  min-inline-size: 0;
+}
+
+.ui-page-header__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-block-size: var(--header-h);
+}
+
+.ui-page-header__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.ui-page-header__title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+
+.ui-page-header__subtitle {
+  color: var(--color-text-soft);
+  overflow-wrap: anywhere;
+}
+
+/* Sticky: stays at the top while the page scrolls (the editor). */
+.ui-page-header--sticky {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--z-sticky);
+  padding-block: var(--space-3);
+  background-color: var(--color-bg);
+  border-block-end: var(--border-width) solid var(--color-border-soft);
+}
+
+@media (width >= 768px) {
+  .ui-page-header__title {
+    font-size: var(--font-size-3xl);
+  }
+}

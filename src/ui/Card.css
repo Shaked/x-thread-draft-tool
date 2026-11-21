@@ -1,0 +1,28 @@
+/* Card: a surface, a 1 px soft border, radius 14, the card padding (16, 20 from 768 px). */
+.ui-card {
+  min-inline-size: 0;
+  background-color: var(--color-surface);
+  border: var(--border-width) solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  overflow-wrap: anywhere;
+}
+
+.ui-card--pad-md {
+  padding: var(--card-pad);
+}
+
+.ui-card--pad-none {
+  padding: var(--space-0);
+}
+
+.ui-card--raised {
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+.ui-card h3 {
+  margin-block-end: var(--space-1);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}

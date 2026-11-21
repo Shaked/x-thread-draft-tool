@@ -192,3 +192,11 @@ jobs:
         with:
           name: screens
           path: test-results/screens
+
+      - name: Upload UI audit screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-audit
+          path: test-results/ui-audit
+          retention-days: 14

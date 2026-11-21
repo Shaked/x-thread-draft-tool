@@ -1,0 +1,52 @@
+/* A section: heading and soft description, then its content with 16 px between items. */
+.ui-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}
+
+.ui-section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.ui-section__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.ui-section__title {
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+
+.ui-section__title--h2 {
+  font-size: var(--font-size-xl);
+}
+
+.ui-section__title--h3 {
+  font-size: var(--font-size-lg);
+}
+
+.ui-section__title--h4 {
+  font-size: var(--font-size-md);
+}
+
+.ui-section__description {
+  color: var(--color-text-soft);
+  overflow-wrap: anywhere;
+}
+
+.ui-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}

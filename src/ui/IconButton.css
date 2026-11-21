@@ -1,0 +1,48 @@
+/* Icon button: a round 44 x 44 target. The pressed state shows the accent soft background. */
+.ui-icon-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--hit-min);
+  block-size: var(--hit-min);
+  padding: var(--space-0);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-full);
+  background-color: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
+}
+
+.ui-icon-button--secondary {
+  background-color: var(--color-surface-raised);
+  border-color: var(--color-border);
+}
+
+.ui-icon-button--pressed {
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent-soft-text);
+}
+
+@media (hover: hover) {
+  .ui-icon-button:not([aria-disabled='true']):not(:disabled):hover {
+    background-color: var(--color-accent-soft);
+  }
+}
+
+.ui-icon-button:not([aria-disabled='true']):not(:disabled):active {
+  transform: scale(var(--press-scale));
+}
+
+.ui-icon-button:disabled,
+.ui-icon-button[aria-disabled='true'] {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.ui-icon-button__reason {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,47 @@
+/* Skeleton: bars with a moving highlight. The screen-reader text is hidden without leaving the accessibility tree. */
+.ui-skeleton {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.ui-skeleton__bar {
+  display: block;
+  block-size: var(--space-4);
+  border-radius: var(--radius-sm);
+  background-image: linear-gradient(90deg, var(--color-surface-2), var(--color-surface-raised), var(--color-surface-2));
+  background-size: 200% 100%;
+  animation: ui-shimmer var(--duration-shimmer) var(--ease-linear) infinite;
+}
+
+.ui-skeleton__bar:last-child {
+  inline-size: 60%;
+}
+
+.ui-skeleton--row .ui-skeleton__bar {
+  block-size: var(--control-h-md);
+}
+
+.ui-skeleton--card .ui-skeleton__bar {
+  block-size: var(--space-16);
+}
+
+.ui-skeleton__sr {
+  position: absolute;
+  inline-size: 0;
+  block-size: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@keyframes ui-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}

@@ -1,0 +1,21 @@
+/* Icons: sizes from the tokens, drawn as strokes in the current text colour. */
+.ui-icon {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  flex: none;
+  font-size: var(--font-size-md);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ui-icon--lg {
+  width: var(--icon-size-lg);
+  height: var(--icon-size-lg);
+}
+
+.ui-icon--mirror:dir(rtl) {
+  transform: scaleX(-1);
+}
