@@ -67,7 +67,8 @@ describe('PATCH /api/drafts/:id', () => {
     const before = await rowOf(draft.id)
     const res = await patchDraft(draft.id, { title: 'Mine' }, '"1"')
     expect(res.status).toBe(412)
-    expect(await res.json()).toEqual({ error: 'The draft changed since you read it', version: 2 })
+    // #354: the answer also carries the current draft, so the client needs no extra read.
+    expect(await res.json()).toEqual({ error: 'The draft changed since you read it', version: 2, draft: expect.objectContaining({ id: draft.id, title: 'Theirs', posts: POSTS(), version: 2 }) })
     expect(res.headers.get('etag')).toBe('"2"')
     expect(await rowOf(draft.id)).toEqual(before)
   })
@@ -118,7 +119,7 @@ describe('PATCH /api/drafts/:id', () => {
     const before = await rowOf(draft.id)
     const res = await patchDraft(draft.id, { title: 'x' }, '"7"')
     expect(res.status).toBe(412)
-    expect(await res.json()).toEqual({ error: 'The draft changed since you read it', version: 1 })
+    expect(await res.json()).toEqual({ error: 'The draft changed since you read it', version: 1, draft: expect.objectContaining({ id: draft.id, title: 'Draft', posts: POSTS(), version: 1 }) })
     expect(res.headers.get('etag')).toBe('"1"')
     expect(await rowOf(draft.id)).toEqual(before)
   })
