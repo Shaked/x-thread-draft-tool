@@ -8,7 +8,7 @@
 export function bridge(on) {
   const pending = new Map()
   let nextId = 1
-  const state = { hostContext: null, hostCapabilities: {}, delivered: false }
+  const state = { hostContext: null, hostCapabilities: {}, delivered: false, sizing: false }
 
   function post(message) {
     window.parent.postMessage({ jsonrpc: '2.0', ...message }, '*')
@@ -27,6 +27,9 @@ export function bridge(on) {
   }
 
   function observeSize() {
+    // Once only: after the handshake, or (#352) when a host sends the result without one or never answers it.
+    if (state.sizing) return
+    state.sizing = true
     const report = () => {
       post({
         method: 'ui/notifications/size-changed',
@@ -62,6 +65,7 @@ export function bridge(on) {
     } else if (msg.method === 'ui/notifications/tool-result') {
       state.delivered = true
       if (on.result) on.result(msg.params || {})
+      observeSize()
     } else if (msg.method === 'ui/notifications/host-context-changed') {
       setContext(msg.params)
     } else if (msg.method === 'ui/resource-teardown') {
@@ -86,6 +90,7 @@ export function bridge(on) {
       observeSize()
     },
     (err) => {
+      observeSize()
       if (on.error) on.error(err)
     }
   )
@@ -205,7 +210,8 @@ export function linkButton(label, url, open) {
 /** One post as an X-style card: avatar, number, text, links, images, embedded tweet and counter. */
 export function postNode(thread, index, total, open) {
   const post = thread.posts[index]
-  const text = typeof post === 'string' ? post : String((post && post.text) || '')
+  // #352: an outline post (no text, when the host dropped _meta and the text parts) shows its 40-character preview.
+  const text = typeof post === 'string' ? post : String((post && (typeof post.text === 'string' ? post.text : post.preview)) || '')
   const images = post && Array.isArray(post.images) ? post.images : []
   const tweet = post && typeof post.embeddedTweet === 'string' ? tweetFrom(post.embeddedTweet) : null
   const count = thread.counts ? thread.counts[index] : null
@@ -314,15 +320,12 @@ export function renderError(root, message) {
 export function threadFrom(result) {
   const structured = (result && result.structuredContent) || {}
   const meta = (result && result._meta) || {}
-  const saved = Boolean(structured.draft)
-  const source = structured.draft || structured
+  const { source, saved } = threadSource(result)
   if (!Array.isArray(source.posts)) return null
   const outline = meta['x-thread/outline']
-  // The create tools send the outline in structuredContent; the full posts (text, images) come in _meta when they match.
-  const full = Array.isArray(meta['x-thread/posts']) && meta['x-thread/posts'].length === source.posts.length ? meta['x-thread/posts'] : null
   return {
     title: source.title,
-    posts: full || source.posts,
+    posts: fullPosts(source.posts, meta, result) || source.posts,
     saved,
     is_published: source.is_published === true,
     // get_draft puts the editor link in the draft; the create tools put it at the top level of structuredContent.
@@ -333,4 +336,59 @@ export function threadFrom(result) {
     // The draft's id (a UUID), for the share actions of plan Task 7 (#189); null when the result has none.
     id: typeof source.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(source.id) ? source.id : null
   }
+}
+
+/** Where a result's posts are: the saved draft, a bare posts list, or (#352) the markdown part when neither is there. */
+export function threadSource(result) {
+  const structured = (result && result.structuredContent) || {}
+  if (structured.draft) return { source: structured.draft, saved: true }
+  if (Array.isArray(structured.posts)) return { source: structured, saved: false }
+  const text = textThread(result)
+  return { source: text || {}, saved: Boolean(text && text.saved) }
+}
+
+/**
+ * The full posts (text, images) for an outline: from _meta["x-thread/posts"], else (#352) from the markdown part when
+ * the posts have no text; each only when it matches in count. Null when neither has them: postNode shows the previews.
+ */
+export function fullPosts(posts, meta, result) {
+  const same = (list) => (Array.isArray(list) && list.length === posts.length ? list : null)
+  const textless = posts.some((post) => post && typeof post === 'object' && typeof post.text !== 'string')
+  const text = textless ? textThread(result) : null
+  return same(meta['x-thread/posts']) || (text ? same(text.posts) : null)
+}
+
+/**
+ * The thread in the markdown text part of a tool result (server/mcp/thread-text.js): { title, posts, saved, url }, or
+ * null. The count of posts must match the first line's count.
+ */
+export function textThread(result) {
+  const parts = result && Array.isArray(result.content) ? result.content : []
+  for (const part of parts) {
+    const text = part && part.type === 'text' && typeof part.text === 'string' ? part.text : ''
+    const head = text.match(/^Thread(?: "(.*)")?, (\d+) posts?, (saved as a draft|not saved yet)\.\n/)
+    if (!head) continue
+    const { posts, url } = markdownPosts(text.slice(head[0].length).split('\n'))
+    if (posts.length !== Number(head[2])) return null
+    return { title: head[1] || '', posts, saved: head[3] === 'saved as a draft', url }
+  }
+  return null
+}
+
+/** The posts in the markdown lines: a post is the quoted ("> ") lines after its "**n/N**" line, then its image lines. */
+export function markdownPosts(lines) {
+  const posts = []
+  let url = null
+  let current = null
+  for (const line of lines) {
+    if (line === 'Post text to copy:') break
+    const mark = line.match(/^\*\*(\d+)\/\d+\*\*$/)
+    const image = line.match(/^Image \d+: (\S+)$/)
+    if (mark && Number(mark[1]) === posts.length + 1) posts.push((current = { lines: [], images: [] }))
+    else if (current && !current.images.length && (line === '>' || line.startsWith('> '))) current.lines.push(line.slice(2))
+    else if (current && image) current.images.push({ url: image[1] })
+    else if (!url && !current && line.startsWith('Open: ')) url = line.slice(6)
+    else current = null
+  }
+  return { posts: posts.map((post) => ({ text: post.lines.join('\n'), images: post.images })), url }
 }

@@ -282,3 +282,15 @@ describe('the view size and host context', () => {
     expect(context).toHaveBeenLastCalledWith(expect.objectContaining({ theme: 'dark' }))
   })
 })
+
+describe('a host that passes only text parts (#352)', () => {
+  it('reads the posts from the markdown part, and an outline post without text shows its preview', async () => {
+    const { threadText } = await import('../../server/mcp/thread-text.js')
+    const posts = [{ text: 'a\n**2/2**' }, { text: '> b ```' }]
+    const content = [{ type: 'text', text: threadText({ title: 'T', posts, url: 'https://app.example/draft/1', saved: true }) }]
+    expect(threadFrom({ content }).posts.map((post) => post.text)).toEqual(posts.map((post) => post.text))
+    const outline = { draft: { title: 'T', posts: [{ preview: 'a' }, { preview: '> b' }] } }
+    expect(threadFrom({ content, structuredContent: outline }).posts.map((post) => post.text)).toEqual(posts.map((post) => post.text))
+    expect(render(threadFrom({ structuredContent: outline })).querySelectorAll('article p')[1].textContent).toBe('> b')
+  })
+})
