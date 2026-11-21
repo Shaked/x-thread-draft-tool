@@ -14,11 +14,21 @@ const ORIGIN = new URL(BASE).origin
 const OUT = path.join('test-results', 'ui-audit')
 
 // Pages under audit. A page joins when its migration PR lands (plan section 5, rules for every migration PR).
-const MIGRATED = [
+// `drafts` are seeded for that page's user (the draft list with rows, one Hebrew title for the RTL pass).
+const MIGRATED: { name: string; path: string; drafts?: Seed[] }[] = [
   { name: 'about', path: '/about' },
   { name: 'changelog', path: '/changelog' },
   { name: 'tokens', path: '/settings/tokens' },
-  { name: 'apps', path: '/settings/apps' }
+  { name: 'apps', path: '/settings/apps' },
+  { name: 'drafts-empty', path: '/' },
+  {
+    name: 'drafts',
+    path: '/',
+    drafts: [
+      { title: 'שרשור לדוגמה', posts: [{ id: 'h1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] },
+      { title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }
+    ]
+  }
 ]
 
 // Targets allowed under 44 x 44, each with its reason. The "Show toolbar" tab is 44 wide and at most 36 high on purpose.
@@ -176,7 +186,7 @@ test.describe('UI audit', () => {
   for (const pageInfo of MIGRATED) {
     for (const c of CASES) {
       test(`${pageInfo.name} at ${c.name}`, async ({ browser, request }) => {
-        const { context, page } = await openPage(browser, request, pageInfo.path, c)
+        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts })
         try {
           // No horizontal scroll (plan: scrollWidth <= innerWidth).
           const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }))

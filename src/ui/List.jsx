@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import './List.css'
 
 // A list of rows. Put it in a Card with padding "none" so the rows sit on one surface.
@@ -6,13 +7,16 @@ export function List({ children }) {
 }
 
 // One row: a title, a line of meta text, an optional badge, extra content, and actions at the end (under them on
-// phones). The title is user text, so it gets dir="auto".
-export function ListItem({ title, meta = [], badge, actions, children }) {
+// phones). The title is user text, so it gets dir="auto". With `to`, the title is a link and the whole row is
+// clickable (a stretched link); the actions stay above it and keep their own buttons.
+export function ListItem({ title, to, meta = [], badge, actions, children }) {
   return (
-    <li className="ui-list-item">
+    <li className={to ? 'ui-list-item ui-list-item--link' : 'ui-list-item'}>
       <div className="ui-list-item__body">
         <div className="ui-list-item__head">
-          <p className="ui-list-item__title" dir="auto">{title}</p>
+          <p className="ui-list-item__title" dir="auto">
+            {to ? <Link to={to} className="ui-list-item__link">{title}</Link> : title}
+          </p>
           {badge}
         </div>
         {meta.length > 0 && (

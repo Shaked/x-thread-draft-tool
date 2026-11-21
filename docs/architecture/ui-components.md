@@ -270,13 +270,15 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | Prop | Type | Default | Notes |
 |---|---|---|---|
 | `title` | string | required | 18 px semibold; `dir="auto"` for user text. |
+| `to` | string | | A route. The title becomes a link and the whole row is clickable; the actions keep their own buttons (stretched link). |
 | `meta` | node[] | `[]` | Soft 14 px text items with 12 px gaps (no separators). |
 | `badge` | node | | A `Badge`, shown beside the title. |
 | `actions` | node | | Buttons at the end of the row; under them on phones. |
 | `children` | node | | More content under the meta (for example a `CodeBlock`). |
 
-- States: none of its own. The rows are plain list items; a link row is not built yet.
+- States: a row with `to` gets a hover background and a focus ring around the row when its link has keyboard focus. Under 600 px the actions take their own row, end-aligned.
 - Example: `<List><ListItem title={token.name} meta={['Created Nov 1']} badge={<Badge>Active</Badge>} /></List>`
+- Link row example: `<ListItem title={draft.title} to={`/draft/${draft.id}`} actions={<Button variant="ghost" size="sm">Duplicate</Button>} />`
 
 ## Badge
 - File: `src/ui/Badge.jsx`
@@ -323,3 +325,32 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 
 - States: one toast at a time, above the phone bar; success and neutral go away after 4 s; danger has a Close button. The two live regions are mounted empty at start.
 - Example: `<ToastProvider>…</ToastProvider>`; to show one: `toast({ message: 'Thread copied!', tone: 'success' })`
+
+## Tabs
+- File: `src/ui/Tabs.jsx`
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `label` | string | required | The tab list's accessible name. |
+| `tabs` | `[{ id, label, count? }]` | required | One tab each. A `count` is shown as " (3)" in soft text, so the name stays "Drafts (3)". |
+| `value` | string | required | The `id` of the selected tab. |
+| `onChange` | function | required | Called with the `id` when a tab is clicked or reached with the arrow keys. |
+
+- States: `role="tablist"`, `role="tab"`, `aria-selected`; the selected tab has the 2 px accent underline and is the only tab in the tab order. Arrow keys move and select (Left and Right swap in RTL), Home and End jump to the ends. Every tab is at least 44 px high.
+- Example: `<Tabs label="Threads" tabs={[{ id: 'drafts', label: 'Drafts', count: 3 }, { id: 'published', label: 'Published', count: 0 }]} value={tab} onChange={setTab} />`
+
+## EmptyState
+- File: `src/ui/EmptyState.jsx`
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `title` | string | required | Shown as an `h2`, centred. |
+| `description` | string | | One soft line under the title. |
+| `action` | node | | One button, under the text. |
+
+- States: none of its own. 48 px of room around the text.
+- Example: `<EmptyState title="No drafts yet." description="Create your first thread to get started." action={<Button variant="primary">Create your first draft</Button>} />`

@@ -1,0 +1,46 @@
+/* Tabs: a 2 px accent underline under the selected tab; every tab is at least 44 px high (touch). */
+.ui-tabs {
+  display: flex;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  border-block-end: var(--border-width) solid var(--color-border);
+}
+
+.ui-tabs__tab {
+  position: relative;
+  min-block-size: var(--hit-min);
+  padding-inline: var(--space-4);
+  background: none;
+  border: 0;
+  color: var(--color-text-soft);
+  font: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.ui-tabs__tab::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: calc(var(--border-width) * -1);
+  block-size: var(--border-width-strong);
+  background-color: transparent;
+}
+
+.ui-tabs__tab:hover {
+  color: var(--color-text);
+}
+
+.ui-tabs__tab--selected {
+  color: var(--color-accent);
+}
+
+.ui-tabs__tab--selected::after {
+  background-color: var(--color-accent);
+}
+
+.ui-tabs__count {
+  color: var(--color-text-soft);
+  font-weight: var(--font-weight-regular);
+}

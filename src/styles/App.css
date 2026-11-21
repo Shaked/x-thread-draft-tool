@@ -271,29 +271,6 @@ a {
   text-align: left;
 }
 
-.draft-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 15px;
-}
-
-.draft-info {
-  padding-top: 15px;
-  border-top: 1px solid var(--border);
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.draft-info p {
-  margin-bottom: 8px;
-}
-
-.draft-info strong {
-  color: var(--text-strong);
-  margin-inline-end: 8px;
-}
-
 /* Auth Component */
 .auth {
   margin-top: 15px;
@@ -307,21 +284,6 @@ a {
   margin-bottom: 10px;
   color: var(--muted);
   font-size: 14px;
-}
-
-.draft-item {
-  margin: 0;
-}
-
-.draft-meta {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: var(--muted);
 }
 
 /* Responsive Design */
@@ -338,10 +300,6 @@ a {
     flex-direction: column;
     align-items: flex-start;
     gap: 15px;
-  }
-
-  .draft-actions {
-    flex-direction: column;
   }
 
   .btn {
@@ -448,26 +406,7 @@ a {
   color: var(--muted);
 }
 
-/* Draft List Page */
-.draft-list-page {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-.draft-list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-}
-
-.draft-list-header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-}
-
-.new-draft-btn,
+/* Publish button in the editor header */
 .publish-btn {
   padding: 10px 20px;
   background-color: var(--accent);
@@ -480,131 +419,9 @@ a {
   transition: background-color 0.2s;
 }
 
-.new-draft-btn:hover {
-  background-color: var(--accent-hover);
-}
-
-.draft-tabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--border);
-}
-
-.draft-tabs .tab {
-  padding: 12px 20px;
-  background-color: transparent;
-  color: var(--muted);
-  border: none;
-  border-bottom: 2px solid transparent;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.draft-tabs .tab:hover {
-  color: var(--text);
-}
-
-.draft-tabs .tab.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
-
-.draft-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.draft-list .draft-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 15px;
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.draft-list .draft-item:hover {
-  background-color: var(--surface-2);
-  border-color: var(--border-strong);
-}
-
-.draft-info {
-  flex: 1;
-}
-
-.draft-info h3 {
-  font-size: 18px;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-
-.draft-meta {
-  display: flex;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.draft-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.delete-btn,
-.duplicate-btn {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 16px;
-  background-color: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.delete-btn {
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-.new-draft-btn:focus-visible,
-.delete-btn:focus-visible,
-.duplicate-btn:focus-visible,
 .github-login-btn:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
-}
-
-.delete-btn:hover {
-  background-color: var(--danger-tint-20);
-  border-color: var(--danger);
-}
-
-.duplicate-btn:hover {
-  background-color: var(--accent-tint-20);
-  border-color: var(--accent);
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--muted);
-}
-
-.empty-state p {
-  margin-bottom: 20px;
-  font-size: 16px;
 }
 
 /* PostBox Component */
@@ -1234,7 +1051,7 @@ a {
     background: none; border: 0; border-radius: 8px; color: var(--text-strong); cursor: pointer;
   }
   .app-bar .btn-text { display: none; }
-  .app-bar .publish-btn, .app-bar .new-draft-btn {
+  .app-bar .publish-btn {
     width: auto; height: 32px; min-height: 0; align-self: center; padding: 0 14px; margin-inline-start: auto;
     border-radius: 16px; font-size: 14px;
   }
@@ -1243,7 +1060,7 @@ a {
   .app-bar .publish-btn .btn-icon { display: none; }
   .app-bar .logout-btn, .app-bar-toggle { color: var(--text-soft); }
   .app-bar .logout-btn { margin-inline-start: auto; }
-  .app-bar .publish-btn ~ .logout-btn, .app-bar .new-draft-btn ~ .logout-btn { margin-inline-start: 8px; }
+  .app-bar .publish-btn ~ .logout-btn { margin-inline-start: 8px; }
   .app-bar .icon-btn:focus-visible, .app-bar-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
   /* Hidden: the actions slide out and only the tab stays, in the same corner. */
@@ -1485,21 +1302,6 @@ a {
     font-size: 1.6rem;
   }
 
-  .draft-list-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-
-  .draft-list-header h1 {
-    font-size: 1.6rem;
-  }
-
-  .draft-tabs {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
   .editor-header {
     gap: 8px;
     padding: 8px 12px;
@@ -1565,8 +1367,7 @@ a {
 
 .tweet-input-wrapper,
 .preview-tweet,
-.post-box,
-.draft-item {
+.post-box {
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -1634,7 +1435,6 @@ a {
 }
 
 /* Menu: a button in each signed-in page header and a left drawer (settings-menu.md M6 to M11). */
-.page-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .menu-btn {
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
   width: var(--hit-min); height: var(--hit-min); padding: 0; background: none; border: 0; border-radius: 8px;

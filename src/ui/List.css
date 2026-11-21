@@ -56,3 +56,45 @@
   gap: var(--space-2);
   margin-inline-start: auto;
 }
+
+/* A row that is a link: the title link covers the whole row; the actions sit above it. */
+.ui-list-item--link {
+  position: relative;
+}
+
+.ui-list-item--link:hover {
+  background-color: var(--color-surface-2);
+}
+
+.ui-list-item__link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ui-list-item__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.ui-list-item__link:focus-visible {
+  outline: none;
+}
+
+.ui-list-item--link:has(.ui-list-item__link:focus-visible) {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: calc(var(--focus-ring-width) * -1);
+}
+
+.ui-list-item__actions {
+  position: relative;
+  z-index: var(--z-raised);
+}
+
+/* Under 600 px the actions take their own row, end-aligned. */
+@media (width < 600px) {
+  .ui-list-item__actions {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+}

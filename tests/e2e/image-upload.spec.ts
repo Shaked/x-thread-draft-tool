@@ -44,7 +44,8 @@ test.describe('image upload', () => {
     let draftId: string | null = null
     try {
       await page.goto(BASE)
-      await page.locator('.new-draft-btn').first().click()
+      // The header button, or on an empty list the empty state's button (both create a draft).
+      await page.getByRole('button', { name: /^(New draft|Create your first draft)$/ }).first().click()
       await expect(page).toHaveURL(/\/draft\//)
       draftId = new URL(page.url()).pathname.split('/').pop() ?? null
 
