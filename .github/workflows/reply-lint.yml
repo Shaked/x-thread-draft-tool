@@ -1,0 +1,31 @@
+name: Reply lint
+
+# Warn only for now: checks the PR body against the reply-style rules
+# (.claude/skills/reply-style/SKILL.md) and never fails the PR. The templates themselves are
+# checked by tests/unit/reply-lint.test.js.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  reply-lint:
+    name: Reply lint (warn only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Lint the PR body
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s\n' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+          if ! node scripts/reply-lint.mjs "$RUNNER_TEMP/pr-body.md"; then
+            echo "::warning title=reply-lint::The PR body breaks reply-style rules (see the job log). Warn only."
+          fi

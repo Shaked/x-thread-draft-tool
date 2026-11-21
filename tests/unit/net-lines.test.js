@@ -62,6 +62,11 @@ describe('net-lines evaluation', () => {
     expect(result.reason).toMatch(/issue task/)
   })
 
+  it('accepts an issue task id with one capital letter before the number', () => {
+    expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Implements #273 Task R0' }).pass).toBe(true)
+    expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Implements #273 Task RR0' }).pass).toBe(false)
+  })
+
   it('does not accept an issue reference without a task number', () => {
     expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Implements #123' }).pass).toBe(false)
     expect(evaluate({ numstat: '40\t0\tsrc/a.js', body: 'Implements #123 Task' }).pass).toBe(false)
