@@ -51,9 +51,9 @@ export function resolvedTheme(value = getTheme()) {
 function syncMetaTags(resolved) {
   const scheme = document.querySelector('meta[name="color-scheme"]')
   if (scheme) scheme.setAttribute('content', resolved)
-  // The browser UI colour stays light; only the dark choice darkens it.
+  // The browser bar takes the page background from the tokens (computed, so it follows the theme).
   const themeColor = document.querySelector('meta[name="theme-color"]')
-  if (themeColor) themeColor.setAttribute('content', resolved === 'dark' ? '#000000' : '#ffffff')
+  if (themeColor && document.body) themeColor.setAttribute('content', getComputedStyle(document.body).backgroundColor)
 }
 
 function detachSystemListener() {

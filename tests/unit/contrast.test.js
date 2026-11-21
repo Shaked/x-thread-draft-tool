@@ -3,26 +3,26 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-// Reads the colour tokens straight from App.css, so the test checks the values the page uses.
-const css = readFileSync(path.resolve('src/styles/App.css'), 'utf8')
+// Reads the colour tokens from src/styles/tokens.css. Each token is written once as light-dark(<light>, <dark>).
+const tokensCss = readFileSync(path.resolve('src/styles/tokens.css'), 'utf8')
+const indexHtml = readFileSync(path.resolve('index.html'), 'utf8')
 
-function tokensIn(block) {
-  const tokens = {}
-  for (const [, name, value] of block.matchAll(/(--[\w-]+):\s*(#[0-9a-fA-F]{6})\b/g)) {
-    tokens[name] = value
+const HEX = '#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?'
+const LIGHT_DARK = new RegExp(`^light-dark\\((${HEX}),\\s*(${HEX})\\)$`)
+const OVERLAYS = ['overlay', 'overlay-strong', 'on-overlay'] // the same in both themes, not light-dark()
+
+const THEMES = { light: {}, dark: {} }
+const notLightDark = []
+for (const [, name, value] of tokensCss.matchAll(/^\s*--color-([\w-]+):\s*([^;]+);/gm)) {
+  const pair = value.trim().match(LIGHT_DARK)
+  if (pair) {
+    THEMES.light[name] = pair[1]
+    THEMES.dark[name] = pair[2]
+  } else {
+    notLightDark.push(name)
+    THEMES.light[name] = value.trim()
+    THEMES.dark[name] = value.trim()
   }
-  return tokens
-}
-
-function blockFor(selector) {
-  const start = css.indexOf(`${selector} {`)
-  if (start < 0) throw new Error(`no block for ${selector}`)
-  return css.slice(start, css.indexOf('}', start))
-}
-
-const THEMES = {
-  light: tokensIn(blockFor(':root')),
-  dark: tokensIn(blockFor(':root[data-theme="dark"]'))
 }
 
 function luminance(hex) {
@@ -36,22 +36,43 @@ export function contrast(a, b) {
   return (hi + 0.05) / (lo + 0.05)
 }
 
-// Pairs from the plan, with the minimum ratio for each (WCAG 2.1 AA).
+const SURFACES = ['bg', 'surface', 'surface-2', 'surface-raised']
+const SOFT = ['accent-soft', 'danger-soft', 'success-soft', 'warning-soft']
+
+// The 51 pairs per theme (plan section 6, item 2). Text pairs need 4.5:1; borders and the focus ring 3:1.
 const PAIRS = [
-  ['text', 'bg', 4.5],
-  ['text', 'surface', 4.5],
-  ['muted', 'bg', 4.5],
-  ['text-soft', 'surface', 4.5],
-  ['text-strong', 'surface', 4.5],
-  ['focus', 'surface', 3],
-  ['text-soft', 'bg', 4.5],
-  ['accent-text', 'accent', 4.5],
-  ['danger', 'bg', 4.5],
-  ['border', 'bg', 3],
-  ['focus', 'bg', 3],
-  ['warning', 'bg', 4.5],
-  ['warning', 'surface', 4.5]
+  ...['text', 'text-soft', 'accent', 'danger', 'success', 'warning'].flatMap((fg) => SURFACES.map((bg) => [fg, bg, 4.5])),
+  ...['accent', 'accent-hover', 'accent-pressed'].map((bg) => ['text-on-accent', bg, 4.5]),
+  ...['danger', 'danger-hover'].map((bg) => ['text-on-danger', bg, 4.5]),
+  ['accent', 'accent-soft', 4.5],
+  ['accent-soft-text', 'accent-soft', 4.5],
+  ['danger', 'danger-soft', 4.5],
+  ['success', 'success-soft', 4.5],
+  ['warning', 'warning-soft', 4.5],
+  ...['text', 'text-soft'].flatMap((fg) => SOFT.map((bg) => [fg, bg, 4.5])),
+  ['bg', 'text', 4.5],
+  ...['border', 'focus'].flatMap((fg) => SURFACES.map((bg) => [fg, bg, 3]))
 ]
+
+describe('colour tokens', () => {
+  it('has 51 pairs to check per theme', () => {
+    expect(PAIRS).toHaveLength(51)
+  })
+
+  it('writes every --color-* token as light-dark() except the three overlay colours', () => {
+    expect([...notLightDark].sort()).toEqual([...OVERLAYS].sort())
+  })
+
+  it('has the same token names in both themes', () => {
+    expect(Object.keys(THEMES.dark).sort()).toEqual(Object.keys(THEMES.light).sort())
+  })
+
+  it('matches the theme-colour meta in index.html to the light page background', () => {
+    const meta = indexHtml.match(/<meta name="theme-color" content="([^"]+)"/)
+    expect(meta).not.toBeNull()
+    expect(meta[1]).toBe(THEMES.light.bg)
+  })
+})
 
 describe('colour contrast', () => {
   for (const theme of Object.keys(THEMES)) {
@@ -59,18 +80,18 @@ describe('colour contrast', () => {
       for (const [fg, bg, min] of PAIRS) {
         it(`${fg} on ${bg} is at least ${min}:1`, () => {
           const colours = THEMES[theme]
-          const ratio = contrast(colours[`--${fg}`], colours[`--${bg}`])
-          expect(ratio, `${fg} ${colours[`--${fg}`]} on ${bg} ${colours[`--${bg}`]}`).toBeGreaterThanOrEqual(min)
+          const ratio = contrast(colours[fg], colours[bg])
+          expect(ratio, `${fg} ${colours[fg]} on ${bg} ${colours[bg]}`).toBeGreaterThanOrEqual(min)
         })
       }
     })
   }
 
-  it('reads every pair token in both themes', () => {
+  it('reads every pair token in both themes as a 6-digit hex colour', () => {
     for (const colours of Object.values(THEMES)) {
       for (const [fg, bg] of PAIRS) {
-        expect(colours[`--${fg}`]).toMatch(/^#[0-9a-f]{6}$/i)
-        expect(colours[`--${bg}`]).toMatch(/^#[0-9a-f]{6}$/i)
+        expect(colours[fg]).toMatch(/^#[0-9a-f]{6}$/i)
+        expect(colours[bg]).toMatch(/^#[0-9a-f]{6}$/i)
       }
     }
   })

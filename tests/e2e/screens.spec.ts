@@ -128,7 +128,9 @@ test.describe('screens', () => {
       await shoot(browser, width, 'login', '/')
       await shoot(browser, width, 'login-suspended', '/?suspended=1', { ready: (p) => p.getByRole('alert').getByText('This account is suspended.') })
       await shoot(browser, width, 'drafts-three', '/', { token: owner, ready: (p) => p.getByText('Launch thread') })
+      await shoot(browser, width, 'drafts-three-dark', '/', { token: owner, theme: 'dark', ready: (p) => p.getByText('Launch thread') })
       await shoot(browser, width, 'editor', `/draft/${editorId}`, { token: owner, ready: (p) => p.locator('.draft-title-input') })
+      await shoot(browser, width, 'editor-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.locator('.draft-title-input') })
       await shoot(browser, width, 'editor-export-menu', `/draft/${editorId}`, {
         token: owner,
         ready: (p) => p.locator('.draft-title-input'),
@@ -155,16 +157,14 @@ test.describe('screens', () => {
       await shoot(browser, width, 'preview', `/x-thread-preview/${previewToken}`, { ready: (p) => p.frameLocator('iframe[title="Thread preview"]').getByText('Opening post') })
       await shoot(browser, width, 'share', `/api/share/${shareToken}.html`, { ready: (p) => p.getByText('Opening post') })
 
-      // The menu drawer: light on both widths, dark on phones.
+      // The menu drawer: light and dark on both widths.
       const openMenu = async (p: Page) => {
         await p.getByRole('button', { name: 'Menu', exact: true }).click()
         await p.locator('#app-menu').waitFor()
         await p.waitForTimeout(300)
       }
       await shoot(browser, width, 'menu-open', `/draft/${editorId}`, { token: owner, ready: (p) => p.locator('.draft-title-input'), before: openMenu })
-      if (width < 800) {
-        await shoot(browser, width, 'menu-open-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.locator('.draft-title-input'), before: openMenu })
-      }
+      await shoot(browser, width, 'menu-open-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.locator('.draft-title-input'), before: openMenu })
 
       // The API tokens page (settings-menu.md M12), light and dark; then after a token is created, so the one-time box shows.
       const tokensReady = (p: Page) => p.locator('.tokens-page')

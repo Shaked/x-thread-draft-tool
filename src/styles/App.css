@@ -1,66 +1,55 @@
+/* Old names, aliased to the tokens in src/styles/tokens.css (plan section 2, "Old names in Task 1").
+   Each rule moves to a token when its page migrates, and the alias goes with the last user. */
 :root {
-  color-scheme: light;
-  --bg: #ffffff;  --surface-0: #ffffff;  --surface: #f7f9fa;  --surface-2: #eff3f4;
-  --border: #7b8a96;  --border-soft: #eff3f4;  --border-strong: #536471;  --neutral-600: #8899a6;
-  --text: #0f1419;  --text-strong: #0f1419;  --text-soft: #536471;  --muted: #536471;
-  --accent: #1670ad;  --accent-hover: #135f94;  --accent-text: #ffffff;  --accent-tint-10: #1670ad1a;  --accent-tint-20: #1670ad33;  --accent-tint-40: #1670ad66;
-  --danger: #c4161f;  --danger-hover: #a31219;  --danger-tint-20: #c4161f33;
-  --success: #00a06d;  --success-hover: #008a5f;  --success-tint-10: #00a06d1a;  --success-tint-40: #00a06d66;
-  --warning: #b45309;  --warning-strong: #92400e;  --warning-tint-10: #b453091a;  --warning-tint-40: #b4530966;
-  --focus: #1670ad;
-  --overlay-30: rgba(0, 0, 0, 0.3);  --overlay-70: #000c;  --overlay-90: #000e;  --on-overlay: #ffffff;
-  --space-1: 4px;  --space-2: 8px;  --space-3: 12px;  --space-4: 16px;  --space-5: 24px;  --space-6: 32px;
-  --radius: 12px;  --radius-sm: 8px;
+  --bg: var(--color-bg);
+  --surface-0: var(--color-surface-raised);
+  --surface: var(--color-surface);
+  --surface-2: var(--color-surface-2);
+  --border: var(--color-border);
+  --border-strong: var(--color-border);
+  --neutral-600: var(--color-border);
+  --border-soft: var(--color-border-soft);
+  --text: var(--color-text);
+  --text-strong: var(--color-text);
+  --text-soft: var(--color-text-soft);
+  --muted: var(--color-text-soft);
+  --accent: var(--color-accent);
+  --accent-hover: var(--color-accent-hover);
+  --accent-text: var(--color-text-on-accent);
+  --accent-tint-10: var(--color-accent-soft);
+  --accent-tint-20: var(--color-accent-soft);
+  --accent-tint-40: var(--color-accent);
+  --danger: var(--color-danger);
+  --danger-hover: var(--color-danger-hover);
+  --danger-tint-20: var(--color-danger-soft);
+  --success: var(--color-success);
+  --success-hover: var(--color-success);
+  --success-tint-10: var(--color-success-soft);
+  --success-tint-40: var(--color-success);
+  --warning: var(--color-warning);
+  --warning-strong: var(--color-warning);
+  --warning-tint-10: var(--color-warning-soft);
+  --warning-tint-40: var(--color-warning);
+  --focus: var(--color-focus);
+  --overlay-30: var(--color-scrim);
+  --overlay-70: var(--color-overlay);
+  --overlay-90: var(--color-overlay-strong);
+  --on-overlay: var(--color-on-overlay);
+  /* Old size names, renamed in Task 1 with the same values (tokens.css has other values under the new names). */
+  --legacy-space-1: 4px;  --legacy-space-2: 8px;  --legacy-space-3: 12px;
+  --legacy-space-4: 16px;  --legacy-space-5: 24px;  --legacy-space-6: 32px;
+  --legacy-radius: 12px;  --legacy-radius-sm: 8px;
 }
 
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #000000;  --surface-0: #111317;  --surface: #16181c;  --surface-2: #1a1d21;
-  --border: #5c6670;  --border-soft: #2f3336;  --border-strong: #444444;  --neutral-600: #555555;
-  --text: #e7e9ea;  --text-strong: #ffffff;  --text-soft: #8899a6;  --muted: #71767a;
-  --accent: #1d9bf0;  --accent-hover: #1a8cd8;  --accent-text: #000000;  --accent-tint-10: #1d9bf010;  --accent-tint-20: #1d9bf020;  --accent-tint-40: #1d9bf040;
-  --danger: #f4212e;  --danger-hover: #d91d28;  --danger-tint-20: #f4212e20;
-  --success: #00ba7c;  --success-hover: #00a06d;  --success-tint-10: #00ba7c10;  --success-tint-40: #00ba7c40;
-  --warning: #ffd700;  --warning-strong: #b45309;  --warning-tint-10: #ffd70010;  --warning-tint-40: #ffd70040;
-  --focus: #1d9bf0;
-  --overlay-30: rgba(0, 0, 0, 0.3);  --overlay-70: #000c;  --overlay-90: #000e;  --on-overlay: #ffffff;
+/* The base reset (src/ui/base.css) sets font: inherit, which would drop the browser's heading and control sizes.
+   Here they go back to the browser's own values, so nothing changes size in this task. Each moves to a token
+   when its page migrates. Links were the browser's blue; they take the accent, as the rest of the app is purple. */
+h1, h2, h3, h4, h5, h6, button, input, select, textarea {
+  font: revert;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root[data-theme="system"] {
-    color-scheme: dark;
-    --bg: #000000;  --surface-0: #111317;  --surface: #16181c;  --surface-2: #1a1d21;
-    --border: #5c6670;  --border-soft: #2f3336;  --border-strong: #444444;  --neutral-600: #555555;
-    --text: #e7e9ea;  --text-strong: #ffffff;  --text-soft: #8899a6;  --muted: #71767a;
-    --accent: #1d9bf0;  --accent-hover: #1a8cd8;  --accent-text: #000000;  --accent-tint-10: #1d9bf010;  --accent-tint-20: #1d9bf020;  --accent-tint-40: #1d9bf040;
-    --danger: #f4212e;  --danger-hover: #d91d28;  --danger-tint-20: #f4212e20;
-    --success: #00ba7c;  --success-hover: #00a06d;  --success-tint-10: #00ba7c10;  --success-tint-40: #00ba7c40;
-    --warning: #ffd700;  --warning-strong: #b45309;  --warning-tint-10: #ffd70010;  --warning-tint-40: #ffd70040;
-    --focus: #1d9bf0;
-    --overlay-30: rgba(0, 0, 0, 0.3);  --overlay-70: #000c;  --overlay-90: #000e;  --on-overlay: #ffffff;
-  }
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html {
-  height: 100%;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: var(--bg);
-  color: var(--text-strong);
-  line-height: 1.5;
-  overflow-x: hidden;
+a {
+  color: var(--accent);
 }
 
 .app {
@@ -1218,7 +1207,7 @@ body {
 }
 
 /* App bar: page actions, sign-out and the hide control. In the page header on wide screens, a fixed bottom bar on phones. */
-:root { --bar-h: 44px; --bar-space: 0px; }
+:root { --legacy-bar-h: 44px; --bar-space: 0px; }
 .app-bar, .app-bar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .app-bar-toggle { display: none; }
 .icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -1227,23 +1216,23 @@ body {
 .settings-top { display: flex; align-items: center; justify-content: space-between; }
 
 @media (max-width: 768px) {
-  :root[data-bar='shown'] { --bar-space: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)); }
+  :root[data-bar='shown'] { --bar-space: calc(var(--legacy-bar-h) + env(safe-area-inset-bottom, 0px)); }
   :root[data-bar='hidden'] { --bar-space: calc(24px + env(safe-area-inset-bottom, 0px)); }
   html { scroll-padding-bottom: var(--bar-space); }
   .app { padding-bottom: calc(var(--bar-space) + 16px); }
 
   .app-bar {
     position: fixed; inset-inline: 0; bottom: 0; z-index: 100;
-    height: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
+    height: calc(var(--legacy-bar-h) + env(safe-area-inset-bottom, 0px));
     padding: 0 4px env(safe-area-inset-bottom, 0px);
     gap: 0; align-items: flex-end;
     background-color: var(--bg); box-shadow: 0 -1px 0 var(--border);
     transition: background-color 0.2s, box-shadow 0.2s;
   }
-  .app-bar-actions { flex: 1; min-width: 0; height: var(--bar-h); gap: 0; transition: transform 0.2s, opacity 0.2s, visibility 0.2s; }
+  .app-bar-actions { flex: 1; min-width: 0; height: var(--legacy-bar-h); gap: 0; transition: transform 0.2s, opacity 0.2s, visibility 0.2s; }
   .app-bar .icon-btn, .app-bar-toggle {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 40px; min-width: 40px; height: var(--bar-h); min-height: 0; padding: 0;
+    width: 40px; min-width: 40px; height: var(--legacy-bar-h); min-height: 0; padding: 0;
     background: none; border: 0; border-radius: 8px; color: var(--text-strong); cursor: pointer;
   }
   .app-bar .btn-text { display: none; }
@@ -1601,8 +1590,6 @@ body {
 }
 .token-created { border: 2px solid var(--warning); background: var(--warning-tint-10); border-radius: 12px; padding: 16px; margin: 16px 0 0; }
 .token-warning { color: var(--warning-strong); margin: 0 0 8px; }
-:root[data-theme="dark"] .token-warning { color: var(--warning); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .token-warning { color: var(--warning); } }
 .token-secret { display: block; word-break: break-all; padding: 12px; background: var(--bg); border-radius: 8px; margin: 0 0 8px; }
 .token-created .copy-btn { width: 100%; min-height: 48px; font-size: 18px; font-weight: 600; }
 .token-empty { color: var(--text-soft); margin: 8px 0 0; }
@@ -1613,26 +1600,26 @@ body {
 /* Theme choice (Light / Dark / Match device). */
 .theme-setting {
   border: none;
-  margin: var(--space-4) 0;
+  margin: var(--legacy-space-4) 0;
   padding: 0;
 }
 
 .theme-setting legend {
   color: var(--muted);
   font-size: 14px;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--legacy-space-2);
 }
 
 .theme-segments {
   display: inline-flex;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--legacy-radius-sm);
   overflow: hidden;
 }
 
 .theme-segment {
   position: relative;
-  padding: var(--space-2) var(--space-4);
+  padding: var(--legacy-space-2) var(--legacy-space-4);
   min-height: 44px;
   display: inline-flex;
   align-items: center;
@@ -1678,8 +1665,8 @@ body {
 .connected-apps a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .grant-list { list-style: none; padding: 0; }
 .grant-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
-.grant-revoke-btn { min-height: 44px; min-width: 44px; padding: 8px 12px; font-size: 16px; background: transparent; border: 1px solid #f4212e; border-radius: 8px; color: #f4212e; cursor: pointer; }
-.grant-revoke-btn:hover { background-color: #f4212e20; }
+.grant-revoke-btn { min-height: 44px; min-width: 44px; padding: 8px 12px; font-size: 16px; background: transparent; border: 1px solid var(--danger); border-radius: 8px; color: var(--danger); cursor: pointer; }
+.grant-revoke-btn:hover { background-color: var(--danger-tint-20); }
 .copy-btn { min-height: 44px; min-width: 44px; padding: 8px 12px; font-size: 16px; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: inherit; cursor: pointer; }
 .copy-btn:hover { background-color: var(--border-soft); }
 .connect-app-row > div { flex: 1 1 16rem; min-width: 0; }
@@ -1698,7 +1685,7 @@ body {
 }
 .menu-btn:focus-visible, .app-menu-item:focus-visible, .app-menu-version:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .app-menu-scrim {
-  position: fixed; inset: 0; z-index: 200; background: rgba(0, 0, 0, 0.5);
+  position: fixed; inset: 0; z-index: 200; background: var(--overlay-30);
   animation: app-menu-fade 0.2s;
 }
 .app-menu {
@@ -1707,7 +1694,7 @@ body {
   width: min(320px, calc(100vw - 48px)); height: 100dvh; overflow-y: auto;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
   background: var(--surface); color: var(--text); border-inline-end: 1px solid var(--border);
-  box-shadow: 0 0 24px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-lg);
   animation: app-menu-slide 0.2s;
 }
 .app-menu-head { display: flex; align-items: center; justify-content: space-between; padding-inline-start: 8px; }

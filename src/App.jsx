@@ -9,7 +9,6 @@ import TokensPage from './pages/TokensPage'
 import AppsPage from './pages/AppsPage'
 import AboutPage from './pages/AboutPage'
 import ChangelogPage from './pages/ChangelogPage'
-import './styles/App.css'
 import { applyTheme, getTheme } from './utils/theme'
 import { clearCachedDrafts } from './utils/draftCache'
 
