@@ -23,4 +23,10 @@ The scoring is BM25 (k1 1.2, b 0.75) over one document per tool: the name split 
 
 ## Clients
 
-`clients.json` lists what each AI app shows (server instructions, prompts, resources, UI views, tool title). Every value is `true`, `false` or `"not checked"`, with a source URL that was read. A value stays `"not checked"` until a page we read states it. `clients.json` is a record only: no score reads it, and the test checks its shape. Negative thresholds are ceilings: a negative passes when its best write-tool score is at or below the threshold.
+`clients.json` lists what each AI app shows (server instructions, prompts, resources, UI views, tool title), and the supported languages. Every value is `true`, `false` or `"not checked"`, with a source URL that was read (a page, or an issue that records what Shaked saw). A value stays `"not checked"` until such a source states it. The test checks its shape. Negative thresholds are ceilings: a negative passes when its best write-tool score is at or below the threshold.
+
+## Per client and format eval (#365)
+
+- Per client: each client is scored in `with_instructions` when its `reads_instructions` is `true`, else in `tools_only` (the safe case, also for `"not checked"`). The test prints one row per client and language and fails when a client is below the floors of its mode. These floors are the baseline above; there is no second baseline.
+- Format eval (`format.mjs`): for each client, the text it is sent (instructions, tool descriptions, prompt descriptions and messages, the skill) must have no code fence except the fence around the user's own text in a prompt and one "Post text to copy:" block, must keep the user's Hebrew byte for byte and add no direction marks, and must fit its length limit. A part the client is known not to read (`false`) is skipped for it. Pass or fail, no floors.
+- The client and language matrix is `docs/architecture/client-matrix.md`.

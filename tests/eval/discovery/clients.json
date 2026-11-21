@@ -1,6 +1,7 @@
 {
-  "as_of": "2026-11-20",
-  "note": "What each AI app shows or reads. A value is true or false only with a source URL that was read. Otherwise it is \"not checked\" with source \"not checked\". A client with reads_instructions true is scored in the with_instructions mode; any other value uses tools_only, the safe case.",
+  "as_of": "2026-11-21",
+  "note": "What each AI app shows or reads. A value is true or false only with a source URL that was read (a page, or an issue that records what the owner saw). Otherwise it is \"not checked\" with source \"not checked\". The discovery score gives each client the with_instructions mode when reads_instructions is true, else tools_only (the safe case). docs/architecture/client-matrix.md has one column per client here and one table per language in languages.",
+  "languages": ["en", "he"],
   "clients": {
     "claude_ai": {
       "reads_instructions": { "value": "not checked", "source": "not checked" },
@@ -20,7 +21,7 @@
       "reads_instructions": { "value": "not checked", "source": "not checked" },
       "shows_prompts": { "value": "not checked", "source": "not checked" },
       "reads_resources": { "value": "not checked", "source": "not checked" },
-      "renders_ui_views": { "value": "not checked", "source": "not checked" },
+      "renders_ui_views": { "value": true, "source": "https://github.com/Shaked/x-thread-draft-tool/issues/357" },
       "reads_tool_title": { "value": "not checked", "source": "not checked" }
     },
     "grok": {
@@ -34,6 +35,13 @@
       "reads_instructions": { "value": "not checked", "source": "https://code.claude.com/docs/en/mcp" },
       "shows_prompts": { "value": "not checked", "source": "https://code.claude.com/docs/en/mcp" },
       "reads_resources": { "value": "not checked", "source": "https://code.claude.com/docs/en/mcp" },
+      "renders_ui_views": { "value": "not checked", "source": "not checked" },
+      "reads_tool_title": { "value": "not checked", "source": "not checked" }
+    },
+    "codex": {
+      "reads_instructions": { "value": "not checked", "source": "not checked" },
+      "shows_prompts": { "value": "not checked", "source": "not checked" },
+      "reads_resources": { "value": "not checked", "source": "not checked" },
       "renders_ui_views": { "value": "not checked", "source": "not checked" },
       "reads_tool_title": { "value": "not checked", "source": "not checked" }
     },

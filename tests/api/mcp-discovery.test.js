@@ -5,10 +5,12 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { listTools } from '../../server/mcp/tools.js'
 import { listAdminTools } from '../../server/mcp/admin-tools.js'
-import { listPrompts } from '../../server/mcp/prompts.js'
+import { getPrompt, listPrompts } from '../../server/mcp/prompts.js'
+import { readSkillResource } from '../../server/mcp/skills.js'
 import { INSTRUCTIONS } from '../../server/mcp/server.js'
 import { WRITE_TOOLS } from '../eval/mcp-default-use.eval.mjs'
-import { MODES, NAMES_CONNECTOR, checkAgainst, evaluate, formatTable } from '../eval/discovery/score.mjs'
+import { MODES, NAMES_CONNECTOR, checkAgainst, clientScores, evaluate, formatClientTable, formatTable, modeFor } from '../eval/discovery/score.mjs'
+import { fenceProblems, formatEval, formatEvalTable } from '../eval/discovery/format.mjs'
 
 const dir = new URL('../eval/discovery/', import.meta.url)
 const read = (name) => JSON.parse(readFileSync(new URL(name, dir), 'utf8'))
@@ -61,8 +63,8 @@ describe('discovery corpus', () => {
 describe('client profiles', () => {
   const FIELDS = ['reads_instructions', 'shows_prompts', 'reads_resources', 'renders_ui_views', 'reads_tool_title']
 
-  it('lists the six clients, each with every field, a value and a source', () => {
-    expect(Object.keys(clients.clients).sort()).toEqual(['chatgpt', 'claude_ai', 'claude_code', 'claude_desktop', 'generic', 'grok'])
+  it('lists the seven clients, each with every field, a value and a source', () => {
+    expect(Object.keys(clients.clients).sort()).toEqual(['chatgpt', 'claude_ai', 'claude_code', 'claude_desktop', 'codex', 'generic', 'grok'])
     for (const [name, profile] of Object.entries(clients.clients)) {
       for (const field of FIELDS) {
         const { value, source } = profile[field] ?? {}
@@ -114,5 +116,37 @@ describe('discovery score', () => {
         expect(report.modes[mode].negatives[lang].max_write_score).toBeLessThanOrEqual(baseline.modes[mode].negatives[lang].max_write_score)
       }
     }
+  })
+})
+
+describe('per client (#365)', () => {
+  const report = evaluate({ tools, instructions: INSTRUCTIONS, intents, negatives, admin: listAdminTools() })
+
+  it('scores each client in the mode its reads_instructions value gives, and no client falls below the floors of that mode', () => {
+    expect(modeFor({ reads_instructions: { value: true } })).toBe('with_instructions')
+    for (const value of [false, 'not checked']) expect(modeFor({ reads_instructions: { value } })).toBe('tools_only')
+    const rows = clientScores(report, clients, baseline)
+    console.log(formatClientTable(rows))
+    expect(rows).toHaveLength(Object.keys(clients.clients).length * clients.languages.length)
+    for (const row of rows) {
+      expect(row.mode, row.client).toBe(modeFor(clients.clients[row.client]))
+      expect(row.top1, `${row.client} ${row.lang} top-1`).toBeGreaterThanOrEqual(row.floor_top1)
+      expect(row.top3, `${row.client} ${row.lang} top-3`).toBeGreaterThanOrEqual(row.floor_top3)
+    }
+  })
+
+  it('format eval: no code fence around post text, Hebrew kept exactly, within the length limits, for every client', () => {
+    const server = { instructions: INSTRUCTIONS, tools, prompts: listPrompts(), getPrompt, skillText: readSkillResource('skill://x-thread-drafts/SKILL.md')[0].text }
+    const { problems, rows } = formatEval(clients, server)
+    console.log(formatEvalTable(rows))
+    expect(problems, problems.join('\n')).toEqual([])
+    expect(rows.filter((r) => r.group === 'prompts')).toHaveLength(Object.keys(clients.clients).length)
+  })
+
+  it('format eval: finds a code fence around text, and allows only the user-text fence and one copy block', () => {
+    expect(fenceProblems('Option 1:\n```\nשלום\n```')).toHaveLength(1)
+    expect(fenceProblems("Notes (the user's own text, between the fences):\n````\na ``` b\n````")).toEqual([])
+    expect(fenceProblems('Post text to copy:\n```text\na\n```')).toEqual([])
+    expect(fenceProblems('Post text to copy:\n```text\na\n```\nPost text to copy:\n```text\nb\n```')).toEqual(['more than one copy block'])
   })
 })

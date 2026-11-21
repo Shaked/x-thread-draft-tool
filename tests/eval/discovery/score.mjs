@@ -158,6 +158,45 @@ export function formatTable(report) {
   return lines.join('\n')
 }
 
+/** The mode a client is scored in (#365): with_instructions only when clients.json says it reads them (true). */
+export const modeFor = (profile) => (profile?.reads_instructions?.value === true ? 'with_instructions' : 'tools_only')
+
+/** Sums of top-1 and top-3 hits over all intents, per language, for one cells object. */
+function sumCells(cells) {
+  const langs = {}
+  for (const byLang of Object.values(cells)) {
+    for (const [lang, c] of Object.entries(byLang)) {
+      const sum = (langs[lang] ??= { top1: 0, top3: 0, total: 0 })
+      sum.top1 += c.top1
+      sum.top3 += c.top3
+      sum.total += c.total
+    }
+  }
+  return langs
+}
+
+/** One row per client and language (#365): its mode from clients.json, the run's hits and the baseline floor sums. */
+export function clientScores(report, clients, baseline) {
+  const rows = []
+  for (const [client, profile] of Object.entries(clients.clients)) {
+    const mode = modeFor(profile)
+    const floors = sumCells(baseline.modes[mode]?.cells ?? {})
+    for (const [lang, sum] of Object.entries(sumCells(report.modes[mode].cells))) {
+      rows.push({ client, mode, lang, ...sum, floor_top1: floors[lang]?.top1 ?? 0, floor_top3: floors[lang]?.top3 ?? 0 })
+    }
+  }
+  return rows
+}
+
+/** Per-client table: the client, its mode, and top-1 and top-3 hits against the floors of that mode. */
+export function formatClientTable(rows) {
+  const lines = ['client          lang mode              top1 (floor) top3 (floor)']
+  for (const r of rows) {
+    lines.push(`${r.client.padEnd(15)} ${r.lang.padEnd(4)} ${r.mode.padEnd(17)} ${`${r.top1}/${r.total}`.padEnd(5)} (${r.floor_top1})    ${`${r.top3}/${r.total}`.padEnd(5)} (${r.floor_top3})`)
+  }
+  return lines.join('\n')
+}
+
 /**
  * Turns one run into the baseline floors. Known failures are the positive phrases that miss the top 3 in a mode;
  * each keeps the reason the run gave (the rank and the tool that came first).
@@ -289,4 +328,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   }
   console.log(formatTable(report))
   console.log(`admin tools ranked first for a normal phrase: ${report.adminFirst.length}`)
+  const clients = readJson('./clients.json')
+  console.log(formatClientTable(clientScores(report, clients, readJson('./baseline.json'))))
 }
