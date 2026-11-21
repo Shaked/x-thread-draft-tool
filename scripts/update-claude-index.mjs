@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.cwd();
@@ -23,7 +23,11 @@ function rel(pathAbs) {
 }
 
 const featureFiles = listMdFiles(featuresDir).filter((f) => f !== 'index.md');
-const skillFiles = listMdFiles(skillsDir);
+// A skill is a flat `<name>.md` file or a `<name>/SKILL.md` folder (the folder form holds templates).
+const skillFiles = [
+  ...listMdFiles(skillsDir),
+  ...readdirSync(skillsDir, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync(join(skillsDir, d.name, 'SKILL.md'))).map((d) => join(d.name, 'SKILL.md'))
+].sort();
 
 const now = new Date();
 const ts = now.toISOString().replace('T', ' ').replace('Z', ' UTC');

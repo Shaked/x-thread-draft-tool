@@ -3,7 +3,7 @@
 This file is the primary, actionable map for what to use.
 
 <!-- AUTO-INDEX:START -->
-_Last refreshed: 2026-11-13 15:47:52.686 UTC_
+_Last refreshed: 2026-11-21 10:26:41.434 UTC_
 
 ## Feature Index (auto-generated, use directly)
 - Draft Management: [`docs/features/draft-management.md`](./docs/features/draft-management.md)
@@ -20,6 +20,7 @@ _Last refreshed: 2026-11-13 15:47:52.686 UTC_
 - Skill: End-to-end contract tests without real clients or LLMs: [`.claude/skills/e2e-contract-tests.md`](./.claude/skills/e2e-contract-tests.md)
 - Skill: High-Risk Feature Concentration: [`.claude/skills/high-risk-features.md`](./.claude/skills/high-risk-features.md)
 - Skill: JS/TS Quality and Type Safety Direction: [`.claude/skills/js-ts-quality.md`](./.claude/skills/js-ts-quality.md)
+- Skill: Reply style (templates for replies to the owner): [`.claude/skills/reply-style/SKILL.md`](./.claude/skills/reply-style/SKILL.md)
 <!-- AUTO-INDEX:END -->
 
 ## Using the product as an agent

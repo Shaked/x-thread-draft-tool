@@ -1,0 +1,2 @@
+- Agents now write every reply to the owner, every handoff and every owner question with one of five templates (`.claude/skills/reply-style/`): a TL;DR, what you need to do, waiting for, blocked on you, done.
+- `npm run reply-lint` checks a reply for bare labels, letter-only options, "unchanged", "blocked" used for a machine, long lines, emoji and missing headings.

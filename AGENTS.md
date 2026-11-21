@@ -6,7 +6,7 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 ## Working in this repo
 ### Where the work is
 - The queue is the one open issue labelled `dispatch`. Epics are issues labelled `epic`; each task is a sub-issue labelled `task` with its full plan. There are no plan files.
-- One session does one task: claim, build, ship, post the Handoff comment, end. Templates are in the queue issue.
+- One session does one task: claim, build, ship, post the Handoff comment, end. The CLAIM template is in the queue issue; the HANDOFF template is in the `reply-style` skill.
 - Record every decision Shaked makes in the epic, with the date. "continue" is not an approval.
 - An open issue labelled `cleanup` is an eligible task of the Daily cleanup review epic (#255): executor Opus, at most one per day, and the session never merges. Rules: `docs/operations/cleanup-review.md`.
 
@@ -25,7 +25,7 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 - When Shaked said to do something, do it; if his words can mean two things, take the likelier, act, say which.
 - Merge commits only, never squash. Update a branch by merging `main`, never rebase.
 - Every PR adds `docs/changelogs/<UTC YYYYMMDD-HHMMSS>-<slug>.md` (1 to 5 lines).
-- Net lines: product code in `src/ server/ api/ scripts/` must not grow unless the PR body says `Implements docs/plans/<file>.md Task <n>` or `Implements #<issue> Task <n>`.
+- Net lines: product code in `src/ server/ api/ scripts/` must not grow unless the PR body says `Implements docs/plans/<file>.md Task <n>` or `Implements #<issue> Task <n>` (`<n>` may start with one capital letter: `Task R0`).
 - `npm ci` once; the pre-commit hook runs build and unit tests.
 - Test files under `tests/api/` start with `// @vitest-environment node`.
 - GitHub work through the GitHub MCP tools; `gh` for search only. Every comment ends with the Claude Code footer.
@@ -38,8 +38,5 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 - Every Handoff says which model did what.
 
 ### Talking to Shaked
-- First line: what is done. Then what is not done and why. Then the one thing that unblocks it.
-- Simple technical English, short sentences, no internal labels without a few words saying what they are (`T2 thread view`, `#76`).
-- Ask only what Shaked alone can decide: what is decided (as the user sees it), each option's result, your recommendation and what you do if nobody answers.
-- For a manual step: what to click, where (link), what it unblocks, and which automated route failed.
+- Every reply to Shaked, every HANDOFF and every owner question uses a template of the `reply-style` skill (`.claude/skills/reply-style/SKILL.md`) and passes `npm run reply-lint` before it is posted.
 - When you ask Shaked to try something on preview, add the label `try-preview` to the PR (he gets a Telegram message with the link if the label comes from his account; see the guide). When something only he can do exists, add the label `owner`. Details: `docs/operations/telegram.md`.

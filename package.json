@@ -19,6 +19,7 @@
     "test:budget": "node scripts/test-budget.mjs",
     "screens": "playwright test --project=screens",
     "slop": "node scripts/slop-scan.mjs",
+    "reply-lint": "node scripts/reply-lint.mjs",
     "dup": "jscpd",
     "precommit:checks": "npm run docs:refresh && npm run lint && npm run build && npm run test:unit",
     "prepare": "git config core.hooksPath .githooks || true",
