@@ -6,8 +6,10 @@
   gap: var(--space-2);
 }
 
+/* Rows start at the drawer's content edge, the same as the headings and the theme box. */
 .app-menu .ui-button {
   justify-content: flex-start;
+  padding-inline: var(--space-0);
 }
 
 .app-menu-foot {
@@ -22,6 +24,13 @@
   position: absolute;
   inset-block-start: var(--space-2);
   inset-inline-end: var(--space-2);
+}
+
+/* The version line is a small soft line, as it was before the drawer moved to kit buttons. */
+.app-menu-foot .ui-button--sm {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
 }
 
 /* The version line may wrap onto two lines at the drawer's width; it stays a 44 px target at least. */

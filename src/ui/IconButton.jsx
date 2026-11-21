@@ -1,14 +1,18 @@
-import { useId } from 'react'
+import { forwardRef, useId } from 'react'
 import Icon from './Icon'
 import './IconButton.css'
 
-// An icon-only button: always 44 x 44. `label` is required (aria-label and the tooltip).
-export default function IconButton({ icon, label, variant = 'ghost', pressed, expanded, controls, disabled = false, disabledReason, onClick }) {
+// An icon-only button: always 44 x 44. `label` is required (aria-label and the tooltip). `ref` goes to the button.
+const IconButton = forwardRef(function IconButton(
+  { icon, label, variant = 'ghost', pressed, expanded, controls, disabled = false, disabledReason, onClick },
+  ref
+) {
   const reasonId = useId()
   const className = ['ui-icon-button', `ui-icon-button--${variant}`, pressed ? 'ui-icon-button--pressed' : ''].filter(Boolean).join(' ')
   return (
     <>
       <button
+        ref={ref}
         type="button"
         className={className}
         aria-label={label}
@@ -33,4 +37,6 @@ export default function IconButton({ icon, label, variant = 'ghost', pressed, ex
       )}
     </>
   )
-}
+})
+
+export default IconButton

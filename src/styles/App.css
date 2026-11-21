@@ -1032,7 +1032,7 @@ a {
    publish button in the bar, and the share menus that open above it. */
 :root { --bar-space: 0px; }
 
-@media (max-width: 768px) {
+@media (width < 768px) {
   :root[data-bar='shown'] { --bar-space: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)); }
   :root[data-bar='hidden'] { --bar-space: calc(24px + env(safe-area-inset-bottom, 0px)); }
   html { scroll-padding-bottom: var(--bar-space); }
@@ -1355,4 +1355,10 @@ a {
 
 .draft-editor .share-btn {
   min-height: 44px;
+}
+
+/* Editor page (Task 6.3a): visible focus ring, 44 px header targets. */
+.draft-editor :is(a, button, input, textarea, [role="button"]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }

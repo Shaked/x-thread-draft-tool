@@ -129,6 +129,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `to` | route | | Renders a link that looks like a button. |
 | `href` | URL | | Renders an anchor that looks like a button. |
 | `ariaLabel` | string | | The accessible name when the visible label is not enough (for example "Revoke access for <app>"). |
+| `title` | string | | The tooltip. A `disabledReason` takes its place. |
 | `onClick` | function | | |
 
 - States: default, hover (only where hover exists), pressed (scale 0.98), focus-visible (the base focus ring), disabled (half opacity), loading, disabled with reason.
@@ -150,6 +151,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `disabled` | boolean | `false` | |
 | `disabledReason` | string | | As in Button. |
 | `onClick` | function | | |
+| `ref` | ref | | Forwarded to the `button`, so a caller can return focus to it (the menu does). |
 
 - States: always 44 x 44. Hover, pressed, focus-visible, disabled, pressed.
 - Example: `<IconButton icon="menu" label="Menu" onClick={open} />`
@@ -310,6 +312,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `children` | node | | More content between the text and the buttons. |
 | `actions` | `[{ label, variant, onClick, autoFocus }]` | `[]` | Buttons; the one with `autoFocus` gets focus first. Under 600 px they stack, the last one on top. |
 | `dismissible` | boolean | `true` | `false` ignores Escape and the scrim. |
+| `returnTo` | ref | | Where focus goes on close. Default: the element that had focus when it opened. |
 | `placement` | `center` \| `sheet-start` | `center` | `sheet-start` is the menu drawer: a full-height panel on the inline start edge, `--drawer-w` wide, mirrored under RTL. |
 | `id` | string | | Set on the panel (the menu uses it for `aria-controls`). |
 

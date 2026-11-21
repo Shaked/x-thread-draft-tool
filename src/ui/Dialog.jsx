@@ -12,22 +12,24 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
 // `actions`: [{ label, variant, onClick, autoFocus }]; the one with `autoFocus` gets focus first.
 // `placement`: 'center' (default) or 'sheet-start', a drawer on the inline start edge (the app menu).
 // Focus goes to the first element inside `[data-autofocus]` when there is one (a link or a button), else the first control.
-export default function Dialog({ open, onClose, title, description, children, actions = [], dismissible = true, placement = 'center', id }) {
+// `returnTo`: a ref to the element that focus returns to on close (optional).
+export default function Dialog({ open, onClose, title, description, children, actions = [], dismissible = true, placement = 'center', id, returnTo }) {
   const panel = useRef(null)
   const titleId = useId()
   const descriptionId = useId()
   // Latest values for the effect below, which must run only when the dialog opens or closes.
-  const latest = useRef({ onClose, dismissible })
+  const latest = useRef({ onClose, dismissible, returnTo })
   useEffect(() => {
-    latest.current = { onClose, dismissible }
+    latest.current = { onClose, dismissible, returnTo }
   })
 
   useEffect(() => {
     if (!open) return undefined
     const root = document.getElementById('root')
-    const opener = document.activeElement
+    // Focus goes back to `returnTo` when given (a button that Safari does not focus on click), else to what had focus.
+    const opener = latest.current.returnTo?.current ?? document.activeElement
     root?.setAttribute('inert', '')
-    document.documentElement.classList.add('ui-dialog-open')
+    document.documentElement.classList.add('dialog-open')
     const box = panel.current
     const start = box?.querySelector('[data-autofocus] a, [data-autofocus] button') ?? box?.querySelector(FOCUSABLE) ?? box
     start?.focus()
@@ -52,7 +54,7 @@ export default function Dialog({ open, onClose, title, description, children, ac
     return () => {
       document.removeEventListener('keydown', onKey)
       root?.removeAttribute('inert')
-      document.documentElement.classList.remove('ui-dialog-open')
+      document.documentElement.classList.remove('dialog-open')
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus()
     }
   }, [open])

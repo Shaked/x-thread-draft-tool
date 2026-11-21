@@ -1,5 +1,5 @@
 /* Dialog: centred from 600 px, a bottom sheet below. The scrim and panel enter with the slow motion token. */
-html.ui-dialog-open {
+html.dialog-open {
   overflow: hidden;
 }
 
@@ -140,6 +140,9 @@ html.ui-dialog-open {
 }
 
 /* The drawer's title keeps clear of a close button in either top corner (the menu's close button). */
+/* The title starts where the drawer's text starts (its direction follows the page, so it sits on the start edge in RTL too)
+   and keeps clear of the close button, which is always at the inline end. */
 .ui-dialog--sheet-start .ui-dialog__title {
-  padding-inline: var(--hit-min);
+  direction: inherit;
+  padding-inline-end: var(--space-10);
 }

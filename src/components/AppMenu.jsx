@@ -1,10 +1,11 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { formatVersion, localBuildInfo } from '../utils/version'
+import { formatVersion, localBuildInfo, utcText } from '../utils/version'
 import Button from '../ui/Button'
 import Dialog from '../ui/Dialog'
 import IconButton from '../ui/IconButton'
 import Section from '../ui/Section'
+import Stack from '../ui/Stack'
 import { signOut } from './LogoutButton'
 import ThemeSetting from './ThemeSetting'
 import './AppMenu.css'
@@ -20,14 +21,15 @@ export default function AppMenu() {
   const setOpen = useCallback((next) => setOpenAt(next ? pathname : null), [pathname])
 
   const close = () => setOpen(false)
+  const menuButton = useRef(null)
   const build = localBuildInfo()
   const version = formatVersion(build, new Date())
 
   // Focus, Escape, the scrim, the inert page and focus return come from Dialog.
   return (
     <>
-      <IconButton icon="menu" label="Menu" expanded={open} controls="app-menu" onClick={() => setOpen(true)} />
-      <Dialog id="app-menu" open={open} onClose={close} placement="sheet-start" title="X Thread Draft Tool">
+      <IconButton ref={menuButton} icon="menu" label="Menu" expanded={open} controls="app-menu" onClick={() => setOpen(true)} />
+      <Dialog id="app-menu" open={open} onClose={close} placement="sheet-start" title="X Thread Draft Tool" returnTo={menuButton}>
         <div className="app-menu-close">
           <IconButton icon="close" label="Close menu" onClick={close} />
         </div>
@@ -39,21 +41,23 @@ export default function AppMenu() {
           </div>
           <Section title="Settings" headingLevel={3}>
             <ThemeSetting />
-            <Button variant="ghost" fullWidth to="/settings/tokens" onClick={close}>
-              API tokens
-            </Button>
-            <Button variant="ghost" fullWidth to="/settings/apps" onClick={close}>
-              Connected apps
-            </Button>
-            <Button variant="ghost" fullWidth to="/changelog" onClick={close}>
-              Changelog
-            </Button>
+            <Stack gap={2}>
+              <Button variant="ghost" fullWidth to="/settings/tokens" onClick={close}>
+                API tokens
+              </Button>
+              <Button variant="ghost" fullWidth to="/settings/apps" onClick={close}>
+                Connected apps
+              </Button>
+              <Button variant="ghost" fullWidth to="/changelog" onClick={close}>
+                Changelog
+              </Button>
+            </Stack>
           </Section>
           <div className="app-menu-foot">
             <Button variant="ghost" fullWidth onClick={signOut}>
               Sign out
             </Button>
-            <Button variant="ghost" size="sm" fullWidth to="/about" onClick={close}>
+            <Button variant="ghost" size="sm" fullWidth to="/about" onClick={close} title={utcText(build?.deployed_at)}>
               Version {version.short} · deployed {version.ago}
             </Button>
           </div>
