@@ -1,0 +1,3 @@
+- New plan `docs/plans/observability.md` (#331): what Vercel and Neon give us for free (checked: almost nothing on Hobby and Neon Free), and how the app will keep its own hourly latency histograms in Neon for p50 to p99.9.
+- Admin surfaces planned: `GET /api/admin/metrics`, `GET /api/admin/metrics/series`, tools `admin_metrics` and `admin_metrics_series`, page `/admin/metrics`; three Telegram alerts.
+- Build tasks O1 to O7 are issues #332 to #338, labelled `held` until the owner has discussed the plan.
