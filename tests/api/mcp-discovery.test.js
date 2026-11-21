@@ -7,6 +7,7 @@ import { listTools } from '../../server/mcp/tools.js'
 import { listAdminTools } from '../../server/mcp/admin-tools.js'
 import { getPrompt, listPrompts } from '../../server/mcp/prompts.js'
 import { readSkillResource } from '../../server/mcp/skills.js'
+import { threadText } from '../../server/mcp/thread-text.js'
 import { INSTRUCTIONS } from '../../server/mcp/server.js'
 import { WRITE_TOOLS } from '../eval/mcp-default-use.eval.mjs'
 import { MODES, NAMES_CONNECTOR, checkAgainst, clientScores, evaluate, formatClientTable, formatTable, modeFor } from '../eval/discovery/score.mjs'
@@ -136,7 +137,7 @@ describe('per client (#365)', () => {
   })
 
   it('format eval: no code fence around post text, Hebrew kept exactly, within the length limits, for every client', () => {
-    const server = { instructions: INSTRUCTIONS, tools, prompts: listPrompts(), getPrompt, skillText: readSkillResource('skill://x-thread-drafts/SKILL.md')[0].text }
+    const server = { instructions: INSTRUCTIONS, tools, prompts: listPrompts(), getPrompt, skillText: readSkillResource('skill://x-thread-drafts/SKILL.md')[0].text, threadText }
     const { problems, rows } = formatEval(clients, server)
     console.log(formatEvalTable(rows))
     expect(problems, problems.join('\n')).toEqual([])

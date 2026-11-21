@@ -1,6 +1,6 @@
 // Implements #273 Task C1 (issue #365): the format eval. Free and deterministic: no model, no network.
 // For each client profile in clients.json it takes the server-written text that client is sent (instructions, tool
-// descriptions, prompts and their messages, the skill) and checks three rules:
+// descriptions, prompts and their messages, the skill, the thread result as markdown) and checks three rules:
 //   1. no code fence, except a deliberate one: the fence around the user's own text in a prompt (D-13) or the one
 //      "Post text to copy:" block of a thread result (#352). A post shown in a code block is hard to read (#358).
 //   2. Hebrew stays as written: the user's Hebrew comes back byte for byte, and server text adds no direction marks.
@@ -67,6 +67,11 @@ export function templatesFor(profile, server) {
     }
   }
   if (reads('reads_resources')) out.push({ group: 'skill', name: 'SKILL.md', text: server.skillText, limit: LIMITS.skill, server: true })
+  // Every client gets tool results: the thread as markdown (#352), with each sample as a post.
+  for (const [lang, sample] of Object.entries(SAMPLES)) {
+    const text = server.threadText({ title: 'T', posts: [{ text: sample }, { text: sample }], url: 'https://app.example/draft/1', saved: true })
+    out.push({ group: 'results', name: `thread markdown (${lang})`, text, keep: sample })
+  }
   return out
 }
 
