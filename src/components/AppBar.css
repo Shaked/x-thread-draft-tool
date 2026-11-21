@@ -58,14 +58,50 @@
     outline-offset: calc(var(--focus-ring-width) * -1);
   }
 
+  /* Every action sits on one line, centred (menus wrap their button, buttons align to the start by default). */
+  .app-bar-actions > .ui-button,
+  .app-bar-actions > .ui-menu,
+  .app-bar-actions > .ui-icon-button {
+    align-self: center;
+  }
+
+  /* A secondary action shows its icon only; its name stays on the button for screen readers. */
+  .app-bar-actions .ui-button:not(.ui-button--primary) {
+    min-inline-size: var(--hit-min);
+    padding-inline: 0;
+    justify-content: center;
+    border-color: transparent;
+    background-color: transparent;
+  }
+
+  .app-bar-actions .ui-button:not(.ui-button--primary) .ui-button__text {
+    display: none;
+  }
+
+  /* Publish keeps its label, and only under 360 px becomes an icon (as before). It never shrinks. */
+  .app-bar-actions > .ui-button--primary {
+    flex-shrink: 0;
+  }
+
+  @media (width < 360px) {
+    .app-bar-actions > .ui-button--primary {
+      min-inline-size: var(--hit-min);
+      padding-inline: 0;
+      justify-content: center;
+    }
+
+    .app-bar-actions > .ui-button--primary .ui-button__text {
+      display: none;
+    }
+  }
+
   /* The primary action sits at the inline end; sign-out follows it. */
   .app-bar-actions > .ui-button--primary,
   .app-bar-actions > .ui-icon-button {
     margin-inline-start: auto;
   }
 
-  .app-bar-actions > .ui-button--primary ~ .ui-icon-button,
-  .app-bar-actions > .publish-btn ~ .ui-icon-button {
+  .app-bar-actions > .ui-button--primary ~ .ui-icon-button {
     margin-inline-start: var(--space-2);
   }
 

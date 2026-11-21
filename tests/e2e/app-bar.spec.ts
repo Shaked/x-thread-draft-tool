@@ -107,7 +107,7 @@ const SHOW = { name: 'Show toolbar', exact: true }
 function pagesFor() {
   return [
     { name: 'draft list', path: '/', ready: (p: Page) => p.getByRole('heading', { name: 'Your Threads' }) },
-    { name: 'editor', path: `/draft/${draftId}`, ready: (p: Page) => p.locator('.draft-title-input') },
+    { name: 'editor', path: `/draft/${draftId}`, ready: (p: Page) => p.getByLabel('Draft title') },
     { name: 'settings', path: '/settings/tokens', ready: (p: Page) => p.getByRole('heading', { name: 'API tokens', level: 1 }) },
     { name: 'connected apps', path: '/settings/apps', ready: (p: Page) => p.getByRole('heading', { name: 'Connected apps', level: 1 }) }
   ]
@@ -138,7 +138,7 @@ test.describe('app bar on phones', () => {
     const { context, page } = await openContext(browser)
     try {
       await page.goto(`${BASE}/draft/${draftId}`)
-      await page.locator('.draft-title-input').waitFor()
+      await page.getByLabel('Draft title').waitFor()
       await expectOneRow(page)
       await expect(page.locator('.sidebar-toggle')).toHaveCount(0)
     } finally {
@@ -150,20 +150,20 @@ test.describe('app bar on phones', () => {
     const { context, page } = await openContext(browser)
     try {
       await page.goto(`${BASE}/draft/${draftId}`)
-      await page.locator('.draft-title-input').waitFor()
+      await page.getByLabel('Draft title').waitFor()
       const bar = await boxOf(page.locator('.app-bar'))
 
       await page.getByRole('button', { name: 'Export', exact: true }).click()
       await expect(page.getByText('Copy with numbers')).toBeVisible()
-      const exportMenu = await boxOf(page.locator('.share-menu'))
+      const exportMenu = await boxOf(page.locator('.ui-menu__panel'))
       expect(exportMenu.y).toBeGreaterThanOrEqual(0)
       expect(exportMenu.x).toBeGreaterThanOrEqual(0)
       expect(exportMenu.y + exportMenu.height).toBeLessThanOrEqual(bar.y)
 
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: 'Share', exact: true }).click()
-      await expect(page.getByRole('button', { name: '1 hour', exact: false })).toBeVisible()
-      const shareMenu = await boxOf(page.locator('.share-menu'))
+      await expect(page.getByRole('menuitem', { name: '1 hour', exact: false })).toBeVisible()
+      const shareMenu = await boxOf(page.locator('.ui-menu__panel'))
       expect(shareMenu.y).toBeGreaterThanOrEqual(0)
       expect(shareMenu.x).toBeGreaterThanOrEqual(0)
       expect(shareMenu.y + shareMenu.height).toBeLessThanOrEqual(bar.y)
@@ -176,7 +176,7 @@ test.describe('app bar on phones', () => {
     const { context, page } = await openContext(browser)
     try {
       await page.goto(`${BASE}/draft/${draftId}`)
-      await page.locator('.draft-title-input').waitFor()
+      await page.getByLabel('Draft title').waitFor()
 
       await scrollToEnd(page)
       const shownBarTop = (await boxOf(page.locator('.app-bar'))).y
@@ -201,7 +201,7 @@ test.describe('app bar on phones', () => {
     const { context, page } = await openContext(browser)
     try {
       await page.goto(`${BASE}/draft/${draftId}`)
-      await page.locator('.draft-title-input').waitFor()
+      await page.getByLabel('Draft title').waitFor()
 
       await page.getByRole('button', HIDE).click()
       await expect(page.getByRole('button', SIGN_OUT)).toBeHidden()
@@ -235,7 +235,7 @@ test.describe('app bar on phones', () => {
       const { context, page } = await openContext(browser, { viewport: { width, height: 740 } })
       try {
         await page.goto(`${BASE}/draft/${draftId}`)
-        await page.locator('.draft-title-input').waitFor()
+        await page.getByLabel('Draft title').waitFor()
         const box = await boxOf(page.locator('.app-bar'))
         expect(box.height).toBeLessThanOrEqual(56)
         await expectOneRow(page)
@@ -249,7 +249,7 @@ test.describe('app bar on phones', () => {
     const { context, page } = await openContext(browser, { viewport: { width: 1280, height: 800 } })
     try {
       await page.goto(`${BASE}/draft/${draftId}`)
-      await page.locator('.draft-title-input').waitFor()
+      await page.getByLabel('Draft title').waitFor()
       await expect(page.locator('.app-bar-toggle')).toBeHidden()
       await expect(page.getByRole('button', SIGN_OUT)).toBeVisible()
       expect((await boxOf(page.getByRole('button', SIGN_OUT))).y).toBeLessThan(100)
@@ -366,7 +366,7 @@ test.describe('app bar on phones', () => {
     const { context, page } = await openContext(browser, { reducedMotion: 'reduce' })
     try {
       await page.goto(`${BASE}/draft/${draftId}`)
-      await page.locator('.draft-title-input').waitFor()
+      await page.getByLabel('Draft title').waitFor()
       const duration = await page.evaluate(() => getComputedStyle(document.querySelector('.app-bar-actions') as Element).transitionDuration)
       expect(duration).toBe('0s')
     } finally {

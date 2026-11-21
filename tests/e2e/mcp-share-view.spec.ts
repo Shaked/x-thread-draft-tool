@@ -127,5 +127,6 @@ test('while the host has not answered, the card says it waits for the OK in the 
   await frame.getByRole('button', { name: 'Stop this link' }).click()
   await frame.getByRole('button', { name: 'Yes, stop this link' }).click()
   await expect(frame.getByText('Waiting for your OK in the chat')).toBeVisible()
-  expect(await hostCalls(page)).toHaveLength(1)
+  // The host's call can land after the text shows: wait for it (#350), do not read it once.
+  await expect.poll(() => hostCalls(page)).toHaveLength(1)
 })
