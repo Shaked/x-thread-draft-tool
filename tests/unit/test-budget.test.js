@@ -6,8 +6,10 @@ import { join } from 'node:path'
 import {
   FILE_LIMIT_MS,
   FILE_LIMIT_OVERRIDES,
+  SHARD_TOTAL_LIMIT_MS,
   TOTAL_LIMIT_MS,
   fileDurations,
+  parseShard,
   violations
 } from '../../scripts/test-budget.mjs'
 import TestBudgetReporter from '../../scripts/test-budget-reporter.mjs'
@@ -48,6 +50,28 @@ describe('test budget', () => {
     const problems = violations([], TOTAL_LIMIT_MS + 1)
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain(`limit ${TOTAL_LIMIT_MS} ms`)
+  })
+
+  it('reads --shard=n/m and rejects anything else', () => {
+    expect(parseShard([])).toBeNull()
+    expect(parseShard(['--other'])).toBeNull()
+    expect(parseShard(['--shard=1/2'])).toBe('1/2')
+    expect(parseShard(['--shard=2/2'])).toBe('2/2')
+    for (const bad of ['--shard=0/2', '--shard=3/2', '--shard=1', '--shard=a/2', '--shard']) {
+      expect(() => parseShard([bad])).toThrow(/bad --shard/)
+    }
+  })
+
+  it('gives a shard its own total limit, lower than the whole-suite limit', () => {
+    expect(SHARD_TOTAL_LIMIT_MS).toBe(45000)
+    expect(SHARD_TOTAL_LIMIT_MS).toBeLessThan(TOTAL_LIMIT_MS)
+    // A shard's total is checked against the shard limit, and reported with it.
+    const problems = violations([], SHARD_TOTAL_LIMIT_MS + 1, SHARD_TOTAL_LIMIT_MS)
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain(`limit ${SHARD_TOTAL_LIMIT_MS} ms`)
+    expect(violations([], SHARD_TOTAL_LIMIT_MS, SHARD_TOTAL_LIMIT_MS)).toEqual([])
+    // Without a shard the whole-suite limit still applies: 46 s is within it.
+    expect(violations([], SHARD_TOTAL_LIMIT_MS + 1)).toEqual([])
   })
 
   it('turns absolute paths and fractional milliseconds into relative paths and whole numbers, slowest first', () => {
