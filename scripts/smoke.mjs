@@ -212,6 +212,12 @@ await step('admin paths answer like an unknown path (404)', async () => {
 
 // Approval page (plan T7). Signed out, the authorize address shows the sign-in page: a read-only link
 // with a Copy link field, under the policy from server/oauth/consent.js signInHeaders. No cookie, no redirect.
+await step('changelog is a 404 when signed out', async () => {
+  const response = await fetch(`${base}/api/changelog`, { headers: bypass ? { 'x-vercel-protection-bypass': bypass } : {} })
+  const body = JSON.parse(await response.text())
+  if (response.status !== 404 || body.error !== 'Not found') throw new Error(`changelog returned ${response.status}`)
+})
+
 await step('approval page: signed-out sign-in page, copy-link field and strict headers', async () => {
   const reg = await publicRequest('/api/oauth/register', {
     method: 'POST',

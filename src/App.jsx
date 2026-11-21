@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { authApi } from './utils/api'
+import { CurrentUserContext } from './utils/currentUser'
 import LoginPage from './components/LoginPage'
 import DraftList from './components/DraftList'
 import DraftEditor from './pages/DraftEditor'
@@ -49,6 +50,7 @@ function App() {
   }
 
   return (
+    <CurrentUserContext.Provider value={user}>
     <ToastProvider>
     <BrowserRouter>
     <ConfirmProvider>
@@ -80,10 +82,8 @@ function App() {
             path="/about"
             element={user ? <AboutPage /> : <LoginPage suspended={suspended} />}
           />
-          <Route
-            path="/changelog"
-            element={user ? <ChangelogPage /> : <LoginPage suspended={suspended} />}
-          />
+          {/* Admin only (#368): for anyone else this path is unknown, so the catch-all below answers it. */}
+          {user?.admin === true && <Route path="/changelog" element={<ChangelogPage />} />}
           <Route
             path="/x-thread-preview/:token"
             element={<XThreadPreviewPage />}
@@ -94,6 +94,7 @@ function App() {
     </ConfirmProvider>
     </BrowserRouter>
     </ToastProvider>
+    </CurrentUserContext.Provider>
   )
 }
 

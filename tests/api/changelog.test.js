@@ -16,17 +16,26 @@ beforeEach(async () => {
   await db.pg.query(
     "insert into oauth_clients (client_id, kind, client_name) values ('xtc_mcp_test', 'registered', 'Test') on conflict do nothing"
   )
-  const alice = await db.insertUser({ github_id: 1, login: 'alice' })
-  const { rows } = await db.pg.query(
-    "insert into oauth_grants (user_id, client_id, scope, resource) values ($1, 'xtc_mcp_test', 'drafts', $2) returning id",
-    [alice.id, `${APP_URL}/api`]
-  )
-  token = (await issuePair(rows[0].id)).access_token
+  // The admin (GitHub id 960015, #368): the only identity the changelog answers.
+  const owner = await db.insertUser({ github_id: 960015, login: 'owner' })
+  token = await tokenFor(owner)
+  normalToken = await tokenFor(await db.insertUser({ github_id: 1, login: 'alice' }))
 })
 
+let normalToken
+
+/** A bearer token for `user`, granted for drafts on the MCP connection (the same grant as the other API tests). */
+async function tokenFor(user) {
+  const { rows } = await db.pg.query(
+    "insert into oauth_grants (user_id, client_id, scope, resource) values ($1, 'xtc_mcp_test', 'drafts', $2) returning id",
+    [user.id, `${APP_URL}/api`]
+  )
+  return (await issuePair(rows[0].id)).access_token
+}
+
 /** GET /api/changelog with the token (or none). */
-function get(query = '', { signedIn = true } = {}) {
-  const headers = signedIn ? { authorization: `Bearer ${token}` } : {}
+function get(query = '', { signedIn = true, bearer = token } = {}) {
+  const headers = signedIn ? { authorization: `Bearer ${bearer}` } : {}
   return route(apiRequest(`/api/changelog${query}`, { headers }))
 }
 
@@ -44,9 +53,12 @@ async function walk() {
 }
 
 describe('GET /api/changelog', () => {
-  it('needs a signed-in caller: 401 without one', async () => {
-    const res = await get('', { signedIn: false })
-    expect(res.status).toBe(401)
+  it('is admin only: signed out, and a normal user, get the 404 of an unknown path, with the same body (#368)', async () => {
+    const unknown = await (await route(apiRequest('/api/zz-no-such-route'))).text()
+    for (const res of [await get('', { signedIn: false }), await get('', { bearer: normalToken })]) {
+      expect(res.status).toBe(404)
+      expect(await res.text()).toBe(unknown)
+    }
   })
 
   it('is private and cacheable for five minutes', async () => {
@@ -92,8 +104,8 @@ describe('GET /api/changelog', () => {
     expect((await get('?before=19990101-000000-nope')).status).toBe(400)
   })
 
-  it('is listed in the OpenAPI document', async () => {
+  it('is not listed in the OpenAPI document (admin routes are not in it, #368)', async () => {
     const doc = await (await route(apiRequest('/api/openapi.json'))).json()
-    expect(doc.paths['/changelog'].get.parameters.map((p) => p.name)).toEqual(['limit', 'before'])
+    expect(doc.paths['/changelog']).toBeUndefined()
   })
 })

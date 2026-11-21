@@ -66,7 +66,6 @@ MCP skill (extension io.modelcontextprotocol/skills): skill://x-thread-drafts/SK
 - MCP views (Claude, ChatGPT): `ui://x-thread/*` resources for the thread, the drafts list and the share card, shown by `get_draft`, `create_draft`, `create_thread_from_text`, `split_text`, `list_drafts` and `create_share_link`. Hashes of the views: `GET /api/mcp/ui-manifest` (public, no HTML).
 - [OpenAPI 3.1 spec](/api/openapi.json): every endpoint, schema and error code.
 - [Version](/api/version): the live commit, deploy time and database schema (public, no token); MCP tool `app_version`.
-- [Changelog](/api/changelog): what changed, newest first, with a token (signed in only); MCP tool `app_version` also returns the 5 newest.
 - [Agent guide in the repo](https://github.com/Shaked/x-thread-draft-tool/blob/main/docs/agents/api.md): auth options, limits, how to test.
 
 ## Rules

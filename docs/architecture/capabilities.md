@@ -26,7 +26,7 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | Split text into posts | `POST /threads/split` | `split_text`, `create_thread_from_text` | `no: the UI never calls this route, the editor splits text in the browser` | Rule gap: `create_thread_from_text` also calls `POST /drafts` |
 | Share link | `POST /drafts/:id/share-tokens`, `DELETE /drafts/:id/share-tokens`, `DELETE /drafts/:id/share-tokens/:token`, `GET /share/:token` | `create_share_link`, `revoke_share_link` | `/draft/:id`, `/x-thread-preview/:token` | Rule gap: the UI creates links only; no UI revokes them. The share page reads `GET /share/:token` |
 | Signed-in user | `GET /auth/me` | `whoami` | `no: the app reads the user once at start, no page of its own` | |
-| Version and changelog | `GET /version`, `GET /changelog` | `app_version` | `/about`, `/changelog` | |
+| Version and changelog | `GET /version`, `GET /changelog` | `app_version` | `/about`, `/changelog` | Changelog is admin only (#368): `GET /changelog` and `/changelog` answer 404 to everyone else, and `app_version` adds the `changelog` key only for the admin |
 | API tokens | `GET /tokens`, `POST /tokens`, `DELETE /tokens/:id` | `no: S-5: a person creates and revokes credentials on the Settings page` | `/settings/tokens` | Own page since #281 |
 | Connected apps | `GET /grants`, `DELETE /grants/:id` | `no: S-5: a person disconnects apps on the Settings page` | `/settings/apps` | Own page since #281 |
 | MCP prompts | `no: a prompt is a message template, it has no REST route` | `prompt:thread_from_notes`, `prompt:tighten_draft`, `prompt:review_before_publish`, `prompt:rewrite_hook` | `no: the AI app shows prompts, no page of ours` | Slash commands in the AI app |

@@ -7,10 +7,11 @@ import { openapiDocument } from '../../server/routes/openapi.js'
 // Router paths use :id, OpenAPI uses {id}
 const toOpenApiPath = (path) => path.replace(/:([A-Za-z]+)/g, '{$1}')
 
-// The admin routes are left out on purpose (decision D18): they are not documented to anyone.
+// The admin routes are left out on purpose (decision D18): they are not documented to anyone. So is the admin-only
+// changelog (adminOnly, #368).
 function routerOperations() {
   return new Set(
-    ROUTES.filter((route) => !route.path.startsWith('/admin')).map((route) => `${route.method.toLowerCase()} ${toOpenApiPath(route.path)}`)
+    ROUTES.filter((route) => !route.path.startsWith('/admin') && !route.adminOnly).map((route) => `${route.method.toLowerCase()} ${toOpenApiPath(route.path)}`)
   )
 }
 
@@ -31,6 +32,7 @@ describe('OpenAPI parity', () => {
 
   it('documents no admin path, and the served document never mentions admin', async () => {
     expect(Object.keys(OPENAPI.paths).filter((path) => path.startsWith('/admin'))).toEqual([])
+    expect(ROUTES.filter((route) => route.adminOnly).filter((route) => OPENAPI.paths[route.path]?.[route.method.toLowerCase()])).toEqual([])
     const served = await (await openapiDocument()).text()
     expect(served).not.toMatch(/admin/i)
   })

@@ -1,7 +1,7 @@
 // GET /api/changelog (docs/plans/settings-menu.md M14). The build writes server/generated/changelog.js
-// from docs/changelogs (scripts/build-info.mjs, M13). Signed in only (owner question Q3, default).
+// from docs/changelogs (scripts/build-info.mjs, M13). Admin only (#368): requireAdminUser decides, with role.js.
 import { HttpError, json } from './http.js'
-import { requireUser } from './session.js'
+import { requireAdminUser } from './admin/guard.js'
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
@@ -30,9 +30,10 @@ function limitOf(url) {
 }
 
 async function changelogHandler({ request, url }) {
-  await requireUser(request)
+  await requireAdminUser(request)
   const page = pageOf(await loadGenerated(), { limit: limitOf(url), before: url.searchParams.get('before') })
   return json(page, 200, { 'cache-control': 'private, max-age=300' })
 }
 
-export const changelogRoutes = [{ method: 'GET', path: '/changelog', handler: changelogHandler }]
+// adminOnly: left out of the OpenAPI document for everyone (as the /admin routes are, decision D18), #368.
+export const changelogRoutes = [{ method: 'GET', path: '/changelog', handler: changelogHandler, adminOnly: true }]

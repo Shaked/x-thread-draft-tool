@@ -1,7 +1,28 @@
 import { HttpError } from '../http.js'
 import { currentCaller } from '../caller-context.js'
-import { mcpAdminReason } from './role.js'
+import { authenticate } from '../session.js'
+import { mcpAdminReason, roleOf } from './role.js'
 import { adminToolRouteKeys } from '../mcp/admin-tools.js'
+
+/**
+ * Admin-only content for a REST caller (the changelog, #368): a signed-in caller whose GitHub id role.js
+ * calls admin. Everyone else, signed out included, gets the answer of an unknown path (404, same body).
+ */
+export async function requireAdminUser(request) {
+  let caller = null
+  try {
+    caller = await authenticate(request)
+  } catch {
+    caller = null
+  }
+  if (!caller || roleOf(caller.gh) !== 'admin') throw new HttpError(404, 'Not found')
+  return caller
+}
+
+/** The `admin: true` field of GET /api/auth/me: present only for the admin, so no other caller sees it. */
+export function adminField(caller) {
+  return roleOf(caller.gh) === 'admin' ? { admin: true } : {}
+}
 
 const GUARDED = new WeakSet()
 
