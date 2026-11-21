@@ -6,6 +6,7 @@ import Badge from '../ui/Badge'
 import Banner from '../ui/Banner'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
+import { useConfirm } from '../ui/Dialog'
 import Inline from '../ui/Inline'
 import CodeBlock, { CopyButton } from '../ui/CodeBlock'
 import { List, ListItem } from '../ui/List'
@@ -21,6 +22,7 @@ const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : 'â
 const resourceLabel = (resource) => (resource.endsWith('/api/mcp') ? 'Agent connector' : 'API')
 
 export default function AppsPage() {
+  const ask = useConfirm()
   const [grants, setGrants] = useState([])
   const [grantsLoading, setGrantsLoading] = useState(true)
   const [grantsError, setGrantsError] = useState(null)
@@ -44,7 +46,13 @@ export default function AppsPage() {
   }, [])
 
   const handleRevokeGrant = async (grant) => {
-    if (!confirm(`Revoke access for ${grant.client_name}? It stops working right away.`)) return
+    const confirmed = await ask({
+      title: 'Revoke access?',
+      body: `Revoke access for ${grant.client_name}? It stops working right away.`,
+      confirmLabel: 'Revoke access',
+      tone: 'danger'
+    })
+    if (!confirmed) return
     setGrantsError(null)
     setGrantsStatus('')
     try {

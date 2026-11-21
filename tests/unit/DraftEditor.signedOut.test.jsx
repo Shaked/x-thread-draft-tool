@@ -5,6 +5,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import DraftEditor from '../../src/pages/DraftEditor.jsx'
 import { draftsApi } from '../../src/utils/api'
 import { set as idbSet } from 'idb-keyval'
+import { ToastProvider } from '../../src/ui/Toast.jsx'
+import { ConfirmProvider } from '../../src/ui/Dialog.jsx'
 
 vi.mock('../../src/utils/api', () => ({
   draftsApi: { get: vi.fn(), update: vi.fn() },
@@ -27,11 +29,15 @@ function httpError(status, message) {
 
 function renderEditor() {
   return render(
+    <ToastProvider>
+      <ConfirmProvider>
     <MemoryRouter initialEntries={['/draft/d1']}>
       <Routes>
         <Route path="/draft/:id" element={<DraftEditor user={{ login: 'owner' }} />} />
       </Routes>
     </MemoryRouter>
+      </ConfirmProvider>
+    </ToastProvider>
   )
 }
 

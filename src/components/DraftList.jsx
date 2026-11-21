@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { draftsApi } from '../utils/api'
 import AppMenu from './AppMenu'
 import AppBar from './AppBar'
+import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/Dialog'
 
 export default function DraftList({ user }) {
   const [activeTab, setActiveTab] = useState('drafts') // 'drafts' or 'published'
@@ -11,6 +13,8 @@ export default function DraftList({ user }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const navigate = useNavigate()
+  const toast = useToast()
+  const ask = useConfirm()
 
 
   const loadDrafts = async () => {
@@ -50,7 +54,7 @@ export default function DraftList({ user }) {
       navigate(`/draft/${draft.id}`)
     } catch (err) {
       console.error('Error creating draft:', err)
-      alert('Failed to create draft: ' + err.message)
+      toast({ message: 'Failed to create draft: ' + err.message, tone: 'danger' })
     }
   }
 
@@ -72,12 +76,18 @@ export default function DraftList({ user }) {
       navigate(`/draft/${copy.id}`)
     } catch (err) {
       console.error('Error duplicating draft:', err)
-      alert('Failed to duplicate draft: ' + err.message)
+      toast({ message: 'Failed to duplicate draft: ' + err.message, tone: 'danger' })
     }
   }
 
   const deleteDraft = async (id) => {
-    if (!confirm('Are you sure you want to delete this draft?')) return
+    const confirmed = await ask({
+      title: 'Delete this draft?',
+      body: 'Are you sure you want to delete this draft?',
+      confirmLabel: 'Delete draft',
+      tone: 'danger'
+    })
+    if (!confirmed) return
 
     try {
       await draftsApi.remove(id)
@@ -86,7 +96,7 @@ export default function DraftList({ user }) {
       loadDrafts()
     } catch (err) {
       console.error('Error deleting draft:', err)
-      alert('Failed to delete draft: ' + err.message)
+      toast({ message: 'Failed to delete draft: ' + err.message, tone: 'danger' })
     }
   }
 

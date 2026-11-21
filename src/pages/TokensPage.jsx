@@ -5,6 +5,7 @@ import Badge from '../ui/Badge'
 import Banner from '../ui/Banner'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
+import { useConfirm } from '../ui/Dialog'
 import CodeBlock from '../ui/CodeBlock'
 import Field from '../ui/Field'
 import Inline from '../ui/Inline'
@@ -29,6 +30,7 @@ const statusOf = (token) => {
 }
 
 export default function TokensPage() {
+  const ask = useConfirm()
   const [tokens, setTokens] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -74,7 +76,13 @@ export default function TokensPage() {
   }
 
   const handleRevoke = async (id) => {
-    if (!confirm('Revoke this token? Agents using it will stop working.')) return
+    const confirmed = await ask({
+      title: 'Revoke this token?',
+      body: 'Revoke this token? Agents using it will stop working.',
+      confirmLabel: 'Revoke token',
+      tone: 'danger'
+    })
+    if (!confirmed) return
     try {
       await tokensApi.revoke(id)
       await load()

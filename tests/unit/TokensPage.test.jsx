@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import TokensPage from '../../src/pages/TokensPage.jsx'
 import { tokensApi } from '../../src/utils/api'
+import { ConfirmProvider } from '../../src/ui/Dialog.jsx'
 
 // Pins what the API tokens page does. Written by role and text only, so the same test runs on the old and the
 // redesigned markup (settings-menu.md Task 3, M12).
@@ -19,9 +20,11 @@ const REVOKED = { id: 'tok2', name: 'Old agent', prefix: 'xt_pat_OLDX', created_
 
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <TokensPage />
-    </MemoryRouter>
+    <ConfirmProvider>
+      <MemoryRouter>
+        <TokensPage />
+      </MemoryRouter>
+    </ConfirmProvider>
   )
 }
 
@@ -34,7 +37,6 @@ describe('TokensPage', () => {
     writeText = vi.fn().mockResolvedValue(undefined)
     user = userEvent.setup()
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
   afterEach(() => {
     cleanup()
@@ -82,18 +84,19 @@ describe('TokensPage', () => {
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'Revoke' }))
 
-    expect(window.confirm).toHaveBeenCalledWith('Revoke this token? Agents using it will stop working.')
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Revoke this token? Agents using it will stop working.')
+    expect(tokensApi.revoke).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Revoke token' }))
     await waitFor(() => expect(tokensApi.revoke).toHaveBeenCalledWith('tok1'))
     expect(tokensApi.list).toHaveBeenCalledTimes(2)
   })
 
   it('cancelling the Revoke confirmation calls nothing', async () => {
-    window.confirm.mockReturnValue(false)
     tokensApi.list.mockResolvedValue({ tokens: [ACTIVE] })
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'Revoke' }))
-
-    expect(window.confirm).toHaveBeenCalledTimes(1)
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(tokensApi.revoke).not.toHaveBeenCalled()
   })
 

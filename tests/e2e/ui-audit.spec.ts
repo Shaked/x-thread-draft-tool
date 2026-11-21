@@ -26,9 +26,8 @@ const EXEMPT_TARGETS = [
   { selector: '.app-bar-toggle', reason: 'the "Show toolbar" tab is at most 36 px high; tests/e2e/app-bar.spec.ts pins it' }
 ]
 
-// axe rule disabled on purpose: index.html blocks page zoom (maximum-scale=1.0, user-scalable=no). Owner decision U-O1
-// (2026-11-21) allows pinch zoom, so the viewport tag change is its own task; this audit does not wait for it.
-const AXE_DISABLED = ['meta-viewport']
+// No axe rule is disabled: index.html allows pinch zoom (plan task U5 removed maximum-scale and user-scalable=no).
+const AXE_DISABLED: string[] = []
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']
 
 // The scales from src/styles/tokens.css, in px (rem values in the file are 16 px).
@@ -72,7 +71,8 @@ async function devToken(request: APIRequestContext, login: string): Promise<stri
   return (await res.json()).token as string
 }
 
-async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number]) {
+type Seed = { title: string; posts: unknown[] }
+async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[] } = {}) {
   const phone = c.width < 800
   const context: BrowserContext = await browser.newContext({
     viewport: { width: c.width, height: phone ? 844 : 800 },
@@ -90,10 +90,14 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
     }
     return route.continue({ headers: { ...route.request().headers(), authorization: `Bearer ${token}` } })
   })
+  for (const draft of extra.drafts ?? []) {
+    const res = await request.post(`${BASE}/api/drafts`, { data: draft, headers: { authorization: `Bearer ${token}` } })
+    expect(res.ok()).toBeTruthy()
+  }
   const page = await context.newPage()
   await page.addInitScript((value) => localStorage.setItem('xt-theme', value), c.theme)
   await page.goto(`${BASE}${pagePath}`, { waitUntil: 'networkidle' })
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(extra.heading ? page.getByRole('heading', { name: extra.heading, level: 1 }) : page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(page.getByText('Loading…')).toHaveCount(0)
   if (c.rtl) await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'))
   return { context, page }
@@ -119,9 +123,9 @@ async function smallTargets(page: Page): Promise<string[]> {
 }
 
 // Every ui- element: type, radius and space on their scales; colours equal a --color token of this theme, or transparent.
-async function scaleAndColourProblems(page: Page): Promise<string[]> {
+async function scaleAndColourProblems(page: Page, scope = '[class*="ui-"]'): Promise<string[]> {
   return page.evaluate(
-    ({ names, font, space, radius }: { names: string[]; font: number[]; space: number[]; radius: number[] }) => {
+    ({ names, font, space, radius, scope }: { names: string[]; font: number[]; space: number[]; radius: number[]; scope: string }) => {
       // Resolves each colour token through the page's current theme (light-dark() depends on color-scheme).
       const probe = document.createElement('span')
       document.body.appendChild(probe)
@@ -135,7 +139,7 @@ async function scaleAndColourProblems(page: Page): Promise<string[]> {
       const problems: string[] = []
       const px = (value: string) => parseFloat(value)
       const sides = ['Top', 'Right', 'Bottom', 'Left']
-      for (const el of document.querySelectorAll('[class*="ui-"]')) {
+      for (const el of document.querySelectorAll(scope)) {
         const style = getComputedStyle(el)
         const who = [...el.classList].filter((c) => c.startsWith('ui-')).join('.')
         const report = (what: string) => problems.push(`${who}: ${what}`)
@@ -161,7 +165,7 @@ async function scaleAndColourProblems(page: Page): Promise<string[]> {
       }
       return problems
     },
-    { names: TOKEN_COLOURS, font: FONT_PX, space: SPACE_PX, radius: RADIUS_PX }
+    { names: TOKEN_COLOURS, font: FONT_PX, space: SPACE_PX, radius: RADIUS_PX, scope }
   )
 }
 
@@ -201,5 +205,52 @@ test.describe('UI audit', () => {
         }
       })
     }
+  }
+
+  // The confirm dialog (plan task U5): delete asks on the draft list. Checks the dialog on its own (the list behind it is
+  // not migrated yet): scale and colours, axe, 44 px buttons on phones, then the keyboard (focus on Cancel, Tab stays inside,
+  // Escape closes, focus returns to the opener). The draft title is Hebrew, so the RTL pass shows real Hebrew text.
+  for (const c of CASES) {
+    test(`delete dialog at ${c.name}`, async ({ browser, request }) => {
+      const { context, page } = await openPage(browser, request, '/', c, { heading: 'Your Threads', drafts: [{ title: 'שרשור לדוגמה', posts: [{ id: 'h1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] }] })
+      try {
+        const opener = page.getByRole('button', { name: 'Delete draft' }).first()
+        await opener.click()
+        const dialog = page.getByRole('dialog', { name: 'Delete this draft?' })
+        await expect(dialog).toBeVisible()
+        await expect(dialog).toContainText('Are you sure you want to delete this draft?')
+        await expect(page.locator('#root')).toHaveAttribute('inert', '')
+        await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
+
+        const box = await dialog.boundingBox()
+        expect(box!.width, 'dialog fits the screen').toBeLessThanOrEqual(c.width)
+        if (c.width < 800) {
+          const small = await page.evaluate(() => [...document.querySelectorAll('.ui-dialog button')].map((el) => el.getBoundingClientRect()).filter((r) => r.width < 44 || r.height < 44).length)
+          expect(small, 'dialog buttons under 44 x 44').toBe(0)
+        }
+        expect(await scaleAndColourProblems(page, '.ui-dialog, .ui-dialog [class*="ui-"]'), 'dialog off the scale or the theme colours').toEqual([])
+        const axe = await new AxeBuilder({ page }).include('.ui-dialog').withTags(AXE_TAGS).disableRules(AXE_DISABLED).analyze()
+        const serious = axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)
+        expect(serious, 'axe serious or critical in the dialog').toEqual([])
+        await page.screenshot({ path: path.join(OUT, `dialog-delete-${c.name}.png`) })
+
+        // Tab stays inside the dialog, both ways.
+        for (let i = 0; i < 3; i++) {
+          await page.keyboard.press('Tab')
+          expect(await page.evaluate(() => !!document.activeElement?.closest('.ui-dialog')), 'focus inside the dialog').toBe(true)
+        }
+        await page.keyboard.press('Shift+Tab')
+        expect(await page.evaluate(() => !!document.activeElement?.closest('.ui-dialog')), 'focus inside after Shift+Tab').toBe(true)
+
+        // Escape closes it, deletes nothing and gives focus back to the button that opened it.
+        await page.keyboard.press('Escape')
+        await expect(dialog).toHaveCount(0)
+        await expect(page.locator('#root')).not.toHaveAttribute('inert', '')
+        await expect(opener).toBeFocused()
+        await expect(page.getByText('שרשור לדוגמה')).toBeVisible()
+      } finally {
+        await context.close()
+      }
+    })
   }
 })

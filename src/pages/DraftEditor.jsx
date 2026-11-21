@@ -10,6 +10,8 @@ import ShareLinkButton from '../components/ShareLinkButton'
 import ExportOptions from '../components/ExportOptions'
 import AppBar from '../components/AppBar'
 import AppMenu from '../components/AppMenu'
+import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/Dialog'
 
 // A post saved before ids were required has none. An object without a string id gets a new one, so
 // the next save is accepted. Anything else is returned as it is, so the server still refuses it.
@@ -21,6 +23,8 @@ const withPostId = post =>
 export default function DraftEditor({ user }) {
   const { id } = useParams()
   const navigate = useNavigate()
+  const toast = useToast()
+  const ask = useConfirm()
 
   const [draft, setDraft] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -156,9 +160,12 @@ export default function DraftEditor({ user }) {
   }
 
   const handlePublish = async () => {
-    const confirmed = window.confirm(
-      'Mark this draft as published? This will delete all uploaded images and move the draft to your Published list.'
-    )
+    const confirmed = await ask({
+      title: 'Publish this draft?',
+      body: 'Mark this draft as published? This will delete all uploaded images and move the draft to your Published list.',
+      confirmLabel: 'Publish',
+      tone: 'primary'
+    })
 
     if (!confirmed) return
 
@@ -172,11 +179,11 @@ export default function DraftEditor({ user }) {
       // The server deletes the draft's images, clears them from posts and marks it published.
       await draftsApi.publish(id)
 
-      alert('Draft published successfully!')
+      toast({ message: 'Draft published successfully!', tone: 'success' })
       navigate('/')
     } catch (err) {
       console.error('Publish error:', err)
-      alert('Failed to publish: ' + err.message)
+      toast({ message: 'Failed to publish: ' + err.message, tone: 'danger' })
     } finally {
       setSaving(false)
     }

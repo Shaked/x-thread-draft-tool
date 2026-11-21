@@ -1,0 +1,47 @@
+/* Toast: inverted colours, one at a time, above the phone bar (--bar-space is 0 where there is no bar). */
+.ui-toast-region {
+  position: fixed;
+  inset-inline: var(--space-4);
+  inset-block-end: calc(var(--bar-space, 0px) + var(--space-3));
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.ui-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-inline-size: var(--dialog-w);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--color-text);
+  color: var(--color-bg);
+  box-shadow: var(--shadow-md);
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+  animation: ui-toast-in var(--duration-base) var(--ease-standard);
+}
+
+.ui-toast--success {
+  border-inline-start: var(--space-1) solid var(--color-success);
+}
+
+.ui-toast--danger {
+  border-inline-start: var(--space-1) solid var(--color-danger);
+}
+
+.ui-toast__message {
+  flex: 1 1 auto;
+}
+
+/* The close button sits on the inverted background, so it takes the toast's own colours. */
+.ui-toast .ui-button {
+  color: var(--color-bg);
+}
+
+@keyframes ui-toast-in {
+  from { opacity: 0; transform: translateY(var(--space-2)); }
+}

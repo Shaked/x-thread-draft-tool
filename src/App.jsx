@@ -11,6 +11,8 @@ import AboutPage from './pages/AboutPage'
 import ChangelogPage from './pages/ChangelogPage'
 import { applyTheme, getTheme } from './utils/theme'
 import { clearCachedDrafts } from './utils/draftCache'
+import { ToastProvider } from './ui/Toast'
+import { ConfirmProvider } from './ui/Dialog'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -47,6 +49,8 @@ function App() {
   }
 
   return (
+    <ToastProvider>
+    <ConfirmProvider>
     <BrowserRouter>
       <div className="app">
         <Routes>
@@ -88,6 +92,8 @@ function App() {
         </Routes>
       </div>
     </BrowserRouter>
+    </ConfirmProvider>
+    </ToastProvider>
   )
 }
 

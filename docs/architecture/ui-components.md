@@ -291,3 +291,35 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 
 - States: none. 12 px semibold, full radius.
 - Example: `<Badge tone="success">Active</Badge>`
+
+## Dialog
+- File: `src/ui/Dialog.jsx` (also exports `ConfirmProvider` and `useConfirm`)
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `open` | boolean | required | Renders nothing when `false`. |
+| `onClose` | function | | Called by Escape and the scrim. |
+| `title` | string | required | The `h2`; names the dialog. |
+| `description` | string | | Soft text under the title; linked as the description. |
+| `children` | node | | More content between the text and the buttons. |
+| `actions` | `[{ label, variant, onClick, autoFocus }]` | `[]` | Buttons; the one with `autoFocus` gets focus first. Under 600 px they stack, the last one on top. |
+| `dismissible` | boolean | `true` | `false` ignores Escape and the scrim. |
+
+- States: rendered in a portal on `document.body`; `#root` is `inert` and the page does not scroll while open; Tab stays inside; Escape and the scrim close it; focus returns to the opener. Centred from 600 px, a bottom sheet below. `useConfirm()` returns `confirm({ title, body, confirmLabel, tone })`, which resolves `true` for the confirm button and `false` for Cancel, Escape or the scrim; a `danger` tone focuses Cancel. `ConfirmProvider` sits above the routes in `App.jsx`.
+- Example: `<Dialog open={open} onClose={close} title="Delete?" actions={[…]} />`; to ask: `if (!(await ask({ title: 'Delete this draft?', body: 'Are you sure you want to delete this draft?', confirmLabel: 'Delete draft', tone: 'danger' }))) return`
+
+## Toast
+- File: `src/ui/Toast.jsx` (exports `ToastProvider` and `useToast`)
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `message` | string | required | Argument of `toast({ message, tone })`. |
+| `tone` | `neutral` \| `success` \| `danger` | `neutral` | `danger` uses `role="alert"` and stays until closed. |
+| `children` | node | | `ToastProvider` only: wrap the routes, so a toast survives a navigation. |
+
+- States: one toast at a time, above the phone bar; success and neutral go away after 4 s; danger has a Close button. The two live regions are mounted empty at start.
+- Example: `<ToastProvider>…</ToastProvider>`; to show one: `toast({ message: 'Thread copied!', tone: 'success' })`

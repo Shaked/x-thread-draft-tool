@@ -1,0 +1,102 @@
+/* Dialog: centred from 600 px, a bottom sheet below. The scrim and panel enter with the slow motion token. */
+html.ui-dialog-open {
+  overflow: hidden;
+}
+
+.ui-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.ui-dialog__scrim {
+  position: absolute;
+  inset: 0;
+  background-color: var(--color-scrim);
+  animation: ui-dialog-fade var(--duration-slow) var(--ease-standard);
+}
+
+.ui-dialog__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  inline-size: 100%;
+  max-block-size: 100dvh;
+  overflow-y: auto;
+  padding: var(--space-6);
+  padding-block-end: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background-color: var(--color-surface-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-lg);
+  animation: ui-dialog-rise var(--duration-slow) var(--ease-standard);
+}
+
+.ui-dialog__title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+
+.ui-dialog__description {
+  color: var(--color-text-soft);
+  overflow-wrap: anywhere;
+}
+
+/* Under 600 px the actions stack full width and the last one (the main action) sits on top. */
+.ui-dialog__actions {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-2);
+}
+
+.ui-dialog__action {
+  display: flex;
+  flex-direction: column;
+}
+
+.ui-dialog__action .ui-button {
+  align-self: stretch;
+  min-inline-size: var(--button-min-w);
+}
+
+@media (width >= 600px) {
+  .ui-dialog {
+    align-items: center;
+    padding: var(--space-4);
+  }
+
+  .ui-dialog__panel {
+    max-inline-size: var(--dialog-w);
+    max-block-size: 100%;
+    padding-block-end: var(--space-6);
+    border-radius: var(--radius-xl);
+    animation-name: ui-dialog-scale;
+  }
+
+  .ui-dialog__actions {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+
+  .ui-dialog__action .ui-button {
+    align-self: auto;
+  }
+}
+
+@keyframes ui-dialog-fade {
+  from { opacity: 0; }
+}
+
+@keyframes ui-dialog-rise {
+  from { transform: translateY(100%); }
+}
+
+@keyframes ui-dialog-scale {
+  from { opacity: 0; transform: scale(0.98); }
+}

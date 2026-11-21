@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
+import { ToastProvider } from '../../src/ui/Toast.jsx'
 import ExportOptions from '../../src/components/ExportOptions.jsx'
 import { exportAsNumberedText } from '../../src/utils/exportFormats.js'
 
@@ -9,6 +10,14 @@ const posts = [
   { id: 'p1', text: 'First post', images: [], embeddedTweet: null },
   { id: 'p2', text: 'Second post', images: [], embeddedTweet: null }
 ]
+
+function renderExport(list) {
+  return render(
+    <ToastProvider>
+      <ExportOptions draft={{ title: 'T', posts: list }} />
+    </ToastProvider>
+  )
+}
 
 // Called after userEvent.setup(), which installs its own clipboard, so this one is the one used.
 function mockClipboard() {
@@ -28,7 +37,7 @@ describe('ExportOptions', () => {
 
   it('keeps the menu closed until Export is clicked, then shows the four actions', async () => {
     const user = userEvent.setup()
-    render(<ExportOptions draft={{ title: 'T', posts }} />)
+    renderExport(posts)
     expect(screen.queryByRole('button', { name: 'Copy thread' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Export' }))
@@ -41,20 +50,19 @@ describe('ExportOptions', () => {
   it('copies the numbered thread, alerts, and closes the menu', async () => {
     const user = userEvent.setup()
     const writeText = mockClipboard()
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    render(<ExportOptions draft={{ title: 'T', posts }} />)
+    renderExport(posts)
 
     await user.click(screen.getByRole('button', { name: 'Export' }))
     await user.click(screen.getByRole('button', { name: 'Copy with numbers' }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(exportAsNumberedText(posts)))
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Thread copied with numbers!'))
+    expect(await screen.findByRole('status')).toHaveTextContent('Thread copied with numbers!')
     expect(screen.queryByRole('button', { name: 'Copy with numbers' })).not.toBeInTheDocument()
   })
 
   it('closes the menu on Escape', async () => {
     const user = userEvent.setup()
-    render(<ExportOptions draft={{ title: 'T', posts }} />)
+    renderExport(posts)
     const exportButton = screen.getByRole('button', { name: 'Export' })
 
     await user.click(exportButton)
@@ -66,7 +74,7 @@ describe('ExportOptions', () => {
   })
 
   it('is disabled when the thread has no posts', () => {
-    render(<ExportOptions draft={{ title: 'T', posts: [] }} />)
+    renderExport([])
     expect(screen.getByRole('button', { name: 'Export' })).toBeDisabled()
   })
 })
