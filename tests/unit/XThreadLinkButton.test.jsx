@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { ToastProvider } from '../../src/ui/Toast.jsx'
 import userEvent from '@testing-library/user-event'
 
 const { createShareTokenMock } = vi.hoisted(() => ({ createShareTokenMock: vi.fn() }))
@@ -23,6 +24,11 @@ function setupClipboard() {
   return writeText
 }
 
+// Every header action needs the toast provider, as in App.jsx.
+function renderWithToast(ui) {
+  return render(<ToastProvider>{ui}</ToastProvider>)
+}
+
 describe('XThreadLinkButton', () => {
   beforeEach(() => {
     createShareTokenMock.mockReset()
@@ -33,7 +39,7 @@ describe('XThreadLinkButton', () => {
   })
 
   it('renders the X-thread label by default', () => {
-    render(<XThreadLinkButton draftId="draft-1" />)
+    renderWithToast(<XThreadLinkButton draftId="draft-1" />)
     expect(screen.getByRole('button', { name: /x thread/i })).toBeInTheDocument()
   })
 
@@ -42,7 +48,7 @@ describe('XThreadLinkButton', () => {
     const user = userEvent.setup()
     const writeText = setupClipboard()
 
-    render(<XThreadLinkButton draftId="draft-1" />)
+    renderWithToast(<XThreadLinkButton draftId="draft-1" />)
     await user.click(screen.getByRole('button', { name: /x thread/i }))
 
     await waitFor(() => expect(createShareTokenMock).toHaveBeenCalledTimes(1))
@@ -59,7 +65,7 @@ describe('XThreadLinkButton', () => {
     const user = userEvent.setup()
     const writeText = setupClipboard()
 
-    render(<XThreadLinkButton draftId="draft-1" />)
+    renderWithToast(<XThreadLinkButton draftId="draft-1" />)
     await user.click(screen.getByRole('button', { name: /x thread/i }))
 
     expect(await screen.findByText(/rpc broke/i)).toBeInTheDocument()
@@ -71,7 +77,7 @@ describe('XThreadLinkButton', () => {
     const user = userEvent.setup()
     setupClipboard()
 
-    render(<XThreadLinkButton draftId="draft-1" />)
+    renderWithToast(<XThreadLinkButton draftId="draft-1" />)
     await user.click(screen.getByRole('button', { name: /x thread/i }))
 
     expect(await screen.findByText(/no token returned/i)).toBeInTheDocument()
@@ -87,7 +93,7 @@ describe('XThreadLinkButton', () => {
     const user = userEvent.setup()
     const writeText = setupClipboard()
 
-    render(<XThreadLinkButton draftId="draft-1" />)
+    renderWithToast(<XThreadLinkButton draftId="draft-1" />)
     const btn = screen.getByRole('button', { name: /x thread/i })
     await user.click(btn)
     await user.click(btn)

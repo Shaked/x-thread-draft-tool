@@ -8,10 +8,14 @@ import AgentLinkButton from '../components/AgentLinkButton'
 import XThreadLinkButton from '../components/XThreadLinkButton'
 import ShareLinkButton from '../components/ShareLinkButton'
 import ExportOptions from '../components/ExportOptions'
-import AppBar from '../components/AppBar'
-import AppMenu from '../components/AppMenu'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/Dialog'
+import Badge from '../ui/Badge'
+import Banner from '../ui/Banner'
+import Button from '../ui/Button'
+import Input from '../ui/Input'
+import PageHeader from '../ui/PageHeader'
+import Stack from '../ui/Stack'
 
 // A post saved before ids were required has none. An object without a string id gets a new one, so
 // the next save is accepted. Anything else is returned as it is, so the server still refuses it.
@@ -212,75 +216,74 @@ export default function DraftEditor({ user }) {
     )
   }
 
+  // The save status word and its tone: the same texts as before, announced when they change.
+  const saveStatus = signedOut
+    ? { tone: 'danger', text: 'Not saved' }
+    : !synced || saving
+      ? { tone: 'warning', text: 'Saving…' }
+      : { tone: 'success', text: 'Saved' }
+
   return (
     <div className="draft-editor">
-      <header className="editor-header">
-        <AppMenu />
-        <Link to="/" className="back-link" aria-label="Back" title="Back">
-          <span className="back-arrow">←</span>
-          <span className="back-text">Back</span>
-        </Link>
-
-        <input
-          type="text"
-          value={draft.title}
-          onChange={(e) => handleTitleChange(e.target.value)}
-          className="draft-title-input"
-          aria-label="Draft title"
-          placeholder="Untitled Draft"
-        />
-
-        <span
-          className={`sync-status ${signedOut ? 'signed-out' : !synced || saving ? 'syncing' : 'synced'}`}
-          role="status"
-          aria-live="polite"
-        >
-          {signedOut ? 'Not saved' : !synced || saving ? 'Saving…' : 'Saved'}
-        </span>
-
-        <AppBar>
-          <ShareLinkButton draftId={id} />
-
-          <AgentLinkButton draftId={id} />
-
-          <XThreadLinkButton draftId={id} />
-
-          <ExportOptions draft={draft} />
-
-          {!draft.is_published && (
-            <button className="publish-btn icon-btn" onClick={handlePublish} disabled={saving} title="Publish" aria-label="Publish">
-              <span className="btn-icon">📤</span>
-              <span className="btn-text">Publish</span>
-            </button>
-          )}
-        </AppBar>
-      </header>
+      <PageHeader
+        sticky
+        back={{ to: '/', label: '← Back' }}
+        titleSlot={
+          <h1>
+            <Input value={draft.title} onChange={handleTitleChange} ariaLabel="Draft title" placeholder="Untitled Draft" />
+          </h1>
+        }
+        status={
+          <Badge tone={saveStatus.tone} live>
+            {saveStatus.text}
+          </Badge>
+        }
+        actions={
+          <>
+            <ShareLinkButton draftId={id} />
+            <AgentLinkButton draftId={id} />
+            <XThreadLinkButton draftId={id} />
+            <ExportOptions draft={draft} />
+            {!draft.is_published && (
+              <Button variant="primary" icon="publish" onClick={handlePublish} disabled={saving} ariaLabel="Publish">
+                Publish
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="editor-content">
         <div className="main-panel">
-          {signedOut && (
-            <div className="signed-out-note" role="alert">
-              <p>You are signed out. Your text is still here: copy it, then sign in again.</p>
-              <button className="btn btn-primary" onClick={() => authApi.login()}>
-                Sign in with GitHub
-              </button>
-            </div>
-          )}
+          <Stack gap={4}>
+            {signedOut && (
+              <Banner
+                tone="danger"
+                role="alert"
+                actions={
+                  <Button variant="secondary" onClick={() => authApi.login()}>
+                    Sign in with GitHub
+                  </Button>
+                }
+              >
+                You are signed out. Your text is still here: copy it, then sign in again.
+              </Banner>
+            )}
 
-          <ThreadComposer posts={draft.posts} onPostsChange={handlePostsChange} />
+            <ThreadComposer posts={draft.posts} onPostsChange={handlePostsChange} />
 
-          {!draft.is_published && (
-            <div className="editor-hint">
-              <p>Images upload automatically. Changes save as you type.</p>
-            </div>
-          )}
+            {!draft.is_published && (
+              <Banner tone="info" role="none">
+                Images upload automatically. Changes save as you type.
+              </Banner>
+            )}
 
-          {draft.is_published && (
-            <div className="published-badge">
-              <p>📤 This draft has been published</p>
-            </div>
-          )}
-
+            {draft.is_published && (
+              <Banner tone="success" role="none">
+                📤 This draft has been published
+              </Banner>
+            )}
+          </Stack>
         </div>
       </div>
     </div>

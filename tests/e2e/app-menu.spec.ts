@@ -64,7 +64,7 @@ async function openMenu(page: Page) {
 
 const pages = () => [
   { name: 'list', path: '/', ready: (p: Page) => p.getByRole('heading', { name: 'Your Threads' }) },
-  { name: 'editor', path: `/draft/${draftId}`, ready: (p: Page) => p.locator('.draft-title-input') },
+  { name: 'editor', path: `/draft/${draftId}`, ready: (p: Page) => p.getByLabel('Draft title') },
   { name: 'settings', path: '/settings/tokens', ready: (p: Page) => p.getByRole('heading', { name: 'API tokens', level: 1 }) },
   { name: 'connected apps', path: '/settings/apps', ready: (p: Page) => p.getByRole('heading', { name: 'Connected apps', level: 1 }) }
 ]
@@ -108,7 +108,7 @@ for (const size of SIZES) {
       const { context, page } = await open(browser, size)
       try {
         await page.goto(`${BASE}/draft/${draftId}`)
-        await page.locator('.draft-title-input').waitFor()
+        await page.getByLabel('Draft title').waitFor()
         await openMenu(page)
         await expect(page.locator('#root')).toHaveAttribute('inert', '')
         expect(await page.evaluate(() => document.querySelector('#root')!.contains(document.activeElement))).toBe(false)
@@ -119,7 +119,7 @@ for (const size of SIZES) {
         }
         // At every point of the header and the bar, the top element is the scrim or the drawer.
         const covered = await page.evaluate(() => {
-          const spots = [document.querySelector('.editor-header'), document.querySelector('.app-bar')]
+          const spots = [document.querySelector('.ui-page-header'), document.querySelector('.app-bar')]
           return spots.map((el) => {
             const r = el!.getBoundingClientRect()
             const hit = document.elementFromPoint(r.left + r.width * 0.75, r.top + r.height / 2)
@@ -174,7 +174,7 @@ test('phone: the bottom bar is clickable after the menu closes and its Sign out 
   const { context, page } = await open(browser, SIZES[0], { cookie })
   try {
     await page.goto(`${BASE}/draft/${draftId}`)
-    await page.locator('.draft-title-input').waitFor()
+    await page.getByLabel('Draft title').waitFor()
     await openMenu(page)
     await page.keyboard.press('Escape')
     await expect(drawer(page)).toHaveCount(0)
