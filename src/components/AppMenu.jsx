@@ -89,7 +89,12 @@ export default function AppMenu() {
                 </li>
                 <li>
                   <Link to="/settings/tokens" className="app-menu-item" onClick={close}>
-                    API tokens and apps
+                    API tokens
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/settings/apps" className="app-menu-item" onClick={close}>
+                    Connected apps
                   </Link>
                 </li>
                 <li>

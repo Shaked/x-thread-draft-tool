@@ -1,4 +1,4 @@
-// The "Use with AI apps" card on the API tokens page (settings-menu.md Task 7, U1). Runs in the required `chromium`
+// The "Use with AI apps" card on the Connected apps page (settings-menu.md Task 7, U1; moved to /settings/apps by #281). Runs in the required `chromium`
 // project: playwright.config.ts starts the local API and the built app, so no person is needed.
 // Signed in with a dev API token (bearer header on /api calls), as in app-menu.spec.ts.
 
@@ -28,7 +28,7 @@ for (const size of SIZES) {
       return route.continue()
     })
     const page = await context.newPage()
-    await page.goto(`${BASE}/settings/tokens`, { waitUntil: 'networkidle' })
+    await page.goto(`${BASE}/settings/apps`, { waitUntil: 'networkidle' })
 
     const card = page.locator('.ai-apps-card')
     await expect(card.getByRole('heading', { name: 'Use with AI apps' })).toBeVisible()
