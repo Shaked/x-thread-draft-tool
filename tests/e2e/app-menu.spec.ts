@@ -65,7 +65,8 @@ async function openMenu(page: Page) {
 const pages = () => [
   { name: 'list', path: '/', ready: (p: Page) => p.getByRole('heading', { name: 'Your Threads' }) },
   { name: 'editor', path: `/draft/${draftId}`, ready: (p: Page) => p.locator('.draft-title-input') },
-  { name: 'settings', path: '/settings/tokens', ready: (p: Page) => p.getByRole('heading', { name: 'API tokens and apps', level: 1 }) }
+  { name: 'settings', path: '/settings/tokens', ready: (p: Page) => p.getByRole('heading', { name: 'API tokens', level: 1 }) },
+  { name: 'connected apps', path: '/settings/apps', ready: (p: Page) => p.getByRole('heading', { name: 'Connected apps', level: 1 }) }
 ]
 
 for (const size of SIZES) {
@@ -139,7 +140,7 @@ for (const size of SIZES) {
         await openMenu(page)
         await drawer(page).getByText('Dark', { exact: true }).click()
         await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-        await drawer(page).getByRole('link', { name: 'API tokens and apps' }).click()
+        await drawer(page).getByRole('link', { name: 'API tokens' }).click()
         await expect(page).toHaveURL(/\/settings\/tokens$/)
         await expect(drawer(page)).toHaveCount(0)
         await expect(page.locator('#root')).not.toHaveAttribute('inert', /.*/)
@@ -312,7 +313,7 @@ test('API tokens page at 390 px: no horizontal overflow, a 44 px Create button, 
   const { context, page } = await open(browser, SIZES[0], { cookie })
   try {
     await page.goto(`${BASE}/settings/tokens`)
-    await expect(page.getByRole('heading', { name: 'API tokens and apps', level: 1 })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'API tokens', level: 1 })).toBeVisible()
     const scrollWidth = () => page.evaluate(() => document.documentElement.scrollWidth)
     expect(await scrollWidth()).toBeLessThanOrEqual(390)
     const create = page.getByRole('button', { name: 'Create token' })

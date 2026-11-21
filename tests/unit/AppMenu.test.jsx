@@ -53,6 +53,14 @@ describe('AppMenu', () => {
     expect(button).toHaveFocus()
   })
 
+  it('lists API tokens and Connected apps under Settings', async () => {
+    const user = userEvent.setup()
+    renderMenu()
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    expect(screen.getByRole('link', { name: 'API tokens' })).toHaveAttribute('href', '/settings/tokens')
+    expect(screen.getByRole('link', { name: 'Connected apps' })).toHaveAttribute('href', '/settings/apps')
+  })
+
   it('lists the changelog under Settings, after API tokens', async () => {
     const user = userEvent.setup()
     renderMenu()
@@ -68,7 +76,7 @@ describe('AppMenu', () => {
     await user.click(screen.getByRole('button', { name: 'Close menu' }))
     expect(document.getElementById('app-menu')).toBeNull()
     await open()
-    await user.click(screen.getByRole('link', { name: 'API tokens and apps' }))
+    await user.click(screen.getByRole('link', { name: 'API tokens' }))
     expect(document.getElementById('app-menu')).toBeNull()
     await open()
     await user.click(document.querySelector('.app-menu-scrim'))

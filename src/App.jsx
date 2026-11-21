@@ -6,6 +6,7 @@ import DraftList from './components/DraftList'
 import DraftEditor from './pages/DraftEditor'
 import XThreadPreviewPage from './pages/XThreadPreviewPage'
 import TokensPage from './pages/TokensPage'
+import AppsPage from './pages/AppsPage'
 import AboutPage from './pages/AboutPage'
 import ChangelogPage from './pages/ChangelogPage'
 import './styles/App.css'
@@ -67,6 +68,10 @@ function App() {
           <Route
             path="/settings/tokens"
             element={user ? <TokensPage /> : <LoginPage suspended={suspended} />}
+          />
+          <Route
+            path="/settings/apps"
+            element={user ? <AppsPage /> : <LoginPage suspended={suspended} />}
           />
           <Route
             path="/about"

@@ -108,7 +108,8 @@ function pagesFor() {
   return [
     { name: 'draft list', path: '/', ready: (p: Page) => p.getByRole('heading', { name: 'Your Threads' }) },
     { name: 'editor', path: `/draft/${draftId}`, ready: (p: Page) => p.locator('.draft-title-input') },
-    { name: 'settings', path: '/settings/tokens', ready: (p: Page) => p.getByRole('heading', { name: 'API tokens and apps', level: 1 }) }
+    { name: 'settings', path: '/settings/tokens', ready: (p: Page) => p.getByRole('heading', { name: 'API tokens', level: 1 }) },
+    { name: 'connected apps', path: '/settings/apps', ready: (p: Page) => p.getByRole('heading', { name: 'Connected apps', level: 1 }) }
   ]
 }
 

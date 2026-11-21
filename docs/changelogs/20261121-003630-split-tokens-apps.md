@@ -1,0 +1,2 @@
+- Connected apps have their own page at /settings/apps (Connect an AI app, Use with AI apps, Connected apps). /settings/tokens now shows only API tokens; both pages link to each other, and the menu lists both.
+- Old links to /settings/tokens still work. The capability table lists the new page.

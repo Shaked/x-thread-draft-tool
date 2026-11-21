@@ -22,7 +22,7 @@ Rules that come from the code:
 
 - Any MCP connection (OAuth token for the MCP address) of GitHub id 960015 gets the admin tools. Other users never get them, and the REST API and device tokens never do.
 - The AI app keeps its own saved copy of the tool list. After you first connect, refresh the connector's tool list in the app, or delete and re-add the connector, so it asks the server again. If the list is still missing admin tools after that, read the production runtime log: each `tools/list` writes `[mcp] tools/list admin_list=true`, or `admin_list=false reason=<via|resource|flag|disabled|gh>` (the first condition that failed). No `tools/list` line after a connect means the app is still using its saved list and never asked.
-- To end admin for one app, go to the Connected apps list on the settings page and revoke the app. A revoked connection stops working.
+- To end admin for one app, go to the Connected apps list on `/settings/apps` and revoke the app. A revoked connection stops working.
 - `ADMIN_DISABLED=1` in the environment turns admin off for everyone, including you. It is read on every check, so a new deploy is needed for a change to apply.
 - Any app you approve while signed in as you can use admin tools, with no time limit. Approve only apps you started yourself, and revoke apps you no longer use.
 - The consent page names the app's own site (the host of its client_id), and says in bold when the return address is not on that site or on this computer (localhost or 127.0.0.1). Do not approve then. A registered app names no site, so the page says that instead.
