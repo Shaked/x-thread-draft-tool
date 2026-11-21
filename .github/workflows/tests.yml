@@ -158,6 +158,15 @@ jobs:
           path: test-results/ui-audit
           retention-days: 14
 
+      - name: Upload e2e screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screens
+          path: test-results/screens
+          retention-days: 14
+          if-no-files-found: ignore
+
   screens:
     name: UI screenshots (manual)
     if: github.event_name == 'workflow_dispatch'
