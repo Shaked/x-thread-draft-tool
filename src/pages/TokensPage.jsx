@@ -21,6 +21,13 @@ const EXPIRY_OPTIONS = [1, 3, 7]
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—')
 
+// Revoked wins over expired; a token past its expires_at cannot be used, so it is not shown as Active.
+const statusOf = (token) => {
+  if (token.revoked_at) return { tone: 'neutral', label: 'Revoked' }
+  if (token.expires_at && new Date(token.expires_at) <= new Date()) return { tone: 'neutral', label: 'Expired' }
+  return { tone: 'success', label: 'Active' }
+}
+
 export default function TokensPage() {
   const [tokens, setTokens] = useState([])
   const [loading, setLoading] = useState(true)
@@ -142,11 +149,12 @@ export default function TokensPage() {
               <List>
                 {tokens.map((token) => {
                   const revoked = !!token.revoked_at
+                  const status = statusOf(token)
                   return (
                     <ListItem
                       key={token.id}
                       title={token.name}
-                      badge={<Badge tone={revoked ? 'neutral' : 'success'}>{revoked ? 'Revoked' : 'Active'}</Badge>}
+                      badge={<Badge tone={status.tone}>{status.label}</Badge>}
                       meta={[
                         <code key="prefix">{token.prefix}…</code>,
                         `Created ${formatDate(token.created_at)} via ${token.created_via}`,
