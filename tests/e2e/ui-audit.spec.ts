@@ -15,7 +15,7 @@ const OUT = path.join('test-results', 'ui-audit')
 
 // Pages under audit. A page joins when its migration PR lands (plan section 5, rules for every migration PR).
 // `drafts` are seeded for that page's user (the draft list with rows, one Hebrew title for the RTL pass).
-const MIGRATED: { name: string; path: string; drafts?: Seed[] }[] = [
+const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean }[] = [
   { name: 'about', path: '/about' },
   { name: 'changelog', path: '/changelog' },
   { name: 'tokens', path: '/settings/tokens' },
@@ -28,6 +28,13 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[] }[] = [
       { title: 'שרשור לדוגמה', posts: [{ id: 'h1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] },
       { title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }
     ]
+  },
+  // The same page with the menu drawer open.
+  {
+    name: 'drafts-menu',
+    path: '/',
+    menu: true,
+    drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }]
   }
 ]
 
@@ -82,7 +89,7 @@ async function devToken(request: APIRequestContext, login: string): Promise<stri
 }
 
 type Seed = { title: string; posts: unknown[] }
-async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[] } = {}) {
+async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean } = {}) {
   const phone = c.width < 800
   const context: BrowserContext = await browser.newContext({
     viewport: { width: c.width, height: phone ? 844 : 800 },
@@ -110,6 +117,12 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   await expect(extra.heading ? page.getByRole('heading', { name: extra.heading, level: 1 }) : page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(page.getByText('Loading…')).toHaveCount(0)
   if (c.rtl) await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'))
+  // The menu drawer (a Dialog on the start edge) is audited open, so its targets, type and colours are checked too.
+  if (extra.menu) {
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await expect(page.locator('#app-menu')).toBeVisible()
+    await page.waitForTimeout(300)
+  }
   return { context, page }
 }
 
@@ -186,7 +199,7 @@ test.describe('UI audit', () => {
   for (const pageInfo of MIGRATED) {
     for (const c of CASES) {
       test(`${pageInfo.name} at ${c.name}`, async ({ browser, request }) => {
-        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts })
+        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts, menu: pageInfo.menu })
         try {
           // No horizontal scroll (plan: scrollWidth <= innerWidth).
           const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }))

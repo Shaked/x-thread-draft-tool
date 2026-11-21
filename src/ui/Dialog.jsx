@@ -10,24 +10,28 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
 // React 18.2 has no `inert` prop) and the page does not scroll. Tab stays inside, Escape and the scrim close it
 // (unless `dismissible` is false), and focus goes back to the element that was focused when it opened.
 // `actions`: [{ label, variant, onClick, autoFocus }]; the one with `autoFocus` gets focus first.
-export default function Dialog({ open, onClose, title, description, children, actions = [], dismissible = true }) {
+// `placement`: 'center' (default) or 'sheet-start', a drawer on the inline start edge (the app menu).
+// Focus goes to the first element inside `[data-autofocus]` when there is one (a link or a button), else the first control.
+// `returnTo`: a ref to the element that focus returns to on close (optional).
+export default function Dialog({ open, onClose, title, description, children, actions = [], dismissible = true, placement = 'center', id, returnTo }) {
   const panel = useRef(null)
   const titleId = useId()
   const descriptionId = useId()
   // Latest values for the effect below, which must run only when the dialog opens or closes.
-  const latest = useRef({ onClose, dismissible })
+  const latest = useRef({ onClose, dismissible, returnTo })
   useEffect(() => {
-    latest.current = { onClose, dismissible }
+    latest.current = { onClose, dismissible, returnTo }
   })
 
   useEffect(() => {
     if (!open) return undefined
     const root = document.getElementById('root')
-    const opener = document.activeElement
+    // Focus goes back to `returnTo` when given (a button that Safari does not focus on click), else to what had focus.
+    const opener = latest.current.returnTo?.current ?? document.activeElement
     root?.setAttribute('inert', '')
-    document.documentElement.classList.add('ui-dialog-open')
+    document.documentElement.classList.add('dialog-open')
     const box = panel.current
-    const start = box?.querySelector('[data-autofocus] button') ?? box?.querySelector(FOCUSABLE) ?? box
+    const start = box?.querySelector('[data-autofocus] a, [data-autofocus] button') ?? box?.querySelector(FOCUSABLE) ?? box
     start?.focus()
     const onKey = (event) => {
       if (event.key === 'Escape' && latest.current.dismissible) {
@@ -50,17 +54,18 @@ export default function Dialog({ open, onClose, title, description, children, ac
     return () => {
       document.removeEventListener('keydown', onKey)
       root?.removeAttribute('inert')
-      document.documentElement.classList.remove('ui-dialog-open')
+      document.documentElement.classList.remove('dialog-open')
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus()
     }
   }, [open])
 
   if (!open) return null
   return createPortal(
-    <div className="ui-dialog">
+    <div className={placement === 'sheet-start' ? 'ui-dialog ui-dialog--sheet-start' : 'ui-dialog'}>
       <div className="ui-dialog__scrim" onClick={dismissible ? onClose : undefined} />
       <div
         ref={panel}
+        id={id}
         className="ui-dialog__panel"
         role="dialog"
         aria-modal="true"

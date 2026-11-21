@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { Link, useLocation } from 'react-router-dom'
+import { useCallback, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { formatVersion, localBuildInfo, utcText } from '../utils/version'
-import { useDismiss } from '../utils/useDismiss'
-import Icon from '../ui/Icon'
+import Button from '../ui/Button'
+import Dialog from '../ui/Dialog'
+import IconButton from '../ui/IconButton'
+import Section from '../ui/Section'
+import Stack from '../ui/Stack'
 import { signOut } from './LogoutButton'
 import ThemeSetting from './ThemeSetting'
+import './AppMenu.css'
 
-/** The menu button of a signed-in page header and the left drawer it opens (closed by default). */
+/** The menu button of a signed-in page header and the drawer it opens on the inline start edge (closed by default). */
 export default function AppMenu() {
   // The menu is open only on the page it was opened on, so a route change closes it.
   const { pathname } = useLocation()
@@ -16,103 +19,50 @@ export default function AppMenu() {
   if (openAt !== null && openAt !== pathname) setOpenAt(null)
   const open = openAt === pathname
   const setOpen = useCallback((next) => setOpenAt(next ? pathname : null), [pathname])
-  const button = useRef(null)
-  const layer = useRef(null)
 
   const close = () => setOpen(false)
+  const menuButton = useRef(null)
   const build = localBuildInfo()
   const version = formatVersion(build, new Date())
 
-  useDismiss(open, layer, setOpen)
-
-  // While open: the page behind is inert (set through the DOM, React 18.2 has no `inert` prop) and does not scroll.
-  useEffect(() => {
-    if (!open) return undefined
-    const root = document.getElementById('root')
-    const trigger = button.current
-    root?.setAttribute('inert', '')
-    document.documentElement.classList.add('menu-open')
-    const panel = layer.current
-    panel?.querySelector('a')?.focus()
-    // Keep Tab inside the drawer: wrap from the last item to the first and back.
-    const trap = (event) => {
-      if (event.key !== 'Tab' || !panel) return
-      const items = [...panel.querySelectorAll('a[href], button, input')]
-      const at = items.indexOf(document.activeElement)
-      const next = event.shiftKey ? (at <= 0 ? items.length - 1 : at - 1) : at < 0 || at === items.length - 1 ? 0 : at + 1
-      event.preventDefault()
-      items[next]?.focus()
-    }
-    document.addEventListener('keydown', trap)
-    return () => {
-      document.removeEventListener('keydown', trap)
-      root?.removeAttribute('inert')
-      document.documentElement.classList.remove('menu-open')
-      trigger?.focus()
-    }
-  }, [open])
-
+  // Focus, Escape, the scrim, the inert page and focus return come from Dialog.
   return (
     <>
-      <button
-        type="button"
-        ref={button}
-        className="menu-btn"
-        aria-label="Menu"
-        title="Menu"
-        aria-expanded={open}
-        aria-controls="app-menu"
-        onClick={() => setOpen(true)}
-      >
-        <Icon name="menu" />
-      </button>
-      {open &&
-        createPortal(
-          <div ref={layer}>
-            <div className="app-menu-scrim" onClick={close} />
-            <nav id="app-menu" className="app-menu" role="dialog" aria-modal="true" aria-labelledby="app-menu-title">
-              <div className="app-menu-head">
-                <h2 id="app-menu-title">X Thread Draft Tool</h2>
-                <button type="button" className="menu-btn" aria-label="Close menu" title="Close menu" onClick={close}>
-                  <Icon name="close" />
-                </button>
-              </div>
-              <ul className="app-menu-list">
-                <li>
-                  <Link to="/" className="app-menu-item" onClick={close}>
-                    Drafts
-                  </Link>
-                </li>
-                <li className="app-menu-label">Settings</li>
-                <li className="app-menu-section">
-                  <ThemeSetting />
-                </li>
-                <li>
-                  <Link to="/settings/tokens" className="app-menu-item" onClick={close}>
-                    API tokens
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/settings/apps" className="app-menu-item" onClick={close}>
-                    Connected apps
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/changelog" className="app-menu-item" onClick={close}>
-                    Changelog
-                  </Link>
-                </li>
-              </ul>
-              <button type="button" className="app-menu-item app-menu-signout" onClick={signOut}>
-                Sign out
-              </button>
-              <Link to="/about" className="app-menu-version" onClick={close} title={utcText(build?.deployed_at)}>
-                Version {version.short} · deployed {version.ago}
-              </Link>
-            </nav>
-          </div>,
-          document.body
-        )}
+      <IconButton ref={menuButton} icon="menu" label="Menu" expanded={open} controls="app-menu" onClick={() => setOpen(true)} />
+      <Dialog id="app-menu" open={open} onClose={close} placement="sheet-start" title="X Thread Draft Tool" returnTo={menuButton}>
+        <div className="app-menu-close">
+          <IconButton icon="close" label="Close menu" onClick={close} />
+        </div>
+        <div className="app-menu">
+          <div data-autofocus>
+            <Button variant="ghost" fullWidth to="/" onClick={close}>
+              Drafts
+            </Button>
+          </div>
+          <Section title="Settings" headingLevel={3}>
+            <ThemeSetting />
+            <Stack gap={2}>
+              <Button variant="ghost" fullWidth to="/settings/tokens" onClick={close}>
+                API tokens
+              </Button>
+              <Button variant="ghost" fullWidth to="/settings/apps" onClick={close}>
+                Connected apps
+              </Button>
+              <Button variant="ghost" fullWidth to="/changelog" onClick={close}>
+                Changelog
+              </Button>
+            </Stack>
+          </Section>
+          <div className="app-menu-foot">
+            <Button variant="ghost" fullWidth onClick={signOut}>
+              Sign out
+            </Button>
+            <Button variant="ghost" size="sm" fullWidth to="/about" onClick={close} title={utcText(build?.deployed_at)}>
+              Version {version.short} · deployed {version.ago}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </>
   )
 }

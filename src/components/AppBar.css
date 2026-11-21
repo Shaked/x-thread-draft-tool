@@ -1,0 +1,106 @@
+/* The app bar: page actions, sign-out and the hide tab. In the page header on wide screens; on phones (under 768 px)
+   a fixed bottom bar, 56 px plus the safe area, on the raised surface with a shadow. */
+.app-bar,
+.app-bar-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.app-bar-toggle {
+  display: none;
+}
+
+.app-bar .ui-icon-button {
+  color: var(--color-text-soft);
+}
+
+@media (width < 768px) {
+  .app-bar {
+    position: fixed;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: var(--z-bar);
+    block-size: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
+    padding: 0 var(--space-1) env(safe-area-inset-bottom, 0px);
+    gap: 0;
+    align-items: flex-end;
+    background-color: var(--color-surface-raised);
+    box-shadow: var(--shadow-md);
+    transition: background-color var(--duration-base) var(--ease-standard), box-shadow var(--duration-base) var(--ease-standard);
+  }
+
+  .app-bar-actions {
+    flex: 1;
+    min-inline-size: 0;
+    block-size: var(--bar-h);
+    gap: 0;
+    transition: transform var(--duration-base) var(--ease-standard), opacity var(--duration-base) var(--ease-standard), visibility var(--duration-base) var(--ease-standard);
+  }
+
+  .app-bar-toggle {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--hit-min);
+    block-size: var(--bar-h);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-soft);
+    cursor: pointer;
+  }
+
+  .app-bar-toggle:focus-visible {
+    outline: var(--focus-ring-width) solid var(--color-focus);
+    outline-offset: calc(var(--focus-ring-width) * -1);
+  }
+
+  /* The primary action sits at the inline end; sign-out follows it. */
+  .app-bar-actions > .ui-button--primary,
+  .app-bar-actions > .ui-icon-button {
+    margin-inline-start: auto;
+  }
+
+  .app-bar-actions > .ui-button--primary ~ .ui-icon-button,
+  .app-bar-actions > .publish-btn ~ .ui-icon-button {
+    margin-inline-start: var(--space-2);
+  }
+
+  /* Hidden: the actions slide out and only the tab stays, in the same corner. */
+  .app-bar.is-hidden {
+    background-color: transparent;
+    box-shadow: none;
+    pointer-events: none;
+    padding-bottom: 0;
+  }
+
+  .app-bar.is-hidden .app-bar-actions {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  .app-bar.is-hidden .app-bar-toggle {
+    pointer-events: auto;
+    block-size: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+    padding-block-end: env(safe-area-inset-bottom, 0px);
+    background-color: var(--color-surface);
+    border: var(--border-width) solid var(--color-border);
+    border-block-end: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .app-bar.is-hidden .app-bar-toggle .icon {
+    transform: rotate(180deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-bar,
+  .app-bar-actions {
+    transition: none;
+  }
+}

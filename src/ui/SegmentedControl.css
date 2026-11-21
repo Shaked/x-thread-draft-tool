@@ -1,0 +1,80 @@
+/* Segmented control: a radio group. Each segment is a 44 px target; the focus ring shows on the segment. */
+.ui-segmented {
+  min-inline-size: var(--space-0);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border: var(--space-0);
+}
+
+.ui-segmented__legend {
+  padding: var(--space-0);
+  margin-block-end: var(--space-2);
+  color: var(--color-text-soft);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ui-segmented__options {
+  display: flex;
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.ui-segmented--column .ui-segmented__options {
+  flex-direction: column;
+}
+
+.ui-segmented__option {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--hit-min);
+  padding-inline: var(--space-3);
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.ui-segmented__option + .ui-segmented__option {
+  border-inline-start: var(--border-width) solid var(--color-border-soft);
+}
+
+.ui-segmented--column .ui-segmented__option + .ui-segmented__option {
+  border-inline-start: var(--space-0);
+  border-block-start: var(--border-width) solid var(--color-border-soft);
+}
+
+.ui-segmented__option--active {
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent-soft-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+@media (hover: hover) {
+  .ui-segmented__option:hover {
+    background-color: var(--color-accent-soft);
+  }
+}
+
+/* The radio stays in the tab order and the arrow keys work, but it is drawn by its label. */
+.ui-segmented__input {
+  position: absolute;
+  appearance: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  inset-block-start: var(--space-0);
+  inset-inline-start: var(--space-0);
+  inline-size: var(--space-0);
+  block-size: var(--space-0);
+  margin: var(--space-0);
+  opacity: 0;
+}
+
+.ui-segmented__option:has(.ui-segmented__input:focus-visible) {
+  outline: var(--border-width-strong) solid var(--color-focus);
+  outline-offset: calc(var(--border-width-strong) * -1);
+}

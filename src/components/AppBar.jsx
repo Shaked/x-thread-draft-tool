@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { isBarHidden, setBarHidden } from '../utils/barPref'
 import Icon from '../ui/Icon'
 import LogoutButton from './LogoutButton'
+import './AppBar.css'
 
-/** The actions of a signed-in page plus sign-out. In the page header on wide screens; a fixed bottom bar that can be hidden on phones. */
+/** The actions of a signed-in page plus sign-out. In the page header on wide screens; a fixed bottom bar that can be hidden on phones. Styles: AppBar.css. */
 export default function AppBar({ children }) {
   const [hidden, setHidden] = useState(isBarHidden)
 

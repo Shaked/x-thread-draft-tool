@@ -129,6 +129,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `to` | route | | Renders a link that looks like a button. |
 | `href` | URL | | Renders an anchor that looks like a button. |
 | `ariaLabel` | string | | The accessible name when the visible label is not enough (for example "Revoke access for <app>"). |
+| `title` | string | | The tooltip. A `disabledReason` takes its place. |
 | `onClick` | function | | |
 
 - States: default, hover (only where hover exists), pressed (scale 0.98), focus-visible (the base focus ring), disabled (half opacity), loading, disabled with reason.
@@ -145,9 +146,12 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `label` | string | required | `aria-label` and the tooltip. |
 | `variant` | `ghost` \| `secondary` | `ghost` | |
 | `pressed` | boolean | | A toggle: sets `aria-pressed` and shows the pressed colour. |
+| `expanded` | boolean | | A disclosure button (the menu): sets `aria-expanded`. |
+| `controls` | string | | The `id` of the element it opens: sets `aria-controls`. |
 | `disabled` | boolean | `false` | |
 | `disabledReason` | string | | As in Button. |
 | `onClick` | function | | |
+| `ref` | ref | | Forwarded to the `button`, so a caller can return focus to it (the menu does). |
 
 - States: always 44 x 44. Hover, pressed, focus-visible, disabled, pressed.
 - Example: `<IconButton icon="menu" label="Menu" onClick={open} />`
@@ -308,9 +312,28 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `children` | node | | More content between the text and the buttons. |
 | `actions` | `[{ label, variant, onClick, autoFocus }]` | `[]` | Buttons; the one with `autoFocus` gets focus first. Under 600 px they stack, the last one on top. |
 | `dismissible` | boolean | `true` | `false` ignores Escape and the scrim. |
+| `returnTo` | ref | | Where focus goes on close. Default: the element that had focus when it opened. |
+| `placement` | `center` \| `sheet-start` | `center` | `sheet-start` is the menu drawer: a full-height panel on the inline start edge, `--drawer-w` wide, mirrored under RTL. |
+| `id` | string | | Set on the panel (the menu uses it for `aria-controls`). |
 
 - States: rendered in a portal on `document.body`; `#root` is `inert` and the page does not scroll while open; Tab stays inside; Escape and the scrim close it; focus returns to the opener. Centred from 600 px, a bottom sheet below. `useConfirm()` returns `confirm({ title, body, confirmLabel, tone })`, which resolves `true` for the confirm button and `false` for Cancel, Escape or the scrim; a `danger` tone focuses Cancel. `ConfirmProvider` sits above the routes in `App.jsx`.
 - Example: `<Dialog open={open} onClose={close} title="Delete?" actions={[…]} />`; to ask: `if (!(await ask({ title: 'Delete this draft?', body: 'Are you sure you want to delete this draft?', confirmLabel: 'Delete draft', tone: 'danger' }))) return`
+
+## SegmentedControl
+- File: `src/ui/SegmentedControl.jsx` (+ `SegmentedControl.css`)
+- Status: built (the theme choice in the menu drawer)
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `legend` | string | required | The fieldset legend, shown above the segments. |
+| `value` | string | required | The checked option's value. |
+| `options` | `[{ value, label }]` | required | One segment each. |
+| `onChange` | function | required | Called with the new value. |
+| `orientation` | `row` \| `column` | `row` | `column` stacks the segments (inside the drawer). |
+
+- States: a radio group with native radios, so the arrow keys move between segments; each segment is at least 44 px high; the focus ring shows on the segment; the checked segment has the accent soft background.
+- Example: `<SegmentedControl legend="Theme" orientation="column" value={value} onChange={setValue} options={[{ value: 'light', label: 'Light' }]} />`
 
 ## Toast
 - File: `src/ui/Toast.jsx` (exports `ToastProvider` and `useToast`)

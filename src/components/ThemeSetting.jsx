@@ -1,31 +1,22 @@
 import { useState } from 'react'
 import { getTheme, setTheme, THEMES } from '../utils/theme'
+import SegmentedControl from '../ui/SegmentedControl'
 
 const LABELS = { light: 'Light', dark: 'Dark', system: 'Match device' }
 
-// Three-segment radio group. Radios share one name, so the arrow keys move between them.
+// The theme choice inside the menu drawer: one segment per theme, stacked.
 export default function ThemeSetting() {
   const [value, setValue] = useState(getTheme)
 
   const choose = (next) => setValue(setTheme(next))
 
   return (
-    <fieldset className="theme-setting">
-      <legend>Theme</legend>
-      <div className="theme-segments">
-        {THEMES.map((option) => (
-          <label key={option} className={`theme-segment ${value === option ? 'active' : ''}`}>
-            <input
-              type="radio"
-              name="theme"
-              value={option}
-              checked={value === option}
-              onChange={() => choose(option)}
-            />
-            <span>{LABELS[option]}</span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
+    <SegmentedControl
+      legend="Theme"
+      orientation="column"
+      value={value}
+      onChange={choose}
+      options={THEMES.map((option) => ({ value: option, label: LABELS[option] }))}
+    />
   )
 }

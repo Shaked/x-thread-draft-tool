@@ -35,6 +35,7 @@ export default function Button({
   href,
   onClick,
   ariaLabel,
+  title,
   children
 }) {
   const reasonId = useId()
@@ -55,7 +56,7 @@ export default function Button({
     'aria-disabled': disabled || disabledReason ? true : undefined,
     'aria-label': ariaLabel,
     'aria-describedby': disabledReason ? reasonId : undefined,
-    title: disabledReason
+    title: disabledReason || title
   }
   const content = <ButtonContent icon={icon} loading={loading} loadingLabel={loadingLabel}>{children}</ButtonContent>
 

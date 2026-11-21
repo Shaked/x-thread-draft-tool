@@ -25,7 +25,7 @@ describe('AppMenu', () => {
   })
   afterEach(() => {
     cleanup()
-    document.documentElement.classList.remove('menu-open')
+    document.documentElement.classList.remove('dialog-open')
   })
 
   it('is closed on load and opens on click with aria-expanded and an inert page', async () => {
@@ -79,7 +79,7 @@ describe('AppMenu', () => {
     await user.click(screen.getByRole('link', { name: 'API tokens' }))
     expect(document.getElementById('app-menu')).toBeNull()
     await open()
-    await user.click(document.querySelector('.app-menu-scrim'))
+    await user.click(document.querySelector('.ui-dialog__scrim'))
     expect(document.getElementById('app-menu')).toBeNull()
   })
 
@@ -96,12 +96,12 @@ describe('AppMenu', () => {
     await act(async () => router.navigate('/b'))
     expect(document.getElementById('app-menu')).toBeNull()
     expect(document.getElementById('root')).not.toHaveAttribute('inert')
-    expect(document.documentElement.classList.contains('menu-open')).toBe(false)
+    expect(document.documentElement.classList.contains('dialog-open')).toBe(false)
     await act(async () => router.navigate(-1))
     expect(router.state.location.pathname).toBe('/a')
     expect(document.getElementById('app-menu')).toBeNull()
     expect(document.getElementById('root')).not.toHaveAttribute('inert')
-    expect(document.documentElement.classList.contains('menu-open')).toBe(false)
+    expect(document.documentElement.classList.contains('dialog-open')).toBe(false)
   })
 
   it('shows Theme and signs out through authApi.logout', async () => {
