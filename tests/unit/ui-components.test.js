@@ -1,7 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-// IconButton has no page yet. Importing it here keeps knip from calling the file unused (plan section 3, first user).
+// IconButton has no page yet. This test renders it, so knip sees the file as used (plan section 3, first user).
 import IconButton from '../../src/ui/IconButton.jsx'
 
 // Component list (plan section 6, item 4): every file in src/ui/ has one section in docs/architecture/ui-components.md,
@@ -34,7 +36,7 @@ describe('UI component list', () => {
     const body = sections.get(name) ?? ''
     const status = body.match(/^- Status: (.+)$/m)?.[1] ?? ''
     if (status.startsWith('built')) {
-      expect(components).toContain(name)
+      expect(status, `${name} built status`).toMatch(/^built( \(.+\))?$/)
     } else {
       const reason = status.match(/^not built: (.+)$/)?.[1] ?? ''
       expect(reason.split(/\s+/).length, `${name} needs a reason`).toBeGreaterThanOrEqual(3)
@@ -43,7 +45,14 @@ describe('UI component list', () => {
     expect(body, `${name} example`).toMatch(/^- Example: `</m)
   })
 
-  it('exports a component for the file that has no page yet', () => {
-    expect(typeof IconButton).toBe('function')
+  it('renders IconButton with its label, pressed state and a linked disabled reason', () => {
+    const html = renderToStaticMarkup(createElement(IconButton, { icon: 'menu', label: 'Menu', pressed: true, disabled: true, disabledReason: 'Not available' }))
+    expect(html).toContain('aria-label="Menu"')
+    expect(html).toContain('aria-pressed="true"')
+    expect(html).toContain('aria-disabled="true"')
+    const describedBy = html.match(/aria-describedby="([^"]+)"/)?.[1]
+    expect(describedBy).toBeTruthy()
+    expect(html).toContain(`id="${describedBy}"`)
+    expect(html).toContain('Not available')
   })
 })

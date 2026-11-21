@@ -2,6 +2,7 @@
 .ui-icon-button {
   display: inline-flex;
   flex: none;
+  font-family: inherit;
   align-items: center;
   justify-content: center;
   inline-size: var(--hit-min);

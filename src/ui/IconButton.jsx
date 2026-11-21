@@ -15,7 +15,7 @@ export default function IconButton({ icon, label, variant = 'ghost', pressed, di
         aria-pressed={pressed}
         title={disabledReason || label}
         disabled={disabled && !disabledReason}
-        aria-disabled={disabled && disabledReason ? true : undefined}
+        aria-disabled={disabled || disabledReason ? true : undefined}
         aria-describedby={disabledReason ? reasonId : undefined}
         onClick={(event) => {
           if (disabled || disabledReason) return event.preventDefault()
