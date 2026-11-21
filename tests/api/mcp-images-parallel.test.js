@@ -40,14 +40,14 @@ beforeEach(async () => {
   }
 })
 
-async function addImage(draftId, n) {
-  const body = { jsonrpc: '2.0', id: n, method: 'tools/call', params: { name: 'add_image_from_url', arguments: { draftId, url: `https://example.com/${n}.png`, postId: 'p1' } } }
+async function addImage(draftId, n, postId = 'p1') {
+  const body = { jsonrpc: '2.0', id: n, method: 'tools/call', params: { name: 'add_image_from_url', arguments: { draftId, url: `https://example.com/${n}.png`, postId } } }
   const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2025-06-18', authorization: `Bearer ${token}` }
   const res = await route(new Request(MCP, { method: 'POST', headers, body: JSON.stringify(body) }))
   return (await res.json()).result
 }
 
-const imagesOf = async (draftId) => (await db.pg.query('select posts from drafts where id = $1', [draftId])).rows[0].posts[0].images
+const imagesOf = async (draftId, i = 0) => (await db.pg.query('select posts from drafts where id = $1', [draftId])).rows[0].posts[i].images
 
 describe('add_image_from_url called in parallel for one post', () => {
   it('adds all four images, none is refused as a stale write', async () => {
@@ -70,5 +70,14 @@ describe('add_image_from_url called in parallel for one post', () => {
     expect(deleteBlobUrls).toHaveBeenCalledTimes(1)
     const kept = new Set((await imagesOf(draft.id)).map((image) => image.url))
     expect(kept.has(deleteBlobUrls.mock.calls[0][0][0])).toBe(false)
+  })
+
+  it('four images each on two posts, all in parallel: all eight land (the version is per draft)', async () => {
+    const posts = ['p1', 'p2'].map((id) => ({ id, text: id, images: [], embeddedTweet: null }))
+    const draft = await db.insertDraft(alice.id, { posts })
+    const results = await Promise.all([1, 2, 3, 4, 5, 6, 7, 8].map((n) => addImage(draft.id, n, n <= 4 ? 'p1' : 'p2')))
+    expect(results.filter((r) => r.isError)).toEqual([])
+    expect(await imagesOf(draft.id, 0)).toHaveLength(4)
+    expect(await imagesOf(draft.id, 1)).toHaveLength(4)
   })
 })

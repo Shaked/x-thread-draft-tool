@@ -718,10 +718,6 @@ async function staleOr(res) {
   return json({ error: 'The draft changed since you read it. Nothing was written. Call get_draft to read it again, then repeat the change if it still applies.', version }, 412)
 }
 
-// A post holds at most 4 images, so parallel calls for one post make at most 4 writes: a call that
-// lost the race 4 times sees 4 images on its 5th read and stops with that error, never a 412.
-const ATTACH_ATTEMPTS = 5
-
 /**
  * add_image_from_url with postId: appends the uploaded image to the post. An assistant that adds
  * several images at once makes parallel calls, and all but one get a 412 on the first write (#367).
@@ -729,6 +725,9 @@ const ATTACH_ATTEMPTS = 5
  * so a retry cannot add it twice. Edits made by others in between are kept.
  */
 async function attachImage(ctx, draftId, postId, url) {
+  // The version is per draft, so a call loses a race to an attach on any post. Each post holds at most
+  // 4 images, so parallel attaches make at most 4 writes per post: with 4 reads per post plus one, a call
+  // of ours sees its post full (that error) before it runs out of tries. Only other writers can use them up.
   for (let attempt = 1; ; attempt += 1) {
     const current = await fetchOwnedDraft(ctx, draftId)
     if (current.failure) return current.failure
@@ -738,7 +737,7 @@ async function attachImage(ctx, draftId, postId, url) {
     const posts = current.draft.posts.map((post, i) => (i === index ? { ...post, images: [...(post.images ?? []), { url }] } : post))
     const patched = await ctx.rest('PATCH', `/drafts/${enc(draftId)}`, { posts }, ifMatch(current.draft.version))
     // Here `url` is the image's url, so it replaces the editor link.
-    if (patched.status !== 412 || attempt === ATTACH_ATTEMPTS) return outlineResult(await staleOr(patched), ctx.origin, { url, postId })
+    if (patched.status !== 412 || attempt > 4 * current.draft.posts.length) return outlineResult(await staleOr(patched), ctx.origin, { url, postId })
   }
 }
 
