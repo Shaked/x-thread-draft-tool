@@ -34,12 +34,3 @@ button, input, select, textarea, a {
   outline-offset: var(--focus-ring-offset);
 }
 
-/* Text for screen readers only (it keeps the accessible name of a button, such as "Revoke access for <app>"). */
-.ui-visually-hidden {
-  position: absolute;
-  inline-size: var(--border-width);
-  block-size: var(--border-width);
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}

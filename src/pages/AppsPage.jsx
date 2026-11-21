@@ -137,9 +137,13 @@ export default function AppsPage() {
                       ]}
                       actions={
                         !revoked && (
-                          <Button variant="danger-quiet" size="sm" onClick={() => handleRevokeGrant(grant)}>
-                            Revoke access{' '}
-                            <span className="ui-visually-hidden">for {grant.client_name}</span>
+                          <Button
+                            variant="danger-quiet"
+                            size="sm"
+                            ariaLabel={`Revoke access for ${grant.client_name}`}
+                            onClick={() => handleRevokeGrant(grant)}
+                          >
+                            Revoke access
                           </Button>
                         )
                       }

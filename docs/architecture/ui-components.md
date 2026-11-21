@@ -128,6 +128,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `type` | `button` \| `submit` \| `reset` | `button` | |
 | `to` | route | | Renders a link that looks like a button. |
 | `href` | URL | | Renders an anchor that looks like a button. |
+| `ariaLabel` | string | | The accessible name when the visible label is not enough (for example "Revoke access for <app>"). |
 | `onClick` | function | | |
 
 - States: default, hover (only where hover exists), pressed (scale 0.98), focus-visible (the base focus ring), disabled (half opacity), loading, disabled with reason.
