@@ -31,11 +31,16 @@ export default function Menu({ trigger, items, title }) {
     item.onSelect()
   }
 
+  // Tab is not prevented: the browser moves focus, and the menu closes when focus leaves it (onBlur below).
+  const onFocusOut = (event) => {
+    if (open && !container.current.contains(event.relatedTarget)) setOpen(false)
+  }
+
   const onKeyDown = (event) => {
     const list = [...event.currentTarget.querySelectorAll(ITEM)]
     const index = list.indexOf(document.activeElement)
+    if (event.key === 'Tab') return
     if (event.key === 'Escape') close(true)
-    else if (event.key === 'Tab') close(false)
     else if (event.key === 'ArrowDown') list[(index + 1) % list.length]?.focus()
     else if (event.key === 'ArrowUp') list[(index - 1 + list.length) % list.length]?.focus()
     else if (event.key === 'Home') list[0]?.focus()
@@ -45,7 +50,7 @@ export default function Menu({ trigger, items, title }) {
   }
 
   return (
-    <div className="ui-menu" ref={container}>
+    <div className="ui-menu" ref={container} onBlur={onFocusOut}>
       <Button
         variant={trigger.variant}
         icon={trigger.icon}
@@ -80,6 +85,7 @@ export default function Menu({ trigger, items, title }) {
                 key={item.label}
                 type="button"
                 role="menuitem"
+                tabIndex={-1}
                 className={`ui-menu__item${item.tone === 'danger' ? ' ui-menu__item--danger' : ''}`}
                 onClick={() => choose(item)}
               >

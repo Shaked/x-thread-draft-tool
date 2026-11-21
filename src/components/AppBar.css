@@ -70,6 +70,8 @@
     min-inline-size: var(--hit-min);
     padding-inline: 0;
     justify-content: center;
+    border-color: transparent;
+    background-color: transparent;
   }
 
   .app-bar-actions .ui-button:not(.ui-button--primary) .ui-button__text {

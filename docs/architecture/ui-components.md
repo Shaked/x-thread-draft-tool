@@ -170,7 +170,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `items` | `[{ label, onSelect, tone?, description? }]` | required | One `menuitem` each. `tone: 'danger'` colours the label; `description` is soft text under it. |
 | `title` | string | | Soft heading above the list (for example "Link valid for"); names the menu. Without it the menu is named by the trigger's label. |
 
-- States: from 768 px a popover 8 px under the trigger, aligned to its inline end, `--menu-w` wide. Below 768 px a sheet fixed above the phone bar. Opening moves focus to the first item. Arrow keys move (wrapping), Home and End jump to the ends, Tab and a press outside close it, Escape closes and gives focus back to the trigger. The trigger has `aria-haspopup="menu"` and `aria-expanded`.
+- States: from 768 px a popover 8 px under the trigger, aligned to its inline end, `--menu-w` wide. Below 768 px a sheet fixed above the phone bar. Opening moves focus to the first item. Arrow keys move (wrapping), Home and End jump to the ends, Tab moves on and closes it (focus leaving the menu closes it), and a press outside closes it, Escape closes and gives focus back to the trigger. The trigger has `aria-haspopup="menu"` and `aria-expanded`.
 - Example: `<Menu trigger={{ label: 'Export', icon: 'export', variant: 'secondary' }} items={[{ label: 'Copy thread', onSelect: copy }]} />`
 
 ## Banner

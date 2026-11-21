@@ -5,6 +5,7 @@ import Menu from '../../src/ui/Menu.jsx'
 
 function renderMenu(onSelect = vi.fn()) {
   render(
+    <>
     <Menu
       title="Link valid for"
       trigger={{ label: 'Share', icon: 'share', variant: 'secondary' }}
@@ -14,6 +15,8 @@ function renderMenu(onSelect = vi.fn()) {
         { label: 'Three', onSelect, tone: 'danger' }
       ]}
     />
+    <button type="button">After</button>
+    </>
   )
   return onSelect
 }
@@ -52,6 +55,15 @@ describe('Menu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     expect(trigger).toHaveFocus()
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('lets Tab move focus on and closes the menu', async () => {
+    const user = userEvent.setup()
+    renderMenu()
+    await user.click(screen.getByRole('button', { name: 'Share' }))
+    await user.keyboard('{Tab}')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'After' })).toHaveFocus()
   })
 
   it('runs the chosen item once and closes', async () => {
