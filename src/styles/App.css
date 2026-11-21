@@ -286,6 +286,12 @@ a {
   font-size: 14px;
 }
 
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--muted);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .app {
@@ -1060,7 +1066,8 @@ a {
   .app-bar .publish-btn .btn-icon { display: none; }
   .app-bar .logout-btn, .app-bar-toggle { color: var(--text-soft); }
   .app-bar .logout-btn { margin-inline-start: auto; }
-  .app-bar .publish-btn ~ .logout-btn { margin-inline-start: 8px; }
+  .app-bar .publish-btn ~ .logout-btn, .app-bar .ui-button--primary ~ .logout-btn { margin-inline-start: 8px; }
+  .app-bar .ui-button--primary { margin-inline-start: auto; }
   .app-bar .icon-btn:focus-visible, .app-bar-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
   /* Hidden: the actions slide out and only the tab stays, in the same corner. */

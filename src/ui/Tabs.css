@@ -32,7 +32,8 @@
   color: var(--color-text);
 }
 
-.ui-tabs__tab--selected {
+.ui-tabs__tab--selected,
+.ui-tabs__tab--selected:hover {
   color: var(--color-accent);
 }
 
