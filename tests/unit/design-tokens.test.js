@@ -111,7 +111,7 @@ export function lintJs(text, file = '') {
   for (const [, spec] of js.matchAll(/import\s[^'"]*['"]([^'"]+\.css)['"]/g)) {
     const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), spec))
     const name = path.posix.basename(target, '.css')
-    if (target.startsWith('src/ui/') && target !== 'src/ui/base.css' && path.posix.basename(file) !== name + '.jsx') broken.add('ui-css-import')
+    if (target.startsWith('src/ui/') && target !== 'src/ui/base.css' && file !== 'src/ui/' + name + '.jsx') broken.add('ui-css-import')
   }
   return [...broken].sort()
 }
@@ -162,6 +162,8 @@ describe('token lint: self-check', () => {
     expect(lintJs('const a = <div style={{ top: 4 }} />', 'src/x.jsx')).toEqual(['style-prop'])
     expect(lintJs('import "../x.css"', 'src/pages/P.jsx')).toEqual(['css-import'])
     expect(lintJs('import "../ui/Card.css"', 'src/components/Foo.jsx')).toEqual(['ui-css-import'])
+    expect(lintJs('import "../ui/Card.css"', 'src/components/Card.jsx')).toEqual(['ui-css-import'])
+    expect(lintJs('import "../Card.css"', 'src/ui/sub/Card.jsx')).toEqual(['ui-css-import'])
     expect(lintJs('import "./Card.css"', 'src/ui/Card.jsx')).toEqual([])
     expect(lintJs('import "./ui/base.css"', 'src/main.jsx')).toEqual([])
     expect(lintJs('// <div style={{ color: "#fff" }} />\nconst a = 1', 'src/x.jsx')).toEqual([])
