@@ -7,6 +7,8 @@ import { HEADINGS, lint } from '../../scripts/reply-lint.mjs'
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8')
 const fixture = (name) => read(`./fixtures/reply-lint/${name}.md`)
 const rules = (text, options) => lint(text, options).map((f) => f.rule)
+const templates = (name) => read(`../../.claude/skills/reply-style/templates/${name}`)
+const OTHER_KINDS = ['changelog-entry.md', 'telegram-message.md']
 
 describe('reply-lint on the three real replies', () => {
   it.each(['a', 'b', 'c'])('reply %s fails before the rewrite and passes after', (id) => {
@@ -42,13 +44,23 @@ describe('reply-lint rules', () => {
     expect(rules('No headings here.', { template: true })).toContain('headings')
   })
 
-  it('every template has the fixed headings in order', () => {
+  it('every reply template has the fixed headings in order', () => {
     const dir = new URL('../../.claude/skills/reply-style/templates/', import.meta.url)
-    const files = readdirSync(dir)
+    const files = readdirSync(dir).filter((f) => !OTHER_KINDS.includes(f))
     expect(files.length).toBeGreaterThanOrEqual(5)
     for (const file of files) {
       const found = [...read(new URL(file, dir)).matchAll(/^## (.+)$/gm)].map((m) => m[1]).filter((h) => HEADINGS.includes(h))
       expect(found, file).toEqual(HEADINGS)
     }
+  })
+
+  it('checks changelog entries and Telegram messages by their own shape', () => {
+    expect(lint(templates('changelog-entry.md'), { kind: 'changelog' })).toEqual([])
+    expect(rules('# Faster saves\n- Fixed in #359 and `server/x.js`.', { kind: 'changelog' })).toEqual(['internal-label'])
+    expect(rules('- No title line.', { kind: 'changelog' })).toEqual(['shape', 'shape'])
+    for (const message of templates('telegram-message.md').split(/^## .*$/m).slice(1)) {
+      expect(lint(message, { kind: 'telegram' }), message).toEqual([])
+    }
+    expect(rules('Production is live\n[Open](https://x.test)', { kind: 'telegram' })).toEqual(['shape'])
   })
 })

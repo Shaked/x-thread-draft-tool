@@ -2,7 +2,7 @@
 // Reply lint: checks one reply to the owner (a chat reply, a HANDOFF, an owner question) against
 // the hard rules of the reply-style skill, `.claude/skills/reply-style/SKILL.md`. No network.
 //
-// Usage: node scripts/reply-lint.mjs [--template] <file>   (or pipe the reply on stdin)
+// Usage: node scripts/reply-lint.mjs [--template] [--kind=changelog|telegram] <file>   (or stdin)
 // Exits 1 when anything is found. Each finding prints `line N: rule: message`.
 //
 // Rules:
@@ -16,6 +16,8 @@
 //   headings        a templated reply misses a fixed heading, or has them out of order
 //   tldr, steps     TL;DR is 2 to 3 lines and says if the owner must act; the step count matches
 //   evidence        the Done section says "checked" or "not checked"
+//   --kind=changelog: a "# " title, then 1 to 5 lines; no label and no code span anywhere (shape, internal-label)
+//   --kind=telegram:  the headline in bold on line 1, at most 5 lines (shape)
 // Fenced code blocks and `inline code` are not checked.
 
 import { readFileSync } from 'node:fs'
@@ -107,8 +109,22 @@ function checkTemplate(lines, force, add) {
   if (done && !/\bchecked\b/i.test(done.body.join(' '))) add(done.line, 'evidence', 'say "checked" or "not checked"')
 }
 
-/** Returns findings for one reply: [{ line, rule, message }]. */
-export function lint(text, { template = false } = {}) {
+/** Shape of a changelog entry or a Telegram message (the two kinds that are not replies). */
+function checkShape(lines, kind, add) {
+  const body = lines.filter(({ text }) => text.trim())
+  const first = body[0]?.text.trim() || ''
+  if (kind === 'changelog') {
+    if (!/^# \S/.test(first)) add(1, 'shape', 'start with one "# " title that says what changed for a person')
+    const rest = body.slice(1).length
+    if (rest < 1 || rest > 5) add(1, 'shape', 'write 1 to 5 short lines under the title')
+  } else {
+    if (!/^\*\*[^*]+\*\*$/.test(first)) add(1, 'shape', 'start with the headline in bold on its own line')
+    if (body.length > 5) add(1, 'shape', 'a Telegram message has at most 5 lines')
+  }
+}
+
+/** Returns findings for one reply: [{ line, rule, message }]. `kind` is reply, changelog or telegram. */
+export function lint(text, { template = false, kind = 'reply' } = {}) {
   const findings = []
   const add = (line, rule, message) => findings.push({ line, rule, message })
   const seen = new Set()
@@ -120,8 +136,10 @@ export function lint(text, { template = false } = {}) {
     if (fenced) return
     prose.push({ text: raw, n })
     const line = visible(raw)
+    if (kind === 'changelog' && (LABEL.test(line) || /`/.test(raw))) add(n, 'internal-label', 'plain words only: no issue numbers, task ids or code')
+    LABEL.lastIndex = 0
     for (const m of line.matchAll(LABEL)) {
-      if (seen.has(m[1])) continue
+      if (seen.has(m[1]) || kind === 'changelog') continue
       seen.add(m[1])
       if (!described(line, m.index, m.index + m[0].length)) add(n, 'bare-label', `${m[1]}: add a link and 3 to 6 words saying what it is`)
     }
@@ -139,16 +157,18 @@ export function lint(text, { template = false } = {}) {
     const slop = SLOP.exec(line)
     if (slop) add(n, 'slop', `filler phrase "${slop[1]}"`)
   })
-  checkTemplate(prose, template, add)
+  if (kind === 'reply') checkTemplate(prose, template, add)
+  else checkShape(prose, kind, add)
   return findings.sort((a, b) => a.line - b.line)
 }
 
 function main() {
   const args = process.argv.slice(2)
   const template = args.includes('--template')
-  const file = args.find((a) => a !== '--template')
+  const kind = args.find((a) => a.startsWith('--kind='))?.slice(7) || 'reply'
+  const file = args.find((a) => !a.startsWith('--'))
   const text = readFileSync(file ?? 0, 'utf8')
-  const findings = lint(text, { template })
+  const findings = lint(text, { template, kind })
   for (const f of findings) console.log(`line ${f.line}: ${f.rule}: ${f.message}`)
   console.log(findings.length ? `reply-lint: ${findings.length} finding(s)` : 'reply-lint: OK')
   if (findings.length) process.exit(1)

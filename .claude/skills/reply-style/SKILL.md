@@ -17,6 +17,8 @@ owner question uses one template below, follows the hard rules, and passes the l
 | A step Shaked must do by hand | [`owner-action`](templates/owner-action.md) | Chat reply, and a comment on the issue it unblocks |
 | Something failed (CI, deploy, production, a session) | [`incident`](templates/incident.md) | Chat reply, and a comment on the issue or PR |
 | Anything else to Shaked: a reminder, a progress note, an answer to his question | [`status-report`](templates/status-report.md) | Chat reply, or a comment where he asked |
+| A changelog file for a PR | [`changelog-entry`](templates/changelog-entry.md) | `docs/changelogs/<UTC YYYYMMDD-HHMMSS>-<slug>.md`; the app shows it to users |
+| The text of a Telegram notice | [`telegram-message`](templates/telegram-message.md) | The code that sends it (`scripts/notify-telegram.mjs`) |
 
 A reply that fits two kinds uses one template and puts the other part under its headings.
 Example: a status report with a question puts the question under `Blocked on you`, with the
@@ -31,8 +33,21 @@ parts of the `owner-question` template as `###` subheadings.
 - **On GitHub:** end the comment with the Claude Code footer that `AGENTS.md` asks for, after
   `RELEASE` in a handoff.
 
+## Changelog entries and Telegram messages
+These two are read by people outside the work, so they have their own shape and no fixed headings.
+Apply `pstack-unslop` and `pstack-technical-writing` to both.
+
+- **Changelog entry:** a `#` title that says what changed for a person, in 3 to 8 words, then 1 to 5
+  short lines. The app shows the title and the first three lines, so the most useful line goes first.
+  Plain words only: no issue numbers, task ids, file names or code spans. Say what a person can now
+  do or see, not how it was built.
+- **Telegram message:** one message per event, at most 5 lines. Line 1 is the headline in bold and
+  says the kind in words, with no emoji. Then the title, one line with the fact or the action, and
+  the links. Never a secret, a login name, draft text or log output (`docs/operations/telegram.md`).
+- Check them with `npm run reply-lint -- --kind=changelog <file>` or `--kind=telegram <file>`.
+
 ## The fixed headings
-Every template has these `##` headings, with these names and in this order. Kinds add their own
+Every reply template has these `##` headings, with these names and in this order. Kinds add their own
 headings or `###` subheadings, but never rename, reorder or drop these:
 
 1. `TL;DR`: 2 to 3 lines. What happened, then "Nothing needed from you." or "You need to do N things".

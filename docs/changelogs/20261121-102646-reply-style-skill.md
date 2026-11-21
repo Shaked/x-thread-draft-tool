@@ -1,3 +1,5 @@
-- Agents now write every reply to the owner, every handoff and every owner question with one of five templates (`.claude/skills/reply-style/`): a TL;DR, what you need to do, waiting for, blocked on you, done.
-- The slop and writing checks are three pstack skills (unslop, technical-writing, bro), copied into the repo with their MIT licence. `claude.md` is now `CLAUDE.md`, and the rule is at the top of `AGENTS.md`.
-- `npm run reply-lint` (and a warn-only CI job on PR bodies) checks a reply for bare labels, letter-only options, "unchanged", "blocked" used for a machine, long lines, emoji and missing headings.
+# Clearer replies from the agents
+
+- Agents now write every reply to the owner with fixed templates: a short summary, what you need to do, what they wait for, and what is done.
+- A built-in check flags unclear replies, such as numbers with no words saying what they are.
+- New templates cover changelog entries and Telegram messages, and the writing rules come from the pstack plugin.

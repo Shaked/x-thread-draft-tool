@@ -6,7 +6,8 @@ so a reply makes sense without the agent's context. Owner request of 2026-11-21,
 - The skill: [`.claude/skills/reply-style/SKILL.md`](../../.claude/skills/reply-style/SKILL.md).
   It says which template to use and holds the hard rules.
 - The templates: [`.claude/skills/reply-style/templates/`](../../.claude/skills/reply-style/templates/):
-  status report, owner question, handoff, owner action, incident.
+  status report, owner question, handoff, owner action, incident, and two more for changelog
+  entries and Telegram messages.
 - Every template starts with the same headings: `TL;DR`, `What you need to do`, `Waiting for`,
   `Blocked on you`, `Done`, then an optional `Details`. "Blocked" is only ever a human.
 - The lint: `npm run reply-lint -- reply.md` (`scripts/reply-lint.mjs`). It flags bare labels such
