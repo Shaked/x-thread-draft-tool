@@ -109,7 +109,7 @@ curl -s $BASE/api/auth/me -H "Authorization: Bearer $TOKEN"        # { user, aut
 curl -s -X POST $BASE/api/auth/logout                               # browser sessions only
 ```
 
-`POST /api/auth/logout` ends this browser's session on the server (the cookie value stops working at once). It does not disconnect AI apps or API tokens: the settings page does that.
+`POST /api/auth/logout` ends this browser's session on the server (the cookie value stops working at once). It does not disconnect AI apps or API tokens: the Connected apps page (`/settings/apps`) does that for apps, and the API tokens page (`/settings/tokens`) for tokens.
 
 ### Tokens
 

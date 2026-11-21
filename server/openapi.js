@@ -274,7 +274,7 @@ export const OPENAPI = {
         }
       }
     },
-    '/auth/logout': { post: { summary: 'End this browser session on the server (the cookie is revoked, not only cleared). API tokens and connected AI apps stay; the settings page disconnects them', responses: json({ type: 'object', properties: { ok: { type: 'boolean' } } }) } },
+    '/auth/logout': { post: { summary: 'End this browser session on the server (the cookie is revoked, not only cleared). API tokens and connected AI apps stay; the API tokens and Connected apps pages (/settings/tokens, /settings/apps) revoke them', responses: json({ type: 'object', properties: { ok: { type: 'boolean' } } }) } },
     '/auth/device/start': {
       post: {
         summary: 'Start GitHub device flow for an agent. Show the user the code and URL, then poll.',
