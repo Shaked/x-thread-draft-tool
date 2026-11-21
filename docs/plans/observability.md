@@ -2,6 +2,7 @@
 
 Task #331 (epic #273), task O0. Planner: Opus. Plan only: nothing here is built yet.
 Read and measured on 2026-11-21 between 00:45 and 00:56 UTC with the Vercel and Neon MCP tools, read-only.
+Reviewed by a second Opus session on 2026-11-21 (10 findings, all taken in) and by Codex (1 finding, taken in).
 Owner request (Shaked, 2026-11-21): see every interesting number (p95, p99, maybe p99.9) through the admin
 panel, the admin API and MCP; use Vercel if it already has them, else a free solution.
 
@@ -37,7 +38,7 @@ Ids: Vercel team `team_XZuLIpA3Z8i7cuKg0U7zoug8` (slug `shaked-klein-orbachs-pro
 | Deployments | `list_deployments`, build events | used by #306 (speed plan, 2026-11-20); not re-run here | checked in #306 |
 | Usage and billing | `list_billing_charges` | not called: billing is the owner's | not checked |
 | Function duration limit, invocation limits on Hobby | | | not checked |
-| Vercel Blob usage (bytes, files) | needs a Blob store id; no listing tool for stores here | | not checked |
+| Vercel Blob usage (bytes, files) | no MCP tool here lists the stores. The app itself can list its files with the token it already has (`listBlobPrefix` in `server/blob.js`, used by `admin_get_user`), so total bytes need no new secret | cost and limits of list calls on Hobby | not checked |
 
 What this means: Vercel keeps our own `[perf]` lines for 1 hour, and nothing else useful is free.
 A job that copies logs every hour would need a Vercel token (a new secret) and would lose data whenever
@@ -112,17 +113,18 @@ hour, the whole app reaches 10 000 requests in about 5 days, so p99.9 is shown f
 | Traffic | MCP calls per method and per tool | R | no (`mcp_rate_limits` has no tool) |
 | Traffic | MCP calls per client app family (Claude, ChatGPT, Grok, command line, other) | R (task O3) | no |
 | Traffic | requests from the web app, API tokens, MCP, CI, signed-out | R (caller kind) | no |
-| Latency | p50, p90, p95, p99, p99.9, max, mean, per route, per tool, per caller kind, per status class | R | no |
+| Latency | p50, p90, p95, p99, p99.9, max, mean, per route, per tool, per caller kind (not per status class: section 3) | R | no |
 | Latency | DB time and query count per request (mean) | R | no |
 | Latency | cold starts: count and share | R | no |
-| Errors | 4xx, 429, 5xx per route; tool errors per tool | R | no |
+| Errors | 4xx, 429, 5xx per route; tool errors and JSON-RPC errors per tool (both are HTTP 200, so flags in `server/mcp/server.js` and `callTool` decide which count goes up) | R | no |
 | Errors | runtime error groups | Vercel `get_runtime_errors` (7 days, free, checked); not shown in the app (needs a Vercel token) | yes, by hand |
-| Saturation | rate-limit hits (429) per route and per tool | R | no |
+| Saturation | rate-limit hits per route and per tool. A refused MCP `tools/call` answers HTTP 200 with `isError` (`RATE_LIMIT_MESSAGE` in `server/mcp/server.js`), so O2 counts it in `n_429` from a flag there, not from the HTTP status | R | no |
 | Saturation | new DB connections per request (mean), DB size in bytes against the 1 GB limit | R, D (`pg_database_size`) | partly (size by hand) |
 | Saturation | Neon CU-hours used this month (100 free) | X in the app (needs a Neon API key); by hand with `describe_project` | by hand |
-| Saturation | Vercel function duration and memory, Blob bytes | X (Observability Plus / Blob store not checked) | no |
+| Saturation | Vercel function duration and memory | X (Observability Plus) | no |
+| Saturation | Blob bytes and files | possible later with `listBlobPrefix` and the existing token; list call cost on Hobby not checked; not in tasks O1 to O7 | no |
 | Product | users, drafts, posts, images, tokens, connected apps, active share links (now) | S (`admin_stats`) | yes |
-| Product | active users per day and per week, as history | D | no (overwritten) |
+| Product | active users in the last 24 h and 7 d, kept as history: a rolling count taken at a known time (`taken_at`), not a calendar-day count, because the timestamps it reads are overwritten | D | no (overwritten) |
 | Product | signups, drafts created, share links created, tokens created, apps connected per day | S (`created_at`), stored in D so deletes do not change the past | yes, except deleted rows |
 | Security | suspended users (now and per day), admin actions per day by action and outcome | S, D (`admin_audit`) | yes |
 | Security | sign-in errors: 4xx and 5xx on `/auth/*` routes | R | no |
@@ -142,28 +144,47 @@ hour, the whole app reaches 10 000 requests in about 5 days, so p99.9 is shown f
 **Decision (Opus, 2026-11-21): option (b).** It is the only option that works on our plans today, costs
 nothing, needs no secret and keeps user data in our own database. Running cost: $0 per month.
 
-Storage estimate: one row per (hour, route, method or tool, caller kind, status class) that had traffic.
-At most about 100 such keys in a busy hour; one row is about 400 bytes with its histogram. Hourly rows
-are kept 14 days (at most 100 × 24 × 14 × 400 B ≈ 13 MB, in practice far less), then merged into daily
-rows kept 400 days (at most about 16 MB). The 1 GB Neon limit stays far away; the daily step records the
-database size so alert A3 sees it coming.
+Storage estimate: one row per (hour, route, op, caller) that had traffic; the status class is a count
+column, not part of the key, so a caller cannot multiply rows by choosing status codes. Every dimension
+is a fixed list, so the worst case is bounded: 52 route keys in `ROUTES` × 4 non-MCP caller kinds, plus
+`POST /mcp` × about 40 methods and tools × 6 MCP caller kinds, is about 450 keys an hour. One row with its
+histogram and primary-key entry is about 500 bytes. Worst case: hourly rows kept 14 days
+450 × 24 × 14 × 500 B ≈ 76 MB, daily rows kept 400 days 450 × 400 × 500 B ≈ 90 MB, together about 17 %
+of the free 1 GB. Normal traffic uses a small part of that (a few dozen keys an hour today). Alert A3
+fires at 700 MB.
 
-Neon compute: the write runs while the request's function is still alive and the database is already
-awake, so it adds almost no active time. The daily step wakes the database once a day (at most 5 minutes
-at 0.25 CU, about 0.02 CU-hours).
+Neon compute (the free 100 CU-hours a month is the real limit). Neon was active 35.9 hours in 14 days
+at about 82 requests an hour, so today most requests do not keep the database awake. If a metrics write
+woke it for every request, a steady trickle (health checks, scanners hitting unknown paths) could keep it
+awake all month: 0.25 CU × about 730 h ≈ 182 CU-hours, over the limit, and Neon then suspends the
+compute until next month. So the rule is: **a request writes only when it already used the database**
+(`store.q > 0`). A request with no SQL (`/health`, `/version`, `/changelog`, `/openapi.json`,
+`/.well-known/*`, unknown paths) is added to an in-memory histogram in its function instance, and that
+pending data is written together with the next request on the same instance that uses the database.
+Pending data is best effort: it is lost when the instance stops. The daily step wakes the database at
+most 4 times a day (at most 5 minutes at 0.25 CU each, about 0.08 CU-hours a day).
 
 ### The tables (task O1, migration `010_metrics.sql`)
 
-- `metrics_hourly`: `hour` (UTC hour start), `route` (route template with method, `GET /drafts/:id`, or
-  `unmatched`), `op` (`-`, an MCP method from the fixed list in `server/perf.js`, or `tool:<name>` for a
-  known tool), `caller` (`web`, `token`, `mcp`, `ci`, `anon`; with O3, `mcp:claude`, `mcp:chatgpt`,
-  `mcp:grok`, `mcp:cli`, `mcp:other`), `class` (`2xx`, `3xx`, `4xx`, `429`, `5xx`, and for a tool call
-  `tool_error`), `n`, `sum_ms`, `max_ms`, `sum_db_ms`, `sum_q`, `sum_conn`, `cold`, `buckets int[]`.
-  Primary key: the five dimensions.
+- `metrics_hourly`: `hour` (UTC hour start), `route` (a route key of `ROUTES` with its method,
+  `GET /drafts/:id`, or `unmatched` with no method), `op` (`-`, an MCP method from the fixed list in
+  `server/perf.js`, or `tool:<name>` for a known tool; a `tools/list` is `op = tools/list`, whatever
+  `noteRpc` set as its tool), `caller` (`web`, `token`, `mcp`, `ci`, `anon`; with O3, `mcp:claude`,
+  `mcp:chatgpt`, `mcp:grok`, `mcp:cli`, `mcp:other`), then the counts `n`, `n_3xx`, `n_4xx`, `n_429`,
+  `n_5xx`, `n_tool_error`, `sum_ms`, `max_ms`, `sum_db_ms`, `sum_q`, `sum_conn`, `cold`, and
+  `buckets int[]` with `check (array_lower(buckets, 1) = 1 and array_length(buckets, 1) = 65)`.
+  Primary key: (`hour`, `route`, `op`, `caller`). Latency is kept per key, not per status class.
 - `metrics_daily`: the same columns with `day` instead of `hour`.
-- `metrics_product_daily`: `day` primary key and one integer column per product and security number of
-  section 2 (active users 24 h and 7 d, signups, drafts created, share links created, tokens created,
-  apps connected, suspended users, admin actions done, failed and refused, database bytes).
+- `metrics_product_daily`: `day` primary key, `taken_at`, and one integer column per product and
+  security number of section 2. Two kinds of numbers:
+  - **per calendar day (UTC)**, counted from columns that never change: signups (`users.created_at`),
+    drafts created, share links created, tokens created, apps connected (`created_at` of each table), admin
+    actions by outcome (`admin_audit.created_at`). A deleted row is missing from a later count, which is
+    why the day is stored once.
+  - **a rolling count at `taken_at`**: active users in the last 24 h and 7 d, suspended users, database
+    bytes. They read timestamps that are overwritten (`last_active_at` comes from `updated_at`,
+    `last_used_at`), so they cannot be rebuilt for a past day. The run that writes the row stores them as
+    of `taken_at`; if `taken_at` is more than 6 hours after the end of `day`, they are stored as `null`.
 - `metrics_alert_state`: `kind` primary key, `first_seen`, `last_sent`, `value`, so an alert is sent once,
   not every run.
 - No foreign keys and no user id anywhere: a metric outlives every user.
@@ -172,8 +193,25 @@ at 0.25 CU, about 0.02 CU-hours).
 
 - In `measured()` (`server/perf.js`), after the `[perf]` line, `waitUntil(recordRequest(store, status, ms))`
   from `@vercel/functions` (already a dependency). The answer is sent first; the write happens after.
-- One statement per request: `insert ... on conflict (hour, route, op, caller, class) do update set
-  n = n + 1, sum_ms = sum_ms + $ms, max_ms = greatest(...), buckets[$k] = metrics_hourly.buckets[$k] + 1`.
+- Only when `store.q > 0` (see "Neon compute" above). One statement: a multi-row `insert` of this
+  request plus the instance's pending rows, added up in JS first so no key appears twice (Postgres refuses
+  to update the same row twice in one statement). Each row carries a full 65-element array built in JS
+  (`$n::int[]`). On conflict every right-hand side names the table, because a bare `n` is ambiguous
+  (checked in PGlite by the Opus review): `n = metrics_hourly.n + excluded.n`,
+  `sum_ms = metrics_hourly.sum_ms + excluded.sum_ms`,
+  `max_ms = greatest(metrics_hourly.max_ms, excluded.max_ms)`, and the counters added element by element
+  (`array(select a + b from unnest(metrics_hourly.buckets, excluded.buckets) as t(a, b))`).
+- The status counts come from flags, not only the HTTP status: `n_429` also counts a `tools/call` refused by the
+  MCP rate limit (HTTP 200, `RATE_LIMIT_MESSAGE`, two places in `server/mcp/server.js`); `n_4xx` also
+  counts a JSON-RPC error (`RpcError`, HTTP 200); `n_tool_error` counts a tool result with `isError`
+  (`callTool` in `server/mcp/tools.js`).
+- The app has one database connection per instance (`max: 1`). With Fluid compute, a request that comes
+  next on the same instance waits behind the write; a slow write could hold it up to the 15 s query
+  timeout. The O2 production check compares p95 from the `[perf]` lines in the hour before and after the
+  deploy.
+- Tests: outside Vercel `waitUntil` does nothing, and a write still running could land inside another
+  test's transaction. `server/metrics/record.js` exports `flushMetrics()` (waits for pending writes). The
+  test setup sets `METRICS_DISABLED=1`; only the metrics tests turn it off and await `flushMetrics()`.
 - A failed write is caught and logged as `console.warn('[metrics] write failed')` with no details; it
   never changes the answer. `METRICS_DISABLED=1` turns the write off (not a secret).
 - The write is outside the request's `q` count, so `tests/api/query-budget.test.js` numbers stay the same.
@@ -183,31 +221,61 @@ at 0.25 CU, about 0.02 CU-hours).
 
 ### Percentiles: how they are computed
 
-- Each row has a histogram of 65 counters. Counter 0 holds requests under 1 ms. Counter k (1 to 63)
+- Each row has a histogram of 65 counters, counter k at array index k + 1 (Postgres arrays start at 1;
+  `buckets[0]` would silently grow the array). Counter 0 holds requests under 1 ms. Counter k (1 to 63)
   holds requests from 2^((k−1)/4) ms up to 2^(k/4) ms; counter 64 holds requests of 2^(63/4) ms
   (about 55 s) and longer. Each step is 19 % wider than the last.
 - Any window and any grouping is the sum of the rows' counters, so hours, days, routes and tools merge
   exactly.
 - Percentile q: nearest rank, as in the speed plan (`docs/plans/speed.md` section 1): rank
   `ceil(q × n)` (1-based) in the merged histogram. The value reported is the geometric middle of that
-  counter's range, never more than the window's `max_ms`. The error is at most about 9 %.
+  counter's range (0.5 ms for counter 0), never more than the window's `max_ms`. For counters 1 to 63
+  the error is at most about 9 % high or 8 % low; counter 64 is capped by `max_ms`.
+- Reads add the histograms up in SQL (`unnest ... with ordinality`, grouped by position), so a long
+  window sends one array per group, not every row (Neon's free transfer is 5 GB a month).
 - Below the minimum samples of section 2, the percentile is `null` and its name is listed in
   `low_samples`.
 - `mean` is `sum_ms / n` (exact). `max` is the largest `max_ms` (exact).
 
 ### The daily step (task O5)
 
-`POST /api/ops/metrics-daily`, called by a new workflow `.github/workflows/metrics-daily.yml` with the
-GitHub Actions OIDC identity that the smoke test already uses (`server/oidc-ci.js`). No new secret.
+`POST /api/ops/metrics-daily`, called by a new workflow `.github/workflows/metrics-daily.yml` with a
+GitHub Actions OIDC token (the same issuer and key check as `server/oidc-ci.js`). No new secret.
 
-- The workflow file is added to `CI_WORKFLOW_PATHS`, and the `schedule` event is allowed for this file
-  only. The route answers 404 to every other caller, like the admin paths.
-- It is idempotent and does, in order: write yesterday's (UTC) row of `metrics_product_daily` if it is
-  missing (counts only, from the same tables as `statsRow`); merge `metrics_hourly` rows older than 14
-  days into `metrics_daily` and delete them in the same transaction; delete `metrics_daily` rows older
-  than 400 days; work out the alerts (section 6).
-- It deletes metric rows only, never user data.
-- It answers with counts and alert flags only.
+Security (the Opus review found that simply adding the workflow to `CI_WORKFLOW_PATHS` opens access in
+both directions: its token would be accepted as `ci-smoke` on every `ci: true` route, such as creating
+drafts and uploading images, and the smoke and upload workflows, which anyone with write access can
+dispatch, would pass on the new route):
+
+- The route is not a `ci: true` route and the workflow is not added to `CI_WORKFLOW_PATHS`. The route
+  verifies the token itself (same issuer, key set, audience and age as `verifyCiToken`) and requires
+  `workflow_ref` and `job_workflow_ref` both equal to
+  `Shaked/x-thread-draft-tool/.github/workflows/metrics-daily.yml@refs/heads/main`, `repository_id` of
+  this repository, and `event_name` `schedule` or `workflow_dispatch`. `schedule` is allowed only for
+  this path; the event list for the existing CI routes does not change.
+- A test proves that the metrics workflow's token is refused on `ci: true` routes (drafts, images,
+  `/auth/me`) and that the smoke and upload tokens are refused on the new route.
+- `/ops` paths answer 404 to every other caller, whatever the method or token, through a gate in the
+  router before the 405 and 401 answers, like `adminPathOpen` for `/admin`.
+
+What it does, idempotent, in order:
+
+- Write yesterday's (UTC) row of `metrics_product_daily` if it is missing (section 3 tables: calendar-day
+  counts, plus the rolling counts at `taken_at`).
+- Move `metrics_hourly` rows older than 14 days into `metrics_daily` in one statement:
+  `with moved as (delete from metrics_hourly where hour < $cut returning *) insert into metrics_daily ...
+  select ... from moved group by ... on conflict do update`, the arrays added element by element
+  (`unnest ... with ordinality`, grouped by position; Postgres has no `int[]` sum). A second run at the
+  same time finds no rows to move, because the first delete took them.
+- Delete `metrics_daily` rows older than 400 days.
+- Work out the alerts (section 6).
+- It deletes metric rows only, never user data, and answers with counts and alert flags only.
+
+The workflow has one schedule (every 6 hours, jittered minute) plus `workflow_dispatch`, and
+`concurrency: metrics-daily` so two runs never overlap. The first run after midnight UTC writes
+yesterday's row; the others find it present and only check alerts. GitHub stops scheduled workflows in a
+public repository after 60 days without repository activity (GitHub behaviour, not checked here); this
+repository is active every day.
 
 ## 4. How the admin sees it
 
@@ -221,8 +289,10 @@ Two capabilities, each on all three surfaces (AGENTS.md rule), each with its own
 
 - Admin only, through `adminRoute` and the guard. The tools are in `ADMIN_TOOLS`, hidden from everyone
   else, and each tool may reach only its own route (the per-route binding of #298).
-- `GET /api/admin/metrics?window=1h|24h|7d|30d|90d|400d&by=route|op|caller|class|all&route=<template>`:
-  one entry per group, sorted by `count`, at most 200 entries.
+- `GET /api/admin/metrics?window=1h|24h|7d|30d|90d|400d&by=route|op|caller|all&route=<route key>`:
+  one entry per group, sorted by `count`, at most 200 entries. `1h` is the current UTC hour so far; the
+  other windows end at the read time. `route` must be a key of `ROUTES` or `unmatched`, else 400, so the
+  60 s cache stays small.
 - `GET /api/admin/metrics/series?name=<metric>&window=24h|7d|30d|90d|400d&route=<template>`: points per
   hour (windows up to 7 days) or per day. `name` is one of `requests`, `errors_5xx`, `errors_4xx`,
   `rate_limited`, `p50`, `p95`, `p99`, `cold_starts` (from R) or one column of `metrics_product_daily`.
@@ -241,7 +311,7 @@ Example values, not measured:
   "metrics": [
     {
       "name": "latency",
-      "group": { "route": "GET /drafts/:id", "op": "-", "caller": "all", "class": "all" },
+      "group": { "route": "GET /drafts/:id", "op": "-", "caller": "all" },
       "window": "24h",
       "count": 1240,
       "errors": { "4xx": 3, "429": 0, "5xx": 0, "tool_error": 0 },
@@ -278,13 +348,15 @@ without `group`.
 - Rate limited: each admin call counts once in the normal MCP row (120 per minute), as all admin calls do.
 - No cost that can run away: the app calls no Vercel or Neon API. Reads are SQL on small tables, capped
   at 200 groups and 750 series points, and the answer is kept 60 seconds in the function's memory per
-  set of parameters. The write is one statement per request; `METRICS_DISABLED=1` stops it.
-- The daily route accepts only the OIDC identity of its own workflow file, and deletes only metric rows.
+  set of parameters. The write is one statement, only for a request that already used the database;
+  `METRICS_DISABLED=1` stops it. The key set is bounded by fixed lists (section 3, worst case about 450
+  keys an hour), so nobody can fill the database with new rows.
+- The daily route accepts only the OIDC token of its own workflow file, that token works on no other
+  route, and the route deletes only metric rows.
 
 ## 6. Alerts (three kinds, Telegram)
 
-Worked out by the daily step and also by a run every 6 hours of the same workflow (alerts only; the
-rollup part does nothing when there is nothing to do). Sent with `scripts/notify-telegram.mjs`, new kind
+Worked out by every run of the daily step (every 6 hours). Sent with `scripts/notify-telegram.mjs`, new kind
 `metrics` (headline "📈 Metrics alert"), the existing secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 The app itself still sends nothing (`docs/operations/telegram.md`).
 
@@ -292,7 +364,7 @@ The app itself still sends nothing (`docs/operations/telegram.md`).
 |---|---|---|
 | A1 errors | in the last 6 hours, 5xx are at least 2 % of requests and at least 10 requests are 5xx | users see failures; the smoke test only checks at deploy time |
 | A2 slow | in the last 24 hours, p95 of all API routes is over 1 000 ms with at least 200 samples | the owner asked about p95; today's requests take 4 to 100 ms (checked in the logs), so 1 s means something is wrong |
-| A3 capacity | the database is over 700 MB (70 % of the free 1 GB), or more than 100 answers were 429 in the last 24 hours | the free Neon limit blocks writes when full; many 429s mean the rate limit hurts real users |
+| A3 capacity | the database is over 700 MB (70 % of the free 1 GB), or more than 100 requests were rate limited (`n_429`, which includes refused MCP tool calls) in the last 24 hours | the free Neon limit blocks writes when full; many 429s mean the rate limit hurts real users |
 
 - An alert is sent when it starts and again only after it has been clear for 24 hours
   (`metrics_alert_state`). One line per alert: the kind, the value, the limit, a link to `/admin/metrics`.
@@ -300,7 +372,7 @@ The app itself still sends nothing (`docs/operations/telegram.md`).
 
 ## 7. Tasks
 
-Every task: executor Haiku 5.5 (Sonnet for a step Haiku fails twice), Opus judges the PR before merge,
+Every task: executor Haiku 5.5 unless the row says Sonnet (Sonnet also for a step Haiku fails twice), Opus judges the PR before merge,
 Codex optional (#154). Rules: the Rules section of #275. Each PR keeps
 `docs/architecture/capabilities.md` true. "Depends on" lists issues that must be closed first.
 All seven issues carry the label `held`, so the dispatcher does not start them before the owner has talked
@@ -309,10 +381,10 @@ about this plan (#331). Removing `held` starts them in the order of the table.
 | Task | Issue | What | Validator | Size | Depends on | PR body line |
 |---|---|---|---|---|---|---|
 | O1 | #332 | Migration `010_metrics.sql` (four tables) and `server/metrics/histogram.js` (bucket of a value, merge, percentile with the minimum samples), unit tests. Not wired | Opus (SQL) | S | none | `Implements #331 Task 1` |
-| O2 | #333 | Record each request in `measured()` with `waitUntil`, one upsert; caller kind; tool error flag; `METRICS_DISABLED`; tests (one request adds one, a failed write keeps the answer, no real path stored, query budget unchanged) | Opus (SQL, hot path) | M | O1 | `Implements #331 Task 2` |
-| O3 | #334 | Client app family for MCP calls: the token check also returns the client's host, mapped to a fixed list (`claude`, `chatgpt`, `grok`, `cli`, `other`) | Opus (auth statement) | S | O2 | `Implements #331 Task 3` |
-| O4 | #335 | `GET /api/admin/metrics`, `GET /api/admin/metrics/series`, tools `admin_metrics` and `admin_metrics_series`, per-route binding, 60 s cache, caps, OpenAPI, capabilities rows (UI `no: planned in #331 Task 6` until O6), `docs/operations/admin.md` | Opus (admin, auth) | M | O2 | `Implements #331 Task 4` |
-| O5 | #336 | `POST /api/ops/metrics-daily` (CI OIDC of its own workflow only), `metrics-daily.yml` (daily and every 6 hours, plus manual run), product snapshot, hourly to daily merge, retention, Infrastructure row in capabilities | Opus (OIDC, deletion) | M | O1 | `Implements #331 Task 5` |
+| O2 | #333 | Record each request in `measured()` with `waitUntil`: write only when `q > 0`, pending in-memory rows for `q = 0`; caller kind; flags for MCP rate limit, JSON-RPC error and tool error; `METRICS_DISABLED`; `flushMetrics()`; tests (one request adds one, a `q = 0` request runs no SQL, a failed write keeps the answer, no real path stored, query budget unchanged) | Opus (SQL, hot path) | M | O1 | `Implements #331 Task 2` |
+| O3 | #334 | Client app family for MCP calls: the token check also returns the client's host, mapped to a fixed list (`claude`, `chatgpt`, `grok`, `cli`, `other`). Executor Sonnet (the MCP token statement is security code) | Opus (auth statement) | S | O2 | `Implements #331 Task 3` |
+| O4 | #335 | `GET /api/admin/metrics`, `GET /api/admin/metrics/series`, tools `admin_metrics` and `admin_metrics_series`, per-route binding (`ADMIN_REST_ROUTES` in `server/mcp/admin-tools.js`), sums in SQL, 60 s cache, caps, OpenAPI, capabilities rows (UI `no: planned in #331 Task 6` until O6), `docs/operations/admin.md` | Opus (admin, auth) | M | O2 | `Implements #331 Task 4` |
+| O5 | #336 | `POST /api/ops/metrics-daily` (its own OIDC check, exact workflow path, not a `ci: true` route), `/ops` 404 gate, `metrics-daily.yml` (every 6 hours, manual run, `concurrency`), product snapshot, hourly to daily move with `delete ... returning`, retention, Infrastructure row in capabilities. Executor Sonnet (OIDC is security code, as for #283) | Opus (OIDC, deletion) | M | O1 | `Implements #331 Task 5` |
 | O6 | #337 | Admin page `/admin/metrics`: tables, inline SVG chart, product table, link to delivery speed; capabilities UI cells | Opus (design) | M | O4, #285 | `Implements #331 Task 6` |
 | O7 | #338 | Alerts A1 to A3 in the daily step, `metrics_alert_state`, Telegram kind `metrics`, `docs/operations/telegram.md` | Sonnet | S | O5 | `Implements #331 Task 7` |
 
@@ -344,5 +416,5 @@ Posted on epic #273. Each one can be answered alone. Nothing else in this plan n
   browser numbers. (b) Yes: page views per page and country; adds a script to every page; free limits
   not checked. Recommendation (a) for now. Default: (a).
 - **Q4 (secret): give the app a Neon API key to show CU-hours used?** (a) No: database size comes from
-  SQL, CU-hours are read by hand (about 9 of 100 used this month on 2026-11-21). (b) Yes: one more secret
+  SQL, CU-hours are read by hand (about 9 of 100 used this month, read on 2026-11-21). (b) Yes: one more secret
   in Vercel; the page shows CU-hours. Recommendation (a). Default: (a).
