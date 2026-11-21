@@ -1,5 +1,8 @@
 # Agents
 
+## Replies to Shaked (every session, every tool)
+Every reply to Shaked, every HANDOFF, every owner question and every PR or issue comment meant for him uses `.claude/skills/reply-style` (`SKILL.md` and its templates) and passes `npm run reply-lint` before it is posted.
+
 ## Using the product as an agent
 JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`; details in docs/agents/api.md.
 
@@ -38,5 +41,5 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 - Every Handoff says which model did what.
 
 ### Talking to Shaked
-- Every reply to Shaked, every HANDOFF and every owner question uses a template of the `reply-style` skill (`.claude/skills/reply-style/SKILL.md`) and passes `npm run reply-lint` before it is posted.
+- Reply format: see "Replies to Shaked" at the top of this file.
 - When you ask Shaked to try something on preview, add the label `try-preview` to the PR (he gets a Telegram message with the link if the label comes from his account; see the guide). When something only he can do exists, add the label `owner`. Details: `docs/operations/telegram.md`.

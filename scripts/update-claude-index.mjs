@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.cwd();
-const claudePath = join(root, 'claude.md');
+const claudePath = join(root, 'CLAUDE.md');
 const skillsDir = join(root, '.claude', 'skills');
 const featuresDir = join(root, 'docs', 'features');
 
@@ -15,7 +15,9 @@ function listMdFiles(dir) {
 function titleFor(filePath) {
   const content = readFileSync(filePath, 'utf8');
   const first = content.split('\n').find((l) => l.startsWith('# '));
-  return first ? first.replace(/^#\s+/, '').trim() : filePath.split('/').pop();
+  if (first) return first.replace(/^#\s+/, '').trim();
+  const parts = filePath.split('/');
+  return parts.at(-1) === 'SKILL.md' ? parts.at(-2) : parts.at(-1);
 }
 
 function rel(pathAbs) {
@@ -62,7 +64,7 @@ const current = readFileSync(claudePath, 'utf8');
 const start = '<!-- AUTO-INDEX:START -->';
 const end = '<!-- AUTO-INDEX:END -->';
 if (!current.includes(start) || !current.includes(end)) {
-  throw new Error('claude.md missing AUTO-INDEX markers');
+  throw new Error('CLAUDE.md missing AUTO-INDEX markers');
 }
 const blockPattern = new RegExp(`${start}[\\s\\S]*?${end}`);
 // Keep the old timestamp when nothing else in the index changed, so a refresh leaves the file

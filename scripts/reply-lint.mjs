@@ -88,12 +88,12 @@ function checkTemplate(lines, force, add) {
     const act = ACT.exec(tldr.body.join(' '))
     if (tldr.body.length < 1 || tldr.body.length > 3) add(tldr.line, 'tldr', 'TL;DR must be 1 to 3 lines')
     if (!act) add(tldr.line, 'tldr', 'TL;DR must say "Nothing needed from you" or "You need to do N things"')
-    const todo = all[at[1]]
-    if (act && todo) {
-      const steps = todo.body.filter((t) => /^ ?\d+\.\s/.test(t)).length
+    const actions = all[at[1]]
+    if (act && actions) {
+      const steps = actions.body.filter((t) => /^ ?\d+\.\s/.test(t)).length
       const want = act[2] ? Number(act[2]) || NUMBERS[act[2].toLowerCase()] : 0
-      if (want === 0 && !/^nothing\b/i.test(todo.body[0] || '')) add(todo.line, 'steps', 'write "Nothing" when nothing is needed')
-      if (want > 0 && steps !== want) add(todo.line, 'steps', `TL;DR says ${want}, the list has ${steps} numbered steps`)
+      if (want === 0 && !/^nothing\b/i.test(actions.body[0] || '')) add(actions.line, 'steps', 'write "Nothing" when nothing is needed')
+      if (want > 0 && steps !== want) add(actions.line, 'steps', `TL;DR says ${want}, the list has ${steps} numbered steps`)
     }
   }
   const done = all[at[4]]

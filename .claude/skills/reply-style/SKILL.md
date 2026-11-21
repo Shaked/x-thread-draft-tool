@@ -65,10 +65,17 @@ Each rule can be checked by reading the reply.
    route failed. Use the `owner-action` template.
 
 ## Slop check
-pstack, the plugin Shaked named, was not found in the plugin catalog (searched `pstack`, `writing`
-and `slop` on 2026-11-21). The question is on the epic:
-[pstack question on #273](https://github.com/Shaked/x-thread-draft-tool/issues/273#issuecomment-7061229681).
-Until he names it, this check works without any plugin.
+Three writing skills from pstack, the plugin Shaked chose, are in this repo (source and licence:
+`THIRD_PARTY_LICENSES/pstack.md`). Read the file and apply it; they are not loaded on their own:
+
+- Every reply: apply [`pstack-unslop`](../pstack-unslop/SKILL.md) before you post.
+- PR bodies, commit messages and HANDOFF comments: also apply
+  [`pstack-technical-writing`](../pstack-technical-writing/SKILL.md).
+- Shaked says he did not understand a reply: rewrite it with [`pstack-bro`](../pstack-bro/SKILL.md),
+  then put it back into the template.
+
+When a pstack rule and this skill disagree, this skill wins. Example: a label explained in
+parentheses, `#279 (tool text wording)`, is allowed even though unslop rule 13 limits parentheses.
 
 Before you post, read the reply once as a stranger and check:
 - Every label has a link and 3 to 6 words the first time.
@@ -88,8 +95,11 @@ npm run reply-lint -- --template reply.md   # force the heading checks
 ```
 
 Fix every finding, then post. The script is `scripts/reply-lint.mjs`; its tests are
-`tests/unit/reply-lint.test.js`.
+`tests/unit/reply-lint.test.js`. CI also runs it on every PR body, warn only for now
+(`.github/workflows/reply-lint.yml`).
 
 ## How this skill is updated
 The weekly improvement review (task #294; rules in `docs/operations/weekly-review.md` once it ships)
-updates this skill and its templates in the same run as its findings, in its "skill" PR.
+updates this skill and its templates in the same run as its findings, in its "skill" PR. It also
+checks `cursor/plugins` for a newer pstack and opens an issue for it; it never updates the
+vendored files on its own.

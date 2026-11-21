@@ -1,9 +1,13 @@
 # Claude + Codex Working Guide
 
+Read [`AGENTS.md`](./AGENTS.md) first: it holds the rules for every session in this repo. Every reply to Shaked,
+every HANDOFF, every owner question and every PR or issue comment meant for him uses the
+[`reply-style` skill](./.claude/skills/reply-style/SKILL.md).
+
 This file is the primary, actionable map for what to use.
 
 <!-- AUTO-INDEX:START -->
-_Last refreshed: 2026-11-21 10:26:41.434 UTC_
+_Last refreshed: 2026-11-21 10:33:39.529 UTC_
 
 ## Feature Index (auto-generated, use directly)
 - Draft Management: [`docs/features/draft-management.md`](./docs/features/draft-management.md)
@@ -20,6 +24,9 @@ _Last refreshed: 2026-11-21 10:26:41.434 UTC_
 - Skill: End-to-end contract tests without real clients or LLMs: [`.claude/skills/e2e-contract-tests.md`](./.claude/skills/e2e-contract-tests.md)
 - Skill: High-Risk Feature Concentration: [`.claude/skills/high-risk-features.md`](./.claude/skills/high-risk-features.md)
 - Skill: JS/TS Quality and Type Safety Direction: [`.claude/skills/js-ts-quality.md`](./.claude/skills/js-ts-quality.md)
+- pstack-bro: [`.claude/skills/pstack-bro/SKILL.md`](./.claude/skills/pstack-bro/SKILL.md)
+- Technical writing: [`.claude/skills/pstack-technical-writing/SKILL.md`](./.claude/skills/pstack-technical-writing/SKILL.md)
+- Unslop: [`.claude/skills/pstack-unslop/SKILL.md`](./.claude/skills/pstack-unslop/SKILL.md)
 - Skill: Reply style (templates for replies to the owner): [`.claude/skills/reply-style/SKILL.md`](./.claude/skills/reply-style/SKILL.md)
 <!-- AUTO-INDEX:END -->
 
