@@ -927,8 +927,7 @@ a {
   position: relative;
 }
 
-.share-btn,
-.logout-btn {
+.share-btn {
   padding: 8px 16px;
   background-color: var(--surface);
   border: 1px solid var(--border);
@@ -1029,31 +1028,19 @@ a {
   margin: 0 -20px;
 }
 
-/* App bar: page actions, sign-out and the hide control. In the page header on wide screens, a fixed bottom bar on phones. */
-:root { --legacy-bar-h: 44px; --bar-space: 0px; }
-.app-bar, .app-bar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.app-bar-toggle { display: none; }
-.logout-btn { min-width: 44px; min-height: 44px; padding: 0; justify-content: center; color: var(--text-soft); }
-.logout-btn:hover { background-color: var(--surface-2); border-color: var(--danger); }
+/* App bar, editor parts: the bar itself is in src/components/AppBar.css. Here: the editor's icon buttons and
+   publish button in the bar, and the share menus that open above it. */
+:root { --bar-space: 0px; }
 
 @media (max-width: 768px) {
-  :root[data-bar='shown'] { --bar-space: calc(var(--legacy-bar-h) + env(safe-area-inset-bottom, 0px)); }
+  :root[data-bar='shown'] { --bar-space: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)); }
   :root[data-bar='hidden'] { --bar-space: calc(24px + env(safe-area-inset-bottom, 0px)); }
   html { scroll-padding-bottom: var(--bar-space); }
   .app { padding-bottom: calc(var(--bar-space) + 16px); }
 
-  .app-bar {
-    position: fixed; inset-inline: 0; bottom: 0; z-index: 100;
-    height: calc(var(--legacy-bar-h) + env(safe-area-inset-bottom, 0px));
-    padding: 0 4px env(safe-area-inset-bottom, 0px);
-    gap: 0; align-items: flex-end;
-    background-color: var(--bg); box-shadow: 0 -1px 0 var(--border);
-    transition: background-color 0.2s, box-shadow 0.2s;
-  }
-  .app-bar-actions { flex: 1; min-width: 0; height: var(--legacy-bar-h); gap: 0; transition: transform 0.2s, opacity 0.2s, visibility 0.2s; }
-  .app-bar .icon-btn, .app-bar-toggle {
+  .app-bar .icon-btn {
     display: inline-flex; align-items: center; justify-content: center;
-    width: var(--hit-min); min-width: var(--hit-min); height: var(--legacy-bar-h); min-height: 0; padding: 0;
+    width: var(--hit-min); min-width: var(--hit-min); height: var(--hit-min); min-height: 0; padding: 0;
     background: none; border: 0; border-radius: 8px; color: var(--text-strong); cursor: pointer;
   }
   .app-bar .btn-text { display: none; }
@@ -1064,20 +1051,7 @@ a {
   .app-bar .publish-btn { background-color: var(--success); color: var(--accent-text); }
   .app-bar .publish-btn .btn-text { display: inline; }
   .app-bar .publish-btn .btn-icon { display: none; }
-  .app-bar .logout-btn, .app-bar-toggle { color: var(--text-soft); }
-  .app-bar .logout-btn { margin-inline-start: auto; }
-  .app-bar .publish-btn ~ .logout-btn, .app-bar .ui-button--primary ~ .logout-btn { margin-inline-start: 8px; }
-  .app-bar .ui-button--primary { margin-inline-start: auto; }
-  .app-bar .icon-btn:focus-visible, .app-bar-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-
-  /* Hidden: the actions slide out and only the tab stays, in the same corner. */
-  .app-bar.is-hidden { background-color: transparent; box-shadow: none; pointer-events: none; padding-bottom: 0; }
-  .app-bar.is-hidden .app-bar-actions { visibility: hidden; opacity: 0; transform: translateY(100%); }
-  .app-bar.is-hidden .app-bar-toggle {
-    pointer-events: auto; width: 44px; height: calc(24px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px);
-    background-color: var(--surface); border: 1px solid var(--border); border-bottom: 0; border-radius: 12px 12px 0 0;
-  }
-  .app-bar.is-hidden .app-bar-toggle .icon { transform: rotate(180deg); }
+  .app-bar .icon-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
   /* Menus and messages of bar buttons open as a sheet above the bar. */
   .app-bar .share-menu, .app-bar .share-tooltip {
@@ -1379,111 +1353,6 @@ a {
 }
 
 
-/* Theme choice (Light / Dark / Match device). */
-.theme-setting {
-  border: none;
-  margin: var(--legacy-space-4) 0;
-  padding: 0;
-}
-
-.theme-setting legend {
-  color: var(--muted);
-  font-size: 14px;
-  margin-bottom: var(--legacy-space-2);
-}
-
-.theme-segments {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: var(--legacy-radius-sm);
-  overflow: hidden;
-}
-
-.theme-segment {
-  position: relative;
-  padding: var(--legacy-space-2) var(--legacy-space-4);
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-  color: var(--text);
-  background: var(--surface);
-}
-
-.theme-segment + .theme-segment {
-  border-left: 1px solid var(--border);
-}
-
-.theme-segment.active {
-  background: var(--accent);
-  color: var(--accent-text);
-}
-
-.theme-segment input {
-  position: absolute;
-  opacity: 0;
-  width: 1px;
-  height: 1px;
-}
-
-.theme-segment:focus-within {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-/* Editor page (Task 6.3a): visible focus ring, 44 px header targets. */
-.draft-editor :is(a, button, input, textarea, [role="button"]):focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
 .draft-editor .share-btn {
   min-height: 44px;
-}
-
-/* Menu: a button in each signed-in page header and a left drawer (settings-menu.md M6 to M11). */
-.menu-btn {
-  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-  width: var(--hit-min); height: var(--hit-min); padding: 0; background: none; border: 0; border-radius: 8px;
-  color: var(--text-strong); cursor: pointer;
-}
-.menu-btn:focus-visible, .app-menu-item:focus-visible, .app-menu-version:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-.app-menu-scrim {
-  position: fixed; inset: 0; z-index: 200; background: var(--overlay-30);
-  animation: app-menu-fade 0.2s;
-}
-.app-menu {
-  position: fixed; inset-block: 0; inset-inline-start: 0; z-index: 200;
-  display: flex; flex-direction: column; box-sizing: border-box;
-  width: min(320px, calc(100vw - 48px)); height: 100dvh; overflow-y: auto;
-  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
-  background: var(--surface); color: var(--text); border-inline-end: 1px solid var(--border);
-  box-shadow: var(--shadow-lg);
-  animation: app-menu-slide 0.2s;
-}
-.app-menu-head { display: flex; align-items: center; justify-content: space-between; padding-inline-start: 8px; }
-.app-menu-head h2 { margin: 0; font-size: 1rem; }
-.app-menu-list { list-style: none; margin: 8px 0; padding: 0; }
-.app-menu-item {
-  display: flex; align-items: center; box-sizing: border-box; width: 100%; min-height: 44px; padding: 0 8px;
-  background: none; border: 0; border-radius: 8px; color: var(--text-strong); font: inherit; text-align: start;
-  text-decoration: none; cursor: pointer;
-}
-.app-menu-item:hover { background: var(--surface-2); }
-.app-menu-section { padding: 0 8px; }
-.app-menu-label { padding: 8px 8px 0; color: var(--text-soft); font-size: 14px; }
-.app-menu .theme-setting { margin: 8px 0; }
-.app-menu .theme-setting legend { color: var(--text-soft); }
-.app-menu .theme-segments { display: flex; flex-direction: column; }
-.app-menu .theme-segment + .theme-segment { border-left: 0; border-top: 1px solid var(--border); }
-.app-menu-signout { margin-top: auto; }
-.app-menu-version { display: block; padding: 8px; color: var(--text-soft); font-size: 12px; text-decoration: none; }
-.app-menu-version:hover { text-decoration: underline; }
-html.menu-open { overflow: hidden; }
-@keyframes app-menu-slide { from { transform: translateX(-100%); } }
-@keyframes app-menu-fade { from { opacity: 0; } }
-[dir='rtl'] .app-menu { animation-name: app-menu-slide-rtl; }
-@keyframes app-menu-slide-rtl { from { transform: translateX(100%); } }
-@media (prefers-reduced-motion: reduce) {
-  .app-menu, .app-menu-scrim { animation: none; }
 }

@@ -1,6 +1,6 @@
 import { authApi } from '../utils/api'
 import { clearCachedDrafts } from '../utils/draftCache'
-import Icon from '../ui/Icon'
+import IconButton from '../ui/IconButton'
 
 /** Signs out of this browser (the server ends the session), drops the drafts cached here, then reloads. */
 export async function signOut() {
@@ -14,9 +14,5 @@ export async function signOut() {
 }
 
 export default function LogoutButton() {
-  return (
-    <button type="button" className="logout-btn icon-btn" onClick={signOut} title="Sign out" aria-label="Sign out">
-      <Icon name="signout" />
-    </button>
-  )
+  return <IconButton icon="signout" label="Sign out" onClick={signOut} />
 }

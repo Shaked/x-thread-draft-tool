@@ -123,7 +123,7 @@ for (const size of SIZES) {
           return spots.map((el) => {
             const r = el!.getBoundingClientRect()
             const hit = document.elementFromPoint(r.left + r.width * 0.75, r.top + r.height / 2)
-            return !!hit?.closest('.app-menu-scrim, #app-menu')
+            return !!hit?.closest('.ui-dialog__scrim, #app-menu')
           })
         })
         expect(covered).toEqual([true, true])
@@ -266,7 +266,7 @@ for (const size of SIZES) {
       await page.goto(`${BASE}/`)
       await page.getByRole('heading', { name: 'Your Threads' }).waitFor()
       await openMenu(page)
-      const line = drawer(page).locator('.app-menu-version')
+      const line = drawer(page).getByRole('link', { name: /^Version / })
       await expect(line).toContainText('Version ')
       await expect(line).toContainText('deployed ')
       // Wait for the 0.2 s slide to end, then measure the line and hit-test its middle in the same frame.

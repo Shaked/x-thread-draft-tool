@@ -3,7 +3,7 @@ import Icon from './Icon'
 import './IconButton.css'
 
 // An icon-only button: always 44 x 44. `label` is required (aria-label and the tooltip).
-export default function IconButton({ icon, label, variant = 'ghost', pressed, disabled = false, disabledReason, onClick }) {
+export default function IconButton({ icon, label, variant = 'ghost', pressed, expanded, controls, disabled = false, disabledReason, onClick }) {
   const reasonId = useId()
   const className = ['ui-icon-button', `ui-icon-button--${variant}`, pressed ? 'ui-icon-button--pressed' : ''].filter(Boolean).join(' ')
   return (
@@ -13,6 +13,8 @@ export default function IconButton({ icon, label, variant = 'ghost', pressed, di
         className={className}
         aria-label={label}
         aria-pressed={pressed}
+        aria-expanded={expanded}
+        aria-controls={controls}
         title={disabledReason || label}
         disabled={disabled && !disabledReason}
         aria-disabled={disabled || disabledReason ? true : undefined}

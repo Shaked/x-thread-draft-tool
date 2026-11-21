@@ -10,7 +10,9 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
 // React 18.2 has no `inert` prop) and the page does not scroll. Tab stays inside, Escape and the scrim close it
 // (unless `dismissible` is false), and focus goes back to the element that was focused when it opened.
 // `actions`: [{ label, variant, onClick, autoFocus }]; the one with `autoFocus` gets focus first.
-export default function Dialog({ open, onClose, title, description, children, actions = [], dismissible = true }) {
+// `placement`: 'center' (default) or 'sheet-start', a drawer on the inline start edge (the app menu).
+// Focus goes to the first element inside `[data-autofocus]` when there is one (a link or a button), else the first control.
+export default function Dialog({ open, onClose, title, description, children, actions = [], dismissible = true, placement = 'center', id }) {
   const panel = useRef(null)
   const titleId = useId()
   const descriptionId = useId()
@@ -27,7 +29,7 @@ export default function Dialog({ open, onClose, title, description, children, ac
     root?.setAttribute('inert', '')
     document.documentElement.classList.add('ui-dialog-open')
     const box = panel.current
-    const start = box?.querySelector('[data-autofocus] button') ?? box?.querySelector(FOCUSABLE) ?? box
+    const start = box?.querySelector('[data-autofocus] a, [data-autofocus] button') ?? box?.querySelector(FOCUSABLE) ?? box
     start?.focus()
     const onKey = (event) => {
       if (event.key === 'Escape' && latest.current.dismissible) {
@@ -57,10 +59,11 @@ export default function Dialog({ open, onClose, title, description, children, ac
 
   if (!open) return null
   return createPortal(
-    <div className="ui-dialog">
+    <div className={placement === 'sheet-start' ? 'ui-dialog ui-dialog--sheet-start' : 'ui-dialog'}>
       <div className="ui-dialog__scrim" onClick={dismissible ? onClose : undefined} />
       <div
         ref={panel}
+        id={id}
         className="ui-dialog__panel"
         role="dialog"
         aria-modal="true"

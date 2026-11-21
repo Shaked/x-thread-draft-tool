@@ -3,6 +3,7 @@
   display: inline-flex;
   flex: none;
   font-family: inherit;
+  font-size: var(--font-size-md);
   align-items: center;
   justify-content: center;
   inline-size: var(--hit-min);

@@ -100,3 +100,46 @@ html.ui-dialog-open {
 @keyframes ui-dialog-scale {
   from { opacity: 0; transform: scale(0.98); }
 }
+
+/* Drawer (placement sheet-start, the app menu): a full-height panel on the inline start edge, `--drawer-w` wide.
+   It slides in from its own edge, so it mirrors under dir=rtl. */
+.ui-dialog.ui-dialog--sheet-start {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: var(--space-0);
+}
+
+.ui-dialog--sheet-start .ui-dialog__panel {
+  inline-size: var(--drawer-w);
+  max-inline-size: 85%;
+  max-block-size: 100%;
+  padding: var(--space-4);
+  border-start-start-radius: var(--space-0);
+  border-end-start-radius: var(--space-0);
+  border-start-end-radius: var(--radius-xl);
+  border-end-end-radius: var(--radius-xl);
+  animation-name: ui-dialog-drawer;
+}
+
+[dir='rtl'] .ui-dialog--sheet-start .ui-dialog__panel {
+  animation-name: ui-dialog-drawer-rtl;
+}
+
+@keyframes ui-dialog-drawer {
+  from { transform: translateX(-100%); }
+}
+
+@keyframes ui-dialog-drawer-rtl {
+  from { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-dialog--sheet-start .ui-dialog__panel {
+    animation: none;
+  }
+}
+
+/* The drawer's title keeps clear of a close button in either top corner (the menu's close button). */
+.ui-dialog--sheet-start .ui-dialog__title {
+  padding-inline: var(--hit-min);
+}
