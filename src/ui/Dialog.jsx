@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useLocation } from 'react-router-dom'
 import Button from './Button'
 import './Dialog.css'
 
@@ -96,7 +97,7 @@ export default function Dialog({ open, onClose, title, description, children, ac
 const ConfirmContext = createContext(null)
 
 // Mounts the confirm dialog once. `confirm({ title, body, confirmLabel, tone }) → Promise<boolean>`:
-// true for the confirm button, false for Cancel, Escape or the scrim. A destructive ('danger') dialog focuses Cancel.
+// true for the confirm button, false for Cancel, Escape, the scrim or leaving the page (it sits inside the router). A destructive ('danger') dialog focuses Cancel.
 export function ConfirmProvider({ children }) {
   const [request, setRequest] = useState(null)
   const confirm = useCallback(
@@ -110,6 +111,17 @@ export function ConfirmProvider({ children }) {
     request?.resolve(value)
     setRequest(null)
   }
+  // A question belongs to the page that asked it: going there and back (browser Back) answers "no".
+  const { pathname } = useLocation()
+  const openedAt = useRef(pathname)
+  useEffect(() => {
+    if (openedAt.current === pathname) return
+    openedAt.current = pathname
+    setRequest((current) => {
+      current?.resolve(false)
+      return null
+    })
+  }, [pathname])
   const danger = request?.tone === 'danger'
   const value = useMemo(() => confirm, [confirm])
   return (

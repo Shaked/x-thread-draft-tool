@@ -50,8 +50,8 @@ function App() {
 
   return (
     <ToastProvider>
-    <ConfirmProvider>
     <BrowserRouter>
+    <ConfirmProvider>
       <div className="app">
         <Routes>
           <Route
@@ -91,8 +91,8 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
-    </BrowserRouter>
     </ConfirmProvider>
+    </BrowserRouter>
     </ToastProvider>
   )
 }

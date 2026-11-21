@@ -18,11 +18,11 @@ const GRANT = { id: 'g1', client_name: 'Claude Desktop', kind: 'oauth', redirect
 
 function renderPage() {
   return render(
-    <ConfirmProvider>
-      <MemoryRouter>
+    <MemoryRouter>
+      <ConfirmProvider>
         <AppsPage />
-      </MemoryRouter>
-    </ConfirmProvider>
+      </ConfirmProvider>
+    </MemoryRouter>
   )
 }
 

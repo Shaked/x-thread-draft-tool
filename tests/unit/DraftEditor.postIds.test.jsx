@@ -23,13 +23,13 @@ vi.mock('../../src/components/AppMenu', () => ({ default: () => null }))
 function renderEditor() {
   return render(
     <ToastProvider>
-      <ConfirmProvider>
     <MemoryRouter initialEntries={['/draft/d1']}>
+      <ConfirmProvider>
       <Routes>
         <Route path="/draft/:id" element={<DraftEditor user={{ login: 'owner' }} />} />
       </Routes>
-    </MemoryRouter>
       </ConfirmProvider>
+    </MemoryRouter>
     </ToastProvider>
   )
 }

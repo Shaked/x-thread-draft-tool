@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
+import { MemoryRouter, useNavigate } from 'react-router-dom'
 import Dialog, { ConfirmProvider, useConfirm } from '../../src/ui/Dialog.jsx'
 import { ToastProvider, useToast } from '../../src/ui/Toast.jsx'
 
@@ -24,9 +25,11 @@ describe('Dialog and useConfirm', () => {
     const user = userEvent.setup()
     const onResult = vi.fn()
     render(
-      <ConfirmProvider>
-        <Host onResult={onResult} />
-      </ConfirmProvider>
+      <MemoryRouter>
+        <ConfirmProvider>
+          <Host onResult={onResult} />
+        </ConfirmProvider>
+      </MemoryRouter>
     )
     const opener = screen.getByRole('button', { name: 'Open' })
     await user.click(opener)
@@ -49,13 +52,39 @@ describe('Dialog and useConfirm', () => {
     const user = userEvent.setup()
     const onResult = vi.fn()
     render(
-      <ConfirmProvider>
-        <Host onResult={onResult} />
-      </ConfirmProvider>
+      <MemoryRouter>
+        <ConfirmProvider>
+          <Host onResult={onResult} />
+        </ConfirmProvider>
+      </MemoryRouter>
     )
     await user.click(screen.getByRole('button', { name: 'Open' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     expect(onResult).toHaveBeenCalledWith(true)
+  })
+
+  it('answers false and closes when the route changes while it is open', async () => {
+    const user = userEvent.setup()
+    const onResult = vi.fn()
+    function Leave() {
+      const navigate = useNavigate()
+      return <button onClick={() => navigate('/elsewhere')}>Leave</button>
+    }
+    render(
+      <MemoryRouter>
+        <ConfirmProvider>
+          <Host onResult={onResult} />
+          <Leave />
+        </ConfirmProvider>
+      </MemoryRouter>
+    )
+    await user.click(screen.getByRole('button', { name: 'Open' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    // The page behind is inert, so the route change comes from outside (browser Back), here through the router.
+    document.getElementById('root').removeAttribute('inert')
+    await user.click(screen.getByRole('button', { name: 'Leave' }))
+    expect(onResult).toHaveBeenCalledWith(false)
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('ignores Escape when it is not dismissible', async () => {

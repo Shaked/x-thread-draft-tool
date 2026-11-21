@@ -20,11 +20,11 @@ const REVOKED = { id: 'tok2', name: 'Old agent', prefix: 'xt_pat_OLDX', created_
 
 function renderPage() {
   return render(
-    <ConfirmProvider>
-      <MemoryRouter>
+    <MemoryRouter>
+      <ConfirmProvider>
         <TokensPage />
-      </MemoryRouter>
-    </ConfirmProvider>
+      </ConfirmProvider>
+    </MemoryRouter>
   )
 }
 
