@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit:
-    name: Unit tests (vitest)
+  checks:
+    name: Checks (build, lint, knip, slop, jscpd, migration lint)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -79,8 +79,50 @@ jobs:
             exit 1
           fi
 
-      - name: Run unit and API tests (time budget)
-        run: npm run test:budget
+  # The unit and API tests run in two shards (vitest --shard), each under its own time budget.
+  # Each shard builds too: some tests read dist/ and build-info.
+  unit-shard:
+    name: Unit tests shard ${{ matrix.shard }}/2
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run unit and API tests (time budget, shard ${{ matrix.shard }}/2)
+        run: npm run test:budget -- --shard=${{ matrix.shard }}/2
+
+  # The check that branch protection reads. It never skips: a skipped need counts as passing,
+  # so it runs on every outcome and fails unless every needed job succeeded.
+  unit:
+    name: Unit tests (vitest)
+    needs: [checks, unit-shard]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every needed job passed
+        env:
+          CHECKS: ${{ needs.checks.result }}
+          SHARDS: ${{ needs.unit-shard.result }}
+        run: |
+          echo "checks: $CHECKS, unit shards: $SHARDS"
+          if [ "$CHECKS" != "success" ] || [ "$SHARDS" != "success" ]; then
+            echo "::error::A needed job did not succeed"
+            exit 1
+          fi
 
   smoke-local:
     name: Smoke test against the local API
@@ -127,16 +169,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Read the Playwright version
+        id: pw
+        run: |
+          echo "version=$(node -p "require('./node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
           restore-keys: |
             playwright-${{ runner.os }}-
 
+      # No --with-deps: the runner already has every Chromium library. --with-deps ran apt-get and
+      # installed fonts on every run (slow on slow mirror days, #216, #262, #268).
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Run E2E tests
         run: npm run test:e2e
@@ -157,6 +206,15 @@ jobs:
           name: ui-audit
           path: test-results/ui-audit
           retention-days: 14
+
+      - name: Upload e2e screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screens
+          path: test-results/screens
+          retention-days: 14
+          if-no-files-found: ignore
 
   screens:
     name: UI screenshots (manual)
