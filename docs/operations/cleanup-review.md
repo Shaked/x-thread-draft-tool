@@ -93,7 +93,7 @@ Close the issue with the comment "nothing to clean", and list the commands you r
    - a second, separate Opus subagent reads the PR diff and this file, and judges it. If it rejects the PR, close the PR and its branch. Do not leave a rejected PR open. If the fix is small, fix it and ask the subagent to judge again first;
    - only after the judgement passes, add the label `cleanup-pr`.
 5. **Never merge.** Stop after the label. Shaked merges.
-6. Post the Handoff on the issue and close the issue as completed.
+6. Post the Handoff on the issue (template: `.claude/skills/reply-style/templates/handoff.md`) and close the issue as completed.
 
 ## Standing rules that still apply
 
