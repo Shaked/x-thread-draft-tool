@@ -27,6 +27,7 @@ const POSTS = {
     }
   }
 }
+const VERSION = { type: 'integer', minimum: 1, description: 'The draft version from get_draft. The change is refused if the draft changed since.' }
 const ID_ONLY = { type: 'object', properties: { id: UUID }, required: ['id'] }
 const FORMATS = { type: 'string', enum: ['json', 'text', 'formatted'], default: 'json' }
 
@@ -81,9 +82,9 @@ const TOOLS = [
   {
     name: 'update_draft',
     description: 'Change the title and/or posts of one of your drafts. Omitted fields stay as they are.' + RESULT_NOTE + CONTENT_NOTE,
-    inputSchema: { type: 'object', properties: { id: UUID, title: TITLE, posts: POSTS }, required: ['id'] },
+    inputSchema: { type: 'object', properties: { id: UUID, title: TITLE, posts: POSTS, version: VERSION }, required: ['id'] },
     run: async (args, { rest, origin }) =>
-      outlineResult(await rest('PATCH', `/drafts/${enc(args.id)}`, pick(withPostIds(args), ['title', 'posts'])), origin)
+      outlineResult(await staleOr(await rest('PATCH', `/drafts/${enc(args.id)}`, pick(withPostIds(args), ['title', 'posts']), ifMatch(args.version))), origin)
   },
   {
     name: 'duplicate_draft',
@@ -194,8 +195,8 @@ const TOOLS = [
       const uploaded = await ctx.rest('POST', '/images/from-url', pick(args, ['draftId', 'url']))
       if (uploaded.status >= 400) return uploaded
       const { url } = await uploaded.json()
-      // Re-read after the upload, so edits made while it ran are kept. The window between this read
-      // and the PATCH is short but not zero (REST has no per-post update): a known gap, see the PR.
+      // Re-read after the upload, so edits made while it ran are kept. The PATCH sends the version of
+      // this read, so a write in between is a 412 and nothing is overwritten (#354).
       const current = await fetchOwnedDraft(ctx, args.draftId)
       if (current.failure) return current.failure
       const currentIndex = current.draft.posts.findIndex((post) => post.id === args.postId)
@@ -203,7 +204,8 @@ const TOOLS = [
       if ((current.draft.posts[currentIndex].images ?? []).length >= 4) return json({ error: 'This post already has 4 images' }, 422)
       const posts = current.draft.posts.map((post, i) => (i === currentIndex ? { ...post, images: [...(post.images ?? []), { url }] } : post))
       // Here `url` is the image's url, so it replaces the editor link.
-      return outlineResult(await ctx.rest('PATCH', `/drafts/${enc(args.draftId)}`, { posts }), ctx.origin, { url, postId: args.postId })
+      const patched = await ctx.rest('PATCH', `/drafts/${enc(args.draftId)}`, { posts }, ifMatch(current.draft.version))
+      return outlineResult(await staleOr(patched), ctx.origin, { url, postId: args.postId })
     }
   },
   {
@@ -254,7 +256,7 @@ const TOOLS = [
       const owned = await fetchOwnedDraft(ctx, args.draftId)
       if (owned.failure) return owned.failure
       const posts = owned.draft.posts.map((post) => ({ ...post, images: (post.images ?? []).filter((i) => imageUrlOf(i) !== args.url) }))
-      const patched = await ctx.rest('PATCH', `/drafts/${enc(args.draftId)}`, { posts })
+      const patched = await staleOr(await ctx.rest('PATCH', `/drafts/${enc(args.draftId)}`, { posts }, ifMatch(owned.draft.version)))
       if (patched.status >= 400) return patched
       const { draft } = await patched.json()
       // Only the caller's own files are deleted (DELETE /images refuses others with 403).
@@ -308,7 +310,7 @@ const TOOLS = [
         id: UUID,
         post_id: { type: 'string' },
         text: { type: 'string', maxLength: 4000, xMaxLength: 280 },
-        version: { type: 'integer', minimum: 1, description: 'The draft version from get_draft. The change is refused if the draft changed since.' }
+        version: VERSION
       },
       required: ['id', 'post_id', 'text']
     },
@@ -696,9 +698,21 @@ const indexOfPost = (posts, postId) => {
  * (plan O1), and refuses a stale `version` with 412.
  */
 async function updatePostText(ctx, args) {
-  const headers = args.version === undefined ? {} : { 'if-match': `"${args.version}"` }
-  const res = await ctx.rest('PATCH', `/drafts/${enc(args.id)}/posts/${enc(args.post_id)}`, { text: args.text }, headers)
-  return outlineResult(res, ctx.origin)
+  const res = await ctx.rest('PATCH', `/drafts/${enc(args.id)}/posts/${enc(args.post_id)}`, { text: args.text }, ifMatch(args.version))
+  return outlineResult(await staleOr(res), ctx.origin)
+}
+
+/** The If-Match header for a draft version the caller read; none when it gave no version. */
+const ifMatch = (version) => (version === undefined ? {} : { 'if-match': `"${version}"` })
+
+/**
+ * A REST 412 as a tool answer: nothing was written, re-read and repeat. Only the current version,
+ * never the draft the REST answer carries (a write tool returns no post text, T5). Else `res` as it is.
+ */
+async function staleOr(res) {
+  if (res.status !== 412) return res
+  const { version } = await res.json()
+  return json({ error: 'The draft changed since you read it. Nothing was written. Call get_draft to read it again, then repeat the change if it still applies.', version }, 412)
 }
 
 /** Runs a post edit and answers with the outline (see outlineResult). */
@@ -725,11 +739,7 @@ async function editPosts(ctx, id, change) {
   const edited = change(withMissingPostIds(owned.draft.posts))
   if (typeof edited === 'string') return json({ error: edited }, 422)
   if (edited.conflict) return json({ error: edited.conflict }, 409)
-  const patched = await ctx.rest('PATCH', `/drafts/${enc(id)}`, { posts: edited.posts }, { 'if-match': `"${owned.draft.version}"` })
-  if (patched.status === 412) {
-    const { version } = await patched.json()
-    return json({ error: 'The draft changed since you read it. Nothing was written. Call get_draft to read it again, then repeat the change if it still applies.', version }, 412)
-  }
+  const patched = await staleOr(await ctx.rest('PATCH', `/drafts/${enc(id)}`, { posts: edited.posts }, ifMatch(owned.draft.version)))
   if (patched.status >= 400) return patched
   for (const url of edited.removedImages ?? []) {
     if (isOwnedBlobUrl(url, ctx.caller.uid)) await ctx.rest('DELETE', '/images', { url, if_unused: true })
