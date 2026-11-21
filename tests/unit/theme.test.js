@@ -33,6 +33,20 @@ function mockDeviceScheme(initialDark) {
   }
 }
 
+// The body colour the tokens give in each theme (src/styles/tokens.css, --color-bg). jsdom does not
+// resolve light-dark(), so getComputedStyle is stubbed: it returns the colour for the resolved scheme.
+const LIGHT_BG = 'rgb(255, 255, 255)'
+const DARK_BG = 'rgb(16, 12, 28)'
+const realGetComputedStyle = window.getComputedStyle
+
+function stubBodyColour() {
+  window.getComputedStyle = (element) => {
+    const choice = document.documentElement.dataset.theme
+    const dark = choice === 'dark' || (choice === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    return element === document.body ? { backgroundColor: dark ? DARK_BG : LIGHT_BG } : realGetComputedStyle(element)
+  }
+}
+
 describe('theme', () => {
   beforeEach(() => {
     setTheme('light') // resets the in-memory session choice too
@@ -41,10 +55,12 @@ describe('theme', () => {
     document.head.innerHTML =
       '<meta name="color-scheme" content="light"><meta name="theme-color" content="#ffffff">'
     mockMatchMedia(false)
+    stubBodyColour()
   })
 
   afterEach(() => {
     applyTheme('light') // detaches any device listener left by the test
+    window.getComputedStyle = realGetComputedStyle
     document.head.innerHTML = ''
     vi.restoreAllMocks()
   })
@@ -106,19 +122,19 @@ describe('theme', () => {
   it('system choice updates meta tags and dispatches an event when the device scheme changes', () => {
     const device = mockDeviceScheme(false)
     setTheme('system')
-    expect(document.querySelector('meta[name="theme-color"]').getAttribute('content')).toBe('#ffffff')
+    expect(document.querySelector('meta[name="theme-color"]').getAttribute('content')).toBe(LIGHT_BG)
 
     const onChange = vi.fn()
     window.addEventListener(THEME_CHANGE_EVENT, onChange)
     device.fire(true)
 
-    expect(document.querySelector('meta[name="theme-color"]').getAttribute('content')).toBe('#000000')
+    expect(document.querySelector('meta[name="theme-color"]').getAttribute('content')).toBe(DARK_BG)
     expect(document.querySelector('meta[name="color-scheme"]').getAttribute('content')).toBe('dark')
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(onChange.mock.calls[0][0].detail).toEqual({ theme: 'system', resolved: 'dark' })
 
     device.fire(false)
-    expect(document.querySelector('meta[name="theme-color"]').getAttribute('content')).toBe('#ffffff')
+    expect(document.querySelector('meta[name="theme-color"]').getAttribute('content')).toBe(LIGHT_BG)
     expect(onChange).toHaveBeenCalledTimes(2)
     window.removeEventListener(THEME_CHANGE_EVENT, onChange)
   })

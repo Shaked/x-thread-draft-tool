@@ -1,8 +1,10 @@
 import { registerSW } from 'virtual:pwa-register'
+import './styles/tokens.css'
+import './ui/base.css'
+import './styles/App.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
-import './styles/App.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
