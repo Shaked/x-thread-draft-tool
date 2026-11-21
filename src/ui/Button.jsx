@@ -34,6 +34,7 @@ export default function Button({
   to,
   href,
   onClick,
+  ariaLabel,
   children
 }) {
   const reasonId = useId()
@@ -52,6 +53,7 @@ export default function Button({
     className,
     onClick: handleClick,
     'aria-disabled': disabled || disabledReason ? true : undefined,
+    'aria-label': ariaLabel,
     'aria-describedby': disabledReason ? reasonId : undefined,
     title: disabledReason
   }

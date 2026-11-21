@@ -1,0 +1,4 @@
+- API tokens and Connected apps are built from the shared components in `src/ui/` (plan task U4, #320): labelled fields, a code box with Copy, list rows with Active, Expired or Revoked badges. Same text, same calls; revoke still uses the browser dialog until #321.
+- New components: Field, Input, Select, CodeBlock, List, Badge (`docs/architecture/ui-components.md`). The old token, grant, connect-app and AI-apps rules are gone from `App.css`.
+- Buttons under 768 px are 44 px tall (the small size was 36 px on phones without touch).
+- Pinch zoom is still blocked: `index.html` is not changed in this PR.

@@ -105,6 +105,14 @@ describe('TokensPage', () => {
     expect(screen.queryByRole('heading', { name: 'Connect an AI app' })).toBeNull()
   })
 
+  it('a token past its expiry shows Expired, not Active', async () => {
+    tokensApi.list.mockResolvedValue({ tokens: [{ ...ACTIVE, id: 'tok4', name: 'Stale agent', expires_at: '2020-01-01T00:00:00Z' }] })
+    renderPage()
+    const row = (await screen.findByText('Stale agent')).closest('li')
+    expect(within(row).getByText('Expired')).toBeInTheDocument()
+    expect(within(row).queryByText('Active')).toBeNull()
+  })
+
   it('a revoked token shows no Revoke button, and an active one does', async () => {
     tokensApi.list.mockResolvedValue({ tokens: [ACTIVE, REVOKED] })
     renderPage()
@@ -112,6 +120,6 @@ describe('TokensPage', () => {
     expect(screen.getAllByRole('button', { name: 'Revoke' })).toHaveLength(1)
     const oldRow = screen.getByText('Old agent').closest('li')
     expect(within(oldRow).queryByRole('button', { name: 'Revoke' })).toBeNull()
-    expect(within(oldRow).getByText(/revoked/)).toBeInTheDocument()
+    expect(within(oldRow).getByText('Revoked')).toBeInTheDocument()
   })
 })

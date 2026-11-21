@@ -1,0 +1,28 @@
+/* Select: the same box as Input. The arrow and the phone picker stay native. */
+.ui-select {
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: var(--control-h-md);
+  padding-inline: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-raised);
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+@media (hover: hover) {
+  .ui-select:not(:disabled):hover {
+    border-color: var(--color-accent);
+  }
+}
+
+.ui-select:focus {
+  border-color: var(--color-accent);
+}
+
+.ui-select:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}

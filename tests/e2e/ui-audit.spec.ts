@@ -16,7 +16,9 @@ const OUT = path.join('test-results', 'ui-audit')
 // Pages under audit. A page joins when its migration PR lands (plan section 5, rules for every migration PR).
 const MIGRATED = [
   { name: 'about', path: '/about' },
-  { name: 'changelog', path: '/changelog' }
+  { name: 'changelog', path: '/changelog' },
+  { name: 'tokens', path: '/settings/tokens' },
+  { name: 'apps', path: '/settings/apps' }
 ]
 
 // Targets allowed under 44 x 44, each with its reason. The "Show toolbar" tab is 44 wide and at most 36 high on purpose.

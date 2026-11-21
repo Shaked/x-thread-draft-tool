@@ -321,7 +321,7 @@ test('API tokens page at 390 px: no horizontal overflow, a 44 px Create button, 
 
     await page.getByLabel('Token name').fill(`Menu check ${Date.now()}`)
     await create.click()
-    await expect(page.locator('.token-secret')).toBeVisible()
+    await expect(page.getByRole('status').filter({ hasText: 'Copy this token now.' }).locator('code')).toBeVisible()
     await expect(page.getByText(/Copy this token now/)).toBeVisible()
     expect(await scrollWidth()).toBeLessThanOrEqual(390)
     expect((await page.getByRole('button', { name: 'Copy', exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44)

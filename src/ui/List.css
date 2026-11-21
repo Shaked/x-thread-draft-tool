@@ -1,0 +1,58 @@
+/* List and ListItem: rows with 1 px dividers, 16 px padding, a title 18/600 and soft meta text 14 px. */
+.ui-list {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.ui-list-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  padding: var(--space-4);
+}
+
+.ui-list-item + .ui-list-item {
+  border-block-start: var(--border-width) solid var(--color-border-soft);
+}
+
+.ui-list-item__body {
+  display: flex;
+  flex: 1 1 var(--flex-min);
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.ui-list-item__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.ui-list-item__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+
+.ui-list-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  color: var(--color-text-soft);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.ui-list-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}

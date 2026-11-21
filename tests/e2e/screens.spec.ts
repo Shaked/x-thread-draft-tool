@@ -6,7 +6,7 @@
 // Use the built app, not `npm run dev`: in development React StrictMode runs the preview effect
 // twice, and the second request hits the one-use share link and gets 410.
 // Writes test-results/screens/<width>/<name>.png for 390 px and 1280 px wide:
-// login, login-suspended, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens, changelog,
+// login, login-suspended, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens, apps, changelog,
 // consent-signed-out and consent (the OAuth approval pages, plan T3).
 // Under 800 px wide, each shot also writes <name>-viewport.png: what is on the screen, with the fixed bar.
 //
@@ -167,17 +167,22 @@ test.describe('screens', () => {
       await shoot(browser, width, 'menu-open-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.locator('.draft-title-input'), before: openMenu })
 
       // The API tokens page (settings-menu.md M12), light and dark; then after a token is created, so the one-time box shows.
-      const tokensReady = (p: Page) => p.locator('.tokens-page')
+      const tokensReady = (p: Page) => p.getByRole('heading', { name: 'API tokens', level: 1 })
       const cookie = await sessionCookie(request, `screens-tokens-${width}-${run}`)
       const createToken = async (p: Page) => {
         await p.getByLabel('Token name').fill('Screens check')
         await p.getByRole('button', { name: 'Create token' }).click()
-        await p.locator('.token-secret').waitFor()
+        await p.getByRole('status').filter({ hasText: 'Copy this token now.' }).locator('code').waitFor()
       }
       await shoot(browser, width, 'tokens', '/settings/tokens', { token: owner, ready: tokensReady })
       await shoot(browser, width, 'tokens-dark', '/settings/tokens', { token: owner, theme: 'dark', ready: tokensReady })
       await shoot(browser, width, 'tokens-created', '/settings/tokens', { cookie, ready: tokensReady, before: createToken })
       await shoot(browser, width, 'tokens-created-dark', '/settings/tokens', { cookie, theme: 'dark', ready: tokensReady, before: createToken })
+
+      // The Connected apps page (plan T4), light and dark.
+      const appsReady = (p: Page) => p.getByRole('heading', { name: 'Connected apps', level: 1 })
+      await shoot(browser, width, 'apps', '/settings/apps', { token: owner, ready: appsReady })
+      await shoot(browser, width, 'apps-dark', '/settings/apps', { token: owner, theme: 'dark', ready: appsReady })
 
       // The changelog page (settings-menu.md Task 6): light at both widths, dark on phones.
       const changelogReady = (p: Page) => p.locator('article').first()
