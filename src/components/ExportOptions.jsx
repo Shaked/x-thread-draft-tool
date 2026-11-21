@@ -1,16 +1,11 @@
-import { useRef, useState } from 'react'
 import { exportAsNumberedText, exportAsPlainText } from '../utils/exportFormats.js'
-import { useDismiss } from '../utils/useDismiss'
-import Icon from '../ui/Icon'
+import Menu from '../ui/Menu'
 import { useToast } from '../ui/Toast'
 
-/** Export: a button with a menu of copy and download actions for the whole thread. */
+/** Export: a menu of copy and download actions for the whole thread. */
 export default function ExportOptions({ draft }) {
   const posts = draft?.posts || []
-  const [open, setOpen] = useState(false)
   const toast = useToast()
-  const container = useRef(null)
-  useDismiss(open, container, setOpen)
 
   const exportAsJSON = () => {
     const dataStr = JSON.stringify({
@@ -88,36 +83,9 @@ export default function ExportOptions({ draft }) {
   ]
 
   return (
-    <div className="share-button-container" ref={container}>
-      <button
-        className="share-btn icon-btn"
-        onClick={() => setOpen(!open)}
-        disabled={posts.length === 0}
-        aria-haspopup="dialog"
-        aria-controls="export-menu"
-        aria-expanded={open}
-        title="Copy or download the whole thread"
-        aria-label="Export"
-      >
-        <span className="btn-icon"><Icon name="export" /></span>
-        <span className="btn-text">Export</span>
-      </button>
-      {open && (
-        <div className="share-menu" id="export-menu" role="group" aria-label="Export">
-          {ACTIONS.map(([label, run]) => (
-            <button
-              key={label}
-              className="share-menu-item"
-              onClick={() => {
-                setOpen(false)
-                run()
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <Menu
+      trigger={{ label: 'Export', icon: 'export', variant: 'secondary', disabled: posts.length === 0, title: 'Copy or download the whole thread' }}
+      items={ACTIONS.map(([label, run]) => ({ label, onSelect: run }))}
+    />
   )
 }

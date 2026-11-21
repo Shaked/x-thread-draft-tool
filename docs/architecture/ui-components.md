@@ -12,7 +12,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 
 | Prop | Type | Default | Notes |
 |---|---|---|---|
-| `name` | `share` \| `agent` \| `x` \| `export` \| `signout` \| `menu` \| `close` \| `chevron` | required | Line icon from one set. |
+| `name` | `share` \| `agent` \| `x` \| `export` \| `publish` \| `signout` \| `menu` \| `close` \| `chevron` | required | Line icon from one set. |
 | `size` | `md` \| `lg` | `md` | 20 px or 24 px (`--icon-size`, `--icon-size-lg`). |
 | `mirror` | boolean | `false` | Flips the icon in right-to-left text (arrows, chevrons). |
 
@@ -130,6 +130,9 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `href` | URL | | Renders an anchor that looks like a button. |
 | `ariaLabel` | string | | The accessible name when the visible label is not enough (for example "Revoke access for <app>"). |
 | `title` | string | | The tooltip. A `disabledReason` takes its place. |
+| `haspopup` | `menu` | | The button opens a menu: sets `aria-haspopup`. Used by `Menu`. |
+| `expanded` | boolean | | Whether that menu is open: sets `aria-expanded`. |
+| `controls` | string | | The `id` of the menu it opens: sets `aria-controls`. |
 | `onClick` | function | | |
 
 - States: default, hover (only where hover exists), pressed (scale 0.98), focus-visible (the base focus ring), disabled (half opacity), loading, disabled with reason.
@@ -156,6 +159,20 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 - States: always 44 x 44. Hover, pressed, focus-visible, disabled, pressed.
 - Example: `<IconButton icon="menu" label="Menu" onClick={open} />`
 
+## Menu
+- File: `src/ui/Menu.jsx` (+ `Menu.css`)
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `trigger` | `{ label, icon?, variant, disabled?, loading?, title? }` | required | The button that opens the menu; `icon` is an `Icon` name; the other fields go to `Button`. |
+| `items` | `[{ label, onSelect, tone?, description? }]` | required | One `menuitem` each. `tone: 'danger'` colours the label; `description` is soft text under it. |
+| `title` | string | | Soft heading above the list (for example "Link valid for"); names the menu. Without it the menu is named by the trigger's label. |
+
+- States: from 768 px a popover 8 px under the trigger, aligned to its inline end, `--menu-w` wide. Below 768 px a sheet fixed above the phone bar. Opening moves focus to the first item. Arrow keys move (wrapping), Home and End jump to the ends, Tab moves on and closes it (focus leaving the menu closes it), and a press outside closes it, Escape closes and gives focus back to the trigger. The trigger has `aria-haspopup="menu"` and `aria-expanded`.
+- Example: `<Menu trigger={{ label: 'Export', icon: 'export', variant: 'secondary' }} items={[{ label: 'Copy thread', onSelect: copy }]} />`
+
 ## Banner
 - File: `src/ui/Banner.jsx`
 - Status: built
@@ -167,7 +184,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `title` | string | | Bold first line. |
 | `children` | node | | The message. The text colour never changes with the tone. |
 | `actions` | node | | Buttons at the end. |
-| `role` | `status` \| `alert` | `status` | Use `alert` for errors. |
+| `role` | `status` \| `alert` \| `none` | `status` | Use `alert` for errors and `none` for a static note (no live region). |
 
 - States: none. The tone is also said in the words of the message (colour is never the only signal).
 - Example: `<Banner tone="danger" role="alert">Could not load the changelog.</Banner>`
@@ -227,6 +244,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `maxLength` | number | | |
 | `dir` | `auto` \| `ltr` \| `rtl` | `auto` | Typed Hebrew runs right to left. |
 | `disabled` | boolean | `false` | Half opacity, `not-allowed`. |
+| `ariaLabel` | string | | The accessible name, when there is no `Field` label (the editor's title). |
 
 - States: hover (only where hover exists), focus (accent border; the focus ring is the base one), invalid (inside a Field with `error`), disabled. 44 high, 16 px text.
 - Example: `<Input value={name} maxLength={100} onChange={setName} />`

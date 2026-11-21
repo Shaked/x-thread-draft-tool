@@ -51,7 +51,7 @@ async function openEditor(browser: Browser, theme: 'light' | 'dark') {
   })
   const page: Page = await context.newPage()
   await page.goto(`${BASE}/draft/${draftId}`)
-  await page.locator('.draft-title-input').waitFor()
+  await page.getByLabel('Draft title').waitFor()
   await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme)
   return { context, page }
 }
@@ -63,14 +63,14 @@ test('a signed-out editor says so and keeps the text, in light and dark, at 390 
   const revoked = await api.delete(`/api/tokens/${editorTokenId}`, { headers: { authorization: `Bearer ${editorToken}` } })
   expect(revoked.ok()).toBeTruthy()
 
-  const title = page.locator('.draft-title-input')
+  const title = page.getByLabel('Draft title')
   await title.click()
   await title.press('End')
   await title.pressSequentially(' edited')
 
   const alert = page.getByRole('alert')
   await expect(alert).toContainText(NOTE, { timeout: 5000 })
-  await expect(page.locator('.sync-status')).toHaveText('Not saved')
+  await expect(page.locator('.ui-badge')).toHaveText('Not saved')
   await expect(title).toHaveValue('Signed out check edited')
 
   // No horizontal page scroll at phone width.

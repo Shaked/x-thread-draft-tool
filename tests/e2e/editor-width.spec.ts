@@ -55,7 +55,7 @@ async function openEditor(browser: Browser, viewport: { width: number; height: n
   )
   const page: Page = await context.newPage()
   await page.goto(`${BASE}/draft/${id}`)
-  await page.locator('.draft-title-input').waitFor()
+  await page.getByLabel('Draft title').waitFor()
   return { context, page }
 }
 
@@ -88,7 +88,7 @@ test.describe('editor width', () => {
 
       expect(await scrollWidth(page)).toBeLessThanOrEqual(PHONE.width)
 
-      const header = await page.locator('.editor-header').boundingBox()
+      const header = await page.locator('.ui-page-header').boundingBox()
       expect(header, 'header has a box').not.toBeNull()
       expect(header!.x).toBeGreaterThanOrEqual(0)
       expect(header!.x + header!.width).toBeLessThanOrEqual(PHONE.width)
@@ -111,7 +111,7 @@ test.describe('editor width', () => {
       await page.locator('.embedded-tweet-container').scrollIntoViewIfNeeded()
       await page.locator('.tweet-embed iframe').waitFor()
 
-      await expect(page.locator('.editor-header')).toBeVisible()
+      await expect(page.locator('.ui-page-header')).toBeVisible()
       await expect(page.locator('.thread-composer')).toBeVisible()
       expect(await scrollWidth(page)).toBeLessThanOrEqual(DESKTOP.width)
     } finally {

@@ -1,0 +1,82 @@
+/* Menu: a popover under its button from 768 px; a sheet above the phone bar below that. */
+.ui-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.ui-menu__panel {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-2));
+  inset-inline-end: 0;
+  z-index: var(--z-popover);
+  inline-size: var(--menu-w);
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--shadow-md);
+}
+
+.ui-menu__title {
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  color: var(--color-text-soft);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ui-menu__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.ui-menu__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-block-size: var(--hit-min);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ui-menu__item:hover {
+  background-color: var(--color-accent-soft);
+}
+
+.ui-menu__item:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: calc(var(--focus-ring-width) * -1);
+}
+
+.ui-menu__item--danger {
+  color: var(--color-danger);
+}
+
+.ui-menu__description {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-sm);
+}
+
+@media (width < 768px) {
+  .ui-menu__panel {
+    position: fixed;
+    inset-block-start: auto;
+    inset-inline: var(--space-2);
+    inset-block-end: calc(var(--bar-space, 0px) + var(--space-2));
+    inline-size: auto;
+    max-block-size: calc(100dvh - var(--bar-space, 0px) - var(--space-4));
+    overflow-y: auto;
+  }
+}
+
+@media (hover: none) {
+  .ui-menu__item:hover {
+    background-color: transparent;
+  }
+}
