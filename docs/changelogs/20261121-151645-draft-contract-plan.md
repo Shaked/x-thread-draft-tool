@@ -1,2 +1,4 @@
-- Plan for the "working on a draft" contract (#358, epic #273): `docs/plans/draft-contract.md`.
-- It audits what AI apps are told today, sets the rules for edits, options and post text (quotes, never code blocks), the state line in tool results, the auto-call phrases, the free checks and the build tasks. Docs only.
+# A plan for how AI apps edit your drafts
+
+- AI apps will change a draft when you ask, answer in one or two lines, and show options as readable quotes instead of code blocks.
+- Nothing changes in the app yet: this is the plan and its task list.
