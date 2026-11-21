@@ -16,16 +16,26 @@ owner question uses one template below, follows the hard rules, and passes the l
 | A task session ends | [`handoff`](templates/handoff.md) | A comment on the task issue, last |
 | A step Shaked must do by hand | [`owner-action`](templates/owner-action.md) | Chat reply, and a comment on the issue it unblocks |
 | Something failed (CI, deploy, production, a session) | [`incident`](templates/incident.md) | Chat reply, and a comment on the issue or PR |
+| Anything else to Shaked: a reminder, a progress note, an answer to his question | [`status-report`](templates/status-report.md) | Chat reply, or a comment where he asked |
 
 A reply that fits two kinds uses one template and puts the other part under its headings.
 Example: a status report with a question puts the question under `Blocked on you`, with the
 parts of the `owner-question` template as `###` subheadings.
 
+- **Several questions in one reply:** one `###` subheading per question under `Blocked on you`.
+  Inside it, write each part as a bold label: **What is decided:**, **Options:**,
+  **Recommendation:**, **If nobody answers:**, **Where to answer:**. One numbered step per question
+  under `What you need to do`.
+- **A reminder of a question already posted:** give its name, the decision in one line, the exact
+  reply words, the default, and a link to the full question. Do not restate every option.
+- **On GitHub:** end the comment with the Claude Code footer that `AGENTS.md` asks for, after
+  `RELEASE` in a handoff.
+
 ## The fixed headings
 Every template has these `##` headings, with these names and in this order. Kinds add their own
 headings or `###` subheadings, but never rename, reorder or drop these:
 
-1. `TL;DR`: 1 to 3 lines. What happened, then "Nothing needed from you." or "You need to do N things".
+1. `TL;DR`: 2 to 3 lines. What happened, then "Nothing needed from you." or "You need to do N things".
 2. `What you need to do`: numbered steps (1, 2, 3), one action each, with a link or the exact words
    to type in a code span. Or "Nothing." The number of steps matches the TL;DR.
 3. `Waiting for`: agents, sessions, CI runs and systems. Each with a link, what it is doing, and the
@@ -48,15 +58,18 @@ Each rule can be checked by reading the reply.
    applies on 2026-11-24."
 3. **A question has all of these:** what is decided, in one sentence, in terms of what a user sees;
    each option, named by what it does, with what happens; the recommendation and why; what happens
-   if nobody answers; and where to answer (a link and the exact words to type). Never name options
+   if nobody answers; and where to answer (a link and the exact words to type). For a decision
+   about the repo, say what Shaked sees (for example red checks). When only he knows the answer,
+   write "Recommendation: none (only you know)". Never name options
    by letters only (A, B or C). Ask only what the owner alone can decide: money, secrets, deleting
    data, product behaviour the task does not decide.
 4. **"Blocked" means a human.** Only a human decision or action goes under `Blocked on you`.
    Everything else (agents, sessions, CI, Vercel, a usage limit) is `Waiting for`, with a link,
    what it waits for, and the expected time.
 5. **Same item, same words.** Copy how you named an item last time, and keep the order of the
-   facts. Change only the part that changed. Every number says "checked" (you read it) or
-   "not checked".
+   facts. Change only the part that changed. Every measured or reported number (a time,
+   a count, a size, a price) says "checked" (you read it) or "not checked". Constants, dates
+   and step numbers do not.
 6. **Show, do not describe.** Link issues, PRs and runs. Put commands, ids, shas and exact text to
    type in code spans or code blocks. Use a table only for 3 or more comparable items. Write simple
    technical English: short sentences, lines under 160 characters.

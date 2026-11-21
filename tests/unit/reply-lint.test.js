@@ -24,16 +24,21 @@ describe('reply-lint rules', () => {
 
   it('flags letter options, unchanged, machine blocks, waiting on a human, emoji and slop', () => {
     expect(rules('Pick A, B or C.')).toEqual(['option-letters'])
+    for (const text of ['- **A (recommended):** keep it', 'Reply "A", "B" or "C".', 'Reply `A`.', '(a) Allow zoom']) {
+      expect(rules(text), text).toEqual(['option-letters'])
+    }
     expect(rules('The plan is unchanged.')).toEqual(['unchanged'])
-    expect(rules('CI is blocked. Blocked on you: one answer. Use code blocks.')).toEqual(['blocked'])
-    expect(rules('Waiting for you to answer.')).toEqual(['waiting-human'])
+    expect(rules('CI is blocked. Blocked on your answer. Use code blocks.')).toEqual(['blocked'])
+    expect(rules('`main` blocked by CI.')).toEqual(['blocked'])
+    expect(rules('Waiting for your answer.')).toEqual(['waiting-human'])
+    expect(rules('BM25 scores')).toEqual([])
     expect(rules('Done ✅. Let us delve in.')).toEqual(['emoji', 'slop'])
     expect(rules('x'.repeat(161))).toEqual(['long-line'])
   })
 
   it('checks the template headings, the TL;DR and the step count', () => {
-    const reply = '## TL;DR\nShipped. You need to do 2 things.\n## What you need to do\n1. Reply `yes`.\n## Done\nTests checked.'
-    expect(rules(reply)).toEqual(['headings', 'headings', 'steps'])
+    const reply = '## TL;DR\nShipped. You need to do 2 things.\n## What you need to do\n### First\n1. Reply `yes`.\n## Done\nTests checked.'
+    expect(rules(reply)).toEqual(['headings', 'headings', 'tldr', 'steps'])
     expect(rules('No headings here.', { template: true })).toContain('headings')
   })
 

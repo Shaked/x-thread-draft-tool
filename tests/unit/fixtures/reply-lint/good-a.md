@@ -20,12 +20,12 @@ Nothing.
   A margin is how far the right tool scores above the next best one.
 - **Options:**
   1. **Report only** (reply `report only`): margins show in the test output but no longer fail it. The top-1, top-3,
-     admin-leak and known-failure checks stay. Each PR lists the margins that fell, and Opus checks the list.
+     admin-leak and known-failure checks stay. Each PR lists the margins that fell, and a review agent checks the list.
   2. **Re-record once** (reply `re-record once`): margins still fail the test. The #279 PR records new margins once,
      with your approval. Every later text change needs your approval again.
   3. **Keep as is** (reply `keep as is`): nothing changes. #279 cannot change the tool text, and the 3 admin leaks
      and 27 misses per mode stay (numbers from the question, not checked again).
-- **Recommendation:** report only (Opus, 2026-11-21). Margins are raw search scores that change scale whenever any
+- **Recommendation:** report only (a review agent, 2026-11-21). Margins are raw search scores that change scale whenever any
   tool text changes, so two versions cannot be compared.
 - **If nobody answers:** keep as is. #279 and [#280 slash command prompts](https://github.com/Shaked/x-thread-draft-tool/issues/280) wait.
 - **Where to answer:** [the margin question comment](https://github.com/Shaked/x-thread-draft-tool/issues/273#issuecomment-7054238173), with the words above.

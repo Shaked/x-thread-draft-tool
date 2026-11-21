@@ -7,14 +7,14 @@
 //
 // Rules:
 //   bare-label      the first mention of a label (#273, Q1, T7, S2) has no 3 to 6 words saying what it is
-//   option-letters  options named by letters only (A, B or C; A/B/C; option B)
+//   option-letters  options named by letters only (A, B or C; **A:**; reply "A"; (a) and (b))
 //   unchanged       "unchanged" or "still open": say what it is and what happens next
 //   blocked         "blocked" not followed by "on you" or "on Shaked": only a human blocks
 //   waiting-human   "waiting on you": a human is "Blocked on you", not "waiting for"
 //   long-line       a line over 160 visible characters (a link counts as its text)
 //   emoji, slop     any emoji; a filler phrase from SLOP
 //   headings        a templated reply misses a fixed heading, or has them out of order
-//   tldr, steps     TL;DR is 1 to 3 lines and says if the owner must act; the step count matches
+//   tldr, steps     TL;DR is 2 to 3 lines and says if the owner must act; the step count matches
 //   evidence        the Done section says "checked" or "not checked"
 // Fenced code blocks and `inline code` are not checked.
 
@@ -23,13 +23,20 @@ import { pathToFileURL } from 'node:url'
 
 export const HEADINGS = ['TL;DR', 'What you need to do', 'Waiting for', 'Blocked on you', 'Done']
 const MAX_LINE = 160
-const LABEL = /(?<![\w#/])(#\d+|[A-Z]{1,2}\d+(?:\.\d+)?)(?!\w)/g
-const IS_LABEL = /^(#\d+|[A-Z]{1,2}\d+(?:\.\d+)?)$/
-const OPTION_LETTERS = /(?<![\w/])[A-Z](?:\s*(?:\/|,|\bor\b|\band\b)\s*[A-Z])+(?![\w/])|\b[Oo]ption [A-Z]\b/
+const LABEL = /(?<![\w#/])(#\d+|[A-Z]\d+(?:\.\d+)?)(?!\w)/g
+const IS_LABEL = /^(#\d+|[A-Z]\d+(?:\.\d+)?)$/
+// Checked on the raw line with quotes and backticks around one capital letter removed.
+const OPTION_LETTERS = [
+  /(?<![\w/])[A-Z](?:\s*(?:\/|,|\bor\b|\band\b)\s*[A-Z])+(?![\w/])/, // A, B or C; A/B/C; "A" or "B"
+  /\b[Oo]ption [A-Z]\b/,
+  /\*\*[A-Z](?:\s*\([^)]*\))?\s*:?\*\*/, // **A (recommended):** and **B:**
+  /\b(?:[Rr]eply|[Aa]nswer|[Tt]ype|[Pp]ick|[Cc]hoose)\s+[A-Z](?![\w'])/, // reply "A"
+  /(?:^|\s)\([a-h]\)\s/ // (a) Allow zoom
+]
 const UNCHANGED = /\b(unchanged|still open)\b/i
 const BLOCK_WORD = /\bblock(?:ed|ing|er|ers|s)?\b/gi
-const BLOCK_ON_HUMAN = /^\s+(?:on|by)\s+(?:you|Shaked|the owner)\b/i
-const WAITING_HUMAN = /\bwaiting\s+(?:on|for)\s+(?:you|Shaked|the owner)\b/i
+const BLOCK_ON_HUMAN = /^\s+(?:on|by)\s+(?:you|your|Shaked|the owner)\b/i
+const WAITING_HUMAN = /\bwaiting\s+(?:on|for)\s*:?\s+(?:you|your|Shaked|the owner)\b/i
 const EMOJI = /\p{Extended_Pictographic}/u
 const SLOP = /\b(delve[sd]?|seamless(?:ly)?|leverag(?:e|es|ed|ing)|game[- ]changer|rest assured|it'?s worth noting|i hope this helps|great question|needless to say|in conclusion)\b/i
 const ACT = /\b(Nothing needed from you|You need to do (\d+|one|two|three|four|five) things?)\b/i
@@ -56,16 +63,16 @@ function described(line, start, end) {
 /** The line as a reader sees it: no inline code, a link as its text inside marks, no bare URLs. */
 function visible(line) {
   return line
-    .replace(/`[^`]*`/g, 'code')
+    .replace(/`[^`]*`/g, '‹›')
     .replace(/\[([^\]]*)\]\([^)\s]*\)/g, '⟦$1⟧')
     .replace(/https?:\/\/\S+/g, 'link')
 }
 
-/** Returns the template sections: { name, line, body: [text lines] } in reply order. */
+/** Returns the `##` sections: { name, line, body: [text lines, `###` lines included] } in reply order. */
 function sections(lines) {
   const found = []
   lines.forEach(({ text, n }) => {
-    const h = /^#{1,6}\s+(.*?)\s*$/.exec(text)
+    const h = /^##\s+(.*?)\s*$/.exec(text)
     if (h) found.push({ name: h[1], line: n, body: [] })
     else if (found.length && text.trim()) found[found.length - 1].body.push(text)
   })
@@ -74,7 +81,7 @@ function sections(lines) {
 
 function checkTemplate(lines, force, add) {
   const all = sections(lines)
-  const find = (name) => all.findIndex((s) => s.name.toLowerCase().startsWith(name.toLowerCase()))
+  const find = (name) => all.findIndex((s) => s.name.toLowerCase() === name.toLowerCase())
   const at = HEADINGS.map(find)
   if (!force && at.every((i) => i === -1)) return
   let last = -1
@@ -86,7 +93,7 @@ function checkTemplate(lines, force, add) {
   const tldr = all[at[0]]
   if (tldr) {
     const act = ACT.exec(tldr.body.join(' '))
-    if (tldr.body.length < 1 || tldr.body.length > 3) add(tldr.line, 'tldr', 'TL;DR must be 1 to 3 lines')
+    if (tldr.body.length < 2 || tldr.body.length > 3) add(tldr.line, 'tldr', 'TL;DR must be 2 to 3 lines')
     if (!act) add(tldr.line, 'tldr', 'TL;DR must say "Nothing needed from you" or "You need to do N things"')
     const actions = all[at[1]]
     if (act && actions) {
@@ -118,7 +125,8 @@ export function lint(text, { template = false } = {}) {
       seen.add(m[1])
       if (!described(line, m.index, m.index + m[0].length)) add(n, 'bare-label', `${m[1]}: add a link and 3 to 6 words saying what it is`)
     }
-    if (OPTION_LETTERS.test(line)) add(n, 'option-letters', 'name each option by what it does, not by a letter')
+    const unquoted = raw.replace(/["'`]([A-Z])["'`]/g, '$1')
+    if (OPTION_LETTERS.some((re) => re.test(unquoted))) add(n, 'option-letters', 'name each option by what it does, not by a letter')
     if (UNCHANGED.test(line)) add(n, 'unchanged', 'say what it is and what happens next')
     for (const m of line.matchAll(BLOCK_WORD)) {
       const before = line.slice(0, m.index)
@@ -126,7 +134,7 @@ export function lint(text, { template = false } = {}) {
       add(n, 'blocked', 'only a human blocks: write "Blocked on you", or "waiting for" an agent or system')
     }
     if (WAITING_HUMAN.test(line)) add(n, 'waiting-human', 'a human decision goes under "Blocked on you"')
-    if (!/^\s*\|/.test(raw) && line.replace(/[⟦⟧]/g, '').length > MAX_LINE) add(n, 'long-line', `over ${MAX_LINE} characters`)
+    if (!/^\s*\|/.test(raw) && raw.replace(/\[([^\]]*)\]\([^)\s]*\)/g, '$1').replace(/https?:\/\/\S+/g, 'link').length > MAX_LINE) add(n, 'long-line', `over ${MAX_LINE} characters`)
     if (EMOJI.test(line)) add(n, 'emoji', 'no emoji')
     const slop = SLOP.exec(line)
     if (slop) add(n, 'slop', `filler phrase "${slop[1]}"`)
