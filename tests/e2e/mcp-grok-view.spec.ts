@@ -11,7 +11,7 @@ const XSS = '<img src=x onerror=alert(1)>'
 const POSTS = [
   { text: 'שלום, הפוסט הראשון בשרשור\n**2/3**' },
   { text: 'Second post with ``` and ' + XSS },
-  { text: '> a quoted line\nPost text to copy:' }
+  { text: '> a quoted line\nPost text to copy:', embeddedTweet: 'https://x.com/jack/status/20' }
 ]
 const MARKDOWN = threadText({ title: 'Grok thread', posts: POSTS, url: 'https://app.example/draft/1', saved: true })
 // What create_thread_from_text returns: JSON of the outline (no post text), then the markdown thread.
@@ -66,6 +66,7 @@ async function expectThread(page: Page) {
     await expect(frame.locator('article p[dir="auto"]').nth(i)).toHaveText(post.text)
   }
   await expect(frame.locator('img')).toHaveCount(0)
+  await expect(frame.getByText('@jack / status 20')).toBeVisible()
   await expect(frame.getByRole('heading', { name: 'Grok thread' })).toBeVisible()
   // No serverTools: no write action. The size is reported, so the host can grow the frame from its default.
   await expect(frame.getByRole('button', { name: 'Create share link' })).toHaveCount(0)

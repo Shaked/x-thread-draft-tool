@@ -210,8 +210,7 @@ export function linkButton(label, url, open) {
 /** One post as an X-style card: avatar, number, text, links, images, embedded tweet and counter. */
 export function postNode(thread, index, total, open) {
   const post = thread.posts[index]
-  // #352: an outline post (no text, when the host dropped _meta and the text parts) shows its 40-character preview.
-  const text = typeof post === 'string' ? post : String((post && (typeof post.text === 'string' ? post.text : post.preview)) || '')
+  const { text, cut } = postText(post)
   const images = post && Array.isArray(post.images) ? post.images : []
   const tweet = post && typeof post.embeddedTweet === 'string' ? tweetFrom(post.embeddedTweet) : null
   const count = thread.counts ? thread.counts[index] : null
@@ -220,7 +219,8 @@ export function postNode(thread, index, total, open) {
     el('header', {}, [el('strong', {}, ['Draft']), el('span', {}, [' ' + (index + 1) + '/' + total])]),
     el('p', { dir: 'auto' }, [text])
   ])
-  const links = linksIn(text)
+  // A cut preview makes no link buttons: a URL cut in the middle could name another host.
+  const links = cut ? [] : linksIn(text)
   if (links.length > 0) body.appendChild(el('ul', {}, links.map((url) => el('li', {}, [linkButton(url, url, open)]))))
   if (images.length > 0) {
     const items = []
@@ -250,6 +250,17 @@ export function postNode(thread, index, total, open) {
     body.appendChild(el('footer', {}, [el(over ? 'strong' : 'small', {}, [label])]))
   }
   return el('article', {}, [el('span', {}, [initial]), body])
+}
+
+/**
+ * A post's text. #352: an outline post (no text, when the host dropped _meta and the markdown part) shows its preview,
+ * with "…" when the post is longer; cut is true then.
+ */
+export function postText(post) {
+  if (typeof post === 'string') return { text: post, cut: false }
+  if (post && typeof post.text === 'string') return { text: post.text, cut: false }
+  const preview = String((post && post.preview) || '')
+  return { text: preview + (post && post.chars > Array.from(preview).length ? '…' : ''), cut: true }
 }
 
 /** True when url is https on the same origin as editorBase and under its path (a prefix on the whole URL is not enough). */
@@ -375,7 +386,7 @@ export function textThread(result) {
   return null
 }
 
-/** The posts in the markdown lines: a post is the quoted ("> ") lines after its "**n/N**" line, then its image lines. */
+/** The posts in the markdown lines: a post is the quoted ("> ") lines after its "**n/N**" line, then its image and quoted-post lines. */
 export function markdownPosts(lines) {
   const posts = []
   let url = null
@@ -384,11 +395,13 @@ export function markdownPosts(lines) {
     if (line === 'Post text to copy:') break
     const mark = line.match(/^\*\*(\d+)\/\d+\*\*$/)
     const image = line.match(/^Image \d+: (\S+)$/)
+    const quoted = line.match(/^Quoted post: (\S+)$/)
     if (mark && Number(mark[1]) === posts.length + 1) posts.push((current = { lines: [], images: [] }))
     else if (current && !current.images.length && (line === '>' || line.startsWith('> '))) current.lines.push(line.slice(2))
     else if (current && image) current.images.push({ url: image[1] })
+    else if (current && quoted) current.embeddedTweet = quoted[1]
     else if (!url && !current && line.startsWith('Open: ')) url = line.slice(6)
     else current = null
   }
-  return { posts: posts.map((post) => ({ text: post.lines.join('\n'), images: post.images })), url }
+  return { posts: posts.map((post) => ({ text: post.lines.join('\n'), images: post.images, embeddedTweet: post.embeddedTweet })), url }
 }

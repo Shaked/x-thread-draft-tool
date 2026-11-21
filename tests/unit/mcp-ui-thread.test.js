@@ -294,3 +294,18 @@ describe('a host that passes only text parts (#352)', () => {
     expect(render(threadFrom({ structuredContent: outline })).querySelectorAll('article p')[1].textContent).toBe('> b')
   })
 })
+
+describe('the preview fallback and quoted posts (#352)', () => {
+  it('a cut preview gets "…" and no link button, so a URL cut in the middle is never opened', () => {
+    const open = vi.fn()
+    const root = render(threadFrom({ structuredContent: { draft: { posts: [{ preview: 'Full story is here at https://example.co', chars: 44 }] } } }), open)
+    expect(root.querySelector('article p').textContent).toBe('Full story is here at https://example.co…')
+    expect(root.querySelectorAll('article ul button')).toHaveLength(0)
+  })
+
+  it('reads a quoted post back from the markdown part', async () => {
+    const { threadText } = await import('../../server/mcp/thread-text.js')
+    const content = [{ type: 'text', text: threadText({ posts: [{ text: 'a', embeddedTweet: 'https://x.com/jack/status/20' }], saved: false }) }]
+    expect(threadFrom({ content }).posts[0].embeddedTweet).toBe('https://x.com/jack/status/20')
+  })
+})

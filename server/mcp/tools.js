@@ -363,7 +363,7 @@ const TOOLS = [
 ]
 
 // The thread view (plan Task 4, D8): these tools show it. Each result gets the view's three x-thread/* keys in
-// _meta; `content` and `structuredContent` do not change. The outline is what the view counts from.
+// _meta; `structuredContent` and the first `content` part do not change (#352 adds a markdown part after it). The outline is what the view counts from.
 // The create tools also carry the full posts in _meta (x-thread/posts): their structuredContent has the outline only.
 const VIEW_OUTLINE = {
   get_draft: (body) => outline(body.draft),

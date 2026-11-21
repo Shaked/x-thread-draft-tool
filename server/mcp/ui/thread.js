@@ -171,6 +171,7 @@ export const RENDER_FUNCTIONS = [
   client.linksIn,
   client.el,
   client.linkButton,
+  client.postText,
   client.postNode,
   client.underEditorBase,
   client.headerNode,
