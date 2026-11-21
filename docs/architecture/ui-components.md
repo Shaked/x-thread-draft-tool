@@ -192,3 +192,101 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 
 - States: shimmer; the shimmer stops under reduced motion (its time is 0 in the tokens). `aria-busy` is set; one "Loading…" text is read by screen readers.
 - Example: `<Skeleton variant="card" lines={2} />`
+
+## Field
+- File: `src/ui/Field.jsx`
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `label` | string | required | Shown above the control, 14 px semibold, linked to it. |
+| `help` | string | | Soft text under the control; linked as its description. |
+| `error` | string | | Danger text under the control; the control gets `aria-invalid`. |
+| `children` | one control | required | An `Input` or a `Select`. They read the id and state from the Field. |
+
+- States: label above the control; from 600 px a Field takes its share of a row, under 600 px it takes the full width.
+- Example: `<Field label="Token name"><Input value={name} onChange={setName} /></Field>`
+
+## Input
+- File: `src/ui/Input.jsx`
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `value` | string | required | The text. |
+| `onChange` | function | required | Gets the new text, not the event. |
+| `type` | string | `text` | |
+| `placeholder` | string | | Soft text; never the only label. |
+| `maxLength` | number | | |
+| `dir` | `auto` \| `ltr` \| `rtl` | `auto` | Typed Hebrew runs right to left. |
+| `disabled` | boolean | `false` | Half opacity, `not-allowed`. |
+
+- States: hover (only where hover exists), focus (accent border; the focus ring is the base one), invalid (inside a Field with `error`), disabled. 44 high, 16 px text.
+- Example: `<Input value={name} maxLength={100} onChange={setName} />`
+
+## Select
+- File: `src/ui/Select.jsx`
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `value` | string | required | The value of the chosen option (text). |
+| `onChange` | function | required | Gets the chosen value as text. |
+| `options` | `[{ value, label }]` | required | `value` is text. |
+| `disabled` | boolean | `false` | |
+
+- States: the same as Input. A native select, so phones keep their own picker.
+- Example: `<Select value="7" options={[{ value: '7', label: '7 days' }]} onChange={setDays} />`
+
+## CodeBlock
+- File: `src/ui/CodeBlock.jsx` (also exports `CopyButton`: `text`, `label`, `onFail`; a secondary small button that says "Copied!" or "Copy failed")
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `code` | string | required | Shown in mono text, left to right. Long values break anywhere. |
+| `copyLabel` | string | | When set, a Copy button with this label sits at the end (under the text on phones). |
+| `onCopyFail` | function | | Called when the clipboard refuses; the page says what to do by hand. |
+
+- States: copy shows "Copied!" for the click or "Copy failed". The copy button is a `Button`, so it keeps touch and focus rules.
+- Example: `<CodeBlock key={token} code={token} copyLabel="Copy" onCopyFail={() => setFailed(true)} />`
+
+## List
+- File: `src/ui/List.jsx` (also exports `ListItem`)
+- Status: built
+- Props (`List`):
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `children` | `ListItem` elements | required | Rows with 1 px dividers. Put the list in a `Card` with `padding="none"`. |
+
+- Props (`ListItem`):
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `title` | string | required | 18 px semibold; `dir="auto"` for user text. |
+| `meta` | node[] | `[]` | Soft 14 px text items with 12 px gaps (no separators). |
+| `badge` | node | | A `Badge`, shown beside the title. |
+| `actions` | node | | Buttons at the end of the row; under them on phones. |
+| `children` | node | | More content under the meta (for example a `CodeBlock`). |
+
+- States: none of its own. The rows are plain list items; a link row is not built yet.
+- Example: `<List><ListItem title={token.name} meta={['Created Nov 1']} badge={<Badge>Active</Badge>} /></List>`
+
+## Badge
+- File: `src/ui/Badge.jsx`
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `tone` | `accent` \| `neutral` \| `success` \| `warning` \| `danger` | `neutral` | A soft background and its text colour. |
+| `children` | string | required | The word; never colour alone. |
+| `live` | boolean | `false` | Wraps the badge in `role="status"` so a change is announced. |
+
+- States: none. 12 px semibold, full radius.
+- Example: `<Badge tone="success">Active</Badge>`

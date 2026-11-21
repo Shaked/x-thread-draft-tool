@@ -112,6 +112,6 @@ describe('TokensPage', () => {
     expect(screen.getAllByRole('button', { name: 'Revoke' })).toHaveLength(1)
     const oldRow = screen.getByText('Old agent').closest('li')
     expect(within(oldRow).queryByRole('button', { name: 'Revoke' })).toBeNull()
-    expect(within(oldRow).getByText(/revoked/)).toBeInTheDocument()
+    expect(within(oldRow).getByText('Revoked')).toBeInTheDocument()
   })
 })

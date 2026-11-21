@@ -30,7 +30,7 @@ for (const size of SIZES) {
     const page = await context.newPage()
     await page.goto(`${BASE}/settings/apps`, { waitUntil: 'networkidle' })
 
-    const card = page.locator('.ai-apps-card')
+    const card = page.getByRole('region', { name: 'Use with AI apps' })
     await expect(card.getByRole('heading', { name: 'Use with AI apps' })).toBeVisible()
 
     const en = card.locator('blockquote[lang="en"]')

@@ -1212,7 +1212,6 @@ a {
 .app-bar-toggle { display: none; }
 .logout-btn { min-width: 44px; min-height: 44px; padding: 0; justify-content: center; color: var(--text-soft); }
 .logout-btn:hover { background-color: var(--surface-2); border-color: var(--danger); }
-.settings-top { display: flex; align-items: center; justify-content: space-between; }
 
 @media (max-width: 768px) {
   :root[data-bar='shown'] { --bar-space: calc(var(--legacy-bar-h) + env(safe-area-inset-bottom, 0px)); }
@@ -1571,30 +1570,6 @@ a {
   animation: fadeIn 0.2s ease-out;
 }
 
-/* API tokens page (phone-first) */
-.tokens-page { max-width: 640px; margin: 0 auto; padding: 16px; }
-.tokens-page :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.settings-card { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 12px; padding: 16px; margin: 0 0 16px; min-width: 0; }
-.settings-card h2 { margin: 0 0 8px; }
-/* Phones: the form is a column of full-width controls; wide screens: one row. */
-.tokens-form { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0; }
-.tokens-form > * { width: 100%; min-height: 44px; font-size: 16px; }
-.tokens-form input { padding: 8px 12px; min-width: 0; }
-.tokens-form select { padding: 8px 12px; }
-.tokens-form button { padding: 8px 16px; }
-@media (min-width: 600px) {
-  .tokens-form { flex-direction: row; align-items: stretch; }
-  .tokens-form > * { width: auto; }
-  .tokens-form input { flex: 1 1 220px; }
-}
-.token-created { border: 2px solid var(--warning); background: var(--warning-tint-10); border-radius: 12px; padding: 16px; margin: 16px 0 0; }
-.token-warning { color: var(--warning-strong); margin: 0 0 8px; }
-.token-secret { display: block; word-break: break-all; padding: 12px; background: var(--bg); border-radius: 8px; margin: 0 0 8px; }
-.token-created .copy-btn { width: 100%; min-height: 48px; font-size: 18px; font-weight: 600; }
-.token-empty { color: var(--text-soft); margin: 8px 0 0; }
-.token-list { list-style: none; padding: 0; margin: 0; }
-.token-row code { background: var(--surface-2); padding: 2px 6px; border-radius: 4px; overflow-wrap: anywhere; }
-.token-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
 
 /* Theme choice (Light / Dark / Match device). */
 .theme-setting {
@@ -1659,21 +1634,6 @@ a {
 }
 
 /* Connected apps (plan Task 7.8): touch targets of 44 px and a visible focus ring */
-.connected-apps { margin-bottom: 24px; }
-.connected-apps button:focus-visible,
-.connected-apps a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.grant-list { list-style: none; padding: 0; }
-.grant-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
-.grant-revoke-btn { min-height: 44px; min-width: 44px; padding: 8px 12px; font-size: 16px; background: transparent; border: 1px solid var(--danger); border-radius: 8px; color: var(--danger); cursor: pointer; }
-.grant-revoke-btn:hover { background-color: var(--danger-tint-20); }
-.copy-btn { min-height: 44px; min-width: 44px; padding: 8px 12px; font-size: 16px; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: inherit; cursor: pointer; }
-.copy-btn:hover { background-color: var(--border-soft); }
-.connect-app-row > div { flex: 1 1 16rem; min-width: 0; }
-.connect-app-row code { display: block; margin-top: 4px; padding: 4px 8px; font-size: 13px; background: var(--surface-2); border-radius: 6px; overflow-wrap: anywhere; }
-.ai-apps-card h3 { margin: 12px 0 4px; font-size: 15px; }
-.ai-apps-card blockquote { margin: 0 0 8px; padding: 8px 12px; color: var(--text); background: var(--surface-2); border-inline-start: 3px solid var(--border-strong); border-radius: 6px; overflow-wrap: anywhere; }
-.paste-places { margin: 8px 0 0; padding-inline-start: 20px; }
-.paste-places li { margin: 4px 0; }
 
 /* Menu: a button in each signed-in page header and a left drawer (settings-menu.md M6 to M11). */
 .page-title { display: flex; align-items: center; gap: 8px; min-width: 0; }

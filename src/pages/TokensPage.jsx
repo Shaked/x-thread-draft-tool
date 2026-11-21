@@ -1,9 +1,21 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { tokensApi } from '../utils/api'
-import AppBar from '../components/AppBar'
-import AppMenu from '../components/AppMenu'
-import CopyButton from '../components/CopyButton'
+import Badge from '../ui/Badge'
+import Banner from '../ui/Banner'
+import Button from '../ui/Button'
+import Card from '../ui/Card'
+import CodeBlock from '../ui/CodeBlock'
+import Field from '../ui/Field'
+import Inline from '../ui/Inline'
+import Input from '../ui/Input'
+import { List, ListItem } from '../ui/List'
+import Page from '../ui/Page'
+import PageHeader from '../ui/PageHeader'
+import Section from '../ui/Section'
+import Select from '../ui/Select'
+import Skeleton from '../ui/Skeleton'
+import Stack from '../ui/Stack'
 
 const EXPIRY_OPTIONS = [1, 3, 7]
 
@@ -65,89 +77,97 @@ export default function TokensPage() {
   }
 
   return (
-    <div className="tokens-page">
-      <div className="settings-top">
-        <span className="page-title">
-          <AppMenu />
-          <Link to="/">← Back to drafts</Link>
-        </span>
-        <AppBar />
-      </div>
-
-      <h1>API tokens</h1>
-
-      <p>
-        AI apps you connect are listed on <Link to="/settings/apps">Connected apps</Link>.
-      </p>
-
-      <section className="settings-card" aria-labelledby="tokens-heading">
-        <h2 id="tokens-heading">Your API tokens</h2>
+    <Page width="narrow">
+      <PageHeader title="API tokens" back={{ to: '/', label: '← Back to drafts' }} />
+      <Stack gap={8}>
         <p>
-          Tokens let agents use the API as you. Each token has the same permissions as your account in
-          the app. See <code>/llms.txt</code> for how agents use them.
+          AI apps you connect are listed on <Link to="/settings/apps">Connected apps</Link>.
         </p>
 
-        <form className="tokens-form" onSubmit={handleCreate}>
-          <input
-            type="text"
-            placeholder="Token name, e.g. Claude agent"
-            value={name}
-            maxLength={100}
-            onChange={(e) => setName(e.target.value)}
-            aria-label="Token name"
-          />
-          <select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Expires after">
-            {EXPIRY_OPTIONS.map((option) => (
-              <option key={option} value={option}>{option} days</option>
-            ))}
-          </select>
-          <button type="submit" className="new-draft-btn" disabled={busy || !name.trim()}>
-            {busy ? 'Creating…' : 'Create token'}
-          </button>
-        </form>
+        <Section
+          title="Your API tokens"
+          description={
+            <>
+              Tokens let agents use the API as you. Each token has the same permissions as your account in the app. See{' '}
+              <code>/llms.txt</code> for how agents use them.
+            </>
+          }
+        >
+          <form onSubmit={handleCreate}>
+            <Inline align="end" gap={3}>
+              <Field label="Token name">
+                <Input
+                  value={name}
+                  maxLength={100}
+                  placeholder="Token name, e.g. Claude agent"
+                  onChange={setName}
+                />
+              </Field>
+              <Field label="Expires after">
+                <Select
+                  value={String(days)}
+                  options={EXPIRY_OPTIONS.map((option) => ({ value: String(option), label: `${option} days` }))}
+                  onChange={(value) => setDays(Number(value))}
+                />
+              </Field>
+              <Button type="submit" variant="primary" loading={busy} loadingLabel="Creating…" disabled={!name.trim()}>
+                Create token
+              </Button>
+            </Inline>
+          </form>
 
-        {created && (
-          <div className="token-created" role="status">
-            <p className="token-warning">
-              <strong>Copy this token now.</strong> It won&apos;t be shown again.
-            </p>
-            <code className="token-secret">{created.token}</code>
-            <CopyButton key={created.token} text={created.token} onFail={() => setCopyFailed(true)} />
-            {copyFailed && <p className="token-warning">Select the token above and copy it.</p>}
-          </div>
-        )}
+          {created && (
+            <Banner tone="warning" role="status" title="Copy this token now.">
+              <Stack gap={3}>
+                <p>It won&apos;t be shown again.</p>
+                <CodeBlock
+                  key={created.token}
+                  code={created.token}
+                  copyLabel="Copy"
+                  onCopyFail={() => setCopyFailed(true)}
+                />
+                {copyFailed && <p>Select the token above and copy it.</p>}
+              </Stack>
+            </Banner>
+          )}
 
-        {error && <div className="error" role="alert">{error}</div>}
+          {error && <Banner tone="danger" role="alert">{error}</Banner>}
 
-        {loading ? (
-          <div className="loading">Loading…</div>
-        ) : tokens.length === 0 ? (
-          <p className="token-empty">No tokens yet. Create one above to let an agent use the API as you.</p>
-        ) : (
-          <ul className="token-list">
-            {tokens.map((token) => {
-              const revoked = !!token.revoked_at
-              return (
-                <li key={token.id} className="token-row">
-                  <div>
-                    <strong>{token.name}</strong> <code>{token.prefix}…</code>
-                    <div>
-                      Created {formatDate(token.created_at)} via {token.created_via} ·
-                      last used {formatDate(token.last_used_at)} ·
-                      {revoked ? ' revoked' : ` expires ${formatDate(token.expires_at)}`}
-                    </div>
-                  </div>
-                  {!revoked && (
-                    <button type="button" className="delete-btn" onClick={() => handleRevoke(token.id)}>
-                      Revoke
-                    </button>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
-    </div>
+          {loading ? (
+            <Skeleton variant="row" lines={2} />
+          ) : tokens.length === 0 ? (
+            <p>No tokens yet. Create one above to let an agent use the API as you.</p>
+          ) : (
+            <Card padding="none">
+              <List>
+                {tokens.map((token) => {
+                  const revoked = !!token.revoked_at
+                  return (
+                    <ListItem
+                      key={token.id}
+                      title={token.name}
+                      badge={<Badge tone={revoked ? 'neutral' : 'success'}>{revoked ? 'Revoked' : 'Active'}</Badge>}
+                      meta={[
+                        <code key="prefix">{token.prefix}…</code>,
+                        `Created ${formatDate(token.created_at)} via ${token.created_via}`,
+                        `last used ${formatDate(token.last_used_at)}`,
+                        ...(revoked ? [] : [`expires ${formatDate(token.expires_at)}`])
+                      ]}
+                      actions={
+                        !revoked && (
+                          <Button variant="danger-quiet" size="sm" onClick={() => handleRevoke(token.id)}>
+                            Revoke
+                          </Button>
+                        )
+                      }
+                    />
+                  )
+                })}
+              </List>
+            </Card>
+          )}
+        </Section>
+      </Stack>
+    </Page>
   )
 }

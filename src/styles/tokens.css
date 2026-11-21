@@ -112,6 +112,7 @@
   --page-w-wide: 1200px;     /* admin tables */
   --page-gutter: var(--space-4);
   --card-pad: var(--space-4);
+  --flex-min: 14rem;         /* narrowest text or field that shares a row (fields, list text, code) */
 
   /* Focus ring: outline, so it follows the radius */
   --focus-ring-width: 2px;
@@ -148,8 +149,8 @@
   :root { --page-gutter: var(--space-6); --card-pad: var(--space-5); }
 }
 
-/* Touch screens: every control is at least 44 px. */
-@media (pointer: coarse) {
+/* Touch screens and phones (under 768 px): every control is at least 44 px. */
+@media (pointer: coarse), (width < 768px) {
   :root { --control-h-sm: var(--hit-min); }
 }
 
