@@ -9,7 +9,8 @@ const PATHS = {
   signout: 'M10 4H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 8l4 4-4 4M19 12H9',
   menu: 'M4 7h16M4 12h16M4 17h16',
   close: 'M6 6l12 12M18 6L6 18',
-  chevron: 'M6 9l6 6 6-6'
+  chevron: 'M6 9l6 6 6-6',
+  publish: 'M4 12l16-8-6 16-3-7z'
 }
 
 // Moved from src/components/Icon.jsx (plan task 2). `size` md is 20 px, lg is 24 px; `mirror` flips it in RTL.

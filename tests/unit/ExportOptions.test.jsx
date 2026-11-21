@@ -38,12 +38,12 @@ describe('ExportOptions', () => {
   it('keeps the menu closed until Export is clicked, then shows the four actions', async () => {
     const user = userEvent.setup()
     renderExport(posts)
-    expect(screen.queryByRole('button', { name: 'Copy thread' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Copy thread' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Export' }))
 
     for (const label of ['Copy thread', 'Copy with numbers', 'Download Markdown', 'Download JSON']) {
-      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: label })).toBeInTheDocument()
     }
   })
 
@@ -53,11 +53,11 @@ describe('ExportOptions', () => {
     renderExport(posts)
 
     await user.click(screen.getByRole('button', { name: 'Export' }))
-    await user.click(screen.getByRole('button', { name: 'Copy with numbers' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Copy with numbers' }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(exportAsNumberedText(posts)))
     expect(await screen.findByRole('status')).toHaveTextContent('Thread copied with numbers!')
-    expect(screen.queryByRole('button', { name: 'Copy with numbers' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Copy with numbers' })).not.toBeInTheDocument()
   })
 
   it('closes the menu on Escape', async () => {
@@ -69,7 +69,7 @@ describe('ExportOptions', () => {
     expect(exportButton).toHaveAttribute('aria-expanded', 'true')
     await user.keyboard('{Escape}')
 
-    expect(screen.queryByRole('button', { name: 'Copy thread' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Copy thread' })).not.toBeInTheDocument()
     expect(exportButton).toHaveAttribute('aria-expanded', 'false')
   })
 

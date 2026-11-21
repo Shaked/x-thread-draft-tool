@@ -88,7 +88,9 @@ describe('PATCH /api/drafts/:id/posts/:postId', () => {
 
     const res = await patchPost(draft.id, 'b', { text: 'mine' }, { ifMatch: '"1"' })
     expect(res.status).toBe(412)
-    expect(await res.json()).toEqual({ error: 'The draft changed since you read it', version: 2 })
+    // #354: the answer also carries the current draft, so the client needs no extra read.
+    const posts = POSTS().map((post) => (post.id === 'b' ? { ...post, text: 'someone else' } : post))
+    expect(await res.json()).toEqual({ error: 'The draft changed since you read it', version: 2, draft: expect.objectContaining({ id: draft.id, posts, version: 2 }) })
     expect(res.headers.get('etag')).toBe('"2"')
     expect(await rowOf(draft.id)).toEqual(before)
   })

@@ -1,0 +1,2 @@
+- A save refused because the draft changed since it was read (412) now also returns the current draft, so the editor and AI apps need no extra read (#354, #273 L1 a).
+- MCP `update_draft` takes an optional `version` like `update_post`; `remove_image` and `add_image_from_url` send the version they read. A stale write is a tool error with the current version and writes nothing.

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { ToastProvider } from '../../src/ui/Toast.jsx'
 import userEvent from '@testing-library/user-event'
 
 const { createShareTokenMock } = vi.hoisted(() => ({ createShareTokenMock: vi.fn() }))
@@ -24,6 +25,11 @@ function mockClipboard() {
   return writeText
 }
 
+// Every header action needs the toast provider, as in App.jsx.
+function renderWithToast(ui) {
+  return render(<ToastProvider>{ui}</ToastProvider>)
+}
+
 describe('ShareLinkButton', () => {
   beforeEach(() => {
     createShareTokenMock.mockReset()
@@ -35,19 +41,19 @@ describe('ShareLinkButton', () => {
 
   it('opens a menu with the four lifetimes, one hour marked as the default', async () => {
     const user = userEvent.setup()
-    render(<ShareLinkButton draftId="draft-1" />)
-    expect(screen.queryByRole('button', { name: /7 days/i })).not.toBeInTheDocument()
+    renderWithToast(<ShareLinkButton draftId="draft-1" />)
+    expect(screen.queryByRole('menuitem', { name: /7 days/i })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Share' }))
 
     for (const label of ['15 minutes', '1 hour (default)', '1 day', '7 days']) {
-      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: label })).toBeInTheDocument()
     }
   })
 
   it('closes the menu on Escape and on a click outside it', async () => {
     const user = userEvent.setup()
-    render(
+    renderWithToast(
       <div>
         <ShareLinkButton draftId="draft-1" />
         <p>elsewhere</p>
@@ -58,12 +64,12 @@ describe('ShareLinkButton', () => {
     await user.click(share)
     expect(share).toHaveAttribute('aria-expanded', 'true')
     await user.keyboard('{Escape}')
-    expect(screen.queryByRole('button', { name: '1 day' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: '1 day' })).not.toBeInTheDocument()
 
     await user.click(share)
-    expect(screen.getByRole('button', { name: '1 day' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '1 day' })).toBeInTheDocument()
     await user.click(screen.getByText('elsewhere'))
-    expect(screen.queryByRole('button', { name: '1 day' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: '1 day' })).not.toBeInTheDocument()
     expect(share).toHaveAttribute('aria-expanded', 'false')
   })
 
@@ -72,24 +78,24 @@ describe('ShareLinkButton', () => {
     const user = userEvent.setup()
     const writeText = mockClipboard()
 
-    render(<ShareLinkButton draftId="draft-1" />)
+    renderWithToast(<ShareLinkButton draftId="draft-1" />)
     await user.click(screen.getByRole('button', { name: 'Share' }))
-    await user.click(screen.getByRole('button', { name: '7 days' }))
+    await user.click(screen.getByRole('menuitem', { name: '7 days' }))
 
     await waitFor(() => expect(createShareTokenMock).toHaveBeenCalledTimes(1))
     expect(createShareTokenMock).toHaveBeenCalledWith('draft-1', { expires_in: 7 * 24 * 60 * 60, one_time: false })
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/x-thread-preview/${TOKEN}`))
     expect(await screen.findByText('Link copied. It stops working in 7 days.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '7 days' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: '7 days' })).not.toBeInTheDocument()
   })
 
   it('shows an error when the link cannot be created', async () => {
     createShareTokenMock.mockRejectedValue(new Error('rpc broke'))
     const user = userEvent.setup()
     const writeText = mockClipboard()
-    render(<ShareLinkButton draftId="draft-1" />)
+    renderWithToast(<ShareLinkButton draftId="draft-1" />)
     await user.click(screen.getByRole('button', { name: 'Share' }))
-    await user.click(screen.getByRole('button', { name: '1 hour (default)' }))
+    await user.click(screen.getByRole('menuitem', { name: '1 hour (default)' }))
 
     expect(await screen.findByText(/rpc broke/i)).toBeInTheDocument()
     expect(writeText).not.toHaveBeenCalled()

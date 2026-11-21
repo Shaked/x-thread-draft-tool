@@ -151,21 +151,37 @@ test.describe('screens', () => {
       await shoot(browser, width, 'drafts-hebrew-dark', '/', { token: hebrew, theme: 'dark', ready: (p) => p.getByText('טיוטה חדשה') })
       await shoot(browser, width, 'drafts-published', '/', { token: hebrew, ready: (p) => p.getByText('טיוטה חדשה'), before: showPublished })
       await shoot(browser, width, 'drafts-published-dark', '/', { token: hebrew, theme: 'dark', ready: (p) => p.getByText('טיוטה חדשה'), before: showPublished })
-      await shoot(browser, width, 'editor', `/draft/${editorId}`, { token: owner, ready: (p) => p.locator('.draft-title-input') })
-      await shoot(browser, width, 'editor-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.locator('.draft-title-input') })
+      await shoot(browser, width, 'editor', `/draft/${editorId}`, { token: owner, ready: (p) => p.getByLabel('Draft title') })
+      await shoot(browser, width, 'editor-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.getByLabel('Draft title') })
       await shoot(browser, width, 'editor-export-menu', `/draft/${editorId}`, {
         token: owner,
-        ready: (p) => p.locator('.draft-title-input'),
+        ready: (p) => p.getByLabel('Draft title'),
         before: async (p) => {
           await p.getByRole('button', { name: 'Export' }).click()
           await p.getByText('Copy with numbers').waitFor()
         }
       })
+      await shoot(browser, width, 'editor-export-menu-dark', `/draft/${editorId}`, {
+        token: owner,
+        theme: 'dark',
+        ready: (p) => p.getByLabel('Draft title'),
+        before: async (p) => {
+          await p.getByRole('button', { name: 'Export' }).click()
+          await p.getByText('Copy with numbers').waitFor()
+        }
+      })
+      // The share menu: its lifetimes list (plan T8), light and dark.
+      const openShare = async (p: Page) => {
+        await p.getByRole('button', { name: 'Share', exact: true }).click()
+        await p.getByRole('menuitem', { name: '1 hour (default)' }).waitFor()
+      }
+      await shoot(browser, width, 'editor-share-menu', `/draft/${editorId}`, { token: owner, ready: (p) => p.getByLabel('Draft title'), before: openShare })
+      await shoot(browser, width, 'editor-share-menu-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.getByLabel('Draft title'), before: openShare })
       // The hide control exists on phones only (wide screens have no fixed bar).
       if (width < 800) {
         await shoot(browser, width, 'editor-bar-hidden', `/draft/${editorId}`, {
           token: owner,
-          ready: (p) => p.locator('.draft-title-input'),
+          ready: (p) => p.getByLabel('Draft title'),
           before: async (p) => {
             await p.getByRole('button', { name: 'Hide toolbar' }).click()
             await p.getByRole('button', { name: 'Show toolbar' }).waitFor()
@@ -185,8 +201,8 @@ test.describe('screens', () => {
         await p.locator('#app-menu').waitFor()
         await p.waitForTimeout(300)
       }
-      await shoot(browser, width, 'menu-open', `/draft/${editorId}`, { token: owner, ready: (p) => p.locator('.draft-title-input'), before: openMenu })
-      await shoot(browser, width, 'menu-open-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.locator('.draft-title-input'), before: openMenu })
+      await shoot(browser, width, 'menu-open', `/draft/${editorId}`, { token: owner, ready: (p) => p.getByLabel('Draft title'), before: openMenu })
+      await shoot(browser, width, 'menu-open-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.getByLabel('Draft title'), before: openMenu })
 
       // The API tokens page (settings-menu.md M12), light and dark; then after a token is created, so the one-time box shows.
       const tokensReady = (p: Page) => p.getByRole('heading', { name: 'API tokens', level: 1 })
@@ -215,7 +231,7 @@ test.describe('screens', () => {
       }
       const copyThread = async (p: Page) => {
         await p.getByRole('button', { name: 'Export' }).click()
-        await p.getByRole('button', { name: 'Copy thread' }).click()
+        await p.getByRole('menuitem', { name: 'Copy thread' }).click()
         await p.getByRole('status').filter({ hasText: 'Thread copied!' }).waitFor()
         await p.waitForTimeout(400)
       }
@@ -224,8 +240,8 @@ test.describe('screens', () => {
       await shoot(browser, width, 'dialog-delete-dark', '/', { token: owner, theme: 'dark', ready: draftsReady, viewportOnly: true, before: openDelete })
       await shoot(browser, width, 'dialog-revoke', '/settings/tokens', { cookie, ready: tokensReady, viewportOnly: true, before: openRevoke })
       await shoot(browser, width, 'dialog-revoke-dark', '/settings/tokens', { cookie, theme: 'dark', ready: tokensReady, viewportOnly: true, before: openRevoke })
-      await shoot(browser, width, 'toast-copied', `/draft/${editorId}`, { token: owner, ready: (p) => p.locator('.draft-title-input'), viewportOnly: true, before: copyThread })
-      await shoot(browser, width, 'toast-copied-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.locator('.draft-title-input'), viewportOnly: true, before: copyThread })
+      await shoot(browser, width, 'toast-copied', `/draft/${editorId}`, { token: owner, ready: (p) => p.getByLabel('Draft title'), viewportOnly: true, before: copyThread })
+      await shoot(browser, width, 'toast-copied-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.getByLabel('Draft title'), viewportOnly: true, before: copyThread })
 
       // The Connected apps page (plan T4), light and dark.
       const appsReady = (p: Page) => p.getByRole('heading', { name: 'Connected apps', level: 1 })

@@ -14,7 +14,7 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | Create draft | `POST /drafts` | `create_draft` | `/` | |
 | Read draft | `GET /drafts/:id` | `get_draft` | `/draft/:id` | Editor page |
 | Draft outline | `GET /drafts/:id/outline` | `get_draft_outline` | `no: no page shows the outline, the UI never calls this route` | Rule gap: no UI |
-| Edit draft settings | `PATCH /drafts/:id` | `update_draft` | `/draft/:id` | |
+| Edit draft settings | `PATCH /drafts/:id` | `update_draft` | `/draft/:id` | Rule gap: the editor saves without If-Match, so its old copy can overwrite another writer's edit (#354; fixed by #273 L1 c) |
 | Edit one post | `PATCH /drafts/:id/posts/:postId` | `update_post` | `/draft/:id` | Rule gap: the editor saves the whole draft with `PATCH /drafts/:id`, not this route |
 | Add, move or remove a post | `GET /drafts/:id`, `PATCH /drafts/:id` | `add_post`, `move_post`, `remove_post` | `/draft/:id` | The tools read the draft, then write it back |
 | Add image from URL | `POST /images`, `POST /images/from-url` | `add_image_from_url` | `/draft/:id` | `POST /images` takes raw bytes, so no tool calls it |

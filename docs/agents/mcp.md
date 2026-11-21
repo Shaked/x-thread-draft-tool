@@ -165,6 +165,14 @@ Some tools can show their result as a small view inside an app that supports MCP
 Each of these tools also returns the same text and data as before, so a client without views gets the
 same answer it always got.
 
+The thread tools (`get_draft`, `create_draft`, `create_thread_from_text`, `split_text`) add a second text
+part after the JSON: the thread as markdown (title, editor link, each post quoted under its `n/N` line,
+then a fenced block of all the post text to copy). It is the fallback, in this order: the view, then this
+markdown, then the link in it. The thread view reads its posts from this part when an app passes the text
+parts only or drops `_meta`, and it reports its size even when the app never answers `ui/initialize`
+(#352: Grok showed an empty grey box). How Grok loads views is not checked; the browser test uses a fake
+host that does what we could not rule out (`tests/e2e/mcp-grok-view.spec.ts`).
+
 - The app may ask you once before it shows a view. Nothing is shown without that answer.
 - A view reads only the data in the tool result. It makes no network request of its own, and it loads
   images only from our image host (the Blob store). Its only call to the server is "View thread" in the

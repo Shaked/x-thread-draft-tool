@@ -13,6 +13,7 @@ import { route } from '../../server/router.js'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { blobOrigin } from '../../server/mcp/ui/origin.js'
 import { listUiResources, readUiResource, uiResourceUri } from '../../server/mcp/ui/index.js'
+import { textThread } from '../../server/mcp/ui/client.js'
 import { APP_URL, setupTestDb } from './helpers/db.js'
 import { expectValid } from './helpers/mcp-schema.js'
 
@@ -316,6 +317,24 @@ describe('the tools that show the thread view (plan Task 4, #177), the drafts li
     const split = await call('split_text', { text: 'Short post.' })
     expect(split.structuredContent.draft).toBeUndefined()
     expect(split._meta['x-thread/outline'].posts.length).toBe(split.structuredContent.posts.length)
+  })
+
+  it('#352: the thread tools add the thread as markdown after the unchanged JSON, and the view reads it back', async () => {
+    const thread = await call('create_thread_from_text', { text: 'Alpha one. **2/2** Beta ``` two.', title: 'MD', max_chars: 20 })
+    expect(thread.content[0].text).toBe(JSON.stringify(thread.structuredContent))
+    const markdown = thread.content[1].text
+    expect(markdown).toContain(`Open: ${thread.structuredContent.url}`)
+    expect(markdown).toMatch(/\nPost text to copy:\n````text\n/)
+    // A text-only result (no structuredContent, no _meta) still carries every post, in order.
+    const back = textThread({ content: thread.content })
+    expect(back.posts.map((post) => post.text)).toEqual(thread._meta['x-thread/posts'].map((post) => post.text))
+    expect(back).toMatchObject({ title: 'MD', saved: true, url: thread.structuredContent.url })
+    const got = await call('get_draft', { id: thread.structuredContent.draft.id })
+    expect(textThread({ content: got.content }).posts.map((post) => post.text)).toEqual(got.structuredContent.draft.posts.map((post) => post.text))
+    const split = await call('split_text', { text: 'Short post.' })
+    expect(textThread({ content: split.content })).toMatchObject({ saved: false, posts: [{ text: 'Short post.' }] })
+    const listed = await call('list_drafts', {})
+    expect(listed.content).toHaveLength(1)
   })
 
   it('a failed call has no view keys in _meta', async () => {
