@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { exportAsNumberedText, exportAsPlainText } from '../utils/exportFormats.js'
 import { useDismiss } from '../utils/useDismiss'
-import Icon from './Icon'
+import Icon from '../ui/Icon'
 
 /** Export: a button with a menu of copy and download actions for the whole thread. */
 export default function ExportOptions({ draft }) {

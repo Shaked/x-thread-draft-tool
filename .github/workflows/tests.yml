@@ -150,6 +150,14 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+      - name: Upload UI audit screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-audit
+          path: test-results/ui-audit
+          retention-days: 14
+
   screens:
     name: UI screenshots (manual)
     if: github.event_name == 'workflow_dispatch'

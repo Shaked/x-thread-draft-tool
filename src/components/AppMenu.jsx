@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
 import { formatVersion, localBuildInfo, utcText } from '../utils/version'
 import { useDismiss } from '../utils/useDismiss'
-import Icon from './Icon'
+import Icon from '../ui/Icon'
 import { signOut } from './LogoutButton'
 import ThemeSetting from './ThemeSetting'
 

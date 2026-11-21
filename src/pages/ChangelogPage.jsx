@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import AppBar from '../components/AppBar'
-import AppMenu from '../components/AppMenu'
+import Banner from '../ui/Banner'
+import Button from '../ui/Button'
+import Card from '../ui/Card'
+import Page from '../ui/Page'
+import PageHeader from '../ui/PageHeader'
+import Section from '../ui/Section'
+import Skeleton from '../ui/Skeleton'
+import Stack from '../ui/Stack'
 import { changelogApi } from '../utils/api'
 import { formatVersion, localBuildInfo } from '../utils/version'
 
@@ -62,56 +67,59 @@ export default function ChangelogPage() {
   }
 
   return (
-    <div className="tokens-page changelog-page">
-      <div className="settings-top">
-        <span className="page-title">
-          <AppMenu />
-          <Link to="/">← Back to drafts</Link>
-        </span>
-        <AppBar />
-      </div>
+    <Page width="narrow">
+      <PageHeader
+        title="Changelog"
+        subtitle={`Version ${version.short}, deployed ${version.deployedAt}`}
+        back={{ to: '/', label: '← Back to drafts' }}
+      />
 
-      <h1>Changelog</h1>
-      <p className="changelog-version">
-        Version {version.short}, deployed {version.deployedAt}
-      </p>
+      <Stack gap={8}>
+        {list.status === 'loading' && <Skeleton variant="card" lines={2} />}
+        {list.status === 'error' && (
+          <Banner
+            tone="danger"
+            role="alert"
+            actions={
+              <Button variant="secondary" size="sm" onClick={retry}>
+                Try again
+              </Button>
+            }
+          >
+            Could not load the changelog.
+          </Banner>
+        )}
+        {list.status === 'ready' && list.entries.length === 0 && <p>No changes yet.</p>}
 
-      {list.status === 'loading' && <div className="loading">Loading…</div>}
-      {list.status === 'error' && (
-        <div className="error" role="alert">
-          <p>Could not load the changelog.</p>
-          <button type="button" className="copy-btn" onClick={retry}>
-            Try again
-          </button>
-        </div>
-      )}
-      {list.status === 'ready' && list.entries.length === 0 && <p className="changelog-empty">No changes yet.</p>}
+        {list.status === 'ready' &&
+          groupByDay(list.entries).map(({ day, entries }) => (
+            <Section key={day} title={dayText.format(new Date(`${day}T00:00:00Z`))}>
+              <Stack gap={3}>
+                {entries.map((entry) => (
+                  <article key={entry.id} id={`changelog-${entry.id}`} tabIndex={-1}>
+                    <Card>
+                      {entry.title && <h3 dir="auto">{entry.title}</h3>}
+                      {entry.summary && <p dir="auto">{entry.summary}</p>}
+                    </Card>
+                  </article>
+                ))}
+              </Stack>
+            </Section>
+          ))}
 
-      {list.status === 'ready' &&
-        groupByDay(list.entries).map(({ day, entries }) => (
-          <section key={day} className="changelog-day" aria-labelledby={`changelog-day-${day}`}>
-            <h2 id={`changelog-day-${day}`}>{dayText.format(new Date(`${day}T00:00:00Z`))}</h2>
-            {entries.map((entry) => (
-              <article key={entry.id} id={`changelog-${entry.id}`} tabIndex={-1} className="changelog-entry">
-                {entry.title && <h3 dir="auto">{entry.title}</h3>}
-                {entry.summary && <p dir="auto">{entry.summary}</p>}
-              </article>
-            ))}
-          </section>
-        ))}
-
-      {list.status === 'ready' && list.next && (
-        <div className="changelog-more">
-          {olderState === 'error' && (
-            <p className="error" role="alert">
-              Could not load older changes.
-            </p>
-          )}
-          <button type="button" className="copy-btn" onClick={showOlder} disabled={olderState === 'busy'}>
-            Show older
-          </button>
-        </div>
-      )}
-    </div>
+        {list.status === 'ready' && list.next && (
+          <Stack gap={3}>
+            {olderState === 'error' && (
+              <Banner tone="danger" role="alert">
+                Could not load older changes.
+              </Banner>
+            )}
+            <Button variant="secondary" onClick={showOlder} loading={olderState === 'busy'} loadingLabel="Show older">
+              Show older
+            </Button>
+          </Stack>
+        )}
+      </Stack>
+    </Page>
   )
 }

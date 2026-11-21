@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { draftsApi } from '../utils/api'
-import Icon from './Icon'
+import Icon from '../ui/Icon'
 
 export default function AgentLinkButton({ draftId }) {
   const [copied, setCopied] = useState(false)

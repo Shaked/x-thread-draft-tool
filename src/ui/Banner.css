@@ -1,0 +1,55 @@
+/* Banner: a soft tone background with a 1 px border in the tone colour. Text is always the body colour. */
+.ui-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  padding: var(--space-4);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-lg);
+  color: var(--color-text);
+}
+
+.ui-banner--info {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent-soft);
+}
+
+.ui-banner--success {
+  border-color: var(--color-success);
+  background-color: var(--color-success-soft);
+}
+
+.ui-banner--warning {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-soft);
+}
+
+.ui-banner--danger {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-soft);
+}
+
+.ui-banner__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.ui-banner__title {
+  font-weight: var(--font-weight-semibold);
+}
+
+.ui-banner__text {
+  overflow-wrap: anywhere;
+}
+
+.ui-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
