@@ -4,17 +4,20 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, RouterProvider, createMemoryRouter } from 'react-router-dom'
 import AppMenu from '../../src/components/AppMenu.jsx'
 import { authApi } from '../../src/utils/api'
+import { CurrentUserContext } from '../../src/utils/currentUser'
 
 vi.mock('../../src/utils/api', () => ({ authApi: { logout: vi.fn() } }))
 vi.mock('../../src/utils/draftCache', () => ({ clearCachedDrafts: vi.fn().mockResolvedValue(undefined) }))
 
-function renderMenu() {
+function renderMenu(user = { login: 'bob', admin: false }) {
   return render(
-    <MemoryRouter>
-      <div id="root">
-        <AppMenu />
-      </div>
-    </MemoryRouter>
+    <CurrentUserContext.Provider value={user}>
+      <MemoryRouter>
+        <div id="root">
+          <AppMenu />
+        </div>
+      </MemoryRouter>
+    </CurrentUserContext.Provider>
   )
 }
 
@@ -61,11 +64,18 @@ describe('AppMenu', () => {
     expect(screen.getByRole('link', { name: 'Connected apps' })).toHaveAttribute('href', '/settings/apps')
   })
 
-  it('lists the changelog under Settings, after API tokens', async () => {
+  it('lists the changelog under Settings, after API tokens, for the admin', async () => {
     const user = userEvent.setup()
-    renderMenu()
+    renderMenu({ login: 'owner', admin: true })
     await user.click(screen.getByRole('button', { name: 'Menu' }))
     expect(screen.getByRole('link', { name: 'Changelog' })).toHaveAttribute('href', '/changelog')
+  })
+
+  it('has no changelog link for a normal user (#368)', async () => {
+    const user = userEvent.setup()
+    renderMenu({ login: 'bob' })
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    expect(screen.queryByRole('link', { name: 'Changelog' })).toBeNull()
   })
 
   it('closes when the close button, a drawer link or the scrim is used', async () => {

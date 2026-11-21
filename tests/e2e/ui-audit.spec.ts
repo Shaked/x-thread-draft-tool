@@ -82,8 +82,8 @@ const HEBREW_CHANGELOG = {
   next: null
 }
 
-async function devToken(request: APIRequestContext, login: string): Promise<string> {
-  const res = await request.post(`${BASE}/api/dev/token`, { data: { login } })
+async function devToken(request: APIRequestContext, login: string, admin = false): Promise<string> {
+  const res = await request.post(`${BASE}/api/dev/token`, { data: { login, admin } })
   expect(res.ok()).toBeTruthy()
   return (await res.json()).token as string
 }
@@ -98,7 +98,8 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
     reducedMotion: 'reduce',
     serviceWorkers: 'block'
   })
-  const token = await devToken(request, `ui-audit-${c.name}-${Date.now()}`)
+  // The changelog is admin only (#368): its check signs in as the admin.
+  const token = await devToken(request, `ui-audit-${c.name}-${Date.now()}`, pagePath === '/changelog')
   const hebrew = c.rtl && pagePath === '/changelog'
   // Signed-in pages: the dev token goes out as a bearer header. The Hebrew pass answers the changelog itself.
   await context.route(`${ORIGIN}/api/**`, (route) => {

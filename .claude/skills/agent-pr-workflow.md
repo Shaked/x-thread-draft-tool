@@ -19,7 +19,7 @@ covers scope, branches, commits, pull requests and reading CI. The helper is `sc
 ## 3. Commit
 - Conventional commits; no model names in commit or PR text.
 - The pre-commit hook runs `npm run precommit:checks` (docs refresh, build, unit + API tests) and
-  stages `claude.md`. Do not bypass it with `--no-verify`.
+  stages `CLAUDE.md`. Do not bypass it with `--no-verify`.
 - Every PR adds one `docs/changelogs/YYYYMMDD-HHMMSS-<slug>.md` file (UTC).
 
 ## 4. Pull request

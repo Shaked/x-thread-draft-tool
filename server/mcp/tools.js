@@ -222,12 +222,14 @@ const TOOLS = [
   },
   {
     name: 'app_version',
-    description: 'The version of this app: commit, deploy time, schema. Also changelog: the 5 newest changes.',
+    description: 'The version of this app: the live commit, its deploy time, environment and schema version.',
     inputSchema: { type: 'object', properties: {} },
     run: async (args, { rest }) => {
       const version = await rest('GET', '/version')
       if (version.status >= 400) return version
+      // The changelog route decides who gets change notes (admin only, #368). Anyone else gets its 404: no changelog key.
       const changes = await rest('GET', '/changelog?limit=5')
+      if (changes.status === 404) return json(await version.json())
       if (changes.status >= 400) return changes
       const { entries } = await changes.json()
       return json({ ...(await version.json()), changelog: entries })
