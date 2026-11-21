@@ -19,7 +19,7 @@ same limits as the web app.
 
 | Group | Tools | Notes |
 |---|---|---|
-| Read | `list_drafts`, `get_draft`, `get_draft_outline`, `export_draft`, `split_text`, `whoami`, `app_version` | `list_drafts` returns summaries (no post text) unless you set `detail` to `full`. `get_draft_outline` counts posts and characters per post with a 40-character preview. Use `get_draft` only when you need the text. `export_draft` takes `numbered` for numbered text. `app_version` returns the live commit, deploy time and schema (also public at `GET /api/version`), and the 5 newest changes (`GET /api/changelog`). |
+| Read | `list_drafts`, `get_draft`, `get_draft_outline`, `export_draft`, `split_text`, `whoami`, `app_version` | `list_drafts` returns summaries (no post text) unless you set `detail` to `full`. `get_draft_outline` counts posts and characters per post with a 40-character preview. Use `get_draft` only when you need the text. `export_draft` takes `numbered` for numbered text. `app_version` returns the live commit, deploy time and schema (also public at `GET /api/version`). |
 | Write drafts | `create_draft`, `update_draft`, `duplicate_draft`, `create_thread_from_text`, `create_share_link` | `create_thread_from_text` turns long text into a draft. The four draft writes return the outline, not the text. `create_share_link` makes a one-time link that expires after 1 hour; set `one_time` false for a link that can be read many times, and `expires_in` (60 to 604800 seconds) for its lifetime. |
 | Posts | `add_post`, `update_post`, `move_post`, `remove_post` | Post ids come from `get_draft`. A published draft cannot be changed. Each returns the draft outline and its `version`, not the text. |
 | Images | `add_image_from_url`, `remove_image` | Only http(s) images that are public and 4 MB or smaller. `add_image_from_url` returns the image `url` and the outline; `remove_image` returns the outline and the editor `url`. |
@@ -164,6 +164,14 @@ Some tools can show their result as a small view inside an app that supports MCP
 
 Each of these tools also returns the same text and data as before, so a client without views gets the
 same answer it always got.
+
+The thread tools (`get_draft`, `create_draft`, `create_thread_from_text`, `split_text`) add a second text
+part after the JSON: the thread as markdown (title, editor link, each post quoted under its `n/N` line,
+then a fenced block of all the post text to copy). It is the fallback, in this order: the view, then this
+markdown, then the link in it. The thread view reads its posts from this part when an app passes the text
+parts only or drops `_meta`, and it reports its size even when the app never answers `ui/initialize`
+(#352: Grok showed an empty grey box). How Grok loads views is not checked; the browser test uses a fake
+host that does what we could not rule out (`tests/e2e/mcp-grok-view.spec.ts`).
 
 - The app may ask you once before it shows a view. Nothing is shown without that answer.
 - A view reads only the data in the tool result. It makes no network request of its own, and it loads

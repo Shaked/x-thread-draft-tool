@@ -9,6 +9,7 @@ import { runAs } from '../caller-context.js'
 import { randomUUID } from 'node:crypto'
 import { uiResourceUri } from './ui/index.js'
 import { blobOrigin } from './ui/origin.js'
+import { threadText } from './thread-text.js'
 import { adminTool, listAdminTools } from './admin-tools.js'
 import { mcpAdminReason } from '../admin/role.js'
 
@@ -221,12 +222,14 @@ const TOOLS = [
   },
   {
     name: 'app_version',
-    description: 'The version of this app: commit, deploy time, schema. Also changelog: the 5 newest changes.',
+    description: 'The version of this app: the live commit, its deploy time, environment and schema version.',
     inputSchema: { type: 'object', properties: {} },
     run: async (args, { rest }) => {
       const version = await rest('GET', '/version')
       if (version.status >= 400) return version
+      // The changelog route decides who gets change notes (admin only, #368). Anyone else gets its 404: no changelog key.
       const changes = await rest('GET', '/changelog?limit=5')
+      if (changes.status === 404) return json(await version.json())
       if (changes.status >= 400) return changes
       const { entries } = await changes.json()
       return json({ ...(await version.json()), changelog: entries })
@@ -364,7 +367,7 @@ const TOOLS = [
 ]
 
 // The thread view (plan Task 4, D8): these tools show it. Each result gets the view's three x-thread/* keys in
-// _meta; `content` and `structuredContent` do not change. The outline is what the view counts from.
+// _meta; `structuredContent` and the first `content` part do not change (#352 adds a markdown part after it). The outline is what the view counts from.
 // The create tools also carry the full posts in _meta (x-thread/posts): their structuredContent has the outline only.
 const VIEW_OUTLINE = {
   get_draft: (body) => outline(body.draft),
@@ -568,6 +571,8 @@ export async function callTool(name, args, { caller, origin }) {
     const res = await tool.run(args, ctx)
     const result = await toToolResult(res)
     if (tool.resultMeta && res.status < 400 && result.structuredContent) result._meta = tool.resultMeta(result.structuredContent, ctx, res)
+    // #352 (G1): the thread view's tools add the thread as markdown after the JSON, for apps that show no view.
+    if (VIEW_OUTLINE[name] && result._meta) result.content.push({ type: 'text', text: markdownOf(result) })
     return result
   } catch (err) {
     console.error('[mcp] tool failed', name, err)
@@ -615,6 +620,13 @@ function threadMeta(ctx, outlineValue, posts) {
     ...(imageOrigin ? { 'x-thread/imageOrigin': imageOrigin } : {}),
     ...(posts ? { 'x-thread/posts': posts } : {})
   }
+}
+
+/** The markdown thread of a thread tool's result: the full posts from _meta when the result has them. */
+function markdownOf({ structuredContent: body, _meta: meta }) {
+  const source = body.draft || body
+  const posts = meta['x-thread/posts'] || source.posts
+  return threadText({ title: source.title, posts, url: body.url ?? source.url, saved: Boolean(body.draft) })
 }
 
 function toolError(text) {

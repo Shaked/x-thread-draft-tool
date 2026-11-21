@@ -171,12 +171,17 @@ export const RENDER_FUNCTIONS = [
   client.linksIn,
   client.el,
   client.linkButton,
+  client.postText,
   client.postNode,
   client.underEditorBase,
   client.headerNode,
   client.renderThread,
   client.renderError,
-  client.threadFrom
+  client.threadFrom,
+  client.threadSource,
+  client.fullPosts,
+  client.textThread,
+  client.markdownPosts
 ]
 
 // The page script for one image origin: the render functions, then the starter with the origin baked in.

@@ -11,5 +11,5 @@ fi
 
 echo "Running pre-commit checks (lint + unit tests)..."
 npm run precommit:checks
-# docs:refresh may update the claude.md index; include it in this commit.
-git add claude.md
+# docs:refresh may update the CLAUDE.md index; include it in this commit.
+git add CLAUDE.md

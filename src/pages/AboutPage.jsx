@@ -8,6 +8,7 @@ import PageHeader from '../ui/PageHeader'
 import Section from '../ui/Section'
 import Skeleton from '../ui/Skeleton'
 import Stack from '../ui/Stack'
+import { useCurrentUser } from '../utils/currentUser'
 import { reloadToNewest } from '../utils/reloadToNewest'
 import { formatVersion, localBuildInfo, utcText } from '../utils/version'
 
@@ -56,6 +57,7 @@ function VersionDetails({ info }) {
 
 // The build of this page (in the browser) and the server's answer (GET /api/version), side by side.
 export default function AboutPage() {
+  const user = useCurrentUser()
   const build = localBuildInfo()
   const [server, setServer] = useState({ state: 'loading', info: null })
 
@@ -106,11 +108,13 @@ export default function AboutPage() {
           )}
         </Section>
 
-        <Inline>
-          <Button variant="secondary" to="/changelog">
-            See what changed
-          </Button>
-        </Inline>
+        {user?.admin === true && (
+          <Inline>
+            <Button variant="secondary" to="/changelog">
+              See what changed
+            </Button>
+          </Inline>
+        )}
       </Stack>
     </Page>
   )
