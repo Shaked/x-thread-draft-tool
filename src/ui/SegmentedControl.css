@@ -63,6 +63,8 @@
 /* The radio stays in the tab order and the arrow keys work, but it is drawn by its label. */
 .ui-segmented__input {
   position: absolute;
+  appearance: none;
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-md);
   inset-block-start: var(--space-0);
   inset-inline-start: var(--space-0);
