@@ -127,16 +127,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Read the Playwright version
+        id: pw
+        run: |
+          echo "version=$(node -p "require('./node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
           restore-keys: |
             playwright-${{ runner.os }}-
 
+      # No --with-deps: the runner already has every Chromium library. --with-deps ran apt-get and
+      # installed fonts on every run (slow on slow mirror days, #216, #262, #268).
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Run E2E tests
         run: npm run test:e2e
@@ -157,6 +164,15 @@ jobs:
           name: ui-audit
           path: test-results/ui-audit
           retention-days: 14
+
+      - name: Upload e2e screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screens
+          path: test-results/screens
+          retention-days: 14
+          if-no-files-found: ignore
 
   screens:
     name: UI screenshots (manual)
