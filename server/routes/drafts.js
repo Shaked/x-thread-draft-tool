@@ -221,7 +221,7 @@ async function getDraftOutline({ request, params }) {
   if (!isUuid(params.id)) throw notFound()
   const { rows } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [params.id, session.uid])
   if (!rows[0]) throw notFound()
-  return json({ draft: outline(rows[0]) })
+  return json({ draft: outline(rows[0], { withImages: true }) })
 }
 
 /**
