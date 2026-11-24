@@ -75,8 +75,9 @@ test('keyboard reorder: Space picks a post up, the arrow key moves it, Space dro
     expect(await postTexts(page)).toEqual(['First post', 'Second post', 'שלישי בעברית'])
     await page.getByRole('button', { name: 'Drag to reorder post 1' }).focus()
     await page.keyboard.press('Space')
+    // dnd-kit announces each step in a live region. Wait for the pick-up before the arrow key, and for the move before the drop.
+    await expect(page.locator('[aria-live]').filter({ hasText: 'moved over droppable area q1' })).toHaveCount(1)
     await page.keyboard.press('ArrowDown')
-    // dnd-kit announces each move in a live region; wait for it before dropping, or the drop reads a stale position.
     await expect(page.locator('[aria-live]').filter({ hasText: 'moved over droppable area q2' })).toHaveCount(1)
     await page.keyboard.press('Space')
     await expect.poll(() => postTexts(page)).toEqual(['Second post', 'First post', 'שלישי בעברית'])

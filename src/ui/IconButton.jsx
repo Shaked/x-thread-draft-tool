@@ -18,7 +18,7 @@ const IconButton = forwardRef(function IconButton(
         {...handleProps}
         className={className}
         aria-label={label}
-        aria-pressed={pressed}
+        aria-pressed={pressed ?? handleProps?.['aria-pressed']}
         aria-expanded={expanded}
         aria-controls={controls}
         title={disabledReason || label}
