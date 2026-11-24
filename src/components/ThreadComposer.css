@@ -1,0 +1,46 @@
+/* The thread editor (ThreadComposer.jsx): the panel, the post wrappers and the add and insert buttons. Tokens only. */
+.thread-composer {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  margin-block-end: var(--space-5);
+}
+
+.thread-composer__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-block-end: var(--space-5);
+}
+
+.thread-composer__title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+}
+
+/* dnd-kit sets --drag-transform and --drag-transition on the node while a post is moved (see SortablePost). */
+.thread-post {
+  position: relative;
+  transform: var(--drag-transform, none);
+  transition: var(--drag-transition, none);
+}
+
+.thread-post--dragging {
+  z-index: var(--z-raised);
+  opacity: var(--opacity-disabled);
+}
+
+.thread-insert {
+  margin-block: var(--space-2);
+}
+
+.thread-add {
+  margin-block-start: var(--space-5);
+}
+
+@media (width < 768px) {
+  .thread-composer {
+    padding: var(--space-3) var(--space-2);
+    border-radius: 0;
+  }
+}

@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import ImageUpload from './ImageUpload'
+import Button from '../ui/Button'
+import IconButton from '../ui/IconButton'
 import { xLength } from '../utils/xLength.js'
+import './PostBox.css'
 
 const EmojiPicker = lazy(() => import('./EmojiPicker'))
 const TweetEmbed = lazy(() => import('./TweetEmbed'))
@@ -14,6 +17,8 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   const [detectingUrls, setDetectingUrls] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [embedVisible, setEmbedVisible] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const copiedTimerRef = useRef(null)
   const embedShown = embedVisible || typeof IntersectionObserver === 'undefined'
   const textareaRef = useRef(null)
   const imageUploadRef = useRef(null)
@@ -122,6 +127,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
       if (urlDetectionTimeoutRef.current) {
         clearTimeout(urlDetectionTimeoutRef.current)
       }
+      clearTimeout(copiedTimerRef.current)
     }
   }, [])
 
@@ -200,16 +206,9 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   const handleCopyText = async () => {
     try {
       await navigator.clipboard.writeText(text)
-      const button = document.activeElement
-      if (button && button.classList.contains('copy-post-btn')) {
-        const originalText = button.textContent
-        button.textContent = '\u2713 Copied'
-        button.classList.add('copied')
-        setTimeout(() => {
-          button.textContent = originalText
-          button.classList.remove('copied')
-        }, 2000)
-      }
+      setCopied(true)
+      clearTimeout(copiedTimerRef.current)
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       console.error('Failed to copy text:', err)
     }
@@ -219,25 +218,13 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
     <div className="post-box">
       <div className="post-header">
         {dragHandleProps && (
-          <button
-            className="drag-handle"
-            title="Drag to reorder"
-            aria-label={`Drag to reorder post ${index + 1}`}
-            {...dragHandleProps}
-          >
-            ⠿
-          </button>
+          <div className="post-drag">
+            <IconButton icon="drag" label={`Drag to reorder post ${index + 1}`} handleProps={dragHandleProps} />
+          </div>
         )}
-        <span className="post-number">{index + 1}/{totalPosts}</span>
+        <bdi className="post-number">{index + 1}/{totalPosts}</bdi>
         <div className="post-header-actions">
-          <button
-            className="copy-post-btn"
-            onClick={handleCopyText}
-            title="Copy post text"
-            disabled={!text}
-          >
-            Copy
-          </button>
+          <CopyPostButton disabled={!text} copied={copied} onCopy={handleCopyText} />
           <RemovePostButton
             readOnly={readOnly}
             onRemove={onRemove}
@@ -259,7 +246,6 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           dir={isRTL ? 'rtl' : 'ltr'}
           rows={6}
           readOnly={readOnly}
-          style={{ overflow: 'hidden' }}
         />
 
         <div className="post-toolbar">
@@ -412,14 +398,12 @@ function ToolbarActions({
   if (readOnly) return null
   return (
     <div className="toolbar-actions">
-      <button
-        className="toolbar-btn"
+      <IconButton
+        icon="emoji"
+        label="Add emoji"
+        pressed={showEmojiPicker}
         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-        title="Add emoji"
-        aria-label="Add emoji"
-      >
-        😀
-      </button>
+      />
       {showEmojiPicker && (
         <Suspense fallback={<div className="emoji-picker-loading">Loading…</div>}>
           <EmojiPicker
@@ -429,24 +413,19 @@ function ToolbarActions({
         </Suspense>
       )}
 
-      <button
-        className="toolbar-btn"
-        onClick={() => imageUploadRef.current?.triggerFileSelect()}
-        title="Add image"
-        aria-label="Add image"
+      <IconButton
+        icon="image"
+        label="Add image"
         disabled={imageCount >= 4}
-      >
-        📷
-      </button>
+        onClick={() => imageUploadRef.current?.triggerFileSelect()}
+      />
 
-      <button
-        className={`toolbar-btn ${embedActive ? 'active' : ''}`}
+      <IconButton
+        icon="link"
+        label="Embed tweet"
+        pressed={embedActive}
         onClick={() => setShowEmbedInput(!showEmbedInput)}
-        title="Embed tweet"
-        aria-label="Embed tweet"
-      >
-        🔗
-      </button>
+      />
     </div>
   )
 }
@@ -469,18 +448,28 @@ function EmbedInput({ readOnly, show, value, onChange }) {
   )
 }
 
+// The Copy button in a post's header. It says "Copied" for two seconds after a copy. Split out of PostBox for the lint complexity limit.
+function CopyPostButton({ disabled, copied, onCopy }) {
+  return (
+    <Button variant="secondary" size="sm" title="Copy post text" disabled={disabled} onClick={onCopy}>
+      {copied ? '\u2713 Copied' : 'Copy'}
+    </Button>
+  )
+}
+
 // The Remove button on a post when the thread has more than one post. Split out of PostBox for the lint complexity limit.
 function RemovePostButton({ readOnly, onRemove, totalPosts, index }) {
   if (readOnly || !onRemove || totalPosts <= 1) return null
   return (
-    <button
-      className="remove-post-btn"
-      onClick={onRemove}
+    <Button
+      variant="danger-quiet"
+      size="sm"
       title="Remove post"
-      aria-label={`Remove post ${index + 1}`}
+      ariaLabel={`Remove post ${index + 1}`}
+      onClick={onRemove}
     >
       Remove
-    </button>
+    </Button>
   )
 }
 

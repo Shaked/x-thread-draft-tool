@@ -12,7 +12,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 
 | Prop | Type | Default | Notes |
 |---|---|---|---|
-| `name` | `share` \| `agent` \| `x` \| `export` \| `publish` \| `signout` \| `menu` \| `close` \| `chevron` | required | Line icon from one set. |
+| `name` | `share` \| `agent` \| `x` \| `export` \| `publish` \| `signout` \| `menu` \| `close` \| `chevron` \| `drag` \| `image` \| `link` \| `emoji` \| `plus` | required | Line icon from one set. |
 | `size` | `md` \| `lg` | `md` | 20 px or 24 px (`--icon-size`, `--icon-size-lg`). |
 | `mirror` | boolean | `false` | Flips the icon in right-to-left text (arrows, chevrons). |
 
@@ -140,7 +140,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 
 ## IconButton
 - File: `src/ui/IconButton.jsx`
-- Status: built (no page uses it yet: the first user is in the admin and editor tasks)
+- Status: built (used by the editor posts, Task 9)
 - Props:
 
 | Prop | Type | Default | Notes |
@@ -153,6 +153,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `controls` | string | | The `id` of the element it opens: sets `aria-controls`. |
 | `disabled` | boolean | `false` | |
 | `disabledReason` | string | | As in Button. |
+| `handleProps` | object | | Spread on the `button` before the props above (a drag handle's dnd-kit listeners and attributes). |
 | `onClick` | function | | |
 | `ref` | ref | | Forwarded to the `button`, so a caller can return focus to it (the menu does). |
 

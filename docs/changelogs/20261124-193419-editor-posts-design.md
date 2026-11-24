@@ -1,0 +1,2 @@
+- The editor's posts now use the app's shared buttons, colours and spacing. The post toolbar (emoji, image, link) uses line icons instead of emoji.
+- Drag to reorder (mouse, touch and keyboard), Insert post here, Add post, Copy, Remove, the 280 counter, the over-limit colour and Hebrew text direction work as before.

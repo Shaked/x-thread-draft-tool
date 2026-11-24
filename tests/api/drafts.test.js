@@ -300,7 +300,7 @@ describe('GET /api/drafts?view=summary', () => {
 })
 
 describe('GET /api/drafts/:id/outline', () => {
-  it('gives each post its index, length, room left and a 40-character preview', async () => {
+  it('gives each post its index, length, room left, image urls in order and a 40-character preview', async () => {
     const long = 'a'.repeat(300)
     const draft = await db.insertDraft(alice.id, {
       title: 'Outline',
@@ -321,9 +321,10 @@ describe('GET /api/drafts/:id/outline', () => {
         remaining: 230,
         over_limit: false,
         image_count: 0,
+        images: [],
         preview: 'Hello there, this is the first post of the thread'.slice(0, 40)
       },
-      { id: 'second', index: 2, chars: 300, remaining: -20, over_limit: true, image_count: 1, preview: 'a'.repeat(40) }
+      { id: 'second', index: 2, chars: 300, remaining: -20, over_limit: true, image_count: 1, images: ['https://x.example/2.png'], preview: 'a'.repeat(40) }
     ])
   })
 
