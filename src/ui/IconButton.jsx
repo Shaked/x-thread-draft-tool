@@ -24,7 +24,7 @@ const IconButton = forwardRef(function IconButton(
         title={disabledReason || label}
         disabled={disabled && !disabledReason}
         aria-disabled={disabled || disabledReason ? true : undefined}
-        aria-describedby={disabledReason ? reasonId : undefined}
+        aria-describedby={[handleProps?.['aria-describedby'], disabledReason ? reasonId : null].filter(Boolean).join(' ') || undefined}
         onClick={(event) => {
           if (disabled || disabledReason) return event.preventDefault()
           onClick?.(event)

@@ -62,6 +62,8 @@ test('the posts are numbered inside a bidi isolate and the composer has its titl
     await expect(page.getByRole('heading', { name: 'Compose thread', level: 2 })).toBeVisible()
     await expect(page.locator('bdi', { hasText: /^1\/3$/ })).toBeVisible()
     await expect(page.locator('bdi', { hasText: /^3\/3$/ })).toBeVisible()
+    // dnd-kit's keyboard instructions stay linked to the drag handle (the handle's own describedby must not replace them).
+    await expect(page.getByRole('button', { name: 'Drag to reorder post 1' })).toHaveAttribute('aria-describedby', /.+/)
   } finally {
     await context.close()
   }
