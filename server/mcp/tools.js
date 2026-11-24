@@ -185,7 +185,8 @@ const TOOLS = [
         const { url } = await uploaded.json()
         const current = await fetchOwnedDraft(ctx, args.draftId)
         if (current.failure) return current.failure
-        return withViewPosts(json({ draft: outline(current.draft), url }), current.draft.posts)
+        const draft = { ...outline(current.draft), url: editorUrl(ctx.origin, current.draft.id) }
+        return withViewPosts(json({ draft, url }), current.draft.posts)
       }
       // With postId, the image is also added to that post: refuse an unknown post or one with 4 images first.
       const owned = await fetchOwnedDraft(ctx, args.draftId)
@@ -695,7 +696,10 @@ const editorUrl = (origin, id) => `${origin}/draft/${id}`
 async function outlineResult(res, origin, extra = {}) {
   if (res.status >= 400) return res
   const { draft } = await res.json()
-  const response = json({ draft: outline(draft), url: editorUrl(origin, draft.id), ...extra }, res.status)
+  // When `extra.url` is an image's url (add_image_from_url), the draft keeps the editor link: the view reads it there.
+  const link = editorUrl(origin, draft.id)
+  const summary = extra.url === undefined ? outline(draft) : { ...outline(draft), url: link }
+  const response = json({ draft: summary, url: link, ...extra }, res.status)
   return withViewPosts(response, draft.posts)
 }
 

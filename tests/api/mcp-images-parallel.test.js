@@ -54,6 +54,8 @@ describe('add_image_from_url called in parallel for one post', () => {
     const draft = await db.insertDraft(alice.id)
     const results = await Promise.all([1, 2, 3, 4].map((n) => addImage(draft.id, n)))
     expect(results.map((r) => r.isError)).toEqual([false, false, false, false])
+    // #405: the thread view's "Open in editor" link is the draft's url; the top-level url is the image's.
+    expect(results[0].structuredContent.draft.url).toBe(`${APP_URL}/draft/${draft.id}`)
     const stored = await imagesOf(draft.id)
     expect(new Set(stored.map((image) => image.url))).toEqual(new Set(results.map((r) => r.structuredContent.url)))
     expect(deleteBlobUrls).not.toHaveBeenCalled()
