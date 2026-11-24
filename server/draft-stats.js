@@ -8,6 +8,8 @@ const PREVIEW_CHARS = 40
 const postsOf = (draft) => (Array.isArray(draft.posts) ? draft.posts : [])
 const charsOf = (post) => xLength(typeof post?.text === 'string' ? post.text : '')
 const imagesOf = (post) => (Array.isArray(post?.images) ? post.images.length : 0)
+// Image entries are { url } objects or, in older drafts, plain url strings.
+const imageUrls = (post) => (Array.isArray(post?.images) ? post.images.map((image) => (typeof image === 'string' ? image : image?.url)) : [])
 
 /** The draft without its posts: id, title, state and counts. */
 export function summarize(draft) {
@@ -26,8 +28,12 @@ export function summarize(draft) {
   }
 }
 
-/** The summary plus one line per post: 1-based index, length, room left, images and a short preview. */
-export function outline(draft) {
+/**
+ * The summary plus one line per post: 1-based index, length, room left, image count and a short preview.
+ * With `withImages` (GET /drafts/:id/outline) each post also lists its image urls in order; write results
+ * leave them out to stay short.
+ */
+export function outline(draft, { withImages = false } = {}) {
   return {
     ...summarize(draft),
     posts: postsOf(draft).map((post, i) => {
@@ -39,6 +45,7 @@ export function outline(draft) {
         remaining: LIMIT - chars,
         over_limit: chars > LIMIT,
         image_count: imagesOf(post),
+        ...(withImages ? { images: imageUrls(post) } : {}),
         preview: Array.from(typeof post?.text === 'string' ? post.text : '').slice(0, PREVIEW_CHARS).join('')
       }
     })

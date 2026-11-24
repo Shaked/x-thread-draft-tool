@@ -18,7 +18,9 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | Edit one post | `PATCH /drafts/:id/posts/:postId` | `update_post` | `/draft/:id` | Rule gap: the editor saves the whole draft with `PATCH /drafts/:id`, not this route |
 | Add, move or remove a post | `GET /drafts/:id`, `PATCH /drafts/:id` | `add_post`, `move_post`, `remove_post` | `/draft/:id` | The tools read the draft, then write it back |
 | Add image from URL | `POST /images`, `POST /images/from-url` | `add_image_from_url` | `/draft/:id` | `POST /images` takes raw bytes, so no tool calls it |
-| Remove image | `GET /drafts/:id`, `PATCH /drafts/:id`, `DELETE /images` | `remove_image`, `remove_post` | `/draft/:id` | Rule gap: the editor drops the image from the post and saves with `PATCH /drafts/:id`; it never calls `DELETE /images`. `remove_post` calls it |
+| List images of a draft | `GET /drafts/:id/outline` | `get_draft_outline` | `/draft/:id` | The outline gives each post its image urls in order and its count (at most 4); write results give the counts only (#367) |
+| Move or replace an image | `GET /drafts/:id`, `PATCH /drafts/:id`, `POST /images/from-url`, `DELETE /images` | `move_post`, `add_image_from_url` | `no: the editor has no image reorder or replace today (#367 part b)` | `move_post` with `image_url`; `add_image_from_url` with `replace` or `position`. Both take `version` |
+| Remove image | `GET /drafts/:id`, `PATCH /drafts/:id`, `DELETE /images` | `remove_image`, `remove_post` | `/draft/:id` | `remove_image` with `post_id` removes every image of that post. Rule gap: the editor drops the image from the post and saves with `PATCH /drafts/:id`; it never calls `DELETE /images`. `remove_post` calls it |
 | Duplicate draft | `POST /drafts/:id/duplicate` | `duplicate_draft` | `/` | Rule gap: the home list copies the draft in the browser and calls `POST /drafts`, not this route |
 | Export draft | `GET /drafts/:id/export` | `export_draft` | `/draft/:id` | Rule gap: the UI formats the export in the browser (`ExportOptions.jsx`) and never calls this route |
 | Publish draft | `POST /drafts/:id/publish` | `publish_draft` | `/draft/:id` | |
