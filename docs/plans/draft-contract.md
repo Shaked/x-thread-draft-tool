@@ -193,7 +193,8 @@ skill and prompts; task 4 puts the matching hint in each result.
   marking published still need a yes in a later message (existing skill rule). When the draft id is
   not known, call `list_drafts`, then `get_draft_outline`. **Order: edit first, then show.** Call the
   edit tool directly with the draft id and post ids from an earlier result. Read the draft first only
-  when those ids are missing, and never show the old draft before the edit (#405). The `tighten_draft` prompt is a review the
+  when those ids or the current text of the posts it changes are missing (an outline preview is only
+  40 characters), and do not print the old draft before the edit (#405 owns which card opens). The `tighten_draft` prompt is a review the
   user chose by name ("shown as before and after first"), so it keeps showing before and after and
   waits for the yes; only its format changes (R4).
 - **R2. Change only what was asked.** One `update_post` per changed post. Other posts stay as they
@@ -245,10 +246,10 @@ instructions carry the short English form above. The skill (task 3), the edit to
 
 | Where | English | Hebrew |
 |---|---|---|
-| Order | To change a draft, call the edit tool first, with the draft id and post ids from an earlier result. Read the draft first only when you do not have those ids. Do not show the draft before the change. | כדי לשנות טיוטה, קרא קודם לכלי העריכה, עם מזהה הטיוטה ומזהי הפוסטים מתשובה קודמת. קרא את הטיוטה קודם רק אם אין לך את המזהים האלה. אל תציג את הטיוטה לפני השינוי. |
-| After the edit | Saved. Do not show the whole draft again: say in one line what changed and quote only the changed posts. | נשמר. אל תציג שוב את כל הטיוטה: כתוב בשורה אחת מה השתנה, וצטט רק את הפוסטים ששונו. |
-| When to show it all | Show the whole thread only when the user asks to see it, or when most posts changed. | הצג את כל השרשור רק כשהמשתמש מבקש לראות אותו, או כשרוב הפוסטים השתנו. |
-| Stale version | Nothing was saved: the draft changed since you read it. Call get_draft once, then repeat the change. | שום דבר לא נשמר: הטיוטה השתנתה מאז שקראת אותה. קרא ל-get_draft פעם אחת, ואז חזור על השינוי. |
+| Order | To change a draft, call the edit tool first, with the draft id and post ids from an earlier result. Read the draft first only when you do not have those ids or the current text of the posts you change. Do not print the draft before the change. | כדי לשנות טיוטה, קרא קודם לכלי העריכה, עם מזהה הטיוטה ומזהי הפוסטים מתשובה קודמת. קרא את הטיוטה קודם רק אם אין לך את המזהים האלה או את הטקסט הנוכחי של הפוסטים שאתה משנה. אל תדפיס את הטיוטה לפני השינוי. |
+| After the edit | Saved. Do not show the whole draft again: say in one line what changed and quote only the changed posts, if any. | נשמר. אל תציג שוב את כל הטיוטה: כתוב בשורה אחת מה השתנה, וצטט רק את הפוסטים ששונו, אם יש כאלה. |
+| When to show it all | Show the whole thread only when the user asks to see it, or when most posts changed and no card shows it. | הצג את כל השרשור רק כשהמשתמש מבקש לראות אותו, או כשרוב הפוסטים השתנו ואין כרטיס שמציג אותו. |
+| Stale version | Nothing was saved: the draft changed since you read it. Call get_draft_outline once (get_draft if you need the text), then repeat the change. | שום דבר לא נשמר: הטיוטה השתנתה מאז שקראת אותה. קרא ל-get_draft_outline פעם אחת (ל-get_draft אם אתה צריך את הטקסט), ואז חזור על השינוי. |
 
 The Hebrew lines go only where Hebrew text already lives: the Hebrew trigger part of a tool description
 (`TRIGGERS` in `server/mcp/tools.js`) and the skill. Results and the server instructions stay in English
@@ -276,7 +277,7 @@ Draft <id>, version <v>, <n> posts, <k> over 280, <m> images. Editor: <editor ur
   `^Draft [0-9a-f-]{36}, version \d+, \d+ posts?, \d+ over 280, \d+ images?\. Editor: https://\S+/draft/[0-9a-f-]{36}\. .+$`
 - `<hint>` is one fixed sentence per tool group (`<v>`, `<i>` and `<c>` are numbers):
   - after `create_*` and `get_draft`: "To change a post, call update_post with this id, the post's id from posts, and version <v>."
-  - after `update_post`, `add_post`, `move_post`, `remove_post`: "Saved. Do not show the whole draft again: say in one line what changed and quote only the changed posts." (the "after the edit" text of section 2.4; when #405 adds a changes view, it may add "The view shows what changed.")
+  - after `update_post`, `add_post`, `move_post`, `remove_post`: "Saved. Do not show the whole draft again: say in one line what changed and quote only the changed posts, if any." (the "after the edit" text of section 2.4; when #405 adds a changes view, it may add "The view shows what changed.")
   - after `update_draft`: "Saved. Say in one line what changed; if no card shows the thread, quote the changed posts."
   - after an image tool: "Saved. Post <i> has <c> of 4 images. Say this in one line."
   - after `get_draft_outline`: "Call get_draft for the text, or update_post to change a post."
@@ -464,6 +465,13 @@ Verdict: CHANGES; every finding is taken in:
 11. The lint checks the exact hint, and error results have no state line.
 12. `post_count` goes into the REST answer too.
 13. Four Hebrew phrases reworded ("השנייה" for an option; "בשביל X"; "ימשוך תשומת לב"; "כדאי שיהיו").
+
+A re-read of the final text (2026-11-24) found one more must-fix, now taken in. "Read the draft first
+only when ids are missing" would let a model rewrite a post from a 40-character outline preview. So the
+order rule now also asks for the current text of the posts being changed. It also asked for three small
+fixes, all taken in: the "show it all" rule adds "and no card shows it"; the stale-version text points
+to `get_draft_outline`; and the edit hint adds "if any", because `move_post` and `remove_post` change
+no text.
 
 ## 9. Not checked
 
