@@ -46,7 +46,7 @@ async function tool(name, args) {
   const body = { jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args } }
   const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2025-06-18', authorization: `Bearer ${token}` }
   const { result } = await (await route(new Request(MCP, { method: 'POST', headers, body: JSON.stringify(body) }))).json()
-  return { error: result.isError ? result.content[0].text : null, data: result.structuredContent }
+  return { error: result.isError ? result.content[0].text : null, data: result.structuredContent, text: result.content.at(-1).text }
 }
 
 /** An image url under alice's own Blob folder, so remove and replace may delete its file. */
@@ -87,6 +87,7 @@ describe('add_image_from_url', () => {
     expect(res.error).toBeNull()
     expect(await urlsOf(draft.id)).toEqual([[own('a')], [res.data.image_url, own('c')]])
     expect(deleteBlobUrls).toHaveBeenCalledWith([own('b')])
+    expect(res.text).toMatch(/^Saved: version 2,/) // #405: a replace writes the draft
   })
 
   it('replace: an unknown image is refused before any upload; a stale version writes nothing and deletes the new file', async () => {

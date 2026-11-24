@@ -41,7 +41,7 @@ beforeEach(async () => {
 })
 
 async function addImage(draftId, n, postId = 'p1') {
-  const body = { jsonrpc: '2.0', id: n, method: 'tools/call', params: { name: 'add_image_from_url', arguments: { draftId, url: `https://example.com/${n}.png`, postId } } }
+  const body = { jsonrpc: '2.0', id: n, method: 'tools/call', params: { name: 'add_image_from_url', arguments: { draftId, url: `https://example.com/${n}.png`, ...(postId === null ? {} : { postId }) } } }
   const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2025-06-18', authorization: `Bearer ${token}` }
   const res = await route(new Request(MCP, { method: 'POST', headers, body: JSON.stringify(body) }))
   return (await res.json()).result
@@ -54,9 +54,19 @@ describe('add_image_from_url called in parallel for one post', () => {
     const draft = await db.insertDraft(alice.id)
     const results = await Promise.all([1, 2, 3, 4].map((n) => addImage(draft.id, n)))
     expect(results.map((r) => r.isError)).toEqual([false, false, false, false])
+    // #405: the thread view's "Open in editor" link is the draft's url; the top-level url is the image's.
+    expect(results[0].structuredContent.draft.url).toBe(`${APP_URL}/draft/${draft.id}`)
     const stored = await imagesOf(draft.id)
     expect(new Set(stored.map((image) => image.url))).toEqual(new Set(results.map((r) => r.structuredContent.url)))
     expect(deleteBlobUrls).not.toHaveBeenCalled()
+  })
+
+  it('without postId: no post changes; the view gets the posts and the editor link, the text says so (#405)', async () => {
+    const draft = await db.insertDraft(alice.id)
+    const result = await addImage(draft.id, 1, null)
+    expect(result._meta['x-thread/posts']).toEqual(await (await db.pg.query('select posts from drafts where id = $1', [draft.id])).rows[0].posts)
+    expect(result.structuredContent.draft.url).toBe(`${APP_URL}/draft/${draft.id}`)
+    expect(result.content.at(-1).text).toMatch(/^Uploaded, not in a post yet: draft version 1,/)
   })
 
   it('a fifth parallel call gets the 4-images error and its uploaded file is deleted', async () => {
