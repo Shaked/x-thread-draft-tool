@@ -246,6 +246,8 @@ describe('the tools that show the thread view (plan Task 4, #177), the drafts li
     create_draft: 'thread',
     split_text: 'thread',
     create_thread_from_text: 'thread',
+    // #405: the edit tools show the draft as saved after the edit.
+    ...Object.fromEntries(['update_draft', 'add_post', 'update_post', 'remove_post', 'move_post', 'remove_image', 'add_image_from_url'].map((name) => [name, 'thread'])),
     list_drafts: 'drafts',
     create_share_link: 'share'
   }

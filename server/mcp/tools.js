@@ -185,7 +185,7 @@ const TOOLS = [
         const { url } = await uploaded.json()
         const current = await fetchOwnedDraft(ctx, args.draftId)
         if (current.failure) return current.failure
-        return json({ draft: outline(current.draft), url })
+        return withViewPosts(json({ draft: outline(current.draft), url }), current.draft.posts)
       }
       // With postId, the image is also added to that post: refuse an unknown post or one with 4 images first.
       const owned = await fetchOwnedDraft(ctx, args.draftId)
@@ -262,7 +262,7 @@ const TOOLS = [
         if (removedFile.status >= 400) return removedFile
         deleted = (await removedFile.json()).deleted
       }
-      return json({ draft: outline(draft), url: editorUrl(ctx.origin, draft.id), removed: true, deleted })
+      return withViewPosts(json({ draft: outline(draft), url: editorUrl(ctx.origin, draft.id), removed: true, deleted }), draft.posts)
     }
   },
   {
@@ -361,14 +361,17 @@ const TOOLS = [
 
 // The thread view (plan Task 4, D8): these tools show it. Each result gets the view's three x-thread/* keys in
 // _meta; `structuredContent` and the first `content` part do not change (#352 adds a markdown part after it). The outline is what the view counts from.
-// The create tools also carry the full posts in _meta (x-thread/posts): their structuredContent has the outline only.
+// The create and edit tools also carry the full posts in _meta (x-thread/posts): their structuredContent has the outline only.
+// #405 (B1 a): the edit tools show the view too, drawn from the draft as saved by the edit, never from an earlier read.
+const EDIT_TOOLS = ['update_draft', 'add_post', 'update_post', 'remove_post', 'move_post', 'remove_image', 'add_image_from_url']
 const VIEW_OUTLINE = {
   get_draft: (body) => outline(body.draft),
   create_draft: (body) => body.draft,
   create_thread_from_text: (body) => body.draft,
-  split_text: (body) => outline({ posts: body.posts })
+  split_text: (body) => outline({ posts: body.posts }),
+  ...Object.fromEntries(EDIT_TOOLS.map((name) => [name, (body) => body.draft]))
 }
-const VIEW_POSTS = new Set(['create_draft', 'create_thread_from_text'])
+const VIEW_POSTS = new Set(['create_draft', 'create_thread_from_text', ...EDIT_TOOLS])
 // Where outlineResult keeps the saved posts on its Response (a symbol, so it never reaches the JSON body).
 const VIEW_POSTS_OF = Symbol('view posts')
 // The drafts list (plan Task 5, D8): list_drafts shows the list view. Its result carries the editor base only.
@@ -378,6 +381,7 @@ const VIEW_OF = {
   create_draft: 'thread',
   create_thread_from_text: 'thread',
   split_text: 'thread',
+  ...Object.fromEntries(EDIT_TOOLS.map((name) => [name, 'thread'])),
   list_drafts: 'drafts',
   create_share_link: 'share'
 }
@@ -565,7 +569,8 @@ export async function callTool(name, args, { caller, origin }) {
     const result = await toToolResult(res)
     if (tool.resultMeta && res.status < 400 && result.structuredContent) result._meta = tool.resultMeta(result.structuredContent, ctx, res)
     // #352 (G1): the thread view's tools add the thread as markdown after the JSON, for apps that show no view.
-    if (VIEW_OUTLINE[name] && result._meta) result.content.push({ type: 'text', text: markdownOf(result) })
+    // An edit adds one short line instead (#405): the view shows the saved draft, and the T5 results stay short.
+    if (VIEW_OUTLINE[name] && result._meta) result.content.push({ type: 'text', text: EDIT_TOOLS.includes(name) ? savedLine(result.structuredContent, origin) : markdownOf(result) })
     return result
   } catch (err) {
     console.error('[mcp] tool failed', name, err)
@@ -620,6 +625,12 @@ function markdownOf({ structuredContent: body, _meta: meta }) {
   const source = body.draft || body
   const posts = meta['x-thread/posts'] || source.posts
   return threadText({ title: source.title, posts, url: body.url ?? source.url, saved: Boolean(body.draft) })
+}
+
+/** The text line of an edit's result (#405): the saved draft's new version, its count of posts and its link. */
+function savedLine({ draft }, origin) {
+  const posts = `${draft.post_count} ${draft.post_count === 1 ? 'post' : 'posts'}`
+  return `Saved: version ${draft.version}, ${posts}. The view shows the draft after this change. Open: ${editorUrl(origin, draft.id)}`
 }
 
 function toolError(text) {
@@ -685,7 +696,12 @@ async function outlineResult(res, origin, extra = {}) {
   if (res.status >= 400) return res
   const { draft } = await res.json()
   const response = json({ draft: outline(draft), url: editorUrl(origin, draft.id), ...extra }, res.status)
-  response[VIEW_POSTS_OF] = draft.posts
+  return withViewPosts(response, draft.posts)
+}
+
+/** Keeps the saved posts on a result's Response for the view's _meta (see VIEW_POSTS_OF). */
+function withViewPosts(response, posts) {
+  response[VIEW_POSTS_OF] = posts
   return response
 }
 

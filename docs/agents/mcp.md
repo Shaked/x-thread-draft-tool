@@ -157,6 +157,10 @@ Some tools can show their result as a small view inside an app that supports MCP
 
 - `get_draft`, `create_draft`, `create_thread_from_text` and `split_text` show the thread view: X-style
   post cards, a character counter, your images and an "Open in editor" link.
+- The edit tools (`update_draft`, `add_post`, `update_post`, `remove_post`, `move_post`, `remove_image`,
+  `add_image_from_url`) show the thread view too, drawn from the draft as saved by that edit, never from an
+  earlier read. Their text adds one line: `Saved: version N, M posts.` and the editor link. A refused edit
+  (the draft changed since it was read) shows its error text and no view data.
 - `list_drafts` shows the drafts list: one row per draft, with "View thread" and, when the link is ours,
   "Open in editor". "View thread" asks the app to call `get_draft` again.
 - `create_share_link` shows the share card: the preview and markdown links, Copy (when the app allows
