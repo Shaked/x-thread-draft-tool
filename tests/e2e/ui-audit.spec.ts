@@ -29,6 +29,20 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean }[
       { title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }
     ]
   },
+  // The editor page (plan T9): one draft with an English post and a Hebrew post, so the RTL pass shows Hebrew text.
+  {
+    name: 'editor',
+    path: '/draft/:first',
+    drafts: [
+      {
+        title: 'Editor audit',
+        posts: [
+          { id: 'a1', text: 'First post, in English.', images: [], embeddedTweet: null },
+          { id: 'a2', text: 'פוסט שני בעברית', images: [], embeddedTweet: null }
+        ]
+      }
+    ]
+  },
   // The same page with the menu drawer open.
   {
     name: 'drafts-menu',
@@ -107,13 +121,16 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
     }
     return route.continue({ headers: { ...route.request().headers(), authorization: `Bearer ${token}` } })
   })
+  // A path with ':first' names the first seeded draft (the editor page).
+  let firstDraftId = ''
   for (const draft of extra.drafts ?? []) {
     const res = await request.post(`${BASE}/api/drafts`, { data: draft, headers: { authorization: `Bearer ${token}` } })
     expect(res.ok()).toBeTruthy()
+    firstDraftId ||= ((await res.json()) as { draft: { id: string } }).draft.id
   }
   const page = await context.newPage()
   await page.addInitScript((value) => localStorage.setItem('xt-theme', value), c.theme)
-  await page.goto(`${BASE}${pagePath}`, { waitUntil: 'networkidle' })
+  await page.goto(`${BASE}${pagePath.replace(':first', firstDraftId)}`, { waitUntil: 'networkidle' })
   await expect(extra.heading ? page.getByRole('heading', { name: extra.heading, level: 1 }) : page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(page.getByText('Loading…')).toHaveCount(0)
   if (c.rtl) await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'))
