@@ -571,7 +571,7 @@ export async function callTool(name, args, { caller, origin }) {
     if (tool.resultMeta && res.status < 400 && result.structuredContent) result._meta = tool.resultMeta(result.structuredContent, ctx, res)
     // #352 (G1): the thread view's tools add the thread as markdown after the JSON, for apps that show no view.
     // An edit adds one short line instead (#405): the view shows the saved draft, and the T5 results stay short.
-    if (VIEW_OUTLINE[name] && result._meta) result.content.push({ type: 'text', text: EDIT_TOOLS.includes(name) ? savedLine(result.structuredContent, origin) : markdownOf(result) })
+    if (VIEW_OUTLINE[name] && result._meta) result.content.push({ type: 'text', text: EDIT_TOOLS.includes(name) ? savedLine(name, result.structuredContent, origin) : markdownOf(result) })
     return result
   } catch (err) {
     console.error('[mcp] tool failed', name, err)
@@ -628,10 +628,15 @@ function markdownOf({ structuredContent: body, _meta: meta }) {
   return threadText({ title: source.title, posts, url: body.url ?? source.url, saved: Boolean(body.draft) })
 }
 
-/** The text line of an edit's result (#405): the saved draft's new version, its count of posts and its link. */
-function savedLine({ draft }, origin) {
+/**
+ * The text line of an edit's result (#405): the saved draft's new version, its count of posts and its link.
+ * add_image_from_url without postId writes no post: its line says the image is not in a post yet.
+ */
+function savedLine(name, { draft, postId }, origin) {
   const posts = `${draft.post_count} ${draft.post_count === 1 ? 'post' : 'posts'}`
-  return `Saved: version ${draft.version}, ${posts}. The view shows the draft after this change. Open: ${editorUrl(origin, draft.id)}`
+  const open = `Open: ${editorUrl(origin, draft.id)}`
+  if (name === 'add_image_from_url' && postId === undefined) return `Uploaded, not in a post yet: draft version ${draft.version}, ${posts}. ${open}`
+  return `Saved: version ${draft.version}, ${posts}. The view shows the draft after this change. ${open}`
 }
 
 function toolError(text) {
