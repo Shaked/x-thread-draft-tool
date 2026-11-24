@@ -13,15 +13,12 @@ const TOKENS = 'src/styles/tokens.css'
 // Each entry leaves when its page migrates; Task 13 deletes the list.
 const LEGACY = new Set([
   'src/components/ImageUpload.jsx',
-  'src/components/PostBox.jsx',
   'src/pages/XThreadPreviewPage.jsx',
   'src/styles/App.css'
 ])
 
 // `style=` props that stay, each with its reason.
-const STYLE_PROP_ALLOWED = new Map([
-  ['src/components/ThreadComposer.jsx', 'dnd-kit style={style} (drag transform) until Task 9 moves it to a custom property']
-])
+const STYLE_PROP_ALLOWED = new Map()
 
 // Files that must not import CSS (page CSS lives in the shared components).
 const NO_CSS_IMPORT = (file) => file.startsWith('src/pages/') || file === 'src/components/DraftList.jsx' || file === 'src/components/LoginPage.jsx'

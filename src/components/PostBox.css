@@ -1,0 +1,102 @@
+/* One post in the thread editor (PostBox.jsx): its header, text, toolbar and counter. Tokens only. */
+.post-box {
+  background-color: var(--color-bg);
+  border: var(--border-width) solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin-block-end: var(--space-4);
+  transition: border-color var(--duration-base) var(--ease-standard);
+  animation: post-enter var(--duration-base) var(--ease-standard);
+}
+
+@keyframes post-enter {
+  from { opacity: 0; }
+}
+
+.post-box:focus-within {
+  border-color: var(--color-accent);
+}
+
+.post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-block-end: var(--space-2);
+}
+
+/* The drag handle is an IconButton (44 x 44). Touch must not scroll the page while a post is dragged. */
+.post-drag > .ui-icon-button {
+  touch-action: none;
+  cursor: grab;
+}
+
+.post-drag > .ui-icon-button:active {
+  cursor: grabbing;
+}
+
+.post-number {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-soft);
+  font-weight: var(--font-weight-semibold);
+}
+
+.post-header-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.post-textarea {
+  inline-size: 100%;
+  max-inline-size: var(--measure);
+  background-color: transparent;
+  border: none;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-relaxed);
+  text-align: start;
+  resize: none;
+  overflow: hidden;
+  transition: block-size var(--duration-fast) var(--ease-standard);
+}
+
+/* The focus ring is drawn on the post box instead, so the textarea itself has none. */
+.post-textarea:focus {
+  outline: none;
+}
+
+.post-box:has(.post-textarea:focus-visible) {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.post-textarea.over-limit {
+  color: var(--color-danger);
+}
+
+.post-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-block-start: var(--space-2);
+  padding-block-start: var(--space-2);
+  border-block-start: var(--border-width) solid var(--color-border-soft);
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  position: relative;
+}
+
+.char-counter {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-soft);
+  font-weight: var(--font-weight-semibold);
+}
+
+.char-counter.over-limit {
+  color: var(--color-danger);
+}

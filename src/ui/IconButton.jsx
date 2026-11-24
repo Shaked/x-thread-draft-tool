@@ -3,8 +3,9 @@ import Icon from './Icon'
 import './IconButton.css'
 
 // An icon-only button: always 44 x 44. `label` is required (aria-label and the tooltip). `ref` goes to the button.
+// `handleProps` is spread on the button first (the drag handle's dnd-kit listeners and attributes); the props below win.
 const IconButton = forwardRef(function IconButton(
-  { icon, label, variant = 'ghost', pressed, expanded, controls, disabled = false, disabledReason, onClick },
+  { icon, label, variant = 'ghost', pressed, expanded, controls, disabled = false, disabledReason, handleProps, onClick },
   ref
 ) {
   const reasonId = useId()
@@ -14,15 +15,16 @@ const IconButton = forwardRef(function IconButton(
       <button
         ref={ref}
         type="button"
+        {...handleProps}
         className={className}
         aria-label={label}
-        aria-pressed={pressed}
+        aria-pressed={pressed ?? handleProps?.['aria-pressed']}
         aria-expanded={expanded}
         aria-controls={controls}
         title={disabledReason || label}
         disabled={disabled && !disabledReason}
         aria-disabled={disabled || disabledReason ? true : undefined}
-        aria-describedby={disabledReason ? reasonId : undefined}
+        aria-describedby={[handleProps?.['aria-describedby'], disabledReason ? reasonId : null].filter(Boolean).join(' ') || undefined}
         onClick={(event) => {
           if (disabled || disabledReason) return event.preventDefault()
           onClick?.(event)
