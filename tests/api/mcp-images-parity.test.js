@@ -111,6 +111,13 @@ describe('move_post with image_url', () => {
     expect(deleteBlobUrls).not.toHaveBeenCalled()
   })
 
+  it('moves one copy of a url an older draft stores twice as a plain string', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: [{ id: 'p1', text: 'p1', images: [own('a'), own('a'), own('b')], embeddedTweet: null }] })
+    expect((await tool('move_post', { id: draft.id, image_url: own('a'), post_id: 'p1', position: 3 })).error).toBeNull()
+    const { rows } = await db.pg.query('select posts from drafts where id = $1', [draft.id])
+    expect(rows[0].posts[0].images).toEqual([own('a'), own('b'), own('a')])
+  })
+
   it('refuses a full target post, an unknown image and a stale version', async () => {
     const draft = await db.insertDraft(alice.id, { posts: [post('p1', ['a']), post('p2', ['b', 'c', 'd', 'e'])] })
     expect((await tool('move_post', { id: draft.id, image_url: own('a'), post_id: 'p2', position: 1 })).error).toMatch(/Post 2 already has 4 images/)

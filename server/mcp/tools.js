@@ -182,7 +182,7 @@ const TOOLS = [
         url: { type: 'string', format: 'uri' },
         postId: { type: 'string', description: 'Add the image to this post (at most 4 images per post).' },
         position: { type: 'integer', minimum: 1, description: 'With postId: 1-based place in the post. Default: last.' },
-        replace: { type: 'string', description: 'The url of an image of this draft. The new image takes its post and position; the old file is deleted when no draft of yours uses it.' },
+        replace: { type: 'string', description: 'The url of an image of this draft. The new image takes its place in every post that uses it; the old file is deleted when no draft of yours uses it.' },
         version: { ...VERSION, description: 'With replace: the draft version from get_draft. The change is refused if the draft changed since.' }
       },
       required: ['draftId', 'url']
@@ -796,8 +796,9 @@ function moveImage(posts, { image_url: url, post_id: toPostId, position }) {
   if (from < 0) return IMAGE_NOT_FOUND
   const to = indexOfPost(posts, toPostId)
   if (typeof to === 'string') return to
-  const image = posts[from].images.find((entry) => imageUrlOf(entry) === url)
-  const source = posts[from].images.filter((entry) => entry !== image)
+  const source = posts[from].images.slice()
+  // splice, not filter: an older draft can hold the same plain url string twice; only one moves.
+  const [image] = source.splice(source.findIndex((entry) => imageUrlOf(entry) === url), 1)
   const target = to === from ? source.slice() : (posts[to].images ?? []).slice()
   if (target.length >= MAX_IMAGES) return fullPostError(to)
   if (position > target.length + 1) return `position must be from 1 to ${target.length + 1}`
