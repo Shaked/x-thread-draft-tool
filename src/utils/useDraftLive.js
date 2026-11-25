@@ -4,10 +4,10 @@ import { draftsApi } from './api'
 // Live updates for the open editor (#363). While the page is visible, the editor asks the server whether the draft
 // changed (`GET /drafts/:id` with If-None-Match, a 304 when it did not). Rate: every 4 s; every 15 s after 2 min with
 // no change and no input; paused after 10 min. Hidden page: no checks. Input or a visibility change resumes.
-export const FAST_MS = 4000
-export const SLOW_MS = 15000
-export const SLOW_AFTER_MS = 2 * 60 * 1000
-export const STOP_AFTER_MS = 10 * 60 * 1000
+const FAST_MS = 4000
+const SLOW_MS = 15000
+const SLOW_AFTER_MS = 2 * 60 * 1000
+const STOP_AFTER_MS = 10 * 60 * 1000
 
 // The "Updated ..." line: "just now" under a minute, then whole minutes.
 export function updatedLabel(ms) {
