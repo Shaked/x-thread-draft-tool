@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { draftsApi, authApi } from '../utils/api'
 import { useDraftLive, updatedLabel } from '../utils/useDraftLive'
+import { uploadsPending } from '../utils/pendingUploads'
 import { normalizeImages } from '../utils/images'
 import { set as idbSet, del as idbDel, get as idbGet } from 'idb-keyval'
 import ThreadComposer from '../components/ThreadComposer'
@@ -273,7 +274,11 @@ export default function DraftEditor({ user }) {
   const live = useDraftLive(id, {
     enabled: Boolean(draft) && Boolean(user) && !conflict && !loading,
     canCheck: () =>
-      savingCountRef.current === 0 && !conflictRef.current && draft !== null && JSON.stringify(draft) === lastSavedRef.current,
+      savingCountRef.current === 0 &&
+      !conflictRef.current &&
+      !uploadsPending() &&
+      draft !== null &&
+      JSON.stringify(draft) === lastSavedRef.current,
     getVersion: () => versionRef.current,
     onNewer: showNewer
   })

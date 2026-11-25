@@ -7,6 +7,7 @@ import { draftsApi } from '../../src/utils/api'
 import { clear as idbClear } from 'idb-keyval'
 import { ToastProvider } from '../../src/ui/Toast.jsx'
 import { ConfirmProvider } from '../../src/ui/Dialog.jsx'
+import { beginUpload, endUpload } from '../../src/utils/pendingUploads'
 
 // Live updates (#363): the open editor asks the server for newer versions, with the rate, pause and stop rules.
 vi.mock('../../src/utils/api', () => ({
@@ -181,6 +182,19 @@ describe('DraftEditor live updates (#363)', () => {
       answer({ changed: true, draft: { ...DRAFT, version: 4, title: 'Changed by an AI app' } })
     })
     expect(title).toHaveValue('Draft one!')
+  })
+
+  it('does not check while an image upload is pending, and checks again after it', async () => {
+    renderEditor()
+    await screen.findByLabelText('Draft title')
+
+    beginUpload() // an upload that started with this draft is still running
+    await advance(12000)
+    expect(draftsApi.check).not.toHaveBeenCalled()
+
+    endUpload()
+    await advance(4000)
+    expect(draftsApi.check).toHaveBeenCalledTimes(1)
   })
 
   it('pauses after ten minutes, and Resume (or any input) starts checks again', async () => {

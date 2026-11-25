@@ -1,6 +1,7 @@
 import { useState, useRef, forwardRef, useImperativeHandle } from 'react'
 import { useParams } from 'react-router-dom'
 import { uploadImage, uploadImageFromUrl } from '../utils/images'
+import { beginUpload, endUpload } from '../utils/pendingUploads'
 
 const MAX_IMAGES = 4
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB before compression
@@ -98,6 +99,7 @@ const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
     }
 
     setUploading(true)
+    beginUpload()
 
     try {
       const uploadPromises = fileArray.map(async (file) => {
@@ -116,6 +118,7 @@ const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
       console.error('Upload error:', err)
       setError(uploadErrorMessage(err))
     } finally {
+      endUpload()
       setUploading(false)
     }
   }
@@ -132,6 +135,7 @@ const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
     }
 
     setUrlLoading(true)
+    beginUpload()
 
     try {
       console.log(`Fetching image from URL: ${imageUrl}`)
@@ -156,6 +160,7 @@ const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
 
       return null
     } finally {
+      endUpload()
       setUrlLoading(false)
     }
   }
