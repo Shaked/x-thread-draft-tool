@@ -23,7 +23,7 @@ This section describes what the script sends today. The target format, with no e
 | Try it on preview | 👀 Try it on preview | A pull request gets the label `try-preview`, added by the repository owner's account. The same label on an issue sends nothing. | Open preview, and PR #n |
 | Needs you | 🙋 Needs you | The label `owner` is added to an issue or a pull request, by the repository owner's account. | Open (the issue or PR) |
 | Cleanup review | 🧹 Cleanup review | A pull request gets the label `cleanup-pr`, added by the repository owner's account. The same label on an issue sends nothing. Also "🧹 Cleanup review started" when the daily workflow opens a cleanup issue (same kind, different headline). | Open PR #n (or Open issue #n for the started message) |
-| Speed budget over limit | ⏱ Speed budget over limit | A manual run of `speed-metrics.yml` (input `last`) finds a stage whose p90 is over its limit (`docs/plans/speed.md` section 1). The per-merge check after a production smoke run sends nothing. | Open (the run) |
+| Speed budget over limit | Speed over the budget: <stages> (no emoji; the headline is the link) | A manual run of `speed-metrics.yml` (input `last`) finds a stage whose p90 is over its limit (`docs/plans/speed.md` section 1). Lines of numbers: the window (the last N merged PRs and the date of the oldest), then one line per stage over its limit with its p90, limit and usual (median) value, then "Nothing needed: this check only warns." The link opens the run, whose summary has the stage table. The per-merge check after a production smoke run sends nothing. | The headline (the run) |
 
 What a message looks like:
 - Line 1: the emoji and the headline, in bold (in the HTML version; the plain-text fallback has no bold).

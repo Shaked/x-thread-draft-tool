@@ -32,7 +32,7 @@ const KINDS = {
   owner: { emoji: '🙋', headline: 'Needs you' },
   cleanup: { emoji: '🧹', headline: 'Cleanup review' },
   'cleanup-started': { emoji: '🧹', headline: 'Cleanup review started' },
-  speed: { emoji: '⏱', headline: 'Speed budget over limit' },
+  speed: { headline: 'Speed budget over limit' },
 }
 
 // Escapes the three characters Telegram HTML needs, plus the double quote for attribute values.
@@ -87,12 +87,23 @@ function cleanupMessage(kind, spec, data) {
   return { html: html.join('\n'), plain: plain.join('\n') }
 }
 
+// Speed budget: the headline links to the run page (its summary holds the stage table), then the
+// window, one line per stage over its p90 limit, and a line saying nothing is needed.
+function speedMessage(spec, data) {
+  const headline = clip(data.title || spec.headline)
+  const body = [data.window, ...(data.lines || []), 'Nothing needed: this check only warns.'].filter(Boolean)
+  const html = [`<b>${linkHtml(headline, data.url)}</b>`, ...body.map(escapeHtml)]
+  const plain = [linkPlain(headline, data.url), ...body]
+  return { html: html.join('\n'), plain: plain.join('\n') }
+}
+
 // Returns { html, plain } for a kind, or null for an unknown kind. The first link is the main
 // one, so Telegram's link preview is drawn from it.
 export function buildMessage(kind, data = {}) {
   const spec = KINDS[kind]
   if (!spec) return null
   if (kind === 'cleanup' || kind === 'cleanup-started') return cleanupMessage(kind, spec, data)
+  if (kind === 'speed') return speedMessage(spec, data)
   const title = clip(data.title || '(no title)')
   const sha = String(data.sha || '').slice(0, 7)
 
