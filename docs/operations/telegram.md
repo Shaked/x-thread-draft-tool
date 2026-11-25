@@ -37,11 +37,7 @@ Titles are cut to 120 characters.
 
 Nothing else sends a message. There is no message for a push, a new PR, a CI run, a merge, a preview build, or a docs-only merge. A failed Vercel deployment sends nothing either: the smoke job runs only when the deployment state is `success`. A docs-only merge creates no deployment (`scripts/vercel-ignore.mjs` skips the build).
 
-Limits of the text today:
-- The "passed" line has no number. "N/N passed" is not in the code yet.
-- The try-preview message does not say what to try. It has only the links.
-
-## The target messages
+## The messages
 
 Sent by the script since task #369, step 7. The rules and the placeholders are in `.claude/skills/reply-style/templates/telegram-message.md`.
 Bold is the headline, and the headline is the link. English only: the owner reads English.

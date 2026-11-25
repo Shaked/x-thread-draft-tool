@@ -139,7 +139,7 @@ describe('run', () => {
     expect(body.text.indexOf(PREVIEW_URL)).toBeLessThan(body.text.indexOf(PR_URL))
   })
 
-  it('sends the cleanup notice with the quote block and the summary line from the PR body', async () => {
+  it('sends the cleanup notice with the summary line from the PR body', async () => {
     const fetchImpl = fakeFetch({ status: 200 })
     const { lines, log } = logger()
     const result = await run(

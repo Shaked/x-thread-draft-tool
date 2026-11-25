@@ -1,7 +1,7 @@
 # Telegram message templates
 
-Five kinds, one shape. `scripts/notify-telegram.mjs` still sends the old text until the Telegram code
-step of task #369 moves it to this one. The owner reads English, so the messages are English only.
+Five kinds, one shape. `scripts/notify-telegram.mjs` sends these forms since task #369, step 7 (the speed kind is not
+here yet). The owner reads English, so the messages are English only.
 
 ## The shape
 1. The headline in bold, linked to the main page for this message. It says what happened, in plain words.
