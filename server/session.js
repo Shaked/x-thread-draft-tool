@@ -71,6 +71,8 @@ async function sessionState(request) {
 export async function readSession(request, { includeSuspended = false } = {}) {
   const state = await sessionState(request)
   if (!state || (state.suspended && !includeSuspended)) return null
+  // A cookie session is a browser caller, on this path too (OAuth consent, sign-out) (plan O2).
+  noteCaller('web')
   return state.session
 }
 

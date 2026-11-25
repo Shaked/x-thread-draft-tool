@@ -126,6 +126,12 @@ describe('rate limit', () => {
 })
 
 describe('requests that use no SQL', () => {
+  it('a signed-in cookie request (the readSession path) is caller web, not anon', async () => {
+    await route(listDrafts())
+    await flushMetrics()
+    expect((await rows()).map((r) => r.caller)).toEqual(['web'])
+  })
+
   it('a health check runs no SQL, and its count is written with the next request that does', async () => {
     const health = await route(apiRequest('/api/health'))
     expect(health.headers.get('server-timing')).toContain('q;desc="0"')
