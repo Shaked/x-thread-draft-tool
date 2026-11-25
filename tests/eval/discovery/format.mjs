@@ -5,6 +5,7 @@
 //      "Post text to copy:" block of a thread result (#352). A post shown in a code block is hard to read (#358).
 //   2. Hebrew stays as written: the user's Hebrew comes back byte for byte, and server text adds no direction marks.
 //   3. each text fits its length limit.
+//   4. (#405) an edit result quotes only the posts the edit changed, never the whole draft again.
 // A part that clients.json says the client does not read (false) is skipped for that client; "not checked" counts
 // as read, the safe case. tests/api/mcp-discovery.test.js runs it and prints the table.
 import { isCleanServerText } from '../../../server/mcp/language.js'
@@ -22,6 +23,7 @@ export const SAMPLES = {
   en: 'Coffee notes: one `tick`, two ``` fences, **bold** and a link https://example.com',
   he: 'שָׁלוֹם — שרשור על קפה ☕ עם X/טוויטר, ושורה שנייה'
 }
+const EDIT_POSTS = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']
 export const LIMITS = { instructions: { bytes: 1024 }, tool: { chars: 600 }, prompt: { chars: 400 }, skill: { bytes: 8192 } }
 
 /** True when `line` closes a fence opened with `open`: the same character, at least as many, nothing else (CommonMark). */
@@ -86,6 +88,13 @@ export function templatesFor(profile, server) {
   for (const [lang, sample] of Object.entries(SAMPLES)) {
     const text = server.threadText({ title: 'T', posts: [{ text: sample }, { text: sample }], url: 'https://app.example/draft/1', saved: true })
     out.push({ group: 'results', name: `thread markdown (${lang})`, text, keep: sample, fences: ['copy'] })
+    // #405: an edit of post 2 of 6. Its text quotes the post as it is now, and never the draft (`others` must not be there).
+    if (server.editText) {
+      const before = { title: 'T', version: 1, posts: EDIT_POSTS.map((id) => ({ id, text: `${id} ${sample}` })) }
+      const after = { ...before, version: 2, posts: before.posts.map((post) => (post.id === 'p2' ? { ...post, text: `${sample} new` } : post)) }
+      const others = before.posts.map((post) => post.text)
+      out.push({ group: 'results', name: `edit result (${lang})`, text: server.editText(before, after), keep: `${sample} new`, others })
+    }
   }
   return out
 }
@@ -111,6 +120,9 @@ export function formatEval(clients, server) {
       else problems.push(`${where}: Hebrew or user text is not kept exactly as written`)
       if (t.limit && tooLong(t.text, t.limit)) problems.push(`${where}: longer than ${JSON.stringify(t.limit)}`)
       else row.length += 1
+      // #405: an edit result that quotes posts the edit did not change shows the whole draft again.
+      const repeated = (t.others ?? []).filter((other) => t.text.includes(other))
+      if (repeated.length) problems.push(`${where}: shows ${repeated.length} posts the edit did not change`)
     }
     rows.push(...Object.values(groups))
   }

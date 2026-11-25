@@ -56,6 +56,16 @@ Prefer the post tools to \`update_draft\` with all the posts: \`add_post\`, \`up
 \`remove_post\`, \`move_post\`, \`add_image_from_url\`, \`remove_image\`. \`update_post\` accepts the draft version from
 \`get_draft\`; if the draft changed since, re-read it and try again.
 
+Edit first, then show (the same rules in English and Hebrew):
+- Order: To change a draft, call the edit tool first, with the draft id and post ids from an earlier result. Read the draft first only when you do not have those ids or the current text of the posts you change. Do not print the draft before the change.
+  כדי לשנות טיוטה, קרא קודם לכלי העריכה, עם מזהה הטיוטה ומזהי הפוסטים מתשובה קודמת. קרא את הטיוטה קודם רק אם אין לך את המזהים האלה או את הטקסט הנוכחי של הפוסטים שאתה משנה. אל תדפיס את הטיוטה לפני השינוי.
+- After the edit: Saved. Do not show the whole draft again: say in one line what changed and quote only the changed posts, if any.
+  נשמר. אל תציג שוב את כל הטיוטה: כתוב בשורה אחת מה השתנה, וצטט רק את הפוסטים ששונו, אם יש כאלה.
+- When to show it all: Show the whole thread only when the user asks to see it, or when most posts changed and no card shows it.
+  הצג את כל השרשור רק כשהמשתמש מבקש לראות אותו, או כשרוב הפוסטים השתנו ואין כרטיס שמציג אותו.
+- Stale version: Nothing was saved: the draft changed since you read it. Call get_draft_outline once (get_draft if you need the text), then repeat the change.
+  שום דבר לא נשמר: הטיוטה השתנתה מאז שקראת אותה. קרא ל-get_draft_outline פעם אחת (ל-get_draft אם אתה צריך את הטקסט), ואז חזור על השינוי.
+
 ## Hebrew and RTL
 
 - Answer in the language of the user's text (Hebrew in, Hebrew out), unless the user names another
