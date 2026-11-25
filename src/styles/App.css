@@ -743,6 +743,11 @@ a {
     padding: 12px 0;
   }
 
+  /* The thread panel is full width on phones; the banners around it keep the page gutter like the header above. */
+  .editor-content .ui-banner {
+    margin-inline: var(--page-gutter);
+  }
+
   .tweet-embed {
     padding: 0;
     border: 0;
