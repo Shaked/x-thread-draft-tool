@@ -13,6 +13,15 @@ const IF_MATCH = {
     'The draft version you read as an entity tag, for example "3", or * for any version. Weak tags (W/"3") never match on a write. A malformed value is 400.',
   schema: { type: 'string' }
 }
+const IF_NONE_MATCH = {
+  name: 'If-None-Match',
+  in: 'header',
+  required: false,
+  description:
+    'On GET /drafts/{id}: the version you hold as one strong entity tag, for example "3". If it is the current version the answer is 304 with no body. Only one strong tag counts: *, a weak tag, a list or a malformed value gets the draft (200).',
+  schema: { type: 'string' }
+}
+const NOT_MODIFIED = { description: 'The version in If-None-Match is the current version. No body; the ETag header has the version.' }
 const PRECONDITION_FAILED = {
   description: 'If-Match does not match the current version. Nothing was written. Body: { error, version, draft } with the current version and draft; the ETag header has the version too.',
   content: errorContent()
@@ -332,10 +341,10 @@ export const OPENAPI = {
     },
     '/drafts/{id}': {
       get: {
-        summary: 'Read a draft by id (owner only: another user gets 404, a signed-out caller 401). The ETag header is the draft version, for example "3".',
+        summary: 'Read a draft by id (owner only: another user gets 404, a signed-out caller 401). The ETag header is the draft version, for example "3". With If-None-Match of that version the answer is 304 with no body (#360).',
         security: BEARER,
-        parameters: [ID],
-        responses: { ...json({ type: 'object', properties: { draft: draftRef } }), 401: UNAUTHORIZED, 404: NOT_FOUND }
+        parameters: [ID, IF_NONE_MATCH],
+        responses: { ...json({ type: 'object', properties: { draft: draftRef } }), 304: NOT_MODIFIED, 401: UNAUTHORIZED, 404: NOT_FOUND }
       },
       patch: {
         summary: 'Update title and/or posts (owner only). One transaction; sending what the draft already holds is a 200 with no write; a stale If-Match is 412. Every write bumps version and returns an ETag.',

@@ -13,6 +13,7 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | List drafts | `GET /drafts` | `list_drafts` | `/` | Home page |
 | Create draft | `POST /drafts` | `create_draft` | `/` | |
 | Read draft | `GET /drafts/:id` | `get_draft` | `/draft/:id` | Editor page |
+| Did the draft change? (conditional read) | `GET /drafts/:id` | `no: get_draft is called once per answer, not polled` | `no: the editor does not poll yet; live updates are #363` | REST only: `If-None-Match` of the current version gives 304 (#360); no client sends it today |
 | Draft outline | `GET /drafts/:id/outline` | `get_draft_outline` | `no: no page shows the outline, the UI never calls this route` | Rule gap: no UI |
 | Edit draft settings | `PATCH /drafts/:id` | `update_draft` | `/draft/:id` | Rule gap: the editor saves without If-Match, so its old copy can overwrite another writer's edit (#354; fixed by #273 L1 c) |
 | Edit one post | `PATCH /drafts/:id/posts/:postId` | `update_post` | `/draft/:id` | Rule gap: the editor saves the whole draft with `PATCH /drafts/:id`, not this route |

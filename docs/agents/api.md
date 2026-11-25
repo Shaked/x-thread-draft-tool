@@ -139,6 +139,9 @@ curl -s $BASE/api/drafts/DRAFT_ID/outline -H "Authorization: Bearer $TOKEN"
 # Read by id (owner only: another user gets 404, no token or session gets 401)
 curl -s $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN"
 
+# Did it change? Send the ETag you hold as If-None-Match: 304 with no body when the version is unchanged (#360). A weak tag, * or a malformed value gets the draft.
+curl -s -o /dev/null -w '%{http_code}\n' $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN" -H 'If-None-Match: "3"'
+
 # Update title and/or posts (owner). Atomic; sending what the draft already holds is a 200 with no write.
 # Same If-Match rules as the per-post PATCH below (see "Concurrent edits").
 curl -s -X PATCH $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN" \
