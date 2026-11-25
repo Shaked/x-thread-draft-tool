@@ -162,8 +162,8 @@ Some tools can show their result as a small view inside an app that supports MCP
   earlier read. They show only what changed. The view has each changed post now with its text before the edit,
   each removed post, the new version and a "Show all posts" button. The text quotes each changed post as it is now,
   so a result stays short. A repeat of the same edit writes nothing and says so in one line. The whole draft is shown instead when
-  it has fewer than 4 posts, when most of its posts changed, or when another write landed since the edit read the
-  draft. `_meta["x-thread/changes"]` carries the changes; `src/utils/draftChanges.js` computes them, so the editor
+  it has fewer than 4 posts, when most of its posts changed, when another write landed since the edit read the
+  draft, or when two posts share an id. `_meta["x-thread/changes"]` carries the changes; `src/utils/draftChanges.js` computes them, so the editor
   and the History panel can show the same "what changed". A refused edit (the draft changed since it was read)
   shows its error text and no view data.
 - `get_draft` with `view: "compact"` shows the heading and a "Show all posts" button only: for a read made only

@@ -80,13 +80,16 @@ describe('#405: get_draft, then update_post', () => {
     expect(three._meta['x-thread/changes']).toMatchObject({ post_count: 3, full: true })
   })
 
-  it('a post with no id and a repeated id: the changes name only the post that changed (Opus review on PR 422)', async () => {
-    const posts = [{ text: 'no id' }, { id: 'd', text: 'first d' }, { id: 'd', text: 'second d' }, { id: 'e', text: 'e' }]
+  it('a post with no id is not shown as removed; a repeated id shows the whole draft (Opus and Codex review on PR 422)', async () => {
+    const posts = [{ text: 'no id' }, { id: 'd', text: 'd' }, { id: 'e', text: 'e' }, { id: 'f', text: 'f' }]
     await db.pg.query('update drafts set posts = $2::jsonb where id = $1', [db.draft.id, JSON.stringify(posts)])
     const added = await call('add_post', { id: db.draft.id, text: 'new', post_id: 'n' })
-    expect(added._meta['x-thread/changes'].posts.map((c) => [c.status, c.id])).toEqual([['added', 'n']])
-    const edited = await call('update_post', { id: db.draft.id, post_id: 'e', text: 'e2' })
-    expect(edited._meta['x-thread/changes'].posts.map((c) => [c.status, c.id, c.before])).toEqual([['edited', 'e', 'e']])
+    expect(added._meta['x-thread/changes']).toMatchObject({ full: false, posts: [{ status: 'added', id: 'n' }] })
+    const twice = [{ id: 'd', text: 'first d' }, { id: 'd', text: 'second d' }, { id: 'e', text: 'e' }, { id: 'f', text: 'f' }]
+    await db.pg.query('update drafts set posts = $2::jsonb where id = $1', [db.draft.id, JSON.stringify(twice)])
+    const removed = await call('remove_post', { id: db.draft.id, post_id: 'd' })
+    expect(removed._meta['x-thread/changes']).toMatchObject({ known: true, full: true })
+    expect(removed.content.at(-1).text).toMatch(/^Thread "Six", 3 posts, saved as a draft\./)
   })
 
   it('another write between the read and this one: the state before is not known, so the whole draft is shown', () => {

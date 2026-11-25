@@ -38,6 +38,7 @@ function steadyIds(beforeIds, afterIds) {
  * index (its place after the edit; before it for a removed post), from (its place before, when it moved),
  * before (text before), after (text after), images: { before, after } (counts, only when they changed) }.
  * `title` is { before, after } when the title changed, else null. `most` is true when most posts changed.
+ * `ambiguous` is true when an id is used more than once, so the pairing of those posts is a guess.
  */
 export function changesOf(before, after) {
   const oldPosts = Array.isArray(before?.posts) ? before.posts : []
@@ -77,5 +78,7 @@ export function changesOf(before, after) {
     if (!newSet.has(oldKeys[i])) posts.push({ id: post?.id, status: 'removed', index: i + 1, before: textOf(post) })
   })
   const title = (before?.title ?? '') !== (after?.title ?? '') ? { before: before?.title ?? '', after: after?.title ?? '' } : null
-  return { title, posts, most: posts.length * 2 > Math.max(oldPosts.length, newPosts.length) }
+  // A repeated id makes the match a guess (which "d" was removed?): `ambiguous` tells the caller to show it all.
+  const ambiguous = [oldKeys, newKeys].some((keys) => keys.some((key) => !key.endsWith('#0')))
+  return { title, posts, most: posts.length * 2 > Math.max(oldPosts.length, newPosts.length), ambiguous }
 }

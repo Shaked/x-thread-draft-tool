@@ -1,7 +1,7 @@
 // The result of an MCP edit tool (#405, Task B1 b): what the edit changed, for the thread view (_meta x-thread/changes)
 // and as compact text for the model and for apps that show no view. Routing rule, written once here:
-// - the whole draft is shown only when it has fewer than 4 posts, when most of its posts changed, or when the state
-//   before the edit is not known (another write landed in between);
+// - the whole draft is shown only when it has fewer than 4 posts, when most of its posts changed, when the state
+//   before the edit is not known (another write landed in between), or when a repeated post id makes the match a guess;
 // - otherwise only the changed posts are shown: before and after of their text, the new count and the new version.
 import { changesOf } from '../../src/utils/draftChanges.js'
 
@@ -18,8 +18,8 @@ export function changeMeta(before, after) {
   // Known only when this write is the only one since `before` (or nothing was written).
   const known = Boolean(before) && (after.version === before.version || after.version === before.version + 1)
   if (!known) return { ...base, known: false, full: true, title: null, posts: [] }
-  const { title, posts, most } = changesOf(before, after)
-  return { ...base, known: true, full: after.posts.length < FULL_BELOW || most, title, posts }
+  const { title, posts, most, ambiguous } = changesOf(before, after)
+  return { ...base, known: true, full: after.posts.length < FULL_BELOW || most || ambiguous, title, posts }
 }
 
 const quote = (text) => String(text).split('\n').map((line) => (line ? `> ${line}` : '>'))
