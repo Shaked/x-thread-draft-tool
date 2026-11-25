@@ -175,6 +175,12 @@ describe('run(): modes, output and the checks', () => {
     expect(doc.mode).toBe('last 2')
   })
 
+  it('--last prints the p90 table to the log, so the job log shows the numbers', async () => {
+    const lines = []
+    await run(['--last', '2', '--out', tmp()], {}, { api: fakeApi(), now: NOW, log: (line) => lines.push(line), notifyImpl: async () => 'skipped' })
+    expect(lines.join('\n')).toContain('| Kind | Stage | n | Median | p90 | p90 limit | Over | Change |')
+  })
+
   it('the same sample gives byte-identical speed.json and speed.md', async () => {
     const a = tmp()
     const b = tmp()
