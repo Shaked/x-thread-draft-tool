@@ -44,31 +44,24 @@ describe('buildMessage: the four kinds', () => {
   it('live: production is live, with the sha, the title and the production link first', () => {
     const msg = buildMessage('live', { sha: SHA, title: 'Fix the thing' })
     expect(msg.html).toBe(
-      [
-        '✅ <b>Production is live and tested</b>',
-        '<code>a11392e</code> Fix the thing',
-        'Smoke tests passed.',
-        `<a href="${PROD_URL}">Open production</a>`,
-      ].join('\n'),
+      [`<b><a href="${PROD_URL}">Production is live and tested</a></b>`, '<code>a11392e</code> Fix the thing', 'Nothing needed.'].join(
+        '\n',
+      ),
     )
-    expect(msg.plain).toBe(
-      [
-        '✅ Production is live and tested',
-        'a11392e Fix the thing',
-        'Smoke tests passed.',
-        `Open production: ${PROD_URL}`,
-      ].join('\n'),
-    )
+    expect(msg.plain).toBe([`Production is live and tested: ${PROD_URL}`, 'a11392e Fix the thing', 'Nothing needed.'].join('\n'))
+    const withRun = buildMessage('live', { sha: SHA, title: 'Fix the thing', runUrl: RUN_URL })
+    expect(withRun.html.split('\n').pop()).toBe(`<a href="${RUN_URL}">See the run</a>`)
   })
 
   it('failed: the urgent kind links the failed run', () => {
     const msg = buildMessage('failed', { sha: SHA, title: 'Fix the thing', runUrl: RUN_URL })
     expect(msg.html).toBe(
       [
-        '🚨 <b>Production smoke FAILED</b>',
+        `<b><a href="${RUN_URL}">Production smoke test failed</a></b>`,
         '<code>a11392e</code> Fix the thing',
-        'The smoke test did not pass.',
-        `<a href="${RUN_URL}">See the failed run</a>`,
+        'Production runs this commit, and its smoke test failed or did not run.',
+        'Needs you: open the run and read the first failed step.',
+        `<a href="${PROD_URL}">Open production</a>`,
       ].join('\n'),
     )
   })
@@ -77,9 +70,10 @@ describe('buildMessage: the four kinds', () => {
     const msg = buildMessage('preview', { title: 'Try the drafts', url: PR_URL })
     expect(msg.html).toBe(
       [
-        '👀 <b>Try it on preview</b>',
+        `<b><a href="${PREVIEW_URL}">Try it on preview</a></b>`,
         'Try the drafts',
-        `<a href="${PREVIEW_URL}">Open preview</a> · <a href="${PR_URL}">PR #12</a>`,
+        'Needs you: try the change on preview.',
+        `<a href="${PR_URL}">PR #12 on GitHub</a>`,
       ].join('\n'),
     )
     expect(msg.html.indexOf(PREVIEW_URL)).toBeLessThan(msg.html.indexOf(PR_URL))
@@ -88,14 +82,19 @@ describe('buildMessage: the four kinds', () => {
   it('preview: the PR link shows its number, and falls back to PR when the URL has none', () => {
     expect(buildMessage('preview', { title: 'T', url: PR_URL }).plain).toContain('PR #12')
     expect(buildMessage('preview', { title: 'T', url: 'https://github.com/o/r/pulls' }).plain).toContain(
-      '· PR: https://github.com/o/r/pulls',
+      'PR on GitHub: https://github.com/o/r/pulls',
     )
   })
 
   it('owner: needs you, with the issue link', () => {
     const msg = buildMessage('owner', { title: 'Pick a colour', url: ISSUE_URL })
-    expect(msg.html).toBe(['🙋 <b>Needs you</b>', 'Pick a colour', `<a href="${ISSUE_URL}">Open</a>`].join('\n'))
-    expect(msg.plain).toBe(['🙋 Needs you', 'Pick a colour', `Open: ${ISSUE_URL}`].join('\n'))
+    expect(msg.html).toBe(
+      [`<b><a href="${ISSUE_URL}">An issue needs you</a></b>`, 'Pick a colour', 'Needs you: open it and answer or do what it asks.'].join('\n'),
+    )
+    expect(msg.plain).toBe(
+      [`An issue needs you: ${ISSUE_URL}`, 'Pick a colour', 'Needs you: open it and answer or do what it asks.'].join('\n'),
+    )
+    expect(buildMessage('owner', { title: 'T', url: PR_URL }).html.split('\n')[0]).toBe(`<b><a href="${PR_URL}">A PR needs you</a></b>`)
   })
 
   it('returns null for an unknown kind', () => {
@@ -110,18 +109,14 @@ describe('buildMessage: the four kinds', () => {
 describe('buildMessage: cleanup review (epic #255, task C3)', () => {
   const PR_BODY = 'Summary: Drop two duplicate parser tests\n\nLong details here'
 
-  it('cleanup: headline, the PR title in a quote block, the PR link with its number, then the summary', () => {
+  it('cleanup: the headline links to the PR, then the title, the summary as "What it removes", and what is needed', () => {
     const msg = buildMessage('cleanup', { title: 'Remove duplicate tests', url: PR_URL, body: PR_BODY })
+    const needs = 'Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR.'
     expect(msg.html).toBe(
-      [
-        '🧹 <b>Cleanup review</b>',
-        '<blockquote>Remove duplicate tests</blockquote>',
-        `<a href="${PR_URL}">Open PR #12</a>`,
-        'Drop two duplicate parser tests',
-      ].join('\n'),
+      [`<b><a href="${PR_URL}">Cleanup review ready</a></b>`, 'Remove duplicate tests', 'What it removes: Drop two duplicate parser tests', needs].join('\n'),
     )
     expect(msg.plain).toBe(
-      ['🧹 Cleanup review', 'Remove duplicate tests', `Open PR #12: ${PR_URL}`, 'Drop two duplicate parser tests'].join('\n'),
+      [`Cleanup review ready: ${PR_URL}`, 'Remove duplicate tests', 'What it removes: Drop two duplicate parser tests', needs].join('\n'),
     )
   })
 
@@ -133,37 +128,30 @@ describe('buildMessage: cleanup review (epic #255, task C3)', () => {
 
   it('cleanup: the summary is cut to 120 characters and escaped', () => {
     const msg = buildMessage('cleanup', { title: 'T', url: PR_URL, body: `Summary: <b>${'x'.repeat(300)}</b>` })
-    const last = msg.html.split('\n').pop()
-    expect(last.startsWith('&lt;b&gt;')).toBe(true)
-    expect(last).not.toContain('<b>')
-    expect(Array.from(msg.plain.split('\n').pop()).length).toBe(MAX_TITLE)
+    const line = msg.html.split('\n').find((l) => l.startsWith('What it removes: '))
+    expect(line.startsWith('What it removes: &lt;b&gt;')).toBe(true)
+    expect(line).not.toContain('<b>')
+    const plainLine = msg.plain.split('\n').find((l) => l.startsWith('What it removes: '))
+    expect(Array.from(plainLine).length - 'What it removes: '.length).toBe(MAX_TITLE)
   })
 
-  it('cleanup: a title that closes the quote block cannot add markup', () => {
+  it('cleanup: a title with markup cannot add tags', () => {
     const msg = buildMessage('cleanup', { title: '</blockquote><script>x</script>', url: PR_URL })
-    expect(msg.html.match(/<blockquote>/g)).toHaveLength(1)
-    expect(msg.html.match(/<\/blockquote>/g)).toHaveLength(1)
     expect(msg.html).not.toContain('<script')
+    expect(msg.html).toContain('&lt;/blockquote&gt;&lt;script&gt;')
   })
 
   it('cleanup: a link that is not https is dropped and the label stays as text', () => {
     const msg = buildMessage('cleanup', { title: 'T', url: 'http://evil.example/pull/3' })
     expect(msg.html).not.toContain('<a ')
-    expect(msg.html).toContain('Open PR #3')
+    expect(msg.html).toContain('Cleanup review ready')
   })
 
-  it('cleanup-started: the issue headline, the title in a quote block, the issue link, and no summary', () => {
+  it('cleanup-started: the headline links to the issue, then the title, and nothing is needed', () => {
     const msg = buildMessage('cleanup-started', { title: 'Cleanup review 2026-11-20', url: ISSUE_URL, body: 'Summary: ignored' })
-    expect(msg.html).toBe(
-      [
-        '🧹 <b>Cleanup review started</b>',
-        '<blockquote>Cleanup review 2026-11-20</blockquote>',
-        `<a href="${ISSUE_URL}">Open issue #34</a>`,
-      ].join('\n'),
-    )
-    expect(msg.plain).toBe(
-      ['🧹 Cleanup review started', 'Cleanup review 2026-11-20', `Open issue #34: ${ISSUE_URL}`].join('\n'),
-    )
+    const nothing = 'Nothing needed. An agent reviews the commits since the last review and opens up to three PRs.'
+    expect(msg.html).toBe([`<b><a href="${ISSUE_URL}">Cleanup review started</a></b>`, 'Cleanup review 2026-11-20', nothing].join('\n'))
+    expect(msg.plain).toBe([`Cleanup review started: ${ISSUE_URL}`, 'Cleanup review 2026-11-20', nothing].join('\n'))
   })
 
   it('summaryLine reads only the first line, after "Summary:"', () => {
@@ -227,8 +215,8 @@ describe('safeUrl', () => {
   it('drops a bad link but keeps the label as text', () => {
     const msg = buildMessage('owner', { title: 'T', url: 'http://evil.example' })
     expect(msg.html).not.toContain('<a ')
-    expect(msg.html).toContain('Open')
-    expect(msg.plain).toContain('Open')
+    expect(msg.html).toContain('An issue needs you')
+    expect(msg.plain).toContain('An issue needs you')
   })
 
   it('escapes an ampersand in a link so the attribute stays valid', () => {
