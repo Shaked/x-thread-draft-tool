@@ -186,6 +186,17 @@ describe('DraftEditor save with a version (If-Match)', () => {
     await act(async () => finishFirst({ ...DRAFT, version: 4 }))
   })
 
+  it('asks before the page closes when there are unsaved edits, even with no save in flight', async () => {
+    draftsApi.update.mockResolvedValue({ ...DRAFT, version: 4 })
+    renderEditor()
+    const title = await screen.findByLabelText('Draft title')
+    await typer().type(title, '!')
+
+    const event = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+  })
+
   it('asks before the page closes while a conflict waits for the choice', async () => {
     draftsApi.update.mockRejectedValue(
       httpError(412, 'stale', { version: 5, draft: { ...DRAFT, title: 'Theirs', version: 5 } })
