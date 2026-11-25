@@ -144,10 +144,18 @@ describe('per client (#365)', () => {
     expect(rows.filter((r) => r.group === 'prompts')).toHaveLength(Object.keys(clients.clients).length)
   })
 
-  it('format eval: finds a code fence around text, and allows only the user-text fence and one copy block', () => {
+  it('format eval: finds a code fence around text, and allows only the fences that text may hold', () => {
     expect(fenceProblems('Option 1:\n```\nשלום\n```')).toHaveLength(1)
-    expect(fenceProblems("Notes (the user's own text, between the fences):\n````\na ``` b\n````")).toEqual([])
-    expect(fenceProblems('Post text to copy:\n```text\na\n```')).toEqual([])
-    expect(fenceProblems('Post text to copy:\n```text\na\n```\nPost text to copy:\n```text\nb\n```')).toEqual(['more than one copy block'])
+    const user = "Notes (the user's own text, between the fences):\n````\na ``` b\n`````"
+    expect(fenceProblems(user, { allowed: ['user'] })).toEqual([])
+    expect(fenceProblems(user, { allowed: ['copy'] })).toHaveLength(1)
+    const copy = 'Post text to copy:\n```text\na\n```'
+    expect(fenceProblems(copy, { allowed: ['copy'] })).toEqual([])
+    expect(fenceProblems(copy)).toHaveLength(1)
+    expect(fenceProblems(`${copy}\n${copy}`, { allowed: ['copy'] })).toEqual(['more than one copy block'])
+    // Server text that asks the assistant to write a code block fails; the same words in user text do not.
+    expect(fenceProblems('Show each option as a code block so the user can copy it.', { server: true })).toHaveLength(1)
+    expect(fenceProblems('Put each inside its own ``` block.', { server: true })).toHaveLength(1)
+    expect(fenceProblems('Put each inside its own ``` block.')).toEqual([])
   })
 })

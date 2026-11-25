@@ -10,29 +10,42 @@
 import { isCleanServerText } from '../../../server/mcp/language.js'
 
 const FENCE = /^\s*(`{3,}|~{3,})/
-// The line before a deliberate fence. Anything else that opens a fence is a problem.
-const ALLOWED_BEFORE = [/\(the user's own text, between the fences\):$/, /^Post text to copy:$/]
+// The line before a deliberate fence, by kind. A text may open a fence only after the label of a kind it allows:
+// `user` for the fence around the user's own text in a prompt message (D-13), `copy` for the one copy block of a
+// thread result (#352). Anything else that opens a fence is a problem.
+const LABELS = { user: /\(the user's own text, between the fences\):$/, copy: /^Post text to copy:$/ }
 const COPY_LABEL = 'Post text to copy:'
+// Server text that asks the assistant for a code block (#358): the model would write the fence, not the server.
+const ASKS_FOR_CODE = /\bcode blocks?\b|`{3}/i
 export const SAMPLES = {
   en: 'Coffee notes: one `tick`, two ``` fences, **bold** and a link https://example.com',
   he: 'שָׁלוֹם — שרשור על קפה ☕ עם X/טוויטר, ושורה שנייה'
 }
 export const LIMITS = { instructions: { bytes: 1024 }, tool: { chars: 600 }, prompt: { chars: 400 }, skill: { bytes: 8192 } }
 
-/** Fences that are not deliberate, and more than one copy block, in one text. */
-export function fenceProblems(text) {
+/** True when `line` closes a fence opened with `open`: the same character, at least as many, nothing else (CommonMark). */
+const closes = (line, open) => line.trim().length >= open.length && [...line.trim()].every((ch) => ch === open[0])
+
+/**
+ * Fences that are not deliberate, more than one copy block, and (in server-written lines) a request for a code
+ * block. `allowed` lists the deliberate kinds this text may hold (see LABELS); `server` marks text the server wrote.
+ */
+export function fenceProblems(text, { allowed = [], server = false } = {}) {
   const lines = String(text).split('\n')
   const problems = []
   let open = null
   lines.forEach((line, i) => {
     const m = line.match(FENCE)
-    if (!m) return
     if (open) {
-      if (line.trim() === open) open = null
+      if (m && closes(line, open)) open = null
       return
     }
-    open = m[1]
-    if (!ALLOWED_BEFORE.some((re) => re.test(lines[i - 1] ?? ''))) problems.push(`a code fence at line ${i + 1} that is not the user-text fence or the copy block`)
+    if (m) {
+      open = m[1]
+      if (!allowed.some((kind) => LABELS[kind].test(lines[i - 1] ?? ''))) problems.push(`a code fence at line ${i + 1} that is not a deliberate fence for this text`)
+    } else if (server && ASKS_FOR_CODE.test(line)) {
+      problems.push(`line ${i + 1} asks for a code block`)
+    }
   })
   if (lines.filter((line) => line === COPY_LABEL).length > 1) problems.push('more than one copy block')
   return problems
@@ -62,7 +75,7 @@ export function templatesFor(profile, server) {
         const args = promptArgs(prompt, lang)
         const built = server.getPrompt(prompt.name, args, { origin: 'https://app.example' })
         const text = built.result.messages.map((m) => m.content.text).join('\n')
-        out.push({ group: 'prompts', name: `${prompt.name} (${lang} message)`, text, keep: Object.keys(args).length ? SAMPLES[lang] : undefined })
+        out.push({ group: 'prompts', name: `${prompt.name} (${lang} message)`, text, keep: Object.keys(args).length ? SAMPLES[lang] : undefined, fences: ['user'], intro: built.result.messages[0].content.text.split('\n\n')[0] })
       }
     }
   }
@@ -70,7 +83,7 @@ export function templatesFor(profile, server) {
   // Every client gets tool results: the thread as markdown (#352), with each sample as a post.
   for (const [lang, sample] of Object.entries(SAMPLES)) {
     const text = server.threadText({ title: 'T', posts: [{ text: sample }, { text: sample }], url: 'https://app.example/draft/1', saved: true })
-    out.push({ group: 'results', name: `thread markdown (${lang})`, text, keep: sample })
+    out.push({ group: 'results', name: `thread markdown (${lang})`, text, keep: sample, fences: ['copy'] })
   }
   return out
 }
@@ -85,7 +98,8 @@ export function formatEval(clients, server) {
       const row = (groups[t.group] ??= { client, group: t.group, texts: 0, fence: 0, hebrew: 0, length: 0 })
       row.texts += 1
       const where = `${client} ${t.group} ${t.name}`
-      const fences = fenceProblems(t.text)
+      // A prompt message mixes server text and the user's sample, so its server part (the intro) is checked on its own.
+      const fences = [...fenceProblems(t.text, { allowed: t.fences, server: t.server }), ...(t.intro ? fenceProblems(t.intro, { server: true }) : [])]
       if (fences.length) problems.push(...fences.map((p) => `${where}: ${p}`))
       else row.fence += 1
       const hebrewOk = (t.keep === undefined || t.text.includes(t.keep)) && (!t.server || isCleanServerText(t.text))

@@ -10,6 +10,11 @@ Every feature that an AI app or an assistant sees or uses, for every supported A
 - a served view (`view:<name>`) or a surface (instructions, tools, results, prompts, skill) has no row;
 - a tool or prompt description has an English trigger part without a Hebrew one, or the reverse, or Latin words left in the Hebrew part (product names such as X and Twitter are allowed).
 
+What the test cannot see, so the reviewer checks it in the PR diff:
+- For the server instructions and the skill description it only asks for some Hebrew words, not a Hebrew part for each new English sentence.
+- A whole feature row deleted from all three tables passes when another row still covers the same surface.
+- A `true` value in `clients.json` is checked for a source URL, not for what that page says. Read the source of every new `true`.
+
 ## Cell forms
 
 - `built: <file>[, <file>]`: done for this client and language. Each file is a test or file in this repo that proves the server side. For a client column it also means the client fact in the row's Needs column is `true` in `clients.json`, with a source (a page, or an issue that records what Shaked saw). It is not a claim that anyone watched this exact feature in that app.
@@ -62,7 +67,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Tool titles | built: tests/api/mcp-schema.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
 | Tool results | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js |
 | Error messages | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js |
-| Thread as text when no view shows | built: tests/api/mcp-ui.test.js, tests/api/mcp-discovery.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js |
+| Thread as text when no view shows | built: tests/api/mcp-ui.test.js, tests/api/mcp-discovery.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | not checked | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js |
 | Options and suggestions display | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) |
 | Prompts (slash commands) | built: tests/api/mcp-prompts.test.js | not checked | not checked | not checked | no: owner saw no slash commands (#273) | not checked | not checked | not checked |
 | Skill | built: tests/api/mcp-skills.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
@@ -73,7 +78,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Edit results | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js |
 | Thread view after an edit | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | not checked | built: tests/api/mcp-edit-result.test.js | not checked | not checked | not checked | not checked |
 | Image operations | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js |
-| Connect guide | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | no: the guide has no Grok steps (#372) | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md |
+| Connect guide | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | no: the guide has no Grok steps (#372) | built: docs/agents/mcp.md | built: docs/agents/mcp.md | no: no steps for other MCP clients (#372) |
 
 ## Language: he
 
@@ -85,7 +90,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Tool titles | no: one English title per tool | no: one English title per tool | no: one English title per tool | no: one English title per tool | no: one English title per tool | no: one English title per tool | no: one English title per tool | no: one English title per tool |
 | Tool results | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js |
 | Error messages | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them |
-| Thread as text when no view shows | built: tests/e2e/mcp-grok-view.spec.ts, tests/api/mcp-discovery.test.js | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts |
+| Thread as text when no view shows | built: tests/e2e/mcp-grok-view.spec.ts, tests/api/mcp-discovery.test.js | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | not checked | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts |
 | Options and suggestions display | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) |
 | Prompts (slash commands) | built: tests/api/mcp-prompts.test.js, tests/api/client-matrix.test.js | not checked | not checked | not checked | no: owner saw no slash commands (#273) | not checked | not checked | not checked |
 | Skill | built: tests/api/mcp-skills.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
@@ -102,7 +107,7 @@ The thread tools add the thread as markdown after the JSON (#356): its labels ar
 
 ## What the cells rest on
 
-- Claude web renders views: its help page, in `clients.json`. ChatGPT renders the thread view: Shaked's screenshot of a Hebrew draft on #357.
+- Claude web renders views: its help page, in `clients.json`. ChatGPT renders the thread view: Shaked's screenshot of a Hebrew draft on #357. The ChatGPT drafts view and share card cells rest on the same fact (the same view mechanism); nobody has seen those two views in ChatGPT.
 - Grok: tool calls only when the connector is named (#279), no slash commands seen (#273). Each was seen by Shaked; why is not checked. The thread view was an empty grey box (#352); the fix (#356, the view reads the markdown part) is not checked in Grok, so the cell is `not checked`.
 - Edit results: the edit tools (#405) show the thread view from the draft as saved, and add one English line (`Saved: version N, M posts.`) with no post text.
 - Every other client fact is `not checked` in `clients.json` (#278 could not load the vendors' pages). #373 checks them.

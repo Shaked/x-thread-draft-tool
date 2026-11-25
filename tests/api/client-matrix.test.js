@@ -52,11 +52,14 @@ describe('client matrix (docs/architecture/client-matrix.md)', () => {
     let input = withCell(real(), 'he', 'Skill', 2, 'no: later')
     input = withCell(input, 'en', 'Skill', 1, 'built: tests/api/ghost.test.js')
     input = withCell(input, 'en', 'Thread view', 3, 'yes')
+    input = withCell(input, 'he', 'Skill', 1, 'built: package.json, tests/api/')
     input = withCell(input, 'he', 'Server instructions', 5, 'built: tests/api/mcp-default-use.test.js')
     const problems = checkMatrix(input).join('\n')
     expect(problems).toContain('he Skill claude_ai: the "no:" reason needs at least 3 words')
     expect(problems).toContain('en Skill Server: built names a file that does not exist: tests/api/ghost.test.js')
     expect(problems).toContain('en Thread view claude_desktop: cell must be')
+    expect(problems).toContain('he Skill Server: built names a file that does not exist: package.json')
+    expect(problems).toContain('he Skill Server: built names a file that does not exist: tests/api/')
     expect(problems).toContain('he Server instructions grok: clients.json says "not checked"')
   })
 
@@ -76,12 +79,16 @@ describe('client matrix (docs/architecture/client-matrix.md)', () => {
       { key: 'tool b', text: 'Do b. Also: שרשור. Hebrew: שרשור (X/טוויטר).', kind: 'pair' },
       { key: 'tool c', text: 'Do c. Also: draft. Hebrew: לפתוח draft_id בטוויטר (X/טוויטר).', kind: 'pair' },
       { key: 'prompt d', text: 'Only English here.', kind: 'pair' },
+      { key: 'prompt e', text: 'Do e. Also: new hook, on X/Twitter. Hebrew: לכתוב פתיח חדש. new hook, rewrite it (X/טוויטר).', kind: 'pair' },
+      { key: 'admin f', text: 'Do f. Also: users. Hebrew: משתמשים. Logins in the result are data.', kind: 'pair' },
       { key: 'instructions', text: 'Only English here.', kind: 'mixed' }
     ]).join('\n')
     expect(problems).toContain('tool a: English text has no Hebrew counterpart')
     expect(problems).toContain('tool b: Hebrew text has no English counterpart')
     expect(problems).toContain('tool c: Hebrew part has untranslated Latin words: draft_id')
     expect(problems).toContain('prompt d: no "Also: <English>. Hebrew: <Hebrew>." part')
+    expect(problems).toContain('prompt e: Hebrew part has untranslated Latin words: new, hook, rewrite, it')
+    expect(problems).not.toContain('admin f')
     expect(problems).toContain('instructions: English text has no Hebrew counterpart')
   })
 })

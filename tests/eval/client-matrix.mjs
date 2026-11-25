@@ -1,7 +1,7 @@
 // Implements #273 Task C1 (issue #365): the client and language matrix in docs/architecture/client-matrix.md.
 // Pure checks, no model, no network. tests/api/client-matrix.test.js runs them; the weekly review (#294, #295) runs
 // `node tests/eval/client-matrix.mjs --stale` to list `not checked` cells older than 30 days.
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -151,11 +151,18 @@ export function staleNotChecked(tables, today, days = 30) {
 
 /**
  * The English and Hebrew parts of a text written as "... Also: <en>. Hebrew: <he>." (tool and prompt descriptions).
- * The service names after the parts ("on X/Twitter", "(X/טוויטר)") are left out. Null when the text has neither marker.
+ * The Hebrew part ends at "(X/טוויטר)." when the text has it, else at the next sentence that starts with a capital
+ * Latin letter (the admin data note), else at the end. So Latin words after a ". " inside it stay in it and are found.
+ * The service names ("on X/Twitter", "(X/טוויטר)") are left out. Null when the text has neither marker.
  */
 export function triggerPair(text) {
-  const m = String(text).match(/Also: (.*?)(?:, on X\/Twitter)?\. Hebrew: (.*?)(?: \(X\/טוויטר\))?\.(?: |$)/)
-  return m ? { en: m[1].trim(), he: m[2].trim() } : null
+  const m = String(text).match(/Also: (.*?)(?:, on X\/Twitter)?\. Hebrew: (.*)$/s)
+  if (!m) return null
+  const rest = m[2]
+  const marked = rest.indexOf(' (X/טוויטר).')
+  const next = rest.search(/\. [A-Z]/)
+  const end = marked >= 0 ? marked : next >= 0 ? next : rest.replace(/\.\s*$/, '').length
+  return { en: m[1].trim(), he: rest.slice(0, end).trim() }
 }
 
 /** Latin words in a Hebrew text that are not product names: an untranslated placeholder or word. */
@@ -189,7 +196,8 @@ export function loadMatrix() {
   return {
     tables: parseMatrix(readFileSync(join(ROOT, 'docs/architecture/client-matrix.md'), 'utf8')),
     clients: JSON.parse(readFileSync(join(ROOT, 'tests/eval/discovery/clients.json'), 'utf8')),
-    fileExists: (ref) => !ref.includes('..') && existsSync(join(ROOT, ref))
+    // A ref is a regular file under tests/ or docs/: a folder or a file such as package.json proves nothing.
+    fileExists: (ref) => /^(tests|docs)\//.test(ref) && !ref.includes('..') && (statSync(join(ROOT, ref), { throwIfNoEntry: false })?.isFile() ?? false)
   }
 }
 
