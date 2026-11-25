@@ -42,7 +42,12 @@ function mcpCall(name) {
       'mcp-method': 'tools/call',
       'mcp-name': name
     },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: {} } })
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: { name, arguments: { published: false }, _meta: { 'io.modelcontextprotocol/protocolVersion': '2026-07-28' } }
+    })
   })
 }
 
@@ -92,7 +97,7 @@ describe('recording one request', () => {
     await route(apiRequest(`/api/drafts/${id}`, { cookie }))
     await flushMetrics()
     const text = JSON.stringify(await rows())
-    expect(text).toContain('/drafts/:id')
+    expect(text).toContain('GET /drafts/:id')
     expect(text).not.toContain(id)
     expect(text).not.toContain('xt_')
   })
@@ -103,11 +108,21 @@ describe('MCP calls', () => {
     await route(mcpCall('no_such_tool'))
     await flushMetrics()
     const [row] = await rows()
-    expect(row.route).toBe('/mcp')
+    expect(row.route).toBe('POST /mcp')
     expect(row.caller).toBe('mcp')
     expect(row.op).toBe('tools/call')
     expect([Number(row.n_4xx), Number(row.n_429), Number(row.n_tool_error)]).toEqual([1, 0, 0])
   })
+})
+
+describe('rate limit', () => {
+  it('the 121st tools/call in a minute is a rate-limited answer and counts once in n_429 for its tool', async () => {
+    for (let i = 0; i < 121; i += 1) await route(mcpCall('list_drafts'))
+    await flushMetrics()
+    const [row] = (await rows()).filter((r) => r.op === 'tool:list_drafts')
+    expect(count(row)).toBe(121)
+    expect([Number(row.n_429), Number(row.n_4xx)]).toEqual([1, 0])
+  }, 60000)
 })
 
 describe('requests that use no SQL', () => {
@@ -115,11 +130,11 @@ describe('requests that use no SQL', () => {
     const health = await route(apiRequest('/api/health'))
     expect(health.headers.get('server-timing')).toContain('q;desc="0"')
     await flushMetrics()
-    expect((await rows()).some((r) => r.route === '/health')).toBe(false)
+    expect((await rows()).some((r) => r.route === 'GET /health')).toBe(false)
 
     await route(listDrafts())
     await flushMetrics()
-    const healthRow = (await rows()).find((r) => r.route === '/health')
+    const healthRow = (await rows()).find((r) => r.route === 'GET /health')
     expect(healthRow).toBeDefined()
     expect(count(healthRow)).toBe(1)
   })
@@ -162,10 +177,15 @@ describe('failure and switch', () => {
 
 describe('rowOf (pure mapping)', () => {
   const base = {
-    route: '/drafts/:id', rpc: null, tool: null, caller: 'web', q: 1, dbMs: 2, conn: 0,
+    method: 'GET', route: '/drafts/:id', rpc: null, tool: null, caller: 'web', q: 1, dbMs: 2, conn: 0,
     cold: false, rateLimited: false, rpcError: false, toolError: false
   }
   const at = Date.parse('2026-11-25T10:42:17Z')
+
+  it('keys a row by method and template, and an unmatched path by unmatched alone', () => {
+    expect(rowOf(base, 200, 5, at).route).toBe('GET /drafts/:id')
+    expect(rowOf({ ...base, route: 'unmatched' }, 404, 5, at).route).toBe('unmatched')
+  })
 
   it('uses the UTC hour start', () => {
     expect(rowOf(base, 200, 5, at).hour).toBe('2026-11-25T10:00:00.000Z')

@@ -41,7 +41,8 @@ export function rowOf(store, status, ms, now = Date.now()) {
   const clientError = (status >= 400 && status < 500 && status !== 429) || store.rpcError
   return {
     hour: hourStart(now),
-    route: store.route,
+    // Method and template (GET /drafts/:id), as the plan keys a row. An unmatched path has no method.
+    route: store.route === 'unmatched' ? 'unmatched' : `${store.method} ${store.route}`,
     op: opOf(store),
     caller: CALLERS.has(store.caller) ? store.caller : 'anon',
     n: 1,

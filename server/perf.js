@@ -33,6 +33,7 @@ export function measured(fn, done = null) {
     const wasCold = cold
     cold = false
     const store = {
+      method: request.method,
       route: 'unmatched',
       q: 0,
       dbMs: 0,
@@ -48,13 +49,6 @@ export function measured(fn, done = null) {
     const start = performance.now()
     const response = await als.run(store, () => fn(request))
     const total = performance.now() - start
-    if (done) {
-      try {
-        done(store, response.status, total)
-      } catch {
-        // Recording must never change the answer.
-      }
-    }
     try {
       response.headers.set(
         'server-timing',
@@ -82,6 +76,13 @@ export function measured(fn, done = null) {
           tool: store.tool
         })
     )
+    if (done) {
+      try {
+        done(store, response.status, total)
+      } catch {
+        // Recording must never change the answer.
+      }
+    }
     return response
   }
 }
