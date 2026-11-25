@@ -4,6 +4,8 @@ Every user capability, the REST routes it uses (API), the MCP tools or prompts t
 
 `tests/api/surface-alignment.test.js` reads the two tables below. It fails when a route, tool, prompt or page is missing from them, or when a cell names something that does not exist. UI cells are checked for page existence only: a UI cell says which page exists, not that the page offers the capability. Parity is verified by reading the page. Notes name every known gap where the UI does not call the route the rule asks for.
 
+How draft saves, conflicts (412) and live updates (304) work, in short: [draft-sync.md](draft-sync.md).
+
 Cell format: comma separated. API items are route keys as in `server/router.js` (`GET /drafts/:id`). MCP items are tool names, prompts as `prompt:<name>`. UI items are React Router paths; `/x/*` covers nested paths.
 
 ## Capabilities
