@@ -4,4 +4,4 @@
 - It lines up with the title and buttons above it.
 
 Area: Editor
-Link: https://github.com/Shaked/x-thread-draft-tool/issues/374
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/438
