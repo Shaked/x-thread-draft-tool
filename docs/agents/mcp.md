@@ -22,7 +22,7 @@ same limits as the web app.
 | Read | `list_drafts`, `get_draft`, `get_draft_outline`, `export_draft`, `split_text`, `whoami`, `app_version` | `list_drafts` returns summaries (no post text) unless you set `detail` to `full`. `get_draft_outline` counts posts and characters per post with a 40-character preview. Use `get_draft` only when you need the text. `export_draft` takes `numbered` for numbered text. `app_version` returns the live commit, deploy time and schema (also public at `GET /api/version`). |
 | Write drafts | `create_draft`, `update_draft`, `duplicate_draft`, `create_thread_from_text`, `create_share_link` | `create_thread_from_text` turns long text into a draft. The four draft writes return the outline, not the text. `create_share_link` makes a one-time link that expires after 1 hour; set `one_time` false for a link that can be read many times, and `expires_in` (60 to 604800 seconds) for its lifetime. |
 | Posts | `add_post`, `update_post`, `move_post`, `remove_post` | Post ids come from `get_draft`. A published draft cannot be changed. Each returns the draft outline and its `version`, not the text. |
-| Images | `add_image_from_url`, `remove_image` | Only http(s) images that are public and 4 MB or smaller. `add_image_from_url` returns the image `url` and the outline; `remove_image` returns the outline and the editor `url`. |
+| Images | `add_image_from_url`, `remove_image`, `move_post`, `get_draft_outline` | Only http(s) images that are public and 4 MB or smaller; at most 4 per post. `add_image_from_url` adds one (`postId`, optional `position`) or swaps one in place (`replace`). `remove_image` removes one (`url`) or all of a post (`post_id`). `move_post` with `image_url` reorders an image or moves it to another post. `get_draft_outline` lists each post's image urls in order. `remove_image`, `move_post` and a `replace` take `version`. All return the outline, not the text. A published draft is refused. |
 | Destructive | `publish_draft`, `delete_draft`, `remove_post`, `remove_image`, `revoke_share_link` | Marked as destructive, so most apps ask you before running them. `revoke_share_link` stops one share link (give `token`) or all of a draft's links. Share links are stored on the server with an expiry time, so each also stops by itself. |
 
 Each tool result says what it changed and links to the draft. Writes answer with the draft outline (counts,
@@ -157,6 +157,10 @@ Some tools can show their result as a small view inside an app that supports MCP
 
 - `get_draft`, `create_draft`, `create_thread_from_text` and `split_text` show the thread view: X-style
   post cards, a character counter, your images and an "Open in editor" link.
+- The edit tools (`update_draft`, `add_post`, `update_post`, `remove_post`, `move_post`, `remove_image`,
+  `add_image_from_url`) show the thread view too, drawn from the draft as saved by that edit, never from an
+  earlier read. Their text adds one line: `Saved: version N, M posts.` and the editor link. A refused edit
+  (the draft changed since it was read) shows its error text and no view data.
 - `list_drafts` shows the drafts list: one row per draft, with "View thread" and, when the link is ours,
   "Open in editor". "View thread" asks the app to call `get_draft` again.
 - `create_share_link` shows the share card: the preview and markdown links, Copy (when the app allows

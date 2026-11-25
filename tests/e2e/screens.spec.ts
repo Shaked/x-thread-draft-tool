@@ -152,6 +152,27 @@ test.describe('screens', () => {
       await shoot(browser, width, 'drafts-hebrew-dark', '/', { token: hebrew, theme: 'dark', ready: (p) => p.getByText('טיוטה חדשה') })
       await shoot(browser, width, 'drafts-published', '/', { token: hebrew, ready: (p) => p.getByText('טיוטה חדשה'), before: showPublished })
       await shoot(browser, width, 'drafts-published-dark', '/', { token: hebrew, theme: 'dark', ready: (p) => p.getByText('טיוטה חדשה'), before: showPublished })
+      // The editor's posts over the limit and in Hebrew (plan T9). Their own user, so no other scene's list changes.
+      const editorUser = await devToken(request, `screens-editor-${run}`)
+      const overLimit = await apiJson<{ draft: { id: string } }>(request, editorUser, 'POST', '/api/drafts', {
+        title: 'Over the limit',
+        posts: [
+          { id: 'ol1', text: 'A post well within the limit.', images: [], embeddedTweet: null },
+          { id: 'ol2', text: 'A longer post. '.repeat(20), images: [], embeddedTweet: null }
+        ]
+      })
+      const hebrewEditor = await apiJson<{ draft: { id: string } }>(request, editorUser, 'POST', '/api/drafts', {
+        title: 'שרשור בעברית',
+        posts: [
+          { id: 'hb1', text: 'טקסט בעברית לדוגמה, והשרשור ממשיך כאן.', images: [], embeddedTweet: null },
+          { id: 'hb2', text: 'המשך השרשור בעברית.', images: [], embeddedTweet: null }
+        ]
+      })
+      await shoot(browser, width, 'editor-over-limit', `/draft/${overLimit.draft.id}`, { token: editorUser, ready: (p) => p.getByLabel('Draft title') })
+      await shoot(browser, width, 'editor-over-limit-dark', `/draft/${overLimit.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.getByLabel('Draft title') })
+      await shoot(browser, width, 'editor-hebrew', `/draft/${hebrewEditor.draft.id}`, { token: editorUser, ready: (p) => p.getByLabel('Draft title') })
+      await shoot(browser, width, 'editor-hebrew-dark', `/draft/${hebrewEditor.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.getByLabel('Draft title') })
+
       await shoot(browser, width, 'editor', `/draft/${editorId}`, { token: owner, ready: (p) => p.getByLabel('Draft title') })
       await shoot(browser, width, 'editor-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.getByLabel('Draft title') })
       await shoot(browser, width, 'editor-export-menu', `/draft/${editorId}`, {
