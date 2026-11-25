@@ -13,6 +13,9 @@ hour per route, with a fixed latency histogram, in the Neon database we already 
 month, needs no new service and no new secret, and gives p50 to p99.9 for any window up to 400 days.
 The admin sees it on one page, one REST route pair and two MCP tools. Three alert kinds go to Telegram.
 
+CI, Git, deploy and production error events, and the agent's plain-English summary, are added by
+`docs/plans/central-metrics.md` (#439), on top of this plan.
+
 ## 1. What we can read today, for free
 
 "Checked" means I ran the call in this session and quote its answer. "Not checked" means I did not.
