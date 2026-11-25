@@ -51,6 +51,11 @@ describe('changelogEntries', () => {
     expect(entry).toMatchObject({ area: null, link: null, details: '', summary: '' })
   })
 
+  it('reads indented Area and Link lines, as the lint does', () => {
+    const [entry] = changelogEntries([file('20261125-100002-indent.md', '# I\n\n- Works.\n\n  Area: Admin\n  Link: https://x.test/pull/3\n')])
+    expect(entry).toMatchObject({ area: 'Admin', link: 'https://x.test/pull/3', summary: 'Works.' })
+  })
+
   it('reads an old multi-section file: headings skipped, bullets and text lines used, at most three', () => {
     const text = '# Old thing\n\n## Context\n\nSome text here.\n\n## Changes\n\n- one\n- two\n- three\n- four is not used\n'
     const [entry] = changelogEntries([file('20260504-074800-old.md', text)])

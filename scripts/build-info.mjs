@@ -70,8 +70,8 @@ export function changelogEntries(files) {
       const at = text.search(/^## Technical details\s*$/m)
       const top = at === -1 ? text : text.slice(0, at)
       const details = at === -1 ? '' : text.slice(at).replace(/^## Technical details\s*\n?/, '').trim()
-      const area = top.match(/^Area:\s*(.+?)\s*$/m)?.[1] ?? null
-      const link = top.match(/^Link:\s*(https:\/\/\S+)\s*$/m)?.[1] ?? null
+      const area = top.match(/^\s*Area:\s*(.+?)\s*$/m)?.[1] ?? null
+      const link = top.match(/^\s*Link:\s*(https:\/\/\S+)\s*$/m)?.[1] ?? null
       return {
         id: name.replace(/\.md$/, ''),
         date: stamp ? `${stamp[1]}-${stamp[2]}-${stamp[3]}T${stamp[4]}:${stamp[5]}:${stamp[6]}Z` : null,

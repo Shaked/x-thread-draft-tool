@@ -28,7 +28,7 @@ function EntryCard({ entry }) {
   return (
     <article id={`changelog-${entry.id}`} tabIndex={-1}>
       <Card>
-        {entry.title && <h3 dir="auto">{entry.title}</h3>}
+        {entry.title && <h4 dir="auto">{entry.title}</h4>}
         {entry.summary && <p dir="auto">{entry.summary}</p>}
         {entry.link && (
           <p>
