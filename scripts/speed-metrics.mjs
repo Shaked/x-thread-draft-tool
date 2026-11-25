@@ -269,9 +269,16 @@ export function githubApi({ token, repo, fetchImpl = fetch }) {
     async deploymentStatuses(id) {
       return get(`/deployments/${id}/statuses?per_page=100`)
     },
-    // A renamed file counts under both paths, as scripts/vercel-ignore.mjs does with --no-renames.
+    // Every page of the commit's file list (100 per page; a merge can list more than 300 files). A renamed
+    // file counts under both paths, as scripts/vercel-ignore.mjs does with --no-renames.
     async commitFiles(sha) {
-      return ((await get(`/commits/${sha}`)).files ?? []).flatMap((f) => [f.filename, f.previous_filename].filter(Boolean))
+      const names = []
+      for (let page = 1; page <= 30; page++) {
+        const files = (await get(`/commits/${sha}?per_page=100&page=${page}`)).files ?? []
+        for (const f of files) names.push(f.filename, f.previous_filename)
+        if (files.length < 100) break
+      }
+      return names.filter(Boolean)
     },
   }
 }

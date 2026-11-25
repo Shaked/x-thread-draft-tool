@@ -287,3 +287,20 @@ describe('githubApi.commitFiles renames', () => {
     expect(shouldSkip({ VERCEL_ENV: 'production' }, files)).toBe(false)
   })
 })
+
+describe('githubApi.commitFiles pages', () => {
+  it('a product file on the second page of a large merge is still seen', async () => {
+    const pages = [
+      Array.from({ length: 100 }, (_, i) => ({ filename: `docs/page-${i}.md` })),
+      [{ filename: 'src/app.js' }],
+    ]
+    const fetchImpl = async (url) => {
+      const page = Number(new URL(url).searchParams.get('page'))
+      return { ok: true, status: 200, json: async () => ({ files: pages[page - 1] ?? [] }) }
+    }
+    const api = githubApi({ token: 'test-token', repo: 'owner/repo', fetchImpl })
+    const files = await api.commitFiles('a'.repeat(40))
+    expect(files).toHaveLength(101)
+    expect(shouldSkip({ VERCEL_ENV: 'production' }, files)).toBe(false)
+  })
+})
