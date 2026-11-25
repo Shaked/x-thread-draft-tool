@@ -168,6 +168,21 @@ describe('DraftEditor live updates (#363)', () => {
     expect(title).toHaveValue('Draft one!')
   })
 
+  it('drops a check answer that arrives while I am typing', async () => {
+    let answer
+    draftsApi.check.mockImplementationOnce(() => new Promise(resolve => (answer = resolve)))
+    draftsApi.update.mockImplementation(() => new Promise(() => {})) // my edit stays unsaved
+    renderEditor()
+    const title = await screen.findByLabelText('Draft title')
+
+    await advance(4000) // a check for version 3 is in flight
+    await typer().type(title, '!')
+    await act(async () => {
+      answer({ changed: true, draft: { ...DRAFT, version: 4, title: 'Changed by an AI app' } })
+    })
+    expect(title).toHaveValue('Draft one!')
+  })
+
   it('pauses after ten minutes, and Resume (or any input) starts checks again', async () => {
     renderEditor()
     await screen.findByLabelText('Draft title')

@@ -79,7 +79,7 @@ export function useDraftLive(id, options) {
     async function tick() {
       timer = null
       if (stopped || !isVisible()) return
-      const { canCheck, getVersion, onNewer } = optionsRef.current
+      const { canCheck, getVersion } = optionsRef.current
       const version = getVersion()
       if (!inFlight && version !== undefined && canCheck()) {
         inFlight = true
@@ -87,9 +87,11 @@ export function useDraftLive(id, options) {
           const result = await draftsApi.check(id, version)
           // The state may have moved while the check was in flight: a stop, a conflict, an edit or a save
           // that took a newer version. Then this answer is stale and is dropped.
-          if (!stopped && result.changed && getVersion() === version && canCheck()) {
+          // The options are read again: the ones read above belong to the render that started the check.
+          const latest = optionsRef.current
+          if (!stopped && result.changed && latest.getVersion() === version && latest.canCheck()) {
             activityRef.current = Date.now()
-            onNewer(result.draft)
+            latest.onNewer(result.draft)
           }
         } catch {
           // A failed check is simply tried again on the next tick.
