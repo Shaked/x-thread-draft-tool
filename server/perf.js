@@ -23,16 +23,38 @@ let cold = true
 const round = (n) => Math.round(n * 10) / 10
 const current = () => als.getStore() ?? null
 
-/** Wraps a route handler. A nested in-process call (an MCP tool) joins the outer request's store. */
-export function measured(fn) {
+/**
+ * Wraps a route handler. A nested in-process call (an MCP tool) joins the outer request's store.
+ * `done(store, status, ms)`, when given, runs after the answer is built; it never changes the answer.
+ */
+export function measured(fn, done = null) {
   return async (request) => {
     if (current()) return fn(request)
     const wasCold = cold
     cold = false
-    const store = { route: 'unmatched', q: 0, dbMs: 0, conn: 0, rpc: null, tool: null }
+    const store = {
+      route: 'unmatched',
+      q: 0,
+      dbMs: 0,
+      conn: 0,
+      rpc: null,
+      tool: null,
+      caller: 'anon',
+      cold: wasCold,
+      rateLimited: false,
+      rpcError: false,
+      toolError: false
+    }
     const start = performance.now()
     const response = await als.run(store, () => fn(request))
     const total = performance.now() - start
+    if (done) {
+      try {
+        done(store, response.status, total)
+      } catch {
+        // Recording must never change the answer.
+      }
+    }
     try {
       response.headers.set(
         'server-timing',
@@ -93,4 +115,16 @@ export function noteRpc(method, tool) {
   if (!store) return
   store.rpc = RPC_METHODS.has(method) ? method : 'other'
   store.tool = tool ?? null
+}
+
+/** Who is calling: web, token, mcp, ci or anon (the default). Set by the path that resolves the caller. */
+export function noteCaller(kind) {
+  const store = current()
+  if (store) store.caller = kind
+}
+
+/** An outcome the status code cannot show: rateLimited, rpcError or toolError (plan O2). */
+export function noteOutcome(flag) {
+  const store = current()
+  if (store) store[flag] = true
 }

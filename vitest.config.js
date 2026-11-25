@@ -22,6 +22,7 @@ export default defineConfig({
           name: 'api',
           environment: 'node',
           include: ['tests/api/**/*.test.js'],
+          setupFiles: ['./tests/api/helpers/metrics-off.js'],
           globalSetup: ['tests/api/helpers/global-setup.js']
         }
       }

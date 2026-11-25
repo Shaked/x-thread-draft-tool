@@ -88,3 +88,15 @@ The stats query (`GET /api/admin/stats`) is one statement of scalar subqueries, 
 - A user was suspended by mistake: run `admin_unsuspend_user` with the same login. Nothing was deleted.
 - A delete stopped in the middle: the user is still suspended. Run a fresh dry run, then the real delete with the new token. Each step is safe to repeat.
 - `ADMIN_DISABLED=1` turns admin tools off. Set it in the environment and make a new deploy, so the server reads it.
+
+## Request counts (metrics rollup, plan O2)
+
+Each request adds one row to `metrics_hourly` in the database, after the answer is sent: the hour, the route
+template (never a real path, id or token), the operation (an MCP method or `tool:<name>` for a known tool), the
+caller (`web`, `token`, `mcp`, `ci` or `anon`) and status counts. Latency is kept as a fixed 65-counter histogram.
+
+- A request that used no SQL (health, version, changelog, openapi) is held in memory and written with the next
+  request on the same instance that does use the database. Pending counts are lost when the instance stops.
+- `METRICS_DISABLED=1` turns the write off. A failed write logs `[metrics] write failed` and never changes the answer.
+- Nothing reads these rows yet. The reading routes and the admin page come in later tasks of
+  `docs/plans/observability.md`.

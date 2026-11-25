@@ -16,6 +16,7 @@ import { versionRoutes } from './version.js'
 import { changelogRoutes } from './changelog.js'
 import { handleMcp } from './mcp/server.js'
 import { measured, setRoute } from './perf.js'
+import { afterRequest } from './metrics/record.js'
 
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE'])
 
@@ -123,4 +124,4 @@ async function dispatch(request) {
   }
 }
 
-export const route = measured(dispatch)
+export const route = measured(dispatch, afterRequest)

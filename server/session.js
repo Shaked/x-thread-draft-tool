@@ -7,6 +7,7 @@ import { resolveAccess } from './oauth/tokens.js'
 import { verifyCiToken } from './oidc-ci.js'
 import { upsertGithubUser } from './github-user.js'
 import { currentCaller } from './caller-context.js'
+import { noteCaller } from './perf.js'
 import { SUSPENDED_MESSAGE, admit } from './suspension.js'
 
 // The CI identity: a dedicated row in users (github_id -1; real GitHub ids are positive).
@@ -110,6 +111,7 @@ export async function authenticate(request) {
     if (match) {
       const user = await findUserByToken(match[1])
       if (!user) throw await refusedHandmadeToken(match[1])
+      noteCaller('token')
       return admit(user)
     }
     // OAuth access token (1 hour), bound to the REST API resource `<origin>/api` (RFC 8707).
@@ -117,6 +119,7 @@ export async function authenticate(request) {
     if (access) {
       const user = await resolveAccess(access[1], apiResource(request))
       if (!user) throw new HttpError(401, 'Invalid or expired API token')
+      noteCaller('token')
       return admit(user)
     }
     // A three-part JWT is a GitHub Actions identity token (see server/oidc-ci.js).
@@ -125,6 +128,7 @@ export async function authenticate(request) {
       const claims = await verifyCiToken(jwt[1])
       if (!claims) throw new HttpError(401, 'Invalid or expired API token')
       const row = await upsertGithubUser(CI_USER)
+      noteCaller('ci')
       return admit({ uid: row.id, gh: '-1', login: CI_USER.login, via: 'ci-oidc', suspended: row.suspended_at !== null })
     }
     throw new HttpError(401, 'Invalid or expired API token')
@@ -132,6 +136,7 @@ export async function authenticate(request) {
   const state = await sessionState(request)
   if (!state) return null
   if (state.suspended) throw new HttpError(403, SUSPENDED_MESSAGE)
+  noteCaller('web')
   return admit({ ...state.session, via: 'session', suspended: false })
 }
 
