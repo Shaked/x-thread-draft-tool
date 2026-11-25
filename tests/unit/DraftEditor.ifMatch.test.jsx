@@ -171,6 +171,21 @@ describe('DraftEditor save with a version (If-Match)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('asks before the page closes while a save is in flight and an edit is not stored yet', async () => {
+    let finishFirst
+    draftsApi.update.mockImplementationOnce(() => new Promise(resolve => (finishFirst = resolve)))
+    renderEditor()
+    const title = await screen.findByLabelText('Draft title')
+    await typer().type(title, '!')
+    await runSaveDebounce()
+    await typer().type(title, '?')
+
+    const event = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    await act(async () => finishFirst({ ...DRAFT, version: 4 }))
+  })
+
   it('asks before the page closes while a conflict waits for the choice', async () => {
     draftsApi.update.mockRejectedValue(
       httpError(412, 'stale', { version: 5, draft: { ...DRAFT, title: 'Theirs', version: 5 } })

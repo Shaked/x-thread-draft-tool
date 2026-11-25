@@ -62,6 +62,8 @@ export default function DraftEditor({ user }) {
   const conflictRef = useRef(false)
   // Saves run one at a time, so a save never sends the version an earlier save of this editor just replaced.
   const saveChainRef = useRef(Promise.resolve())
+  // How many saves are queued or running. Leaving the page then may drop the last edit.
+  const pendingSavesRef = useRef(0)
 
   const loadDraft = async () => {
     try {
@@ -102,7 +104,10 @@ export default function DraftEditor({ user }) {
       if (!user || conflictRef.current) return false
 
       const enqueue = fn => {
-        const run = saveChainRef.current.then(fn)
+        pendingSavesRef.current += 1
+        const run = saveChainRef.current.then(fn).finally(() => {
+          pendingSavesRef.current -= 1
+        })
         saveChainRef.current = run.catch(() => {})
         return run
       }
@@ -183,6 +188,11 @@ export default function DraftEditor({ user }) {
         return
       }
       if (draft && JSON.stringify(draft) !== lastSavedRef.current) {
+        // A save is still in flight: ask before the page closes, in case the last edit is not stored.
+        if (pendingSavesRef.current > 0) {
+          event.preventDefault()
+          event.returnValue = ''
+        }
         saveDraft(draft, true, true)
       }
     }
