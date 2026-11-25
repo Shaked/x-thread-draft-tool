@@ -339,15 +339,18 @@ export function renderChanges(root, thread, changes, open) {
   add(headerNode(thread, open))
   if (changes) {
     line('Saved · version ' + Number(changes.version) + ' · ' + changes.posts.length + ' changed')
-    if (changes.title) was('Title before', changes.title.before)
+    if (changes.title && typeof changes.title.before === 'string') was('Title before', changes.title.before)
+    const label = { added: 'Added', edited: 'Edited', moved: 'Moved' }
     for (const c of changes.posts) {
+      if (!c || typeof c !== 'object') continue
       const n = Number(c.index)
       if (c.status === 'removed') {
         line('Removed: was post ' + n)
         was('Text', c.before)
         continue
       }
-      line(({ added: 'Added', edited: 'Edited', moved: 'Moved' })[c.status] + ': post ' + n + (c.from ? ', was post ' + Number(c.from) : ''))
+      if (!Object.prototype.hasOwnProperty.call(label, c.status)) continue
+      line(label[c.status] + ': post ' + n + (c.from ? ', was post ' + Number(c.from) : ''))
       if (c.status === 'edited' && c.before !== c.after) was('Before', c.before)
       if (n >= 1 && n <= total) add(postNode(thread, n - 1, total, open))
     }

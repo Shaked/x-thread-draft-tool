@@ -159,8 +159,9 @@ Some tools can show their result as a small view inside an app that supports MCP
   post cards, a character counter, your images and an "Open in editor" link.
 - The edit tools (`update_draft`, `add_post`, `update_post`, `remove_post`, `move_post`, `remove_image`,
   `add_image_from_url`) show the thread view too, drawn from the draft as saved by that edit, never from an
-  earlier read. The view and the text show only what changed: each changed post now, with its text before the
-  edit, each removed post, the new version and a "Show all posts" button. The whole draft is shown instead when
+  earlier read. They show only what changed. The view has each changed post now with its text before the edit,
+  each removed post, the new version and a "Show all posts" button. The text quotes each changed post as it is now,
+  so a result stays short. A repeat of the same edit writes nothing and says so in one line. The whole draft is shown instead when
   it has fewer than 4 posts, when most of its posts changed, or when another write landed since the edit read the
   draft. `_meta["x-thread/changes"]` carries the changes; `src/utils/draftChanges.js` computes them, so the editor
   and the History panel can show the same "what changed". A refused edit (the draft changed since it was read)

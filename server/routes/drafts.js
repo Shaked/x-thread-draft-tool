@@ -330,7 +330,7 @@ async function patchPostText({ request, params }) {
             (select json_build_object('version', d.version, 'text',
                       (select e.p->>'text' from jsonb_array_elements(d.posts) with ordinality e(p, ord)
                         where e.p->'id' = to_jsonb($3::text) order by e.ord limit 1))
-               from drafts d where d.id = $1) as previous`,
+               from drafts d where d.id = $1 and d.user_id = $2) as previous`,
           [params.id, session.uid, params.postId, body.text, tag]
         )
       ).rows[0],

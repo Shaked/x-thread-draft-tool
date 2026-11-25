@@ -705,7 +705,7 @@ function editTexts(name, result, origin) {
     return [`Uploaded, not in a post yet: draft version ${draft.version}, ${draft.post_count} ${draft.post_count === 1 ? 'post' : 'posts'}. Open: ${link}`]
   }
   const changes = result._meta['x-thread/changes']
-  return changes.full ? [changesText(changes, link), markdownOf(result)] : [changesText(changes, link)]
+  return changes.full ? [changesText(changes), markdownOf(result)] : [changesText(changes)]
 }
 
 function toolError(text) {
@@ -805,9 +805,13 @@ const indexOfPost = (posts, postId) => {
 async function updatePostText(ctx, args) {
   const res = await ctx.rest('PATCH', `/drafts/${enc(args.id)}/posts/${enc(args.post_id)}`, { text: args.text }, ifMatch(args.version))
   // The REST write also gives the post's text and the version from before it (#405): the draft before is the saved one
-  // with that text back. Without it (a replay, nothing written), the result shows the whole draft.
+  // with that text back on the post the SQL changed (the first with the id). A 200 without it wrote nothing (a replay).
   const previous = res[PREVIOUS_POST]
-  const before = previous && ((after) => ({ ...after, version: previous.version, posts: after.posts.map((post) => (post.id === args.post_id ? { ...post, text: previous.text } : post)) }))
+  const before = (after) => {
+    if (!previous) return after
+    const at = after.posts.findIndex((post) => post.id === args.post_id)
+    return { ...after, version: previous.version, posts: after.posts.map((post, i) => (i === at ? { ...post, text: previous.text } : post)) }
+  }
   return outlineResult(withBefore(await staleOr(res), before), ctx.origin)
 }
 
@@ -910,7 +914,9 @@ async function editPosts(ctx, id, change, version) {
   const owned = await fetchOwnedDraft(ctx, id)
   if (owned.failure) return owned.failure
   if (owned.draft.is_published) return json({ error: PUBLISHED_ERROR }, 409)
-  const edited = change(withMissingPostIds(owned.draft.posts))
+  // The same ids for the change and for the draft before it, so a post that had no id is not shown as removed (#405).
+  const posts = withMissingPostIds(owned.draft.posts)
+  const edited = change(posts)
   if (typeof edited === 'string') return json({ error: edited }, 422)
   if (edited.conflict) return json({ error: edited.conflict }, 409)
   const patched = await staleOr(await ctx.rest('PATCH', `/drafts/${enc(id)}`, { posts: edited.posts }, ifMatch(version ?? owned.draft.version)))
@@ -918,7 +924,7 @@ async function editPosts(ctx, id, change, version) {
   for (const url of edited.removedImages ?? []) {
     if (isOwnedBlobUrl(url, ctx.caller.uid)) await ctx.rest('DELETE', '/images', { url, if_unused: true })
   }
-  return withBefore(patched, owned.draft)
+  return withBefore(patched, { ...owned.draft, posts })
 }
 
 function pick(args, keys) {

@@ -34,6 +34,15 @@ describe('the changes of an edit (#405)', () => {
     expect(root.querySelectorAll('article')).toHaveLength(3)
     expect(changesFrom({ _meta: { 'x-thread/changes': { ...changes, full: true } } })).toBeNull()
   })
+
+  it('skips entries it cannot show: not an object, an unknown status, a title that is not before and after', () => {
+    const root = document.createElement('main')
+    const thread = threadFrom({ structuredContent: { draft: { title: 'T', posts: [{ text: 'b' }] } } })
+    const changes = { version: 2, posts: [null, { status: 'constructor', index: 1 }, { status: 'edited', index: 1, before: 'a', after: 'b' }], title: 'x' }
+    renderChanges(root, thread, changes, vi.fn())
+    expect(root.textContent).not.toMatch(/function|undefined/)
+    expect(root.querySelectorAll('article')).toHaveLength(1)
+  })
 })
 
 describe('threadFrom', () => {

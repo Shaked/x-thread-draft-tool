@@ -42,29 +42,39 @@ function steadyIds(beforeIds, afterIds) {
 export function changesOf(before, after) {
   const oldPosts = Array.isArray(before?.posts) ? before.posts : []
   const newPosts = Array.isArray(after?.posts) ? after.posts : []
-  const oldIndex = new Map(oldPosts.map((post, i) => [post?.id, i]))
-  const newIds = new Set(newPosts.map((post) => post?.id))
-  const steady = steadyIds(
-    oldPosts.map((post) => post?.id).filter((id) => newIds.has(id)),
-    newPosts.map((post) => post?.id).filter((id) => oldIndex.has(id))
-  )
+  // A post is matched by its id and, for an id used more than once, by which use it is (the first d before is the
+  // first d after), so a repeated id never pairs two different posts.
+  const keysOf = (posts) => {
+    const seen = new Map()
+    return posts.map((post) => {
+      const n = seen.get(post?.id) ?? 0
+      seen.set(post?.id, n + 1)
+      return `${typeof post?.id}:${post?.id}#${n}`
+    })
+  }
+  const oldKeys = keysOf(oldPosts)
+  const newKeys = keysOf(newPosts)
+  const oldIndex = new Map(oldKeys.map((key, i) => [key, i]))
+  const newSet = new Set(newKeys)
+  const steady = steadyIds(oldKeys.filter((key) => newSet.has(key)), newKeys.filter((key) => oldIndex.has(key)))
   const posts = []
   newPosts.forEach((post, i) => {
-    if (!oldIndex.has(post?.id)) {
+    const key = newKeys[i]
+    if (!oldIndex.has(key)) {
       posts.push({ id: post?.id, status: 'added', index: i + 1, after: textOf(post) })
       return
     }
-    const old = oldPosts[oldIndex.get(post.id)]
+    const old = oldPosts[oldIndex.get(key)]
     const edited = textOf(old) !== textOf(post) || !sameList(imagesOf(old), imagesOf(post)) || (old?.embeddedTweet ?? null) !== (post?.embeddedTweet ?? null)
-    const moved = !steady.has(post.id)
+    const moved = !steady.has(key)
     if (!edited && !moved) return
     const entry = { id: post.id, status: edited ? 'edited' : 'moved', index: i + 1, before: textOf(old), after: textOf(post) }
-    if (moved) entry.from = oldIndex.get(post.id) + 1
+    if (moved) entry.from = oldIndex.get(key) + 1
     if (!sameList(imagesOf(old), imagesOf(post))) entry.images = { before: imagesOf(old).length, after: imagesOf(post).length }
     posts.push(entry)
   })
   oldPosts.forEach((post, i) => {
-    if (!newIds.has(post?.id)) posts.push({ id: post?.id, status: 'removed', index: i + 1, before: textOf(post) })
+    if (!newSet.has(oldKeys[i])) posts.push({ id: post?.id, status: 'removed', index: i + 1, before: textOf(post) })
   })
   const title = (before?.title ?? '') !== (after?.title ?? '') ? { before: before?.title ?? '', after: after?.title ?? '' } : null
   return { title, posts, most: posts.length * 2 > Math.max(oldPosts.length, newPosts.length) }

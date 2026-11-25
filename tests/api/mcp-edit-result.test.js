@@ -55,11 +55,14 @@ describe('#405: get_draft, then update_post', () => {
     expect(JSON.stringify(edited._meta['x-thread/posts'])).not.toContain('old post 2')
     expect(edited._meta['x-thread/changes']).toMatchObject({ version: 2, post_count: 6, known: true, full: false })
     expect(edited._meta['x-thread/changes'].posts).toEqual([{ id: 'p2', status: 'edited', index: 2, before: 'old post 2', after: 'new post 2' }])
-    // The text: only the changed post, never the rest of the draft.
+    // The text: only the changed post as it is now, never the rest of the draft (the view has the text before).
     const text = edited.content.slice(1).map((part) => part.text).join('\n')
-    expect(text).toMatch(/^Saved: version 2, 6 posts\. Changed: 1 post\. Saved\. Do not show the whole draft again/)
-    expect(text).toContain('Before:\n> old post 2\nAfter:\n> new post 2')
-    expect(text).not.toMatch(/old post [13456]/)
+    expect(text).toMatch(/^Saved\. Do not show the whole draft again: .* Version 2, 6 posts; changed: 1 post\. The view shows what changed\./)
+    expect(text).toContain('**Post 2/6**, edited\n> new post 2')
+    expect(text).not.toMatch(/old post/)
+    // A replay (the same text again) writes nothing: one short line, not the whole draft.
+    const replay = await call('update_post', { id: db.draft.id, post_id: 'p2', text: 'new post 2' })
+    expect(replay.content.slice(1).map((part) => part.text)).toEqual(['Nothing changed. Version 2, 6 posts.'])
   })
 
   it('routing: most posts changed, or fewer than 4 posts, shows the whole draft; a move lists only the moved post', async () => {
@@ -75,6 +78,15 @@ describe('#405: get_draft, then update_post', () => {
     expect(small._meta['x-thread/changes']).toMatchObject({ post_count: 4, full: false })
     const three = await call('remove_post', { id: db.draft.id, post_id: 'p4' })
     expect(three._meta['x-thread/changes']).toMatchObject({ post_count: 3, full: true })
+  })
+
+  it('a post with no id and a repeated id: the changes name only the post that changed (Opus review on PR 422)', async () => {
+    const posts = [{ text: 'no id' }, { id: 'd', text: 'first d' }, { id: 'd', text: 'second d' }, { id: 'e', text: 'e' }]
+    await db.pg.query('update drafts set posts = $2::jsonb where id = $1', [db.draft.id, JSON.stringify(posts)])
+    const added = await call('add_post', { id: db.draft.id, text: 'new', post_id: 'n' })
+    expect(added._meta['x-thread/changes'].posts.map((c) => [c.status, c.id])).toEqual([['added', 'n']])
+    const edited = await call('update_post', { id: db.draft.id, post_id: 'e', text: 'e2' })
+    expect(edited._meta['x-thread/changes'].posts.map((c) => [c.status, c.id, c.before])).toEqual([['edited', 'e', 'e']])
   })
 
   it('another write between the read and this one: the state before is not known, so the whole draft is shown', () => {
