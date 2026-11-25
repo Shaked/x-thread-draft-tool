@@ -12,6 +12,8 @@ import { blobOrigin } from './ui/origin.js'
 import { threadText } from './thread-text.js'
 import { adminTool, listAdminTools } from './admin-tools.js'
 import { mcpAdminReason } from '../admin/role.js'
+import { PREVIOUS_POST } from '../routes/drafts.js'
+import { changeMeta, changesText } from './edit-result.js'
 
 const UUID = { type: 'string', format: 'uuid' }
 const TITLE = { type: 'string', maxLength: 500, description: 'Draft title, at most 500 characters.' }
@@ -60,7 +62,15 @@ const TOOLS = [
   {
     name: 'get_draft',
     description: 'Read one of your drafts by id, with the text of every post. Use get_draft_outline to count posts and characters. Use get_draft only when you need the text.' + CONTENT_NOTE,
-    inputSchema: ID_ONLY,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: UUID,
+        // #405: the read before an edit should not draw the whole thread in the chat.
+        view: { type: 'string', enum: ['full', 'compact'], default: 'full', description: 'compact when you read only to change the draft: the card shows its heading, not every post.' }
+      },
+      required: ['id']
+    },
     annotations: { readOnlyHint: true },
     run: async (args, ctx) => {
       const owned = await fetchOwnedDraft(ctx, args.id)
@@ -87,8 +97,13 @@ const TOOLS = [
     name: 'update_draft',
     description: 'Change the title and/or posts of one of your drafts. Omitted fields stay as they are.' + RESULT_NOTE + CONTENT_NOTE,
     inputSchema: { type: 'object', properties: { id: UUID, title: TITLE, posts: POSTS, version: VERSION }, required: ['id'] },
-    run: async (args, { rest, origin }) =>
-      outlineResult(await staleOr(await rest('PATCH', `/drafts/${enc(args.id)}`, pick(withPostIds(args), ['title', 'posts']), ifMatch(args.version))), origin)
+    run: async (args, { rest, origin }) => {
+      // The draft before the write, so the result can show what changed (#405). Not a check: the PATCH checks.
+      const read = await rest('GET', `/drafts/${enc(args.id)}`)
+      const before = read.status === 200 ? (await read.json()).draft : null
+      const res = await staleOr(await rest('PATCH', `/drafts/${enc(args.id)}`, pick(withPostIds(args), ['title', 'posts']), ifMatch(args.version)))
+      return outlineResult(withBefore(res, before), origin)
+    }
   },
   {
     name: 'duplicate_draft',
@@ -197,7 +212,7 @@ const TOOLS = [
         const current = await fetchOwnedDraft(ctx, args.draftId)
         if (current.failure) return current.failure
         const draft = { ...outline(current.draft), url: editorUrl(ctx.origin, current.draft.id) }
-        return withViewPosts(json({ draft, url }), current.draft.posts)
+        return withBefore(withViewPosts(json({ draft, url }), current.draft.posts), current.draft)
       }
       // With postId, the image is also added to that post: refuse an unknown post or one with 4 images first.
       const owned = await fetchOwnedDraft(ctx, args.draftId)
@@ -293,7 +308,7 @@ const TOOLS = [
         if ((await removedFile.json()).deleted) deleted += 1
       }
       const counts = args.url === undefined ? { removed: removed.length, deleted } : { removed: true, deleted: deleted === 1 }
-      return withViewPosts(json({ draft: outline(draft), url: editorUrl(ctx.origin, draft.id), ...counts }), draft.posts)
+      return withBefore(withViewPosts(json({ draft: outline(draft), url: editorUrl(ctx.origin, draft.id), ...counts }), draft.posts), patched[BEFORE_OF])
     }
   },
   {
@@ -412,6 +427,9 @@ const VIEW_OUTLINE = {
 const VIEW_POSTS = new Set(['create_draft', 'create_thread_from_text', ...EDIT_TOOLS])
 // Where outlineResult keeps the saved posts on its Response (a symbol, so it never reaches the JSON body).
 const VIEW_POSTS_OF = Symbol('view posts')
+// #405 (B1 b): the draft read before an edit's write, or a function of the saved draft that gives it. The edit's result
+// shows what changed from it (x-thread/changes, server/mcp/edit-result.js).
+const BEFORE_OF = Symbol('draft before')
 // The drafts list (plan Task 5, D8): list_drafts shows the list view. Its result carries the editor base only.
 // The share card (plan Task 6, #187): create_share_link shows its two links. Its result has no _meta: the URLs are in structuredContent.
 const VIEW_OF = {
@@ -426,6 +444,13 @@ const VIEW_OF = {
 for (const tool of TOOLS) {
   if (VIEW_OUTLINE[tool.name]) {
     tool.resultMeta = (body, ctx, res) => threadMeta(ctx, VIEW_OUTLINE[tool.name](body), VIEW_POSTS.has(tool.name) ? res[VIEW_POSTS_OF] : undefined)
+  }
+  if (EDIT_TOOLS.includes(tool.name)) {
+    tool.resultMeta = (body, ctx, res) => {
+      const after = { title: body.draft.title, version: body.draft.version, posts: res[VIEW_POSTS_OF] }
+      const before = typeof res[BEFORE_OF] === 'function' ? res[BEFORE_OF](after) : res[BEFORE_OF]
+      return { ...threadMeta(ctx, body.draft, after.posts), 'x-thread/changes': changeMeta(before ?? null, after) }
+    }
   }
   if (tool.name === 'list_drafts') tool.resultMeta = (body, ctx) => ({ 'x-thread/editorBase': `${ctx.origin}/draft/` })
 }
@@ -606,9 +631,13 @@ export async function callTool(name, args, { caller, origin }) {
     const res = await tool.run(args, ctx)
     const result = await toToolResult(res)
     if (tool.resultMeta && res.status < 400 && result.structuredContent) result._meta = tool.resultMeta(result.structuredContent, ctx, res)
+    // #405: get_draft with view compact tells the thread view to show the heading only.
+    if (name === 'get_draft' && args.view === 'compact' && result._meta) result._meta['x-thread/display'] = 'compact'
     // #352 (G1): the thread view's tools add the thread as markdown after the JSON, for apps that show no view.
-    // An edit adds one short line instead (#405): the view shows the saved draft, and the T5 results stay short.
-    if (VIEW_OUTLINE[name] && result._meta) result.content.push({ type: 'text', text: EDIT_TOOLS.includes(name) ? savedLine(name, result.structuredContent, origin) : markdownOf(result) })
+    // An edit adds what it changed instead (#405), and the whole thread only when the routing rule says so.
+    if (VIEW_OUTLINE[name] && result._meta) {
+      for (const text of EDIT_TOOLS.includes(name) ? editTexts(name, result, origin) : [markdownOf(result)]) result.content.push({ type: 'text', text })
+    }
     return result
   } catch (err) {
     console.error('[mcp] tool failed', name, err)
@@ -666,14 +695,17 @@ function markdownOf({ structuredContent: body, _meta: meta }) {
 }
 
 /**
- * The text line of an edit's result (#405): the saved draft's new version, its count of posts and its link.
- * add_image_from_url with neither postId nor replace writes no post: its line says the image is not in a post yet.
+ * The text parts of an edit's result (#405): what changed (edit-result.js), then the whole thread when the routing
+ * rule shows it all. add_image_from_url with neither postId nor replace writes no post: one line says so.
  */
-function savedLine(name, { draft, postId, replaced }, origin) {
-  const posts = `${draft.post_count} ${draft.post_count === 1 ? 'post' : 'posts'}`
-  const open = `Open: ${editorUrl(origin, draft.id)}`
-  if (name === 'add_image_from_url' && postId === undefined && replaced === undefined) return `Uploaded, not in a post yet: draft version ${draft.version}, ${posts}. ${open}`
-  return `Saved: version ${draft.version}, ${posts}. The view shows the draft after this change. ${open}`
+function editTexts(name, result, origin) {
+  const { draft, postId, replaced } = result.structuredContent
+  const link = editorUrl(origin, draft.id)
+  if (name === 'add_image_from_url' && postId === undefined && replaced === undefined) {
+    return [`Uploaded, not in a post yet: draft version ${draft.version}, ${draft.post_count} ${draft.post_count === 1 ? 'post' : 'posts'}. Open: ${link}`]
+  }
+  const changes = result._meta['x-thread/changes']
+  return changes.full ? [changesText(changes), markdownOf(result)] : [changesText(changes)]
 }
 
 function toolError(text) {
@@ -742,7 +774,13 @@ async function outlineResult(res, origin, extra = {}) {
   const link = editorUrl(origin, draft.id)
   const summary = extra.url === undefined ? outline(draft) : { ...outline(draft), url: link }
   const response = json({ draft: summary, url: link, ...extra }, res.status)
-  return withViewPosts(response, draft.posts)
+  return withBefore(withViewPosts(response, draft.posts), res[BEFORE_OF])
+}
+
+/** Keeps the draft from before an edit on a result's Response (see BEFORE_OF). */
+function withBefore(response, before) {
+  if (before) response[BEFORE_OF] = before
+  return response
 }
 
 /** Keeps the saved posts on a result's Response for the view's _meta (see VIEW_POSTS_OF). */
@@ -766,7 +804,15 @@ const indexOfPost = (posts, postId) => {
  */
 async function updatePostText(ctx, args) {
   const res = await ctx.rest('PATCH', `/drafts/${enc(args.id)}/posts/${enc(args.post_id)}`, { text: args.text }, ifMatch(args.version))
-  return outlineResult(await staleOr(res), ctx.origin)
+  // The REST write also gives the post's text and the version from before it (#405): the draft before is the saved one
+  // with that text back on the post the SQL changed (the first with the id). A 200 without it wrote nothing (a replay).
+  const previous = res[PREVIOUS_POST]
+  const before = (after) => {
+    if (!previous) return after
+    const at = after.posts.findIndex((post) => post.id === args.post_id)
+    return { ...after, version: previous.version, posts: after.posts.map((post, i) => (i === at ? { ...post, text: previous.text } : post)) }
+  }
+  return outlineResult(withBefore(await staleOr(res), before), ctx.origin)
 }
 
 /** The If-Match header for a draft version the caller read; none when it gave no version. */
@@ -803,7 +849,7 @@ async function attachImage(ctx, draftId, postId, url, position) {
     const posts = current.draft.posts.map((post, i) => (i === index ? { ...post, images } : post))
     const patched = await ctx.rest('PATCH', `/drafts/${enc(draftId)}`, { posts }, ifMatch(current.draft.version))
     // Here `url` is the image's url, so it replaces the editor link.
-    if (patched.status !== 412 || attempt > 4 * current.draft.posts.length) return outlineResult(await staleOr(patched), ctx.origin, { url, postId })
+    if (patched.status !== 412 || attempt > 4 * current.draft.posts.length) return outlineResult(withBefore(await staleOr(patched), current.draft), ctx.origin, { url, postId })
   }
 }
 
@@ -868,7 +914,9 @@ async function editPosts(ctx, id, change, version) {
   const owned = await fetchOwnedDraft(ctx, id)
   if (owned.failure) return owned.failure
   if (owned.draft.is_published) return json({ error: PUBLISHED_ERROR }, 409)
-  const edited = change(withMissingPostIds(owned.draft.posts))
+  // The same ids for the change and for the draft before it, so a post that had no id is not shown as removed (#405).
+  const posts = withMissingPostIds(owned.draft.posts)
+  const edited = change(posts)
   if (typeof edited === 'string') return json({ error: edited }, 422)
   if (edited.conflict) return json({ error: edited.conflict }, 409)
   const patched = await staleOr(await ctx.rest('PATCH', `/drafts/${enc(id)}`, { posts: edited.posts }, ifMatch(version ?? owned.draft.version)))
@@ -876,7 +924,7 @@ async function editPosts(ctx, id, change, version) {
   for (const url of edited.removedImages ?? []) {
     if (isOwnedBlobUrl(url, ctx.caller.uid)) await ctx.rest('DELETE', '/images', { url, if_unused: true })
   }
-  return patched
+  return withBefore(patched, { ...owned.draft, posts })
 }
 
 function pick(args, keys) {

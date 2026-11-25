@@ -187,3 +187,26 @@ test('without a host that can call tools, the thread has no "Create share link"'
   await expect(page.frameLocator('#view').getByText('Start of thread')).toBeVisible()
   await expect(page.frameLocator('#view').getByRole('button', { name: 'Create share link' })).toHaveCount(0)
 })
+
+// #405 (B1 b): the host called get_draft, then update_post. The card of update_post shows the new text of the one
+// changed post and its old text, not the other posts; "Show all 6 posts" draws the whole thread, as saved.
+test('after update_post the card shows only the changed post, before and after, in Hebrew', async ({ page }) => {
+  const { changeMeta } = await import('../../server/mcp/edit-result.js')
+  const before = { title: 'שרשור', version: 1, posts: [1, 2, 3, 4, 5, 6].map((n) => ({ id: `p${n}`, text: `פוסט ישן ${n}`, images: [] })) }
+  const after = { ...before, version: 2, posts: before.posts.map((post) => (post.id === 'p2' ? { ...post, text: 'פוסט חדש 2 ' + XSS } : post)) }
+  const edited = {
+    content: [{ type: 'text', text: 'fixture' }],
+    structuredContent: { draft: { id: '00000000-0000-4000-8000-000000000001', title: after.title, posts: after.posts.map((post) => ({ id: post.id })) } },
+    _meta: { 'x-thread/posts': after.posts, 'x-thread/changes': changeMeta(before, after) }
+  }
+  await load(page, edited as typeof FIXTURE)
+  const frame = page.frameLocator('#view')
+  await expect(frame.locator('article')).toHaveCount(1)
+  await expect(frame.getByText('פוסט חדש 2 ' + XSS)).toBeVisible()
+  await expect(frame.getByText('פוסט ישן 2')).toBeVisible()
+  await expect(frame.getByText('פוסט ישן 3')).toHaveCount(0)
+  await expect(frame.locator('img')).toHaveCount(0)
+  await frame.getByRole('button', { name: 'Show all 6 posts' }).click()
+  await expect(frame.locator('article')).toHaveCount(6)
+  await expect(frame.getByText('פוסט ישן 2')).toHaveCount(0)
+})

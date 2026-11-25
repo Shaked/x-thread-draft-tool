@@ -84,10 +84,22 @@ function tagOf(expected) {
  * a tag was sent, or this was the third try. Without a tag the UPDATE is retried, never a 412.
  * PGlite cannot reproduce the race behind the retry.
  */
+/**
+ * #405: the MCP edit tools show what an edit changed. A one-post PATCH that wrote puts the post's text and the draft
+ * version from before it on its Response under this key; the JSON body is the same as without it.
+ */
+export const PREVIOUS_POST = Symbol('previous post')
+
 async function writeOrAnswer(tag, write, answer) {
   for (let attempt = 1; ; attempt++) {
     const row = await write()
-    if (row) return json({ draft: row }, 200, etagHeaders(row.version))
+    if (row) {
+      // A write may also return `previous` (#405). It stays off the JSON: only an in-process caller reads it.
+      const { previous, ...draft } = row
+      const response = json({ draft }, 200, etagHeaders(draft.version))
+      if (previous) response[PREVIOUS_POST] = previous
+      return response
+    }
     const response = await answer(tag !== null || attempt >= 3)
     if (response) return response
   }
@@ -312,7 +324,13 @@ async function patchPostText({ request, params }) {
             and (select e.p->'text' from jsonb_array_elements(posts) with ordinality e(p, ord)
                   where e.p->'id' = to_jsonb($3::text) order by e.ord limit 1) is distinct from to_jsonb($4::text)
             and ($5::int is null or version = $5::int)
-          returning ${COLUMNS}`,
+          returning ${COLUMNS},
+            -- #405: a sub-select here reads the row as this statement's snapshot saw it, before the write. When a newer
+            -- row was written in between (no If-Match), previous.version + 1 is not the new version.
+            (select json_build_object('version', d.version, 'text',
+                      (select e.p->>'text' from jsonb_array_elements(d.posts) with ordinality e(p, ord)
+                        where e.p->'id' = to_jsonb($3::text) order by e.ord limit 1))
+               from drafts d where d.id = $1 and d.user_id = $2) as previous`,
           [params.id, session.uid, params.postId, body.text, tag]
         )
       ).rows[0],

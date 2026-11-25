@@ -2,7 +2,7 @@
 // (D5), long drafts, the banner for an unsaved text, and draft text as plain text in every place it can appear
 // (rule 9). The Playwright check of the same view is in tests/e2e/mcp-thread-view.spec.ts.
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { bridge, clampInset, headerNode, linksIn, renderThread, safeImage, threadFrom, tweetFrom, underEditorBase } from '../../server/mcp/ui/client.js'
+import { bridge, changesFrom, clampInset, headerNode, linksIn, renderChanges, renderThread, safeImage, threadFrom, tweetFrom, underEditorBase } from '../../server/mcp/ui/client.js'
 import { readUiResource, uiResourceUri } from '../../server/mcp/ui/index.js'
 
 const BLOB = 'https://store1.public.blob.vercel-storage.com'
@@ -18,6 +18,36 @@ function render(thread, open = vi.fn()) {
 afterEach(() => {
   vi.restoreAllMocks()
   document.body.textContent = ''
+})
+
+describe('the changes of an edit (#405)', () => {
+  it('shows only the changed and removed posts, the old text as text, and a button for the whole thread', () => {
+    const changes = { version: 3, full: false, posts: [{ status: 'edited', index: 2, before: 'old ' + XSS, after: 'new' }, { status: 'removed', index: 4, before: 'gone' }] }
+    const result = { structuredContent: { draft: { title: 'T', posts: [{ text: 'one' }, { text: 'new' }, { text: 'three' }] } }, _meta: { 'x-thread/changes': changes } }
+    const root = document.createElement('main')
+    renderChanges(root, threadFrom(result), changesFrom(result), vi.fn())
+    expect(root.querySelectorAll('article')).toHaveLength(1)
+    expect(root.textContent).toContain('Before' + 'old ' + XSS)
+    expect(root.textContent).not.toContain('three')
+    expect(root.querySelector('img')).toBeNull()
+    const thread = threadFrom(result)
+    thread.drawn = vi.fn()
+    renderChanges(root, thread, changesFrom(result), vi.fn())
+    root.querySelector('main > button').click()
+    expect(root.querySelectorAll('article')).toHaveLength(3)
+    // The view adds its share action again after the whole thread is drawn (Codex review on PR 422).
+    expect(thread.drawn).toHaveBeenCalledTimes(1)
+    expect(changesFrom({ _meta: { 'x-thread/changes': { ...changes, full: true } } })).toBeNull()
+  })
+
+  it('skips entries it cannot show: not an object, an unknown status, a title that is not before and after', () => {
+    const root = document.createElement('main')
+    const thread = threadFrom({ structuredContent: { draft: { title: 'T', posts: [{ text: 'b' }] } } })
+    const changes = { version: 2, posts: [null, { status: 'constructor', index: 1 }, { status: 'edited', index: 1, before: 'a', after: 'b' }], title: 'x' }
+    renderChanges(root, thread, changes, vi.fn())
+    expect(root.textContent).not.toMatch(/function|undefined/)
+    expect(root.querySelectorAll('article')).toHaveLength(1)
+  })
 })
 
 describe('threadFrom', () => {

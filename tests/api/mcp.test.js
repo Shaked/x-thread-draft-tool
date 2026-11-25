@@ -719,8 +719,10 @@ describe('T5 short results from post edit tools', () => {
     const res = await route(modernPost('tools/call', { name: 'update_post', arguments: { id: draft.id, post_id: 'p3', text: 'Edited' } }, { token }))
     const { result } = await res.json()
     expect(result.isError).toBe(false)
-    // #405 adds a short text part after the JSON: the whole text stays under the limit.
+    // #405 adds a short text part after the JSON: the whole text stays under the limit, and it quotes no other post.
     expect(bytes(result.content.map((part) => part.text).join(''))).toBeLessThan(4000)
+    expect(result.content).toHaveLength(2)
+    expect(result.content[1].text).not.toContain('x'.repeat(280))
     const { draft: outlined, url } = result.structuredContent
     expect(outlined).toMatchObject({ id: draft.id, post_count: 25, version: await versionOf(draft.id) })
     expect(outlined.posts[2]).toMatchObject({ id: 'p3', index: 3, chars: 6, preview: 'Edited' })

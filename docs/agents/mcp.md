@@ -159,8 +159,15 @@ Some tools can show their result as a small view inside an app that supports MCP
   post cards, a character counter, your images and an "Open in editor" link.
 - The edit tools (`update_draft`, `add_post`, `update_post`, `remove_post`, `move_post`, `remove_image`,
   `add_image_from_url`) show the thread view too, drawn from the draft as saved by that edit, never from an
-  earlier read. Their text adds one line: `Saved: version N, M posts.` and the editor link. A refused edit
-  (the draft changed since it was read) shows its error text and no view data.
+  earlier read. They show only what changed. The view has each changed post now with its text before the edit,
+  each removed post, the new version and a "Show all posts" button. The text quotes each changed post as it is now,
+  so a result stays short. A repeat of the same edit writes nothing and says so in one line. The whole draft is shown instead when
+  it has fewer than 4 posts, when most of its posts changed, when another write landed since the edit read the
+  draft, or when two posts share an id. `_meta["x-thread/changes"]` carries the changes; `src/utils/draftChanges.js` computes them, so the editor
+  and the History panel can show the same "what changed". A refused edit (the draft changed since it was read)
+  shows its error text and no view data.
+- `get_draft` with `view: "compact"` shows the heading and a "Show all posts" button only: for a read made only
+  to change the draft. Its text and data are the same as a full read.
 - `list_drafts` shows the drafts list: one row per draft, with "View thread" and, when the link is ours,
   "Open in editor". "View thread" asks the app to call `get_draft` again.
 - `create_share_link` shows the share card: the preview and markdown links, Copy (when the app allows
