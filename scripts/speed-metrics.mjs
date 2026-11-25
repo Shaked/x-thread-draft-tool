@@ -220,15 +220,22 @@ export function githubApi({ token, repo, fetchImpl = fetch }) {
     return res.json()
   }
   return {
-    // Merged pull requests, newest first: `count` of them, or every one updated since sinceMs.
+    // Merged pull requests, newest merge first: the `count` newest, or every one merged since sinceMs.
+    // Pages come in updated_at order, and a merge is never later than its last update. So paging stops
+    // only when no PR still unseen can merge into the answer: the oldest update on the page is older
+    // than the count-th newest merge found so far (count mode), or older than sinceMs (since mode).
     async recentMergedPulls({ count = 0, sinceMs = 0 }) {
       const out = []
       for (let page = 1; page <= 20; page++) {
         const list = await get(`/pulls?state=closed&sort=updated&direction=desc&per_page=100&page=${page}`)
         if (list.length === 0) break
         for (const pr of list) if (pr.merged_at && Date.parse(pr.merged_at) >= sinceMs) out.push(pr)
-        if (count && out.length >= count) break
-        if (list.every((pr) => Date.parse(pr.updated_at) < sinceMs)) break
+        const oldestUpdate = Math.min(...list.map((pr) => Date.parse(pr.updated_at)))
+        if (list.length < 100) break
+        if (count) {
+          const merges = out.map((pr) => Date.parse(pr.merged_at)).sort((a, b) => b - a)
+          if (merges.length >= count && oldestUpdate < merges[count - 1]) break
+        } else if (oldestUpdate < sinceMs) break
       }
       out.sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))
       return count ? out.slice(0, count) : out

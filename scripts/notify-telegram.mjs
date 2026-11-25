@@ -8,7 +8,7 @@
 //   owner          the repository owner added the label owner: needs you
 //   cleanup        a PR got the label cleanup-pr (epic #255, task C3): review the cleanup PR
 //   cleanup-started the daily workflow opened a cleanup review issue (same kind "cleanup")
-//   speed          a stage's p90 is over its limit (speed-metrics.mjs, epic #306 task S5)
+//   speed          a stage's p90 is over its limit (speed-metrics.mjs, task #310 of epic #273)
 //
 // CLI (the workflows pass every value through environment variables, never inside the shell text):
 //   NOTIFY_KIND, NOTIFY_SHA, NOTIFY_TITLE, NOTIFY_URL, NOTIFY_RUN_URL, NOTIFY_PREVIEW_URL,

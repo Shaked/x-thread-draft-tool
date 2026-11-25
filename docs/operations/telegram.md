@@ -9,7 +9,7 @@ Code:
 - `.github/workflows/smoke-deployed.yml`: the two production kinds, after the deployed smoke test.
 - `.github/workflows/notify-labels.yml`: the three label kinds.
 - `.github/workflows/cleanup-review-daily.yml`: starts the cleanup message (see `docs/operations/cleanup-review.md`).
-- `.github/workflows/speed-metrics.yml`: the speed kind, from a manual run of the speed metrics (epic #306, task S5). The per-merge check sends nothing.
+- `.github/workflows/speed-metrics.yml`: the speed kind, from a manual run of the speed metrics (epic #273, task #310). The per-merge check sends nothing.
 
 ## The six kinds
 

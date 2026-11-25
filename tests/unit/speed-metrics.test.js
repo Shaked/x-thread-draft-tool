@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import {
   addTrend,
+  githubApi,
   measurePull,
   nearestRank,
   median,
@@ -214,5 +215,44 @@ describe('run(): modes, output and the checks', () => {
     await expect(run(['--last', '0'], {}, opts)).rejects.toThrow('--last')
     await expect(run(['--merge', 'abc'], {}, opts)).rejects.toThrow('--merge')
     await expect(run(['--delete', 'x'], {}, opts)).rejects.toThrow('bad option')
+  })
+})
+
+describe('githubApi.recentMergedPulls paging', () => {
+  // A fake fetch that serves the pages of pulls by the page query parameter.
+  function pagesApi(pages) {
+    const fetchImpl = async (url) => {
+      const page = Number(new URL(url).searchParams.get('page'))
+      return { ok: true, status: 200, json: async () => pages[page - 1] ?? [] }
+    }
+    return githubApi({ token: 'test-token', repo: 'owner/repo', fetchImpl })
+  }
+  const at = (ms) => new Date(ms).toISOString()
+  const T = Date.parse('2026-11-24T10:00:00Z')
+
+  it('--last 1 keeps paging past old merges that were updated recently (Codex P2)', async () => {
+    // Page 1: 100 old merges (merged in October), all updated in the last hour.
+    const page1 = Array.from({ length: 100 }, (_, i) => ({
+      number: 1000 - i,
+      merged_at: '2026-10-01T00:00:00Z',
+      updated_at: at(T - i * 1000),
+      merge_commit_sha: 'a'.repeat(40),
+      head: { sha: 'b'.repeat(40) },
+    }))
+    // Page 2: yesterday's merge, updated a week ago.
+    const newest = { number: 1, merged_at: '2026-11-23T09:00:00Z', updated_at: '2026-11-23T09:00:00Z', merge_commit_sha: 'c'.repeat(40), head: { sha: 'd'.repeat(40) } }
+    const api = pagesApi([page1, [newest]])
+    const result = await api.recentMergedPulls({ count: 1 })
+    expect(result.map((p) => p.number)).toEqual([1])
+  })
+
+  it('--last stops paging when the page is old enough, and returns the newest merges', async () => {
+    const page = [
+      { number: 5, merged_at: '2026-11-20T00:00:00Z', updated_at: '2026-11-21T00:00:00Z', merge_commit_sha: 'e'.repeat(40), head: { sha: 'f'.repeat(40) } },
+      { number: 4, merged_at: '2026-11-19T00:00:00Z', updated_at: '2026-11-19T12:00:00Z', merge_commit_sha: 'e'.repeat(40), head: { sha: 'f'.repeat(40) } },
+    ]
+    const api = pagesApi([page, [{ number: 99, merged_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }]])
+    const result = await api.recentMergedPulls({ count: 2 })
+    expect(result.map((p) => p.number)).toEqual([5, 4])
   })
 })
