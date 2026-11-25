@@ -4,7 +4,7 @@
 - The messages have no emoji and use the same words for production, preview and PR.
 
 Area: Admin
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/PENDING
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/457
 
 ## Technical details
 
