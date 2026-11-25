@@ -60,6 +60,8 @@ export default function DraftEditor({ user }) {
   const versionRef = useRef(undefined)
   // Mirrors `conflict`, so a save started in the same tick sees it at once. No save runs while it is set.
   const conflictRef = useRef(false)
+  // Mirrors whether the copy box is open, for the unload guard. A ref, so the effect is not re-run (it would cancel a pending save).
+  const copyOpenRef = useRef(false)
   // Saves run one at a time, so a save never sends the version an earlier save of this editor just replaced.
   const saveChainRef = useRef(Promise.resolve())
 
@@ -177,7 +179,7 @@ export default function DraftEditor({ user }) {
     // Save before unload, but only real unsaved edits: an untouched draft must not overwrite a newer version.
     const handleBeforeUnload = event => {
       // While a conflict waits for the user's choice nothing is saved, so ask before the page closes.
-      if (conflictRef.current) {
+      if (conflictRef.current || copyOpenRef.current) {
         event.preventDefault()
         event.returnValue = ''
         return
@@ -203,6 +205,7 @@ export default function DraftEditor({ user }) {
   const showTheirs = () => {
     if (!conflict?.theirs || !Number.isInteger(conflict.version)) return
     setCopyText(plainText(draft))
+    copyOpenRef.current = true
     const theirs = normalizeDraft(conflict.theirs)
     versionRef.current = conflict.version
     lastSavedRef.current = JSON.stringify(theirs)
@@ -388,7 +391,10 @@ export default function DraftEditor({ user }) {
                     <Button variant="secondary" onClick={copyMyText}>
                       Copy
                     </Button>
-                    <Button variant="ghost" onClick={() => setCopyText(null)}>
+                    <Button variant="ghost" onClick={() => {
+                      copyOpenRef.current = false
+                      setCopyText(null)
+                    }}>
                       Dismiss
                     </Button>
                   </>
