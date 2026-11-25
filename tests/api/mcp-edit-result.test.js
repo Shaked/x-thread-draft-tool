@@ -85,11 +85,15 @@ describe('#405: get_draft, then update_post', () => {
     await db.pg.query('update drafts set posts = $2::jsonb where id = $1', [db.draft.id, JSON.stringify(posts)])
     const added = await call('add_post', { id: db.draft.id, text: 'new', post_id: 'n' })
     expect(added._meta['x-thread/changes']).toMatchObject({ full: false, posts: [{ status: 'added', id: 'n' }] })
-    const twice = [{ id: 'd', text: 'first d' }, { id: 'd', text: 'second d' }, { id: 'e', text: 'e' }, { id: 'f', text: 'f' }]
+    // 5 posts, so 4 remain: only the repeated id makes it show the whole draft (not the under-4-posts rule).
+    const twice = ['d', 'd', 'e', 'f', 'g'].map((id, i) => ({ id, text: `${id} ${i}` }))
     await db.pg.query('update drafts set posts = $2::jsonb where id = $1', [db.draft.id, JSON.stringify(twice)])
     const removed = await call('remove_post', { id: db.draft.id, post_id: 'd' })
-    expect(removed._meta['x-thread/changes']).toMatchObject({ known: true, full: true })
-    expect(removed.content.at(-1).text).toMatch(/^Thread "Six", 3 posts, saved as a draft\./)
+    expect(removed._meta['x-thread/changes']).toMatchObject({ known: true, full: true, post_count: 4 })
+    expect(removed.content.at(-1).text).toMatch(/^Thread "Six", 4 posts, saved as a draft\./)
+    const one = (ids) => ({ version: 1, posts: ids.map((id) => ({ id, text: id })) })
+    expect(changeMeta(one(['a', 'b', 'c', 'd', 'e']), { ...one(['a', 'b', 'c', 'd', 'x']), version: 2 })).toMatchObject({ full: false })
+    expect(changeMeta(one(['a', 'a', 'c', 'd', 'e']), { ...one(['a', 'a', 'c', 'd', 'x']), version: 2 })).toMatchObject({ full: true })
   })
 
   it('another write between the read and this one: the state before is not known, so the whole draft is shown', () => {
