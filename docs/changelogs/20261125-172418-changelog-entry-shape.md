@@ -4,7 +4,7 @@
 - Older changes stay under "Earlier changes", and their full text opens in a fold.
 
 Area: Admin
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/PENDING
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/429
 
 ## Technical details
 
