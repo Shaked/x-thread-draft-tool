@@ -88,7 +88,11 @@ export default function ChangelogPage() {
 
   useEffect(() => {
     if (!focusId.current) return
-    document.getElementById(`changelog-${focusId.current}`)?.focus()
+    // An entry without an Area sits in the closed "Earlier changes" fold: open it, or focus cannot move there.
+    const entry = document.getElementById(`changelog-${focusId.current}`)
+    const fold = entry?.closest('details')
+    if (fold) fold.open = true
+    entry?.focus()
     focusId.current = null
   }, [list.entries])
 
