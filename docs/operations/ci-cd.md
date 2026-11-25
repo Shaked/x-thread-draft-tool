@@ -17,7 +17,7 @@
 
 ## Speed metrics
 - `scripts/speed-metrics.mjs` measures the four stages of `docs/plans/speed.md` section 1 (CI, merge wait, Vercel, smoke) from the GitHub API only. It writes `speed.json` and `speed.md`; the job summary shows `speed.md`.
-- Manual run: Actions, "Speed metrics", "Run workflow", input `last` (default 50). It sends one Telegram line when a stage's p90 is over its limit. Artifact `speed-metrics`, kept 90 days.
+- Manual run: Actions, "Speed metrics", "Run workflow", input `last` (default 50). It prints the p90 table to the job log, sends one Telegram line when a stage's p90 is over its limit, and keeps the artifact `speed-metrics` for 90 days.
 - Per merge: after each production `Smoke test (deployed)` run, the same workflow measures that merge and writes one `::warning::` per stage over its limit. It never fails the run.
 - Local: `GITHUB_TOKEN=<read token> GITHUB_REPOSITORY=Shaked/x-thread-draft-tool node scripts/speed-metrics.mjs --last 50`. The token needs read access only.
 

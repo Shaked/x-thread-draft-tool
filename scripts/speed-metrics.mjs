@@ -328,13 +328,14 @@ async function alert(opts, prs, summary, env, { log, notifyImpl }) {
   await notifyImpl({ token: env.TELEGRAM_BOT_TOKEN || '', chatId: env.TELEGRAM_CHAT_ID || '', ...message, log })
 }
 
-// Writes speed.json and speed.md, and the markdown to the job summary when GitHub gives one.
+// Writes speed.json and speed.md, and the markdown to the job summary when GitHub gives one. Returns the markdown.
 function writeOutputs(doc, out, env) {
   mkdirSync(out, { recursive: true })
   writeFileSync(join(out, 'speed.json'), stableJson(doc))
   const md = renderMarkdown(doc)
   writeFileSync(join(out, 'speed.md'), md)
   if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, md)
+  return md
 }
 
 // Runs one measurement. Returns { status: 'done' | 'skipped', summary }.
@@ -355,7 +356,9 @@ export async function run(argv, env = {}, deps = {}) {
   }
   const previous = opts.previous ? JSON.parse(readFileSync(opts.previous, 'utf8')).summary : null
   const summary = addTrend(summarize(prs), previous)
-  writeOutputs({ mode: found.mode, limits: LIMITS, summary, prs }, opts.out ?? 'speed-metrics', env)
+  const md = writeOutputs({ mode: found.mode, limits: LIMITS, summary, prs }, opts.out ?? 'speed-metrics', env)
+  // By hand (--last) the table goes to the job log too, so the p90 numbers can be read without the artifact.
+  if (opts.merge === undefined) log(md)
   await alert(opts, prs, summary, env, { log, notifyImpl })
   log(`speed: ${found.mode}, ${prs.length} merged pull requests, written to ${opts.out ?? 'speed-metrics'}`)
   return { status: 'done', summary }
