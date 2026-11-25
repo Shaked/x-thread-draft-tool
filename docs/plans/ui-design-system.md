@@ -105,7 +105,7 @@ Decisions (planner):
   and `index.html` already set). This removes today's three copies. `light-dark()` is in Chrome 123, Firefox 120 and
   Safari 17.5 (from their release notes; not checked again in this session). Checked here: the pre-installed Chromium
   (`/opt/pw-browsers/chromium-1243`) resolves it; the mock-up screenshots are rendered with it.
-- **Contrast** (all 102 pairs pass, 51 per theme; lowest 4.83:1 for text, success on `surface-2`, and 3.11:1 for a
+- **Contrast** (all 102 pairs pass, 51 per theme, and the same 102 for the optional Rare UI skin of #406; lowest 4.83:1 for text, success on `surface-2`, and 3.11:1 for a
   border on `surface-2`): text, soft text, accent, danger, success and warning on every surface; text on accent, on
   danger and on each soft background; borders and the focus ring at 3:1. The pair list is in section 6.
 - **No web font.** The system font stack stays (fast, offline-safe PWA, no third-party request). Hebrew gets

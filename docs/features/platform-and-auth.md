@@ -7,6 +7,7 @@
 - Owner-only writes are filtered by the session user id in every query; a non-owner gets 404.
 - Deployment metadata visibility.
 - API tokens page (`/settings/tokens`): create and revoke tokens.
+- Feature flags page (`/settings/flags`, in the menu): a per-device switch between the current purple look and the Rare UI look (#406, approved by Shaked 2026-11-25). It sets `data-skin` on `<html>` from `xt-skin` in localStorage; `src/styles/tokens.css` overrides tokens only, so every page and `src/ui/` component follows. Colour contrast is tested for both looks. No Rare UI code is used (its licence, MIT with Commons Clause and an attribution clause, would require a visible credit link if code were copied); the colours are inspired by it and the page links to it as credit.
 - Connected apps page (`/settings/apps`): "Connect an AI app" lists the four clients with copy buttons; "Connected apps" lists and revokes them.
 - Suspension: a suspended account is refused on every sign-in path (cookie, `xt_` and `xta_` tokens, MCP, the OAuth token endpoint, device sign-in, the GitHub callback, the CI identity). The API answers 403 "This account is suspended."; the app shows that notice above the sign-in button (`/?suspended=1`); share links of the account's drafts answer 410 and are not used up. Nothing is deleted, and everything works again after the suspension is lifted.
 - MCP connector at `/api/mcp` (OAuth 2.1 with PKCE, rotating refresh tokens). Setup and tools: [docs/agents/mcp.md](../agents/mcp.md).

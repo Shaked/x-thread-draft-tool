@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { PGlite } from '@electric-sql/pglite'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { setupTestDb } from './helpers/db.js'
 import { bucketOf, oneHot } from '../../server/metrics/histogram.js'
@@ -35,10 +34,11 @@ const upsertHourly = `
 describe('010_metrics.sql', () => {
   it('runs twice without error (idempotent)', async () => {
     const sql = await readFile(fileURLToPath(new URL('../../db/migrations/010_metrics.sql', import.meta.url)), 'utf8')
-    const pg = new PGlite()
-    await pg.exec(sql)
-    await expect(pg.exec(sql)).resolves.toBeDefined()
-    await pg.close()
+    // The migrated snapshot already has 010 applied, so two more runs prove it can be repeated. A first run on an
+    // empty database is covered by migrate.test.js, which replays every migration. Booting a second PGlite here
+    // cost about 2 s and pushed this file over the 5 s per-file budget (#456).
+    await expect(db.pg.exec(sql)).resolves.toBeDefined()
+    await expect(db.pg.exec(sql)).resolves.toBeDefined()
   })
 
   it('creates the four tables', async () => {
