@@ -269,8 +269,9 @@ export function githubApi({ token, repo, fetchImpl = fetch }) {
     async deploymentStatuses(id) {
       return get(`/deployments/${id}/statuses?per_page=100`)
     },
+    // A renamed file counts under both paths, as scripts/vercel-ignore.mjs does with --no-renames.
     async commitFiles(sha) {
-      return ((await get(`/commits/${sha}`)).files ?? []).map((f) => f.filename)
+      return ((await get(`/commits/${sha}`)).files ?? []).flatMap((f) => [f.filename, f.previous_filename].filter(Boolean))
     },
   }
 }

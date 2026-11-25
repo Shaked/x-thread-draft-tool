@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
+import { shouldSkip } from '../../scripts/vercel-ignore.mjs'
 import {
   addTrend,
   githubApi,
@@ -270,5 +271,19 @@ describe('githubApi.recentMergedPulls paging', () => {
     const api = pagesApi([page, [{ number: 99, merged_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }]])
     const result = await api.recentMergedPulls({ count: 2 })
     expect(result.map((p) => p.number)).toEqual([5, 4])
+  })
+})
+
+describe('githubApi.commitFiles renames', () => {
+  it('a rename from a deployed path into docs/ keeps the old path, so the merge is not called docs-only', async () => {
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ files: [{ filename: 'docs/llms.txt', previous_filename: 'public/llms.txt' }] }),
+    })
+    const api = githubApi({ token: 'test-token', repo: 'owner/repo', fetchImpl })
+    const files = await api.commitFiles('a'.repeat(40))
+    expect(files).toEqual(['docs/llms.txt', 'public/llms.txt'])
+    expect(shouldSkip({ VERCEL_ENV: 'production' }, files)).toBe(false)
   })
 })
