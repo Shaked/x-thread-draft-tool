@@ -30,8 +30,13 @@ describe('the changes of an edit (#405)', () => {
     expect(root.textContent).toContain('Before' + 'old ' + XSS)
     expect(root.textContent).not.toContain('three')
     expect(root.querySelector('img')).toBeNull()
+    const thread = threadFrom(result)
+    thread.drawn = vi.fn()
+    renderChanges(root, thread, changesFrom(result), vi.fn())
     root.querySelector('main > button').click()
     expect(root.querySelectorAll('article')).toHaveLength(3)
+    // The view adds its share action again after the whole thread is drawn (Codex review on PR 422).
+    expect(thread.drawn).toHaveBeenCalledTimes(1)
     expect(changesFrom({ _meta: { 'x-thread/changes': { ...changes, full: true } } })).toBeNull()
   })
 

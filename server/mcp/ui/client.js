@@ -356,7 +356,10 @@ export function renderChanges(root, thread, changes, open) {
     }
   }
   const all = add(linkButton('Show all ' + total + ' posts', null, null))
-  all.addEventListener('click', () => renderThread(root, thread, open))
+  all.addEventListener('click', () => {
+    renderThread(root, thread, open)
+    if (typeof thread.drawn === 'function') thread.drawn()
+  })
 }
 
 /** Shows one message in root in place of the thread. */

@@ -81,11 +81,14 @@ const STARTER = `
       var ctx = link.context();
       thread.share = link.canCallTools() ? { create: createShare, revoke: revokeShare, locale: ctx && typeof ctx.locale === 'string' ? ctx.locale : undefined } : null;
       // #405: an edit shows what it changed; a read made only to edit shows the heading. Else the whole thread.
+      // Plan Task 7 (#189): a saved draft gets "Create share link" right under its heading, again after "Show all posts".
+      thread.drawn = function () {
+        if (thread.share && thread.id && thread.saved) root.insertBefore(createShareNode(thread, open), root.firstChild.nextSibling);
+      };
       var changes = changesFrom(result);
       if (changes || (result._meta || {})['x-thread/display'] === 'compact') renderChanges(root, thread, changes, open);
       else renderThread(root, thread, open);
-      // Plan Task 7 (#189): a saved draft gets "Create share link" right under its heading.
-      if (thread.share && thread.id && thread.saved) root.insertBefore(createShareNode(thread, open), root.firstChild.nextSibling);
+      thread.drawn();
     } else {
       renderError(root, 'This view cannot show that result.');
     }
