@@ -47,10 +47,13 @@ async function runSaveDebounce() {
 
 async function typeInTitle(text) {
   const title = await screen.findByLabelText('Draft title')
-  await userEvent.type(title, text)
+  await typer().type(title, text)
   await runSaveDebounce()
   return title
 }
+
+// userEvent with fake timers: its keystroke delays advance the fake clock, not the real one.
+const typer = () => userEvent.setup({ advanceTimers: vi.advanceTimersByTime, delay: null })
 
 function unload() {
   window.dispatchEvent(new Event('beforeunload'))
@@ -97,7 +100,7 @@ describe('DraftEditor save with a version (If-Match)', () => {
     draftsApi.update.mockResolvedValue({ ...DRAFT, version: 4 })
     renderEditor()
     const title = await screen.findByLabelText('Draft title')
-    await userEvent.type(title, '!')
+    await typer().type(title, '!')
     unload()
 
     await waitFor(() => expect(draftsApi.update).toHaveBeenCalledTimes(1))
@@ -126,7 +129,7 @@ describe('DraftEditor save with a version (If-Match)', () => {
     await typeInTitle('!')
     await screen.findByRole('alert')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show their changes' }))
+    await typer().click(screen.getByRole('button', { name: 'Show their changes' }))
 
     expect(await screen.findByLabelText('Draft title')).toHaveValue('Theirs')
     expect(screen.getByLabelText('Your text')).toHaveValue('Draft one!\n\nhello')
@@ -141,7 +144,7 @@ describe('DraftEditor save with a version (If-Match)', () => {
     await typeInTitle('!')
     await screen.findByRole('alert')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Keep mine' }))
+    await typer().click(screen.getByRole('button', { name: 'Keep mine' }))
 
     await waitFor(() => expect(draftsApi.update).toHaveBeenCalledTimes(2))
     expect(draftsApi.update.mock.calls[1][1].title).toBe('Draft one!')
@@ -156,9 +159,9 @@ describe('DraftEditor save with a version (If-Match)', () => {
       .mockResolvedValueOnce({ ...DRAFT, version: 5 })
     renderEditor()
     const title = await screen.findByLabelText('Draft title')
-    await userEvent.type(title, '!')
+    await typer().type(title, '!')
     await runSaveDebounce()
-    await userEvent.type(title, '?')
+    await typer().type(title, '?')
     await runSaveDebounce()
 
     expect(draftsApi.update).toHaveBeenCalledTimes(1)
