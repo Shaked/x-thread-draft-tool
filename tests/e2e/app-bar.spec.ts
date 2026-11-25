@@ -134,6 +134,24 @@ test.describe('app bar on phones', () => {
     }
   })
 
+  test('pages in the page frame use one gutter, not two (390 px)', async ({ browser }) => {
+    for (const pageInfo of pagesFor().filter((p) => p.name !== 'editor')) {
+      const { context, page } = await openContext(browser)
+      try {
+        await page.goto(`${BASE}${pageInfo.path}`)
+        const title = pageInfo.ready(page)
+        await title.waitFor()
+        const gutter = 16 // --page-gutter under 768 px (1rem)
+        const heading = await boxOf(page.locator('h1').first())
+        expect(Math.abs(heading.x - gutter), `${pageInfo.name}: title starts one gutter from the edge (x ${heading.x}, gutter ${gutter})`).toBeLessThanOrEqual(1)
+        const menu = await boxOf(page.locator('.ui-page-header__bar button').first())
+        expect(menu.y, `${pageInfo.name}: menu button is not pushed down`).toBeLessThanOrEqual(40)
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
   test('on the editor the bar is one row and the round toggle is gone', async ({ browser }) => {
     const { context, page } = await openContext(browser)
     try {
