@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { draftsApi, authApi } from '../utils/api'
 import { normalizeImages } from '../utils/images'
-import { set as idbSet, del as idbDel } from 'idb-keyval'
+import { set as idbSet, del as idbDel, get as idbGet } from 'idb-keyval'
 import ThreadComposer from '../components/ThreadComposer'
 import AgentLinkButton from '../components/AgentLinkButton'
 import XThreadLinkButton from '../components/XThreadLinkButton'
@@ -24,6 +24,31 @@ const withPostId = post =>
     ? { ...post, id: crypto.randomUUID() }
     : post
 
+// The draft as the editor holds it: images normalized for backward compatibility.
+const normalizeDraft = data => ({
+  ...data,
+  posts: data.posts?.map(post => ({
+    ...withPostId(post),
+    images: normalizeImages(post.images || [])
+  })) || []
+})
+
+// My text from a conflict, kept in this browser until I copy it or keep mine. The `draft-` prefix means sign-out clears it.
+const mineKeyOf = id => `draft-${id}-mine`
+
+// The kept text, or null. Never throws: a blocked IndexedDB must not block the editor.
+const readKeptText = async id => {
+  try {
+    const kept = await idbGet(mineKeyOf(id))
+    return typeof kept === 'string' ? kept : null
+  } catch {
+    return null
+  }
+}
+
+// The text the user wrote, one post per paragraph, for copying after a conflict.
+const plainText = draft => [draft.title, ...draft.posts.map(post => post.text)].filter(Boolean).join('\n\n')
+
 export default function DraftEditor({ user }) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -37,9 +62,30 @@ export default function DraftEditor({ user }) {
   const [synced, setSynced] = useState(true)
   // True after a save gets 401: the session ended. The text stays in the editor for the user to copy.
   const [signedOut, setSignedOut] = useState(false)
+  // Set after a save gets 412: another app changed the draft. { version, theirs } until the user chooses.
+  const [conflict, setConflict] = useState(null)
+  // After "Show their changes": my text, for copying.
+  const [copyText, setCopyText] = useState(null)
 
   const saveTimeoutRef = useRef(null)
   const lastSavedRef = useRef(null)
+  // The version the editor last read or saved. Every save sends it as If-Match.
+  const versionRef = useRef(undefined)
+  // Mirrors `conflict`, so a save started in the same tick sees it at once. No save runs while it is set.
+  const conflictRef = useRef(false)
+  // The copy box's text (null when closed). A ref too, so the unload guard and saves read it at once.
+  const copyTextRef = useRef(null)
+  const setCopy = text => {
+    copyTextRef.current = text
+    setCopyText(text)
+  }
+  // The text to keep for me: the copy box's text (if still open) followed by the current text, not replacing it.
+  const keptFor = current => {
+    const previous = copyTextRef.current
+    return previous && previous !== current ? `${previous}\n\n---\n\n${current}` : current
+  }
+  // Saves run one at a time, so a save never sends the version an earlier save of this editor just replaced.
+  const saveChainRef = useRef(Promise.resolve())
 
   const loadDraft = async () => {
     try {
@@ -49,20 +95,20 @@ export default function DraftEditor({ user }) {
       // The server returns a draft only to its owner: 401 when signed out, 404 for anyone else.
       const data = await draftsApi.get(id)
 
-      // Normalize images for backward compatibility
-      const normalizedData = {
-        ...data,
-        posts: data.posts?.map(post => ({
-          ...withPostId(post),
-          images: normalizeImages(post.images || [])
-        })) || []
-      }
+      const normalizedData = normalizeDraft(data)
 
       setDraft(normalizedData)
       lastSavedRef.current = JSON.stringify(normalizedData)
+      versionRef.current = data.version
 
       // Save to IndexedDB for offline access
       await idbSet(`draft-${id}`, data)
+
+      // My text from an earlier conflict, kept in this browser: show it to copy, unless it is the server's text.
+      const kept = await readKeptText(id)
+      if (kept !== null && kept !== plainText(normalizedData)) {
+        setCopy(kept)
+      }
     } catch (err) {
       console.error('Error loading draft:', err)
       // A copy kept in this browser must never show for a draft the server refuses.
@@ -81,28 +127,49 @@ export default function DraftEditor({ user }) {
   }, [id, user])
 
   const saveDraft = useCallback(
-    async (draftToSave, immediate = false) => {
-      if (!user) return
+    async (draftToSave, immediate = false, keepalive = false) => {
+      // No save while another app's change is waiting for the user's choice.
+      if (!user || conflictRef.current) return false
+
+      const enqueue = fn => {
+        const run = saveChainRef.current.then(fn)
+        saveChainRef.current = run.catch(() => {})
+        return run
+      }
 
       const saveFn = async () => {
+        // A save queued before a conflict must not send anything once the conflict is open.
+        if (conflictRef.current) return false
         try {
           setSaving(true)
           setSynced(false)
 
-          await draftsApi.update(id, {
-            title: draftToSave.title,
-            posts: draftToSave.posts
-          })
+          const saved = await draftsApi.update(
+            id,
+            { title: draftToSave.title, posts: draftToSave.posts },
+            versionRef.current,
+            { keepalive }
+          )
+          versionRef.current = saved?.version ?? versionRef.current
 
           lastSavedRef.current = JSON.stringify(draftToSave)
           setSynced(true)
           setSignedOut(false)
 
-          // Update IndexedDB
+          // Update IndexedDB. A kept copy of my text goes once the copy box is closed.
+          if (copyTextRef.current === null) await idbDel(mineKeyOf(id)).catch(() => {})
           await idbSet(`draft-${id}`, draftToSave)
           return true
         } catch (err) {
           console.error('Save error:', err)
+          if (err.status === 412) {
+            // Nothing was written. Stop saving and let the user choose (see the banner).
+            conflictRef.current = true
+            setConflict({ version: err.version ?? err.draft?.version, theirs: err.draft })
+            idbSet(mineKeyOf(id), keptFor(plainText(draftToSave))).catch(() => {})
+            setSynced(true)
+            return false
+          }
           // Still save to IndexedDB even if server fails, except when signed out (sign-out clears this cache)
           if (err.status === 401) setSignedOut(true)
           else await idbSet(`draft-${id}`, draftToSave)
@@ -116,13 +183,13 @@ export default function DraftEditor({ user }) {
         if (saveTimeoutRef.current) {
           clearTimeout(saveTimeoutRef.current)
         }
-        return saveFn()
+        return enqueue(saveFn)
       } else {
         // Debounce
         if (saveTimeoutRef.current) {
           clearTimeout(saveTimeoutRef.current)
         }
-        saveTimeoutRef.current = setTimeout(saveFn, 1000)
+        saveTimeoutRef.current = setTimeout(() => enqueue(saveFn), 1000)
       }
     },
     [id, user]
@@ -131,18 +198,35 @@ export default function DraftEditor({ user }) {
   useEffect(() => {
     if (!draft) return
 
+    // While a conflict is open, keep my text in this browser, so leaving or reloading keeps it.
+    if (conflictRef.current) idbSet(mineKeyOf(id), keptFor(plainText(draft))).catch(() => {})
+
     // Auto-save on changes
     const currentState = JSON.stringify(draft)
     if (currentState !== lastSavedRef.current) {
       saveDraft(draft, false)
     }
-  }, [draft, saveDraft])
+  }, [draft, saveDraft, id, conflict])
 
   useEffect(() => {
-    // Save before unload
-    const handleBeforeUnload = () => {
-      if (draft) {
-        saveDraft(draft, true)
+    // Save before unload, but only real unsaved edits: an untouched draft must not overwrite a newer version.
+    const handleBeforeUnload = event => {
+      // While a conflict waits for the user's choice nothing is saved, so ask before the page closes.
+      if (conflictRef.current) {
+        event.preventDefault()
+        event.returnValue = ''
+        return
+      }
+      // The copy box holds my text: ask, and still save any unsaved edits below.
+      if (copyTextRef.current !== null) {
+        event.preventDefault()
+        event.returnValue = ''
+      }
+      if (draft && JSON.stringify(draft) !== lastSavedRef.current) {
+        // Unsaved edits: ask before the page closes. The save below may be refused (412) or not finish.
+        event.preventDefault()
+        event.returnValue = ''
+        saveDraft(draft, true, true)
       }
     }
 
@@ -154,6 +238,52 @@ export default function DraftEditor({ user }) {
       }
     }
   }, [draft, saveDraft])
+
+  // "Show their changes": keep my text for copying, then show the draft the other app saved.
+  const showTheirs = () => {
+    if (!conflict?.theirs || !Number.isInteger(conflict.version)) return
+    const kept = keptFor(plainText(draft))
+    setCopy(kept)
+    const theirs = normalizeDraft(conflict.theirs)
+    versionRef.current = conflict.version
+    lastSavedRef.current = JSON.stringify(theirs)
+    setDraft(theirs)
+    conflictRef.current = false
+    setConflict(null)
+    idbSet(`draft-${id}`, theirs).catch(() => {})
+    idbSet(mineKeyOf(id), kept).catch(() => {})
+  }
+
+  // "Keep mine": save my text as a new version on top of theirs.
+  const keepMine = () => {
+    if (!Number.isInteger(conflict?.version)) return
+    versionRef.current = conflict.version
+    conflictRef.current = false
+    setConflict(null)
+    saveDraft(draft, true)
+  }
+
+  // Back link: while a conflict or the copy box holds text that is not saved, ask before leaving.
+  const handleBack = async event => {
+    if (!conflict && copyText === null) return
+    event.preventDefault()
+    const confirmed = await ask({
+      title: 'Leave this draft?',
+      body: 'This draft changed in another app and your text is not saved. Leaving keeps your text in this browser. Open this draft again to copy it.',
+      confirmLabel: 'Leave',
+      tone: 'danger'
+    })
+    if (confirmed) navigate('/')
+  }
+
+  const copyMyText = async () => {
+    try {
+      await navigator.clipboard.writeText(copyText)
+      toast({ message: 'Copied', tone: 'success' })
+    } catch {
+      toast({ message: 'Could not copy. Select the text and copy it.', tone: 'danger' })
+    }
+  }
 
   const handleTitleChange = (newTitle) => {
     setDraft({ ...draft, title: newTitle })
@@ -217,7 +347,7 @@ export default function DraftEditor({ user }) {
   }
 
   // The save status word and its tone: the same texts as before, announced when they change.
-  const saveStatus = signedOut
+  const saveStatus = signedOut || conflict
     ? { tone: 'danger', text: 'Not saved' }
     : !synced || saving
       ? { tone: 'warning', text: 'Saving…' }
@@ -227,7 +357,7 @@ export default function DraftEditor({ user }) {
     <div className="draft-editor">
       <PageHeader
         sticky
-        back={{ to: '/', label: '← Back' }}
+        back={{ to: '/', label: '← Back', onClick: handleBack }}
         titleSlot={
           <h1>
             <Input value={draft.title} onChange={handleTitleChange} ariaLabel="Draft title" placeholder="Untitled Draft" />
@@ -271,6 +401,50 @@ export default function DraftEditor({ user }) {
             )}
 
             <ThreadComposer posts={draft.posts} onPostsChange={handlePostsChange} />
+
+            {conflict && (
+              <Banner
+                tone="warning"
+                role="alert"
+                actions={
+                  <>
+                    <Button variant="secondary" onClick={showTheirs}>
+                      Show their changes
+                    </Button>
+                    <Button variant="primary" onClick={keepMine}>
+                      Keep mine
+                    </Button>
+                  </>
+                }
+              >
+                This draft changed in another app while you were editing. Autosave is paused until you choose.
+              </Banner>
+            )}
+
+            {copyText !== null && (
+              <Banner
+                tone="info"
+                role="status"
+                actions={
+                  <>
+                    <Button variant="secondary" onClick={copyMyText}>
+                      Copy
+                    </Button>
+                    <Button variant="ghost" onClick={() => {
+                      setCopy(null)
+                      // A conflict is still open: keep my current text, not the copy that was dismissed.
+                      if (conflictRef.current) idbSet(mineKeyOf(id), plainText(draft)).catch(() => {})
+                      else idbDel(mineKeyOf(id)).catch(() => {})
+                    }}>
+                      Dismiss
+                    </Button>
+                  </>
+                }
+              >
+                <p>Your text is below. Copy what you need.</p>
+                <textarea readOnly rows={8} value={copyText} aria-label="Your text" />
+              </Banner>
+            )}
 
             {!draft.is_published && (
               <Banner tone="info" role="none">

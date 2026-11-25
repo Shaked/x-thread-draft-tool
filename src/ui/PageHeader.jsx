@@ -13,7 +13,7 @@ export default function PageHeader({ title, subtitle, back, actions, menu = true
         <div className="ui-page-header__nav">
           {menu && <AppMenu />}
           {back && (
-            <Button variant="ghost" size="sm" to={back.to}>
+            <Button variant="ghost" size="sm" to={back.to} onClick={back.onClick}>
               {back.label}
             </Button>
           )}

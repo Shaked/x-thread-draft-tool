@@ -3,12 +3,13 @@
  * Errors carry the server's message and the HTTP status (`err.status`).
  */
 
-async function request(path, { method = 'GET', body, headers = {} } = {}) {
+async function request(path, { method = 'GET', body, headers = {}, keepalive = false } = {}) {
   const isRaw = body instanceof Blob
   const init = {
     method,
     credentials: 'same-origin',
-    headers: { ...headers }
+    headers: { ...headers },
+    keepalive
   }
 
   if (isRaw) {
@@ -25,6 +26,9 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   if (!response.ok) {
     const error = new Error(data.error || `HTTP ${response.status}`)
     error.status = response.status
+    // A 412 carries the current `version` and `draft` (nothing was written), so the editor can show them.
+    error.version = data.version
+    error.draft = data.draft
     throw error
   }
 
@@ -61,8 +65,13 @@ export const draftsApi = {
     return data.draft
   },
 
-  async update(id, patch) {
-    const data = await request(`/drafts/${encodeURIComponent(id)}`, { method: 'PATCH', body: patch })
+  /**
+   * `version` is the draft version the editor last read or saved. The server refuses a write made on an
+   * older version with 412 and writes nothing (`If-Match`). `keepalive` lets a save during page unload finish.
+   */
+  async update(id, patch, version, { keepalive = false } = {}) {
+    const headers = version === undefined ? {} : { 'if-match': `"${version}"` }
+    const data = await request(`/drafts/${encodeURIComponent(id)}`, { method: 'PATCH', body: patch, headers, keepalive })
     return data.draft
   },
 
