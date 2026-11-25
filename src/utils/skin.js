@@ -3,7 +3,7 @@
 // from that one attribute. index.html applies the stored value before the first paint.
 
 export const SKIN_KEY = 'xt-skin'
-export const SKINS = ['default', 'rare']
+const SKINS = ['default', 'rare']
 
 // Set only when storage refused the last write: this page's choice then wins over an older stored value.
 let sessionSkin = null
