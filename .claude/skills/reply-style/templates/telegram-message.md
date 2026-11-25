@@ -24,7 +24,6 @@ Passed:
 ```text
 **[Production is live and tested](<production url>)**
 `<sha7>` <commit title>
-Smoke tests passed.
 Nothing needed.
 [See the run](<run url>)   [only when the workflow passes the run link]
 ```
@@ -33,7 +32,6 @@ Example:
 ```text
 **[Production is live and tested](https://x-thread-draft-tool.vercel.app)**
 `46070af` Thread view: one action row and purple accent
-Smoke tests passed.
 Nothing needed.
 [See the run](https://github.com/Shaked/x-thread-draft-tool/actions/runs/1)
 ```
@@ -80,14 +78,14 @@ Needs you: try the change on preview.
 Sent when the owner's account adds the label `owner` to an issue or a PR.
 
 ```text
-**[Needs you on GitHub](<issue or PR url>)**
+**[A PR needs you](<PR url>)**   [or "An issue needs you", from whether the label is on a PR]
 <issue or PR title>
 Needs you: open it and answer or do what it asks.
 ```
 
 Example:
 ```text
-**[Needs you on GitHub](https://github.com/Shaked/x-thread-draft-tool/issues/369)**
+**[An issue needs you](https://github.com/Shaked/x-thread-draft-tool/issues/369)**
 Changelog entries and Telegram messages follow the writing templates
 Needs you: open it and answer or do what it asks.
 ```
@@ -116,14 +114,14 @@ Started:
 ```text
 **[Cleanup review started](<issue url>)**
 <issue title>
-Nothing needed. An agent reviews the changes and opens a PR if it finds something to remove.
+Nothing needed. An agent reviews the commits since the last review and opens up to three PRs.
 ```
 
 Example:
 ```text
 **[Cleanup review started](https://github.com/Shaked/x-thread-draft-tool/issues/34)**
 Cleanup review 2026-11-25
-Nothing needed. An agent reviews the changes and opens a PR if it finds something to remove.
+Nothing needed. An agent reviews the commits since the last review and opens up to three PRs.
 ```
 
 ## 5. Metrics alert
@@ -133,12 +131,12 @@ errors, slow and capacity (`docs/plans/observability.md`, section 6). One line p
 ```text
 **[Metrics alert: <the alerts that fired, in words>](<production url>/admin/metrics)**
 <Alert>: <the value, in plain words>, in the last <window>. The limit is <limit>.   [one line per alert]
-Needs you: open the metrics page and read which route or table it names.
+Needs you: open the metrics page and find the route with the errors or the slow answers.
 ```
 
 Example:
 ```text
 **[Metrics alert: slow answers](https://x-thread-draft-tool.vercel.app/admin/metrics)**
-Slow: 5 % of API answers took over 1380 ms in the last 24 hours. The limit is 1000 ms.
-Needs you: open the metrics page and read which route or table it names.
+Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms.
+Needs you: open the metrics page and find the route with the errors or the slow answers.
 ```
