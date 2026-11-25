@@ -6,17 +6,25 @@ import { el } from './client.js'
 import { X_VARS_DARK, X_VARS_LIGHT } from '../../share/x-css.js'
 import { embedOrigin } from './origin.js'
 import { CARD_FUNCTIONS, CARD_STYLE, renderShare, shareFrom } from './share-card.js'
+import { ACCENT_VARS_DARK, ACCENT_VARS_LIGHT } from './tokens.js'
 
+// Spacing (#357), in px, on the 4 px grid of src/styles/tokens.css: heading 16 top, 12 bottom; the action row 8 between
+// its buttons and 12 below it; the share card wraps under the row.
 export const STYLE = `
-:root { color-scheme: light; ${X_VARS_LIGHT} }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; ${X_VARS_DARK} } }
-:root[data-theme="dark"] { color-scheme: dark; ${X_VARS_DARK} }
-:root[data-theme="light"] { color-scheme: light; ${X_VARS_LIGHT} }
+:root { color-scheme: light; ${X_VARS_LIGHT}; ${ACCENT_VARS_LIGHT} }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; ${X_VARS_DARK}; ${ACCENT_VARS_DARK} } }
+:root[data-theme="dark"] { color-scheme: dark; ${X_VARS_DARK}; ${ACCENT_VARS_DARK} }
+:root[data-theme="light"] { color-scheme: light; ${X_VARS_LIGHT}; ${ACCENT_VARS_LIGHT} }
 html, body { margin: 0; background: var(--x-bg); color: var(--x-fg); font: 15px/1.4 system-ui, -apple-system, sans-serif; overflow-wrap: anywhere; }
 main { max-width: 600px; margin: 0 auto; padding: var(--safe-top, 0px) calc(16px + var(--safe-right, 0px)) var(--safe-bottom, 0px) calc(16px + var(--safe-left, 0px)); }
-header { padding: 12px 0; border-bottom: 1px solid var(--x-line); }
+header { padding: 16px 0 12px; border-bottom: 1px solid var(--x-line); }
 h1 { font-size: 20px; font-weight: 800; margin: 0 0 4px; }
 header p { margin: 0; color: var(--x-muted); font-size: 14px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.actions:empty { display: none; }
+.share { display: contents; }
+.share > p, .share > div { flex-basis: 100%; min-width: 0; margin: 0; }
+.share > div { margin-top: 8px; }
 article { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 12px 0 4px; border-bottom: 1px solid var(--x-line); }
 article > span { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--x-line); background: var(--x-card); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--x-muted); }
 article > div { min-width: 0; }
@@ -35,7 +43,8 @@ ol img { display: block; width: 100%; height: 100%; object-fit: cover; aspect-ra
 ol:has(> li:only-child) img { aspect-ratio: auto; max-height: 420px; object-fit: contain; }
 section { border: 1px solid var(--x-line); border-radius: 16px; padding: 10px 12px; margin: 4px 0 8px; }
 section p { font-size: 14px; color: var(--x-muted); margin: 0 0 6px; }
-button { font: inherit; font-size: 14px; color: var(--x-link); background: none; border: 1px solid var(--x-line); border-radius: 999px; padding: 4px 12px; cursor: pointer; max-width: 100%; overflow-wrap: anywhere; text-align: start; }
+button { font: inherit; font-size: 14px; color: var(--accent); background: none; border: 1px solid var(--x-line); border-radius: 999px; padding: 4px 12px; cursor: pointer; max-width: 100%; overflow-wrap: anywhere; text-align: start; }
+button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 footer small { color: var(--x-muted); }
 main > div > p { color: var(--x-muted); font-size: 13px; text-align: center; margin: 12px 0; }
 footer strong { color: #f4212e; }
@@ -47,9 +56,7 @@ const STARTER = `
   var root = document.getElementById('root');
   var shown = false;
   var link = null;
-  // The image host, baked in by the server (T10 part 3, #238). Images use it before the tool result's _meta.
   var IMAGE_ORIGIN = __IMAGE_ORIGIN__;
-  // T10 (#238): ChatGPT's openExternal when it is there (the MCP Apps guide maps it to openLink); else ui/open-link.
   function open(url) {
     var safe = safeUrl(url, null);
     if (!safe) return Promise.resolve(null);
@@ -58,12 +65,10 @@ const STARTER = `
     }
     return link.openLink(safe).catch(function () { return null; });
   }
-  // Full screen only where ChatGPT offers requestDisplayMode; the host may refuse, and that is not an error here.
   function canExpand() { return Boolean(window.openai && typeof window.openai.requestDisplayMode === 'function'); }
   function expand() {
     try { return Promise.resolve(window.openai.requestDisplayMode({ mode: 'fullscreen' })).catch(function () { return null; }); } catch (e) { return Promise.resolve(null); }
   }
-  // Create and stop a share link (plan Task 7, #189). The host may ask the user first; the views say so while it waits.
   function createShare(id) { return link.callTool('create_share_link', { id: id }, 120000); }
   function revokeShare(id, token) { return link.callTool('revoke_share_link', { id: id, token: token }, 120000); }
   function showResult(result) {
@@ -77,13 +82,14 @@ const STARTER = `
     if (thread) {
       thread.expand = canExpand() ? expand : null;
       thread.imageOrigin = IMAGE_ORIGIN || thread.imageOrigin;
-      // Only when the host can call tools from the view (hostCapabilities.serverTools); otherwise no share actions.
       var ctx = link.context();
       thread.share = link.canCallTools() ? { create: createShare, revoke: revokeShare, locale: ctx && typeof ctx.locale === 'string' ? ctx.locale : undefined } : null;
-      // #405: an edit shows what it changed; a read made only to edit shows the heading. Else the whole thread.
-      // Plan Task 7 (#189): a saved draft gets "Create share link" right under its heading, again after "Show all posts".
       thread.drawn = function () {
-        if (thread.share && thread.id && thread.saved) root.insertBefore(createShareNode(thread, open), root.firstChild.nextSibling);
+        if (!thread.share || !thread.id || !thread.saved) return;
+        const share = createShareNode(thread, open);
+        share.className = 'share';
+        const row = root.querySelector('.actions');
+        (row || root).appendChild(share);
       };
       var changes = changesFrom(result);
       if (changes || (result._meta || {})['x-thread/display'] === 'compact') renderChanges(root, thread, changes, open);
@@ -93,7 +99,6 @@ const STARTER = `
       renderError(root, 'This view cannot show that result.');
     }
   }
-  // The host's theme (MCP Apps hostContext, or ChatGPT's window.openai.theme) and its safe-area insets as CSS values.
   function applyContext(ctx) {
     if (!ctx) return;
     if (ctx.theme === 'dark' || ctx.theme === 'light') document.documentElement.dataset.theme = ctx.theme;
@@ -105,15 +110,12 @@ const STARTER = `
       });
     }
   }
-  // ChatGPT's theme, when its page has one. The key is not checked against OpenAI's docs (unreachable from the build).
   if (window.openai && (window.openai.theme === 'dark' || window.openai.theme === 'light')) applyContext({ theme: window.openai.theme });
   link = bridge({
     result: showResult,
     context: applyContext,
-    // A late handshake failure must not replace a thread already shown from window.openai.
     error: function () { if (!shown) renderError(root, 'Could not connect to the host.'); }
   });
-  // ChatGPT's older path: when no tool result came, use window.openai.toolOutput if the page has it.
   setTimeout(function () {
     if (!link.delivered() && window.openai && window.openai.toolOutput) {
       showResult({ structuredContent: window.openai.toolOutput, _meta: window.openai.toolResponseMetadata });

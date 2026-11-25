@@ -51,7 +51,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Thread view | view:thread | renders_ui_views | 2026-11-21 |
 | Drafts view | view:drafts | renders_ui_views | 2026-11-21 |
 | Share card | view:share | renders_ui_views | 2026-11-21 |
-| View labels and buttons | view:thread, view:drafts, view:share | renders_ui_views | 2026-11-21 |
+| View labels and buttons | view:thread, view:drafts, view:share | renders_ui_views | 2026-11-25 |
 | Edit results | results | none | 2026-11-25 |
 | Thread view after an edit | view:thread | renders_ui_views | 2026-11-25 |
 | Image operations | tools | none | 2026-11-25 |

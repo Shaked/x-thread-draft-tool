@@ -258,6 +258,16 @@ describe('the header and long drafts', () => {
     expect(expand).toHaveBeenCalledTimes(1)
   })
 
+  it('puts Open in editor and Full screen in one action row (#357)', () => {
+    const base = { title: 'T', posts: [{ text: 'a' }], url: 'https://example.test/app/d/1', editorBase: 'https://example.test/app/', expand: vi.fn() }
+    const node = headerNode(base, vi.fn())
+    const rows = node.querySelectorAll('.actions')
+    expect(rows).toHaveLength(1)
+    expect([...rows[0].querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Open in editor', 'Full screen'])
+    const none = headerNode({ ...base, url: null, expand: null }, vi.fn())
+    expect(none.querySelector('.actions').children).toHaveLength(0)
+  })
+
   it('takes safe-area insets only as whole numbers from 0 to 96 (T10, #238)', () => {
     expect(clampInset(12.4)).toBe(12)
     expect(clampInset(0)).toBe(0)
