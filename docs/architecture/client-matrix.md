@@ -47,6 +47,9 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Drafts view | view:drafts | renders_ui_views | 2026-11-21 |
 | Share card | view:share | renders_ui_views | 2026-11-21 |
 | View labels and buttons | view:thread, view:drafts, view:share | renders_ui_views | 2026-11-21 |
+| Edit results | results | none | 2026-11-25 |
+| Thread view after an edit | view:thread | renders_ui_views | 2026-11-25 |
+| Image operations | tools | none | 2026-11-25 |
 | Connect guide | docs/agents/mcp.md | none | 2026-11-21 |
 
 ## Language: en
@@ -67,6 +70,9 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Drafts view | built: tests/e2e/mcp-drafts-view.spec.ts | built: tests/e2e/mcp-drafts-view.spec.ts | not checked | built: tests/e2e/mcp-drafts-view.spec.ts | not checked | not checked | not checked | not checked |
 | Share card | built: tests/e2e/mcp-share-view.spec.ts | built: tests/e2e/mcp-share-view.spec.ts | not checked | built: tests/e2e/mcp-share-view.spec.ts | not checked | not checked | not checked | not checked |
 | View labels and buttons | built: tests/e2e/mcp-ui.spec.ts | built: tests/e2e/mcp-ui.spec.ts | not checked | built: tests/e2e/mcp-ui.spec.ts | not checked | not checked | not checked | not checked |
+| Edit results | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js |
+| Thread view after an edit | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | not checked | built: tests/api/mcp-edit-result.test.js | not checked | not checked | not checked | not checked |
+| Image operations | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js |
 | Connect guide | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | no: the guide has no Grok steps (#372) | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md |
 
 ## Language: he
@@ -87,6 +93,9 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Drafts view | built: tests/unit/mcp-ui-drafts.test.js | built: tests/unit/mcp-ui-drafts.test.js | not checked | built: tests/unit/mcp-ui-drafts.test.js | not checked | not checked | not checked | not checked |
 | Share card | built: tests/unit/mcp-ui-share.test.js | built: tests/unit/mcp-ui-share.test.js | not checked | built: tests/unit/mcp-ui-share.test.js | not checked | not checked | not checked | not checked |
 | View labels and buttons | no: labels are English only (#371) | no: labels are English only (#371) | no: labels are English only (#371) | no: labels are English only (#371) | no: labels are English only (#371) | no: labels are English only (#371) | no: labels are English only (#371) | no: labels are English only (#371) |
+| Edit results | no: English only, the assistant relays it | no: English only, the assistant relays it | no: English only, the assistant relays it | no: English only, the assistant relays it | no: English only, the assistant relays it | no: English only, the assistant relays it | no: English only, the assistant relays it | no: English only, the assistant relays it |
+| Thread view after an edit | built: tests/api/mcp-edit-result.test.js, tests/unit/mcp-ui-thread.test.js | built: tests/unit/mcp-ui-thread.test.js | not checked | built: tests/unit/mcp-ui-thread.test.js | not checked | not checked | not checked | not checked |
+| Image operations | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) |
 | Connect guide | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) |
 
 The thread tools add the thread as markdown after the JSON (#356): its labels are English and read by the assistant; the Hebrew post text in it stays unchanged. In Hebrew, "built" for a view means Hebrew post text shows unchanged and right to left (`dir="auto"`); the labels around it are the separate View labels row. Tool titles: MCP gives each tool one title and no language field, so Hebrew trigger words go in the description instead.
@@ -95,4 +104,5 @@ The thread tools add the thread as markdown after the JSON (#356): its labels ar
 
 - Claude web renders views: its help page, in `clients.json`. ChatGPT renders the thread view: Shaked's screenshot of a Hebrew draft on #357.
 - Grok: tool calls only when the connector is named (#279), no slash commands seen (#273). Each was seen by Shaked; why is not checked. The thread view was an empty grey box (#352); the fix (#356, the view reads the markdown part) is not checked in Grok, so the cell is `not checked`.
+- Edit results: the edit tools (#405) show the thread view from the draft as saved, and add one English line (`Saved: version N, M posts.`) with no post text.
 - Every other client fact is `not checked` in `clients.json` (#278 could not load the vendors' pages). #373 checks them.
