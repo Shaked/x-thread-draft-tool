@@ -114,6 +114,6 @@ describe('#405: get_draft, then update_post', () => {
     expect(stale.isError).toBe(true)
     expect(stale._meta).toBeUndefined()
     expect(stale.content).toHaveLength(1)
-    expect(stale.content[0].text).toContain('Nothing was written. Call get_draft to read it again')
+    expect(stale.content[0].text).toContain('Nothing was saved: the draft changed since you read it. Call get_draft_outline once')
   })
 })
