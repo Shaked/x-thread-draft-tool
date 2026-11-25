@@ -10,6 +10,8 @@ covers scope, branches, commits, pull requests and reading CI. The helper is `sc
 - A problem found while planning (red CI, a bug) becomes a task in the plan with an acceptance
   check. Offer to implement it; do not start it.
 - One task per pull request. Never mix plan edits and code in one PR.
+- A task issue whose change an AI app or assistant sees or uses has the line
+  `Clients and languages: <clients> / EN, HE; matrix rows: <rows>` (rows of `docs/architecture/client-matrix.md`).
 
 ## 2. Branch
 - `scripts/agent-pr.sh branch claude/<slug>` starts from the latest `origin/main`.

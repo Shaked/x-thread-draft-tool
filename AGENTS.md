@@ -21,6 +21,7 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 - A test must run without a person.
 - Deployed checks only in GitHub Actions or with Vercel's fetch tool on https://x-thread-draft-tool-preview.vercel.app. Never fetch production with it.
 - UI, API and MCP stay aligned: a new or changed capability goes to all three surfaces in the same PR, or its row in `docs/architecture/capabilities.md` says `no: <reason>` for that surface. One server function per capability; MCP tools call the REST route in-process and the UI calls the same REST route.
+- Every AI app and both languages: a change that a client or an assistant will see or use (server instructions, tool or prompt text, results, views and cards, slash commands, skills, plugin or connector metadata, docs for connecting) is made for every supported client (Claude, ChatGPT, Grok, and any other client in the matrix) and for both languages (English and Hebrew) in the same PR, or its row in `docs/architecture/client-matrix.md` says `no: <reason of 3 words or more>` or `not checked` for that cell. Add or update an eval for it.
 
 ### Shipping (standing permission from Shaked)
 - For every queued task: open the PR, merge when checks are green and Opus approved, let it deploy, check production, post the Handoff. Do not ask. Never hold a finished task.
