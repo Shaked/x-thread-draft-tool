@@ -218,13 +218,37 @@ async function createDraft({ request }) {
   return json({ draft: rows[0] }, 201, etagHeaders(rows[0].version))
 }
 
-/** GET /api/drafts/:id: owner only. Another user, or nobody (401), never reads a draft by id. */
+/**
+ * #360: the version the client already holds, from If-None-Match. Only one strong entity tag such as "3"
+ * counts. No header, `*`, a weak tag, a list or a malformed value give null: the draft is sent.
+ */
+function ifNoneMatchVersion(request) {
+  const match = (request.headers.get('if-none-match') ?? '').trim().match(/^"(\d+)"$/)
+  const version = match ? Number(match[1]) : NaN
+  return Number.isSafeInteger(version) && version <= 2147483647 ? version : null
+}
+
+/** Every column but version, each null when the draft is unchanged: one statement, no posts back when unchanged. */
+const UNLESS_UNCHANGED = ['id', 'user_id', 'title', 'posts', 'is_published', 'published_at', 'created_at', 'updated_at']
+  .map((column) => `case when version = $3::int then null else ${column} end as ${column}`)
+  .join(', ')
+
+/**
+ * GET /api/drafts/:id: owner only. Another user, or nobody (401), never reads a draft by id.
+ * With If-None-Match of the current version it answers 304 with no body (#360, the editor's cheap check).
+ */
 async function getDraft({ request, params }) {
   const session = await requireUser(request)
   if (!isUuid(params.id)) throw notFound()
-  const { rows } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [params.id, session.uid])
+  const known = ifNoneMatchVersion(request)
+  const { rows } = await query(
+    `select version, (version = $3::int) as unchanged, ${UNLESS_UNCHANGED} from drafts where id = $1 and user_id = $2`,
+    [params.id, session.uid, known]
+  )
   if (!rows[0]) throw notFound()
-  return json({ draft: rows[0] }, 200, etagHeaders(rows[0].version))
+  const { unchanged, ...draft } = rows[0]
+  if (unchanged) return new Response(null, { status: 304, headers: { ...etagHeaders(draft.version), 'cache-control': 'no-store' } })
+  return json({ draft }, 200, etagHeaders(draft.version))
 }
 
 /** GET /api/drafts/:id/outline: owner only. Counts and a preview per post, not the full text. */
