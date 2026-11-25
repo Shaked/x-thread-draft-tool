@@ -1,0 +1,71 @@
+name: Speed metrics
+
+# Epic #273, task S5 (#310); plan docs/plans/speed.md sections 4 and 5.
+# Per merge: after a production smoke run, measures that merge (CI, merge wait, Vercel, smoke) and
+# warns in the log for each stage over its p90 limit. Warn only: this run never fails for speed.
+# By hand (`last`): measures the most recent merged pull requests, keeps the artifact, and sends one
+# Telegram line when a stage's p90 is over its limit.
+
+on:
+  workflow_dispatch:
+    inputs:
+      last:
+        description: 'How many of the most recent merged pull requests to measure (1 to 200)'
+        required: false
+        default: '50'
+        type: string
+  workflow_run:
+    workflows: ['Smoke test (deployed)']
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  deployments: read
+
+concurrency:
+  group: speed-metrics-${{ github.event.workflow_run.head_sha || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    name: Speed metrics
+    # A cancelled smoke run (a newer deployment replaced it) is not measured. A dispatch always runs.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      MERGE_SHA: ${{ github.event.workflow_run.head_sha }}
+      LAST: ${{ inputs.last || '50' }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      # No `npm ci`: scripts/speed-metrics.mjs imports only node: modules and repository files.
+      - name: Measure the merge
+        if: github.event_name == 'workflow_run'
+        run: node scripts/speed-metrics.mjs --merge "$MERGE_SHA" --out speed-metrics
+
+      - name: Measure the last merged pull requests
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node scripts/speed-metrics.mjs --last "$LAST" --out speed-metrics
+
+      - name: Upload the speed metrics
+        if: hashFiles('speed-metrics/speed.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: speed-metrics
+          path: speed-metrics/
+          retention-days: 90

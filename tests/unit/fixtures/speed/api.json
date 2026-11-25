@@ -1,0 +1,269 @@
+{
+  "pulls": [
+    {
+      "number": 101,
+      "merged_at": "2026-11-20T10:02:10Z",
+      "updated_at": "2026-11-20T10:02:10Z",
+      "merge_commit_sha": "d101d101d101d101d101d101d101d101d101d101",
+      "head": {
+        "sha": "c101c101c101c101c101c101c101c101c101c101"
+      }
+    },
+    {
+      "number": 102,
+      "merged_at": "2026-11-20T10:19:10Z",
+      "updated_at": "2026-11-20T10:19:10Z",
+      "merge_commit_sha": "d102d102d102d102d102d102d102d102d102d102",
+      "head": {
+        "sha": "c102c102c102c102c102c102c102c102c102c102"
+      }
+    },
+    {
+      "number": 103,
+      "merged_at": "2026-11-20T10:30:50Z",
+      "updated_at": "2026-11-20T10:30:50Z",
+      "merge_commit_sha": "d103d103d103d103d103d103d103d103d103d103",
+      "head": {
+        "sha": "c103c103c103c103c103c103c103c103c103c103"
+      }
+    },
+    {
+      "number": 104,
+      "merged_at": "2026-11-20T10:41:45Z",
+      "updated_at": "2026-11-20T10:41:45Z",
+      "merge_commit_sha": "d104d104d104d104d104d104d104d104d104d104",
+      "head": {
+        "sha": "c104c104c104c104c104c104c104c104c104c104"
+      }
+    },
+    {
+      "number": 105,
+      "merged_at": "2026-11-20T10:52:00Z",
+      "updated_at": "2026-11-20T10:52:00Z",
+      "merge_commit_sha": "d105d105d105d105d105d105d105d105d105d105",
+      "head": {
+        "sha": "c105c105c105c105c105c105c105c105c105c105"
+      }
+    }
+  ],
+  "runs": {
+    "c101c101c101c101c101c101c101c101c101c101": [
+      {
+        "id": 1001,
+        "name": "Tests",
+        "event": "pull_request",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:00:00Z",
+        "run_started_at": "2026-11-20T10:00:05Z",
+        "updated_at": "2026-11-20T10:01:35Z"
+      },
+      {
+        "id": 1002,
+        "name": "Security",
+        "event": "pull_request",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:00:00Z",
+        "run_started_at": "2026-11-20T10:00:03Z",
+        "updated_at": "2026-11-20T10:00:23Z"
+      },
+      {
+        "id": 1003,
+        "name": "CodeQL",
+        "event": "pull_request",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:00:00Z",
+        "run_started_at": "2026-11-20T10:00:10Z",
+        "updated_at": "2026-11-20T10:01:10Z"
+      },
+      {
+        "id": 1004,
+        "name": "Net lines",
+        "event": "pull_request",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:00:00Z",
+        "run_started_at": "2026-11-20T10:00:02Z",
+        "updated_at": "2026-11-20T10:00:12Z"
+      },
+      {
+        "id": 1005,
+        "name": "Net lines",
+        "event": "pull_request",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:02:00Z",
+        "run_started_at": "2026-11-20T10:02:01Z",
+        "updated_at": "2026-11-20T10:05:00Z"
+      }
+    ],
+    "d101d101d101d101d101d101d101d101d101d101": [
+      {
+        "id": 2101,
+        "name": "Smoke test (deployed)",
+        "event": "deployment_status",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:02:31Z",
+        "run_started_at": "2026-11-20T10:02:33Z",
+        "updated_at": "2026-11-20T10:02:55Z"
+      }
+    ],
+    "c102c102c102c102c102c102c102c102c102c102": [
+      {
+        "id": 1011,
+        "name": "Tests",
+        "event": "pull_request",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:17:00Z",
+        "run_started_at": "2026-11-20T10:17:03Z",
+        "updated_at": "2026-11-20T10:18:40Z"
+      },
+      {
+        "id": 1012,
+        "name": "Security",
+        "event": "pull_request",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:17:00Z",
+        "run_started_at": "2026-11-20T10:17:01Z",
+        "updated_at": "2026-11-20T10:17:20Z"
+      }
+    ],
+    "d102d102d102d102d102d102d102d102d102d102": [
+      {
+        "id": 2102,
+        "name": "Smoke test (deployed)",
+        "event": "deployment_status",
+        "run_attempt": 2,
+        "created_at": "2026-11-20T10:19:30Z",
+        "run_started_at": "2026-11-20T10:21:00Z",
+        "updated_at": "2026-11-20T10:21:20Z"
+      }
+    ],
+    "c103c103c103c103c103c103c103c103c103c103": [
+      {
+        "id": 1021,
+        "name": "Tests",
+        "event": "pull_request",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:30:00Z",
+        "run_started_at": "2026-11-20T10:30:02Z",
+        "updated_at": "2026-11-20T10:31:00Z"
+      }
+    ],
+    "d103d103d103d103d103d103d103d103d103d103": [
+      {
+        "id": 2103,
+        "name": "Smoke test (deployed)",
+        "event": "deployment_status",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:31:12Z",
+        "run_started_at": "2026-11-20T10:31:14Z",
+        "updated_at": "2026-11-20T10:31:36Z"
+      }
+    ],
+    "c104c104c104c104c104c104c104c104c104c104": [
+      {
+        "id": 1031,
+        "name": "Tests",
+        "event": "pull_request",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:40:00Z",
+        "run_started_at": "2026-11-20T10:40:02Z",
+        "updated_at": "2026-11-20T10:41:20Z"
+      },
+      {
+        "id": 1032,
+        "name": "Net lines",
+        "event": "pull_request",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:40:00Z",
+        "run_started_at": "2026-11-20T10:40:01Z",
+        "updated_at": "2026-11-20T10:40:09Z"
+      }
+    ],
+    "c105c105c105c105c105c105c105c105c105c105": [
+      {
+        "id": 1041,
+        "name": "Tests",
+        "event": "pull_request",
+        "run_attempt": 1,
+        "created_at": "2026-11-20T10:50:00Z",
+        "run_started_at": "2026-11-20T10:50:03Z",
+        "updated_at": "2026-11-20T10:51:30Z"
+      }
+    ],
+    "d105d105d105d105d105d105d105d105d105d105": []
+  },
+  "files": {
+    "d101d101d101d101d101d101d101d101d101d101": [
+      "server/x.js",
+      "src/app.jsx"
+    ],
+    "d102d102d102d102d102d102d102d102d102d102": [
+      "src/x.js"
+    ],
+    "d103d103d103d103d103d103d103d103d103d103": [
+      "server/y.js"
+    ],
+    "d104d104d104d104d104d104d104d104d104d104": [
+      "docs/plans/speed.md",
+      "README.md"
+    ],
+    "d105d105d105d105d105d105d105d105d105d105": [
+      "src/z.js"
+    ]
+  },
+  "deployments": {
+    "d101d101d101d101d101d101d101d101d101d101": [
+      {
+        "id": 9101,
+        "environment": "Production"
+      }
+    ],
+    "d102d102d102d102d102d102d102d102d102d102": [
+      {
+        "id": 9102,
+        "environment": "Production"
+      }
+    ],
+    "d103d103d103d103d103d103d103d103d103d103": [
+      {
+        "id": 9103,
+        "environment": "Production"
+      }
+    ],
+    "d105d105d105d105d105d105d105d105d105d105": [
+      {
+        "id": 9105,
+        "environment": "Production"
+      }
+    ]
+  },
+  "statuses": {
+    "9101": [
+      {
+        "state": "in_progress",
+        "created_at": "2026-11-20T10:02:12Z"
+      },
+      {
+        "state": "success",
+        "created_at": "2026-11-20T10:02:31Z"
+      }
+    ],
+    "9102": [
+      {
+        "state": "success",
+        "created_at": "2026-11-20T10:19:30Z"
+      }
+    ],
+    "9103": [
+      {
+        "state": "success",
+        "created_at": "2026-11-20T10:31:10Z"
+      }
+    ],
+    "9105": [
+      {
+        "state": "success",
+        "created_at": "2026-11-20T10:52:25Z"
+      }
+    ]
+  }
+}

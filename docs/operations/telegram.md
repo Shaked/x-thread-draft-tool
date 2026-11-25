@@ -9,8 +9,9 @@ Code:
 - `.github/workflows/smoke-deployed.yml`: the two production kinds, after the deployed smoke test.
 - `.github/workflows/notify-labels.yml`: the three label kinds.
 - `.github/workflows/cleanup-review-daily.yml`: starts the cleanup message (see `docs/operations/cleanup-review.md`).
+- `.github/workflows/speed-metrics.yml`: the speed kind, from a manual run of the speed metrics (epic #306, task S5). The per-merge check sends nothing.
 
-## The five kinds
+## The six kinds
 
 This section describes what the script sends today. The target format, with no emoji and one action line, is `.claude/skills/reply-style/templates/telegram-message.md`; task #369 moves the script to it. "The target messages" below shows each one.
 
@@ -22,6 +23,7 @@ This section describes what the script sends today. The target format, with no e
 | Try it on preview | 👀 Try it on preview | A pull request gets the label `try-preview`, added by the repository owner's account. The same label on an issue sends nothing. | Open preview, and PR #n |
 | Needs you | 🙋 Needs you | The label `owner` is added to an issue or a pull request, by the repository owner's account. | Open (the issue or PR) |
 | Cleanup review | 🧹 Cleanup review | A pull request gets the label `cleanup-pr`, added by the repository owner's account. The same label on an issue sends nothing. Also "🧹 Cleanup review started" when the daily workflow opens a cleanup issue (same kind, different headline). | Open PR #n (or Open issue #n for the started message) |
+| Speed budget over limit | ⏱ Speed budget over limit | A manual run of `speed-metrics.yml` (input `last`) finds a stage whose p90 is over its limit (`docs/plans/speed.md` section 1). The per-merge check after a production smoke run sends nothing. | Open (the run) |
 
 What a message looks like:
 - Line 1: the emoji and the headline, in bold (in the HTML version; the plain-text fallback has no bold).
@@ -101,6 +103,7 @@ Open the Actions run. The step log is the proof. A green check does not prove a 
 
 - Production kinds: workflow "Smoke test (deployed)", job "Smoke test", step "Telegram: production is live and tested" or "Telegram: production smoke failed".
 - Label kinds: workflow "Notify labels (Telegram)", job "Telegram label notice", step "Send the label notice".
+- Speed kind: workflow "Speed metrics", job "Speed metrics", step "Measure the last merged pull requests" (the manual run only).
 
 Read the last line of the step:
 
