@@ -4,6 +4,8 @@ Every user capability, the REST routes it uses (API), the MCP tools or prompts t
 
 `tests/api/surface-alignment.test.js` reads the two tables below. It fails when a route, tool, prompt or page is missing from them, or when a cell names something that does not exist. UI cells are checked for page existence only: a UI cell says which page exists, not that the page offers the capability. Parity is verified by reading the page. Notes name every known gap where the UI does not call the route the rule asks for.
 
+How draft saves, conflicts (412) and live updates (304) work, in short: [draft-sync.md](draft-sync.md).
+
 Cell format: comma separated. API items are route keys as in `server/router.js` (`GET /drafts/:id`). MCP items are tool names, prompts as `prompt:<name>`. UI items are React Router paths; `/x/*` covers nested paths.
 
 ## Capabilities
@@ -13,7 +15,7 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | List drafts | `GET /drafts` | `list_drafts` | `/` | Home page |
 | Create draft | `POST /drafts` | `create_draft` | `/` | |
 | Read draft | `GET /drafts/:id` | `get_draft` | `/draft/:id` | Editor page |
-| Did the draft change? (conditional read) | `GET /drafts/:id` | `no: get_draft is called once per answer, not polled` | `no: the editor does not poll yet; live updates are #363` | REST only: `If-None-Match` of the current version gives 304 (#360); no client sends it today |
+| Did the draft change? (conditional read) | `GET /drafts/:id` | `no: get_draft is called once per answer, not polled` | `/draft/:id` | REST: `If-None-Match` of the current version gives 304 (#360). The editor sends it every 4 s while visible (#363); no AI app sends it |
 | Draft outline | `GET /drafts/:id/outline` | `get_draft_outline` | `no: no page shows the outline, the UI never calls this route` | Rule gap: no UI |
 | Edit draft settings | `PATCH /drafts/:id` | `update_draft` | `/draft/:id` | The editor sends `If-Match` with the version it read; a stale save is 412 (#361) |
 | Edit one post | `PATCH /drafts/:id/posts/:postId` | `update_post` | `/draft/:id` | Rule gap: the editor saves the whole draft with `PATCH /drafts/:id`, not this route |

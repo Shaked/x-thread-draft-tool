@@ -286,6 +286,7 @@ The caller is the `ci-smoke` user, and it sees only its own drafts. CI tokens wo
 
 Every write (PATCH a draft, PATCH one post, publish) runs in one transaction on a locked row and
 adds 1 to the draft `version`. `GET /api/drafts/:id` and every write response carry `ETag: "<version>"`.
+The full picture (who sends which version, the editor, the 304 check): [docs/architecture/draft-sync.md](../architecture/draft-sync.md).
 
 - Send `If-Match: "<version>"` with a write to refuse it when the draft changed since you read it.
   A stale tag is `412` with `{ "error": "...", "version": <current>, "draft": <current draft> }` (and the `ETag` header); nothing is written.
