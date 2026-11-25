@@ -255,6 +255,8 @@ export default function DraftEditor({ user }) {
 
   // Another app changed the draft (#363): show it without a reload, and highlight the posts whose text changed.
   const showNewer = incoming => {
+    // Never move back to an older version than the one the editor holds.
+    if (!(incoming.version > versionRef.current)) return
     const next = normalizeDraft(incoming)
     const before = new Map((draftRef.current?.posts || []).map(post => [post.id, post.text]))
     const changedIds = next.posts.filter(post => before.get(post.id) !== post.text).map(post => post.id)

@@ -65,27 +65,29 @@ export function useDraftLive(id, options) {
       clear()
       if (!stopped && isVisible() && ms !== null) timer = setTimeout(tick, ms)
     }
+    // The next delay, or null when the 10-minute stop has been reached (the loop pauses there).
     const delayFor = () => {
       const idle = Date.now() - activityRef.current
-      if (idle >= STOP_AFTER_MS) return null
+      if (idle >= STOP_AFTER_MS) {
+        pausedRef.current = true
+        setPaused(true)
+        return null
+      }
       return idle >= SLOW_AFTER_MS ? SLOW_MS : FAST_MS
     }
 
     async function tick() {
       timer = null
       if (stopped || !isVisible()) return
-      if (Date.now() - activityRef.current >= STOP_AFTER_MS) {
-        pausedRef.current = true
-        setPaused(true)
-        return
-      }
       const { canCheck, getVersion, onNewer } = optionsRef.current
       const version = getVersion()
       if (!inFlight && version !== undefined && canCheck()) {
         inFlight = true
         try {
           const result = await draftsApi.check(id, version)
-          if (result.changed) {
+          // The state may have moved while the check was in flight: a stop, a conflict, an edit or a save
+          // that took a newer version. Then this answer is stale and is dropped.
+          if (!stopped && result.changed && getVersion() === version && canCheck()) {
             activityRef.current = Date.now()
             onNewer(result.draft)
           }
@@ -113,7 +115,11 @@ export function useDraftLive(id, options) {
         clear()
       }
     }
-    const onInput = () => resume()
+    // Input during the slow phase brings the next check forward to the fast rate.
+    const onInput = () => {
+      resume()
+      if (timer !== null && !inFlight) schedule(FAST_MS)
+    }
 
     document.addEventListener('visibilitychange', onVisibility)
     window.addEventListener('keydown', onInput, { capture: true, passive: true })

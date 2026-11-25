@@ -153,6 +153,21 @@ describe('DraftEditor live updates (#363)', () => {
     expect(draftsApi.check.mock.calls.length).toBeLessThanOrEqual(5)
   })
 
+  it('drops a check answer that arrives after a save moved the version on', async () => {
+    let answer
+    draftsApi.check.mockImplementationOnce(() => new Promise(resolve => (answer = resolve)))
+    renderEditor()
+    const title = await screen.findByLabelText('Draft title')
+
+    await advance(4000) // a check for version 3 is now in flight
+    await typer().type(title, '!')
+    await advance(1000) // my save lands: the server is at version 4
+    await act(async () => {
+      answer({ changed: true, draft: { ...DRAFT, version: 5, title: 'Changed by an AI app' } })
+    })
+    expect(title).toHaveValue('Draft one!')
+  })
+
   it('pauses after ten minutes, and Resume (or any input) starts checks again', async () => {
     renderEditor()
     await screen.findByLabelText('Draft title')
