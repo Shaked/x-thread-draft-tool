@@ -1,0 +1,1 @@
+Adding several images to one post at once from an AI chat no longer fails: parallel `add_image_from_url` calls each retry on a stale write (they got "The draft changed since you read it" before), and a call that cannot attach its image deletes the uploaded file (#367).

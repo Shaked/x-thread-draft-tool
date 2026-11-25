@@ -15,7 +15,9 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import Button from '../ui/Button'
 import PostBox from './PostBox'
+import './ThreadComposer.css'
 
 function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly }) {
   const {
@@ -27,16 +29,18 @@ function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly })
     isDragging,
   } = useSortable({ id: post.id })
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 10 : 'auto',
-    position: 'relative',
-  }
+  // dnd-kit's transform and transition are set on the node as CSS custom properties (ThreadComposer.css reads
+  // them), so the wrapper has no style prop. React runs this ref again when they change.
+  const setRef = useCallback((node) => {
+    setNodeRef(node)
+    if (node) {
+      node.style.setProperty('--drag-transform', CSS.Transform.toString(transform) ?? 'none')
+      node.style.setProperty('--drag-transition', transition ?? 'none')
+    }
+  }, [setNodeRef, transform, transition])
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    <div ref={setRef} className={`thread-post${isDragging ? ' thread-post--dragging' : ''}`}>
       <PostBox
         post={post}
         index={index}
@@ -44,7 +48,7 @@ function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly })
         onChange={onUpdate}
         onRemove={onRemove}
         readOnly={readOnly}
-        dragHandleProps={!readOnly ? listeners : undefined}
+        dragHandleProps={!readOnly ? { ...attributes, ...listeners } : undefined}
       />
     </div>
   )
@@ -114,8 +118,8 @@ export default function ThreadComposer({ posts, onPostsChange, readOnly = false 
   return (
     <div className="thread-composer">
       {!readOnly && (
-        <div className="composer-header">
-          <h2>Compose thread</h2>
+        <div className="thread-composer__header">
+          <h2 className="thread-composer__title">Compose thread</h2>
         </div>
       )}
 
@@ -132,14 +136,11 @@ export default function ThreadComposer({ posts, onPostsChange, readOnly = false 
             {posts.map((post, index) => (
               <div key={post.id}>
                 {!readOnly && (
-                  <button
-                    onClick={() => insertPostAt(index)}
-                    className="insert-post-btn"
-                    title="Insert post here"
-                  >
-                    <span className="insert-icon">+</span>
-                    <span className="insert-label">Insert post here</span>
-                  </button>
+                  <div className="thread-insert">
+                    <Button variant="ghost" icon="plus" fullWidth onClick={() => insertPostAt(index)}>
+                      Insert post here
+                    </Button>
+                  </div>
                 )}
                 <SortablePost
                   post={post}
@@ -156,9 +157,11 @@ export default function ThreadComposer({ posts, onPostsChange, readOnly = false 
       </DndContext>
 
       {!readOnly && (
-        <button onClick={addPost} className="btn btn-secondary add-post-btn">
-          + Add post
-        </button>
+        <div className="thread-add">
+          <Button variant="secondary" icon="plus" fullWidth onClick={addPost}>
+            Add post
+          </Button>
+        </div>
       )}
     </div>
   )

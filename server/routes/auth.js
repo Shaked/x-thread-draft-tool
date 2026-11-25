@@ -1,3 +1,4 @@
+import { adminField } from '../admin/guard.js'
 import { query } from '../db.js'
 import { fetchGithubUser, upsertGithubUser } from '../github-user.js'
 import { HttpError, cookie, json, parseCookies } from '../http.js'
@@ -114,7 +115,8 @@ async function me({ request }) {
   }
   if (!caller) return json({ user: null, auth: null })
   const { rows } = await query('select id, login, name, avatar_url from users where id = $1', [caller.uid])
-  return json({ user: rows[0] ?? null, auth: rows[0] ? caller.via : null })
+  // `admin: true` only for the admin (adminField, #368): the UI shows the changelog link from it.
+  return json({ user: rows[0] ? { ...rows[0], ...adminField(caller) } : null, auth: rows[0] ? caller.via : null })
 }
 
 /** POST /api/auth/logout: ends this browser's session on the server (not API tokens or AI apps), then clears the cookie. */

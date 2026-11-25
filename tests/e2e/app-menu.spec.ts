@@ -16,6 +16,7 @@ let api: APIRequestContext
 let token = ''
 let draftId = ''
 let login = ''
+let adminToken = ''
 
 test.beforeAll(async () => {
   api = await playwrightRequest.newContext({ baseURL: BASE })
@@ -23,6 +24,7 @@ test.beforeAll(async () => {
   const signedIn = await api.post('/api/dev/token', { data: { login } })
   expect(signedIn.ok()).toBeTruthy()
   token = (await signedIn.json()).token as string
+  adminToken = (await (await api.post('/api/dev/token', { data: { login: `${login}-admin`, admin: true } })).json()).token as string
   const posts = Array.from({ length: 8 }, (_, i) => ({ id: `p${i + 1}`, text: `Post ${i + 1} for the menu check.`, images: [], embeddedTweet: null }))
   const created = await api.post('/api/drafts', { headers: { authorization: `Bearer ${token}` }, data: { title: 'Menu check', posts } })
   expect(created.ok()).toBeTruthy()
@@ -33,7 +35,7 @@ test.afterAll(async () => {
   await api.dispose()
 })
 
-async function open(browser: Browser, size: { width: number; height: number }, options: { cookie?: string; reducedMotion?: 'reduce' } = {}) {
+async function open(browser: Browser, size: { width: number; height: number }, options: { cookie?: string; reducedMotion?: 'reduce'; bearer?: string } = {}) {
   const context: BrowserContext = await browser.newContext({ viewport: size, serviceWorkers: 'block', reducedMotion: options.reducedMotion })
   if (options.cookie) {
     await context.route(`${ORIGIN}/api/**`, async (route) => {
@@ -45,7 +47,7 @@ async function open(browser: Browser, size: { width: number; height: number }, o
   } else {
     await context.route(`${ORIGIN}/**`, (route) => {
       if (new URL(route.request().url()).pathname.startsWith('/api/')) {
-        return route.continue({ headers: { ...route.request().headers(), authorization: `Bearer ${token}` } })
+        return route.continue({ headers: { ...route.request().headers(), authorization: `Bearer ${options.bearer ?? token}` } })
       }
       return route.continue()
     })
@@ -336,7 +338,7 @@ const overflows = (page: Page) => page.evaluate(() => document.documentElement.s
 for (const size of SIZES) {
   for (const theme of ['light', 'dark'] as const) {
     test(`changelog at ${size.name} px, ${theme}: opens from the drawer, Show older, no overflow, readable text`, async ({ browser }) => {
-      const { context, page } = await open(browser, size)
+      const { context, page } = await open(browser, size, { bearer: adminToken })
       try {
         if (theme === 'dark') await page.addInitScript(() => localStorage.setItem('xt-theme', 'dark'))
         await page.goto(`${BASE}/`)
@@ -398,13 +400,32 @@ for (const size of SIZES) {
 
 for (const size of SIZES) {
   test(`About links to the changelog ("See what changed") at ${size.name} px`, async ({ browser }) => {
-    const { context, page } = await open(browser, size)
+    const { context, page } = await open(browser, size, { bearer: adminToken })
     try {
       await page.goto(`${BASE}/about`)
       await expect(page.getByRole('heading', { name: 'About', level: 1 })).toBeVisible()
       await page.getByRole('link', { name: 'See what changed' }).click()
       await expect(page).toHaveURL(/\/changelog$/)
       await expect(page.getByRole('heading', { name: 'Changelog', level: 1 })).toBeVisible()
+    } finally {
+      await context.close()
+    }
+  })
+}
+
+// The changelog is admin only (#368): a normal user sees no link to it, and /changelog is an unknown address for them.
+for (const size of SIZES) {
+  test(`normal user at ${size.name} px: no changelog link on About or in the drawer, and /changelog goes home`, async ({ browser }) => {
+    const { context, page } = await open(browser, size)
+    try {
+      await page.goto(`${BASE}/about`)
+      await expect(page.getByRole('heading', { name: 'About', level: 1 })).toBeVisible()
+      await expect(page.getByRole('link', { name: 'See what changed' })).toHaveCount(0)
+      await page.goto(`${BASE}/changelog`)
+      await expect(page.getByRole('heading', { name: 'Your Threads' })).toBeVisible()
+      expect(new URL(page.url()).pathname).toBe('/')
+      await openMenu(page)
+      await expect(drawer(page).getByRole('link', { name: 'Changelog', exact: true })).toHaveCount(0)
     } finally {
       await context.close()
     }

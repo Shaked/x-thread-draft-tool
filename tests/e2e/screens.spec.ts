@@ -26,8 +26,8 @@ const OUT = path.join('test-results', 'screens')
 // A POST sent from the preview origin is therefore re-sent with the API origin (same trick as app-menu.spec.ts).
 const APP_ORIGIN = ORIGIN === 'http://127.0.0.1:4173' || ORIGIN === 'http://localhost:4173' ? 'http://127.0.0.1:8787' : ORIGIN
 
-async function devToken(request: APIRequestContext, login: string): Promise<string> {
-  const res = await request.post(`${BASE}/api/dev/token`, { data: { login } })
+async function devToken(request: APIRequestContext, login: string, admin = false): Promise<string> {
+  const res = await request.post(`${BASE}/api/dev/token`, { data: { login, admin } })
   expect(res.ok()).toBeTruthy()
   return (await res.json()).token as string
 }
@@ -109,6 +109,7 @@ test.describe('screens', () => {
       const run = `${width}-${Date.now()}`
       const owner = await devToken(request, `screens-owner-${run}`)
       const empty = await devToken(request, `screens-empty-${run}`)
+      const admin = await devToken(request, 'screens-admin', true) // the changelog is admin only (#368)
 
       // Empty list: a user with no drafts.
       await shoot(browser, width, 'drafts-empty', '/', { token: empty })
@@ -151,6 +152,27 @@ test.describe('screens', () => {
       await shoot(browser, width, 'drafts-hebrew-dark', '/', { token: hebrew, theme: 'dark', ready: (p) => p.getByText('טיוטה חדשה') })
       await shoot(browser, width, 'drafts-published', '/', { token: hebrew, ready: (p) => p.getByText('טיוטה חדשה'), before: showPublished })
       await shoot(browser, width, 'drafts-published-dark', '/', { token: hebrew, theme: 'dark', ready: (p) => p.getByText('טיוטה חדשה'), before: showPublished })
+      // The editor's posts over the limit and in Hebrew (plan T9). Their own user, so no other scene's list changes.
+      const editorUser = await devToken(request, `screens-editor-${run}`)
+      const overLimit = await apiJson<{ draft: { id: string } }>(request, editorUser, 'POST', '/api/drafts', {
+        title: 'Over the limit',
+        posts: [
+          { id: 'ol1', text: 'A post well within the limit.', images: [], embeddedTweet: null },
+          { id: 'ol2', text: 'A longer post. '.repeat(20), images: [], embeddedTweet: null }
+        ]
+      })
+      const hebrewEditor = await apiJson<{ draft: { id: string } }>(request, editorUser, 'POST', '/api/drafts', {
+        title: 'שרשור בעברית',
+        posts: [
+          { id: 'hb1', text: 'טקסט בעברית לדוגמה, והשרשור ממשיך כאן.', images: [], embeddedTweet: null },
+          { id: 'hb2', text: 'המשך השרשור בעברית.', images: [], embeddedTweet: null }
+        ]
+      })
+      await shoot(browser, width, 'editor-over-limit', `/draft/${overLimit.draft.id}`, { token: editorUser, ready: (p) => p.getByLabel('Draft title') })
+      await shoot(browser, width, 'editor-over-limit-dark', `/draft/${overLimit.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.getByLabel('Draft title') })
+      await shoot(browser, width, 'editor-hebrew', `/draft/${hebrewEditor.draft.id}`, { token: editorUser, ready: (p) => p.getByLabel('Draft title') })
+      await shoot(browser, width, 'editor-hebrew-dark', `/draft/${hebrewEditor.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.getByLabel('Draft title') })
+
       await shoot(browser, width, 'editor', `/draft/${editorId}`, { token: owner, ready: (p) => p.getByLabel('Draft title') })
       await shoot(browser, width, 'editor-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.getByLabel('Draft title') })
       await shoot(browser, width, 'editor-export-menu', `/draft/${editorId}`, {
@@ -250,8 +272,8 @@ test.describe('screens', () => {
 
       // The changelog page (settings-menu.md Task 6): light at both widths, dark on phones.
       const changelogReady = (p: Page) => p.locator('article').first()
-      await shoot(browser, width, 'changelog', '/changelog', { token: owner, ready: changelogReady })
-      await shoot(browser, width, 'changelog-dark', '/changelog', { token: owner, theme: 'dark', ready: changelogReady })
+      await shoot(browser, width, 'changelog', '/changelog', { token: admin, ready: changelogReady })
+      await shoot(browser, width, 'changelog-dark', '/changelog', { token: admin, theme: 'dark', ready: changelogReady })
 
       // The About page (plan U2): light and dark at both widths. Ready once the server's version has loaded.
       const aboutReady = (p: Page) => p.getByRole('heading', { name: 'About', level: 1 })

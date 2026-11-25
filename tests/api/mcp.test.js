@@ -439,16 +439,23 @@ describe('M4 tools', () => {
     expect(res.body.result.structuredContent.login).toBe('alice')
   })
 
-  it('app_version returns GET /api/version plus the 5 newest changelog entries (settings-menu.md Task 5)', async () => {
-    const token = await accessToken(alice)
+  it('app_version returns GET /api/version plus the 5 newest changelog entries for the admin (settings-menu.md Task 5, #368)', async () => {
+    const owner = await db.insertUser({ github_id: 960015, login: 'owner' })
+    const token = await accessToken(owner)
     const res = await call(modernPost('tools/call', { name: 'app_version', arguments: {} }, { token }))
     const { changelog, ...version } = res.body.result.structuredContent
     const rest = await (await route(apiRequest('/api/version'))).json()
     expect(version).toEqual(rest)
-    const restToken = await accessToken(alice, `${APP_URL}/api`)
+    const restToken = await accessToken(owner, `${APP_URL}/api`)
     const newest = await (await route(apiRequest('/api/changelog?limit=5', { headers: { authorization: `Bearer ${restToken}` } }))).json()
     expect(changelog).toEqual(newest.entries)
     expect(changelog).toHaveLength(5)
+  })
+
+  it('app_version for a normal user is the version only: no changelog key (#368)', async () => {
+    const token = await accessToken(alice)
+    const res = await call(modernPost('tools/call', { name: 'app_version', arguments: {} }, { token }))
+    expect(res.body.result.structuredContent).toEqual(await (await route(apiRequest('/api/version'))).json())
   })
 
   it('serverInfo carries the commit as build metadata when known', async () => {
@@ -712,7 +719,8 @@ describe('T5 short results from post edit tools', () => {
     const res = await route(modernPost('tools/call', { name: 'update_post', arguments: { id: draft.id, post_id: 'p3', text: 'Edited' } }, { token }))
     const { result } = await res.json()
     expect(result.isError).toBe(false)
-    expect(bytes(result.content[0].text)).toBeLessThan(4000)
+    // #405 adds a short text part after the JSON: the whole text stays under the limit.
+    expect(bytes(result.content.map((part) => part.text).join(''))).toBeLessThan(4000)
     const { draft: outlined, url } = result.structuredContent
     expect(outlined).toMatchObject({ id: draft.id, post_count: 25, version: await versionOf(draft.id) })
     expect(outlined.posts[2]).toMatchObject({ id: 'p3', index: 3, chars: 6, preview: 'Edited' })
