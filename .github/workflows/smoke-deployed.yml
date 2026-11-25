@@ -48,10 +48,9 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
-          cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      # No `npm ci`: scripts/smoke.mjs and scripts/notify-telegram.mjs import only node: modules and
+      # repository files (tests/unit/smoke-imports.test.js checks it).
 
       - name: Run the smoke test
         id: smoke
@@ -85,7 +84,7 @@ jobs:
           title="$(git log -1 --format=%s "$DEPLOY_SHA" 2>/dev/null)"
           NOTIFY_SHA="$DEPLOY_SHA" NOTIFY_TITLE="${title:-(title not found)}" node scripts/notify-telegram.mjs
 
-      # Sends when the smoke step failed, or was skipped because checkout, setup-node or npm ci failed
+      # Sends when the smoke step failed, or was skipped because checkout or setup-node failed
       # before it ran. !cancelled() keeps a cancelled run (a newer deployment replaced it) silent.
       - name: "Telegram: production smoke failed"
         if: "!cancelled() && github.event_name == 'deployment_status' && github.event.deployment.environment == 'Production' && (steps.smoke.outcome == 'failure' || steps.smoke.outcome == 'skipped')"
