@@ -202,6 +202,19 @@ export function overNames(summary) {
   return [...names]
 }
 
+// One line per stage over its limit, with the same p90, limit and median the check uses.
+const KIND_LABEL = { code: 'Product code', docs: 'Docs-only' }
+export function overLines(summary) {
+  const lines = []
+  for (const kind of Object.keys(summary)) {
+    for (const stage of STAT_STAGES) {
+      const st = summary[kind][stage]
+      if (st?.over) lines.push(`${KIND_LABEL[kind]} ${STAGE_LABEL[stage]}: p90 ${st.p90} s, limit ${st.limit} s, usual ${st.median} s`)
+    }
+  }
+  return lines
+}
+
 const signed = (d) => (d > 0 ? `+${d} s` : d < 0 ? `${d} s` : '0 s')
 const cell = (v) => (v === null || v === undefined ? '-' : `${v} s`)
 
@@ -324,7 +337,9 @@ async function alert(opts, prs, summary, env, { log, notifyImpl }) {
   const over = overNames(summary)
   if (over.length === 0) return
   const runUrl = `${env.GITHUB_SERVER_URL || 'https://github.com'}/${env.GITHUB_REPOSITORY || ''}/actions/runs/${env.GITHUB_RUN_ID || ''}`
-  const message = buildMessage('speed', { title: `p90 over the limit: ${over.join(', ')}`, url: runUrl })
+  const since = minDate(prs.map((pr) => pr.merged_at)).slice(0, 10)
+  const window = `The last ${prs.length} merged pull requests, merged since ${since}.`
+  const message = buildMessage('speed', { title: `Speed over the budget: ${over.join(', ')}`, url: runUrl, window, lines: overLines(summary) })
   await notifyImpl({ token: env.TELEGRAM_BOT_TOKEN || '', chatId: env.TELEGRAM_CHAT_ID || '', ...message, log })
 }
 

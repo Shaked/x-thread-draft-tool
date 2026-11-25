@@ -1,0 +1,2 @@
+- Speed-budget Telegram message (`--last`) now says what is over, the p90, limit and usual value per stage, the window, and "Nothing needed: this check only warns.", with one link to the run (#440).
+- Numbers come from the same summary the check uses (`overLines` in `scripts/speed-metrics.mjs`); limits unchanged.
