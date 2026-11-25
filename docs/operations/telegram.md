@@ -115,7 +115,6 @@ The label check: it is not known yet whether a label that an agent adds comes fr
 
 ## Ideas for later (not in the code)
 
-- Quote blocks (`<blockquote>`) are used by the cleanup messages only. Telegram's support for them was not checked against the live API. If Telegram refuses the HTML, the plain-text fallback sends the same text.
 - Link preview options. The code asks for link previews (`disable_web_page_preview` is false). The newer `link_preview_options` setting is not used. Not checked.
 - A passed count ("N/N passed") in the production message.
 - A line in the try-preview message that says what to try.
