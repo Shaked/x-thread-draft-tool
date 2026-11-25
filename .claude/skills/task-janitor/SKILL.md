@@ -15,8 +15,9 @@ You read the report and apply the fixes this skill allows. Task: #458 (task jani
    It holds open and closed issues, merged pull requests, and two lists of open issues with a comment that contains
    `RELEASE` or `CLAIM`. It has no comment bodies.
 2. Comments: the first report names issues whose comments are not loaded. Read those with
-   `mcp__github__issue_read` (`get_comments`) and save them as `comments.json`: an object from issue number to
-   `[{ "user", "created_at", "body" }]`. Load the held and owner issues too, if they have comments.
+   `mcp__github__issue_read` (`get_comments`, `perPage` 100, and the next page while a page is full) and save them as
+   `comments.json`: an object from issue number to `[{ "user", "author_association", "created_at", "body" }]`.
+   Load the held and owner issues too, if they have comments.
 3. Report:
    `node scripts/janitor.mjs report snapshot.json --comments comments.json [--today YYYY-MM-DD] [--stale-days 14]`
 4. Keep both files in your scratchpad. Never commit them: they hold issue text.
@@ -24,9 +25,9 @@ You read the report and apply the fixes this skill allows. Task: #458 (task jani
 ## What it checks
 | Section | Finding |
 |---|---|
-| Shipped but open | The last HANDOFF says `- done` and has `RELEASE`; or a merged PR says `Closes`, `Fixes`, `Resolves` or `Implements #n` |
+| Shipped but open | The last HANDOFF ends with ` - done` and has `RELEASE`; or a merged PR says `Closes`, `Fixes`, `Resolves` or `Implements #n`. Only HANDOFFs by the owner, a member or a collaborator count |
 | Duplicates and overlap | Same title; near-same title; same task id in one epic; a rare file, route or table named by tasks of two epics |
-| Dependencies | A `Depends on` number that is a PR, missing, or closed as not planned; a task id named without its number; `Goes before #n` with no matching line on `#n`; a claimed task with an open dependency; cycles |
+| Dependencies | A `Depends on` number that is a PR, missing, or closed as not planned; a task id named without its number; a clause that starts with `Goes before #n` or `Before #n` and has no matching line on `#n`; a claimed task with an open dependency; cycles |
 | Stale and orphaned | No activity for 14 days; a task with no parent; a CLAIM heartbeat older than 3 hours with no RELEASE; `held` or `owner` with no owner question |
 | Limits | An epic with 90 or more of its 100 sub-issues |
 | Labels | No label; sub-issues and no `epic` label; the body says `held` but the label is gone |
@@ -44,7 +45,7 @@ Allowed without asking:
 - Add a missing `Depends on: #n` line to an issue body. Change nothing else in the body.
 - Add a label: `task` to a sub-issue with no label, `epic` to an issue with sub-issues.
 - Link duplicates: comment on both, then close the newer one with the state reason `duplicate`. Only when the titles
-  and bodies say the same work.
+  and bodies say the same work and the newer one has no CLAIM, HANDOFF or PR of its own.
 
 Never:
 - Delete an issue, a comment or a label.
@@ -70,7 +71,7 @@ against `AGENTS.md` and the dispatcher rules in #154 (queue and dispatcher rules
 |---|---|---|---|
 | The dispatcher counts new issues on each pass | The dispatcher is already an agent: it runs this skill itself | One search call per pass: `created:>` the time of the last janitor report | Runs only while a dispatcher session lives. #154 says it polls its child about every 10 minutes, with a 2-hour cron watchdog; the 45 minutes in #458 is not in #154 |
 | A workflow on `issues: opened` adds a `janitor-due` label to a tracker issue | It starts none: the dispatcher or the weekly review must notice the label | Actions minutes for every new issue (not checked) | A new workflow with `issues: write`; a label added with `GITHUB_TOKEN` starts no other workflow, so nothing is woken |
-| A run inside the weekly review (#294 (weekly review skill file), #295 (weekly review check and workflow)) | The weekly review agent runs this skill | One run a week | Up to a week late: 22 issues were opened on 2026-11-25 alone (checked); #295 waits for #294 |
+| A run inside the weekly review (#294 (weekly review skill file), #295 (weekly review check and workflow)) | The weekly review agent runs this skill | One run a week | Up to a week late: more than 20 issues were opened on 2026-11-25 alone (checked); #295 waits for #294 |
 
 Pick: the dispatcher count, with the weekly review as a fallback once #295 ships. It needs no new workflow, token or
 permission, and the count comes from GitHub search, so no counter can drift. The first build step is a

@@ -91,6 +91,15 @@ describe('parsers', () => {
     expect(d.before).toEqual([11])
   })
 
+  it('ignores "before" that is not a clause start or is negated, and negated or later-field dependencies', () => {
+    expect(dependencies('Do not start this before #2 is merged.').before).toEqual([])
+    expect(dependencies('Wait until before #2 ships. Goes before #3.').before).toEqual([3])
+    expect(dependencies('Depends on #12; done when #13 closes.').refs).toEqual([12])
+    expect(dependencies('Depends on: #359 merged. Server only: it does not wait for #327.').refs).toEqual([359])
+    expect(dependencies('Depends on: none (#278 is merged). Goes before #279 resumes.')).toMatchObject({ refs: [278], before: [279] })
+    expect(dependencies('This is no longer depends on #5. Not blocked by A2.')).toMatchObject({ refs: [], named: [] })
+  })
+
   it('reads files, routes and tables', () => {
     const body = 'Migration `db/migrations/011_x.sql` creates `ops_events`, `ops_daily` exactly: key (`repo_id`).\n`POST /api/ops/events` and `/admin/metrics`; `AGENTS.md`; `tests/api/x.test.js`.'
     expect(names(body).sort()).toEqual(['/admin/metrics', '/api/ops/events', 'db/migrations/011_x.sql', 'ops_daily', 'ops_events'])
@@ -104,10 +113,27 @@ describe('parsers', () => {
     expect(shortName({ title: 'E407 task M1: ops events tables, event shape and sources list (central metrics)' })).toBe('ops events tables, event shape')
   })
 
+  it('counts a HANDOFF as done only for an exact final status and a trusted author', () => {
+    const at = (body, extra = {}) => ({ created_at: '2026-11-25T01:00:00Z', author_association: 'OWNER', body, ...extra })
+    expect(commentFacts([at('HANDOFF A5 (part 1 - done) - partial\nRELEASE')]).last.done).toBe(false)
+    expect(commentFacts([at('HANDOFF A5 - done, except the route (partial)\nRELEASE')]).last.done).toBe(false)
+    expect(commentFacts([at('HANDOFF A5 (shipped) - done\nRELEASE')]).last.done).toBe(true)
+    expect(commentFacts([at('HANDOFF A5 - done\nPR: #50\nRELEASE', { author_association: 'NONE', user: 'stranger' })]).last).toBeNull()
+    expect(commentFacts([at('HANDOFF A5 - done\nRELEASE', { author_association: undefined, user: 'Shaked' })]).last.done).toBe(true)
+  })
+
+  it('reads comments in time order, whatever the array order', () => {
+    const f = commentFacts([
+      { created_at: '2026-11-25T05:00:00Z', author_association: 'OWNER', body: 'HANDOFF A5 - partial\nRELEASE' },
+      { created_at: '2026-11-25T01:00:00Z', author_association: 'OWNER', body: 'HANDOFF A5 - done\nRELEASE' }
+    ])
+    expect(f.last.done).toBe(false)
+  })
+
   it('reads HANDOFF status and CLAIM heartbeat', () => {
     const f = commentFacts([
       { created_at: '2026-11-25T01:00:00Z', body: 'CLAIM session s | heartbeat 2026-11-25 03:00 UTC' },
-      { created_at: '2026-11-25T04:00:00Z', body: 'HANDOFF S6 (gate) - not started, waiting\nRELEASE' }
+      { created_at: '2026-11-25T04:00:00Z', author_association: 'OWNER', body: 'HANDOFF S6 (gate) - not started, waiting\nRELEASE' }
     ])
     expect(f.claim).toMatchObject({ heartbeat: '2026-11-25T03:00Z', released: true })
     expect(f.last).toMatchObject({ done: false, release: true })
@@ -125,7 +151,7 @@ describe('report text', () => {
     expect(text).toContain('#11 (widget table and its route)')
     expect(text.match(/#11 \(/g)).toHaveLength(1)
     expect(text.split('\n').every((l) => l.length <= 160)).toBe(true)
-    expect(text).toContain('In a cycle, left out: #13 #14')
+    expect(text).toContain('In a cycle or waiting on one, left out: #13 #14')
   })
 
   it('wraps a long line at a comma', () => {
@@ -149,5 +175,23 @@ describe('fetchSnapshot', () => {
     expect(calls.every((a) => a[0] === 'api' && a[3] === 'search/issues')).toBe(true)
     expect(snap.pulls).toEqual([{ number: 50, title: 't', body: 'b', merged_at: 'x' }])
     expect(snap.markers).toEqual({ release: [15], claim: [15] })
+  })
+})
+
+describe('allowed fixes stay narrow', () => {
+  const base = (issues, comments = {}) => ({ repo: 'example/repo', issues, pulls: [], markers: {}, comments })
+  const issue = (number, title, extra = {}) => ({ number, title, state: 'open', labels: [{ name: 'task' }], body: '', updated_at: TODAY, ...extra })
+
+  it('never proposes the reverse of "Do not start before #n"', () => {
+    const snap = base([issue(1, 'E9 task A1: one', { body: 'Depends on: #2.\nDo not start this before #2 is merged.' }), issue(2, 'E9 task A2: two')])
+    expect(analyze(snap, { today: TODAY }).filter((f) => f.kind === 'missing-dependency')).toEqual([])
+  })
+
+  it('leaves a same-title pair to the dispatcher when the newer one has a HANDOFF or another epic', () => {
+    const handoff = { 2: [{ created_at: TODAY, author_association: 'OWNER', body: 'HANDOFF A1 - partial\nRELEASE' }] }
+    const withHandoff = analyze(base([issue(1, 'Same work'), issue(2, 'Same work')], handoff), { today: TODAY })
+    expect(withHandoff.find((f) => f.kind === 'duplicate').act).toBe('dispatcher')
+    const twoEpics = analyze(base([issue(1, 'Same work', { parent: 7 }), issue(2, 'Same work', { parent: 8 })]), { today: TODAY })
+    expect(twoEpics.find((f) => f.kind === 'duplicate').act).toBe('dispatcher')
   })
 })

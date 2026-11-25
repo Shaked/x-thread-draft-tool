@@ -84,17 +84,24 @@ export function similarity(a, b) {
   return both / (x.size + y.size - both)
 }
 
+const NEGATION = /\b(not|until|start|no longer)\b|n't\b/i
+const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
+
 /** Issue numbers on "Depends on", "Blocked by" and "starts after" lines. A "PR #n" or "see #n" is not a dependency. */
 export function dependencies(body) {
   const refs = new Set()
   const named = new Set()
   const before = new Set()
   for (const line of body.split('\n')) {
-    for (const m of line.matchAll(/\b(?:goes\s+)?before\s+#(\d+)/gi)) before.add(Number(m[1]))
+    // "Goes before #n" only at the start of a clause, and never after "not", "until" or "start".
+    for (const m of line.matchAll(/(?:^|[.;]\s+)(?:goes\s+)?before\s+#(\d+)/gi)) {
+      if (!NEGATION.test(line.slice(Math.max(0, m.index - 20), m.index + m[0].length))) before.add(Number(m[1]))
+    }
     const at = line.search(/\b(depends on|blocked by|starts after)\b/i)
-    if (at === -1) continue
-    // The clause ends where the next field starts ("Done when", "PR lines"); code spans are not dependencies.
-    const text = line.slice(at).split(/\b(?:Done when|PR (?:body )?lines?|Owner steps)\b/)[0].replace(/`[^`]*`/g, ' ')
+    if (at === -1 || /\b(not|no longer)\s+$|n't\s+$/i.test(line.slice(Math.max(0, at - 12), at))) continue
+    // The clause ends at the sentence end or where the next field starts ("Done when", "PR lines").
+    // Code spans are not dependencies.
+    const text = line.slice(at).split(/\b(?:Done when|PR (?:body )?lines?|Owner steps)\b|\.\s+(?=[A-Z])/i)[0].replace(/`[^`]*`/g, ' ')
     for (const m of text.matchAll(/(PR\s+|see\s+)?#(\d+)/gi)) if (!m[1]) refs.add(Number(m[2]))
     // Task ids named without a number, outside parentheses: "Depends on: M5 (see #439)" names M5.
     // "C2 (#418)" already has its number.
@@ -132,17 +139,24 @@ export function names(body, knownTables = []) {
   return [...found]
 }
 
-/** HANDOFF and CLAIM facts from an issue's comments. */
-export function commentFacts(comments = []) {
+/**
+ * HANDOFF and CLAIM facts from an issue's comments, in time order. A HANDOFF counts only from a trusted author
+ * (author_association OWNER, MEMBER or COLLABORATOR, or the repo owner's login), and is done only when the status
+ * after its last " - " is exactly "done".
+ */
+export function commentFacts(comments = [], { owner = REPO.split('/')[0] } = {}) {
   const handoffs = []
   let claim = null
-  for (const c of comments) {
+  const sorted = [...comments].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+  for (const c of sorted) {
     const body = c.body || ''
     const first = body.split('\n')[0]
     const release = /^RELEASE\s*$/m.test(body)
-    if (/^HANDOFF\b/.test(first)) {
+    const trusted = TRUSTED.has(c.author_association) || c.user === owner
+    if (/^HANDOFF\b/.test(first) && trusted) {
       const pr = /PR:?\s*#(\d+)/.exec(body) || /\bPR #(\d+)\b/.exec(body) || /\/pull\/(\d+)/.exec(body)
-      handoffs.push({ at: c.created_at, first, release, done: /\s-\s*done\b/i.test(first), pr: pr ? Number(pr[1]) : null })
+      const status = first.slice(first.lastIndexOf(' - ') + 3).trim().toLowerCase()
+      handoffs.push({ at: c.created_at, first, release, done: first.includes(' - ') && status === 'done', pr: pr ? Number(pr[1]) : null })
     }
     if (/^CLAIM\b/.test(first)) {
       const hb = /heartbeat\s+(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?Z?)/i.exec(first)
@@ -184,7 +198,11 @@ function checkPair(c, x, y) {
   const ix = taskId(x)
   const sameId = Boolean(ix) && ix.id === taskId(y)?.id && c.scope(x) !== null && c.scope(x) === c.scope(y)
   if (same) {
-    c.add('duplicate', [x.number, y.number], `${ref(x.number)} and ${ref(y.number)} have the same title.`, `Read both; if the bodies match, close {#${y.number}} as a duplicate of {#${x.number}} with a comment.`, 'allowed')
+    // Allowed only in one epic (same parent or same title prefix) and when the newer one has no CLAIM or HANDOFF.
+    const sameScope = x.parent === y.parent || (Boolean(ix?.prefix) && ix.prefix === taskId(y)?.prefix)
+    const newer = c.facts.get(y.number)
+    const act = sameScope && !newer.claim && !newer.handoffs.length ? 'allowed' : 'dispatcher'
+    c.add('duplicate', [x.number, y.number], `${ref(x.number)} and ${ref(y.number)} have the same title.`, `Read both; if the bodies match, close {#${y.number}} as a duplicate of {#${x.number}} with a comment.`, act)
   } else if (sameId) {
     c.add('duplicate', [x.number, y.number], `${ref(x.number)} and ${ref(y.number)} have the same task id \`${ix.id}\`.`, `Read both; if the bodies match, close {#${y.number}} as a duplicate of {#${x.number}} with a comment.`)
   } else if (similarity(x.title, y.title) >= SIMILAR_TITLE) {
@@ -229,7 +247,7 @@ function checkMissing(c, i, d) {
     }
   }
   for (const n of d.before) {
-    if (c.byNum.get(n)?.state !== 'open' || c.deps.get(n).refs.includes(i.number)) continue
+    if (c.byNum.get(n)?.state !== 'open' || c.deps.get(n).refs.includes(i.number) || d.refs.includes(n)) continue
     c.add('missing-dependency', [n, i.number], `${ref(i.number)} says it goes before ${ref(n)}, and {#${n}} has no \`Depends on: #${i.number}\` line.`, `Add \`Depends on: #${i.number}\` to {#${n}}.`, 'allowed')
   }
 }
@@ -318,7 +336,8 @@ export function analyze(snapshot, { today = new Date().toISOString(), staleDays 
     scope: (i) => i.parent ?? taskId(i)?.prefix ?? null,
     add: (kind, issues, what, fix, act = 'dispatcher') => out.push({ kind, issues, what, fix, act })
   }
-  c.facts = new Map(open.map((i) => [i.number, commentFacts(c.loaded(i))]))
+  const owner = String(snapshot.repo || REPO).split('/')[0]
+  c.facts = new Map(open.map((i) => [i.number, commentFacts(c.loaded(i), { owner })]))
   const tasks = open.filter((i) => !isEpic(i))
   for (const i of tasks) checkShipped(c, i)
   for (let a = 0; a < tasks.length; a++) for (let b = a + 1; b < tasks.length; b++) checkPair(c, tasks[a], tasks[b])
@@ -412,7 +431,7 @@ export function formatReport(findings, { openCount, today, orderResult, names = 
   if (orderResult) {
     lines.push('### Valid order of open tasks', '```text')
     for (let k = 0; k < orderResult.order.length; k += 15) lines.push(orderResult.order.slice(k, k + 15).map((n) => `#${n}`).join(' '))
-    if (orderResult.left.length) lines.push(`In a cycle, left out: ${orderResult.left.map((n) => `#${n}`).join(' ')}`)
+    if (orderResult.left.length) lines.push(`In a cycle or waiting on one, left out: ${orderResult.left.map((n) => `#${n}`).join(' ')}`)
     lines.push('```')
   }
   return lines.join('\n') + '\n'

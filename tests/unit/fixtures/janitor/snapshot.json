@@ -2,35 +2,261 @@
   "fetched_at": "2026-11-25T12:00:00Z",
   "repo": "example/repo",
   "issues": [
-    { "number": 10, "title": "Epic: widgets", "state": "open", "labels": [{ "name": "epic" }], "body": "", "sub_issues_summary": { "total": 95 }, "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 30, "title": "Epic: reports", "state": "open", "labels": [{ "name": "epic" }], "body": "", "sub_issues_summary": { "total": 3 }, "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 11, "title": "E10 task A1: widget table and its route", "state": "open", "labels": [{ "name": "task" }], "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10", "body": "Depends on: none.\n- Migration creates `widget_rows`: id, name.\n- `GET /api/widgets` in `server/widgets/list.js`.", "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 12, "title": "E10 task A1: widget table and its route", "state": "open", "labels": [{ "name": "task" }], "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10", "body": "Same as before.", "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 13, "title": "E10 task A3: first half", "state": "open", "labels": [{ "name": "task" }], "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10", "body": "Depends on: #14 (A4).", "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 14, "title": "E10 task A4: second half", "state": "open", "labels": [{ "name": "task" }], "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10", "body": "Depends on: #13 (A3). Done when: PR #50 is merged.", "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 15, "title": "E10 task A5: shipped thing", "state": "open", "labels": [{ "name": "task" }], "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10", "body": "Depends on: none.", "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 16, "title": "E10 task A6: old idea nobody touched", "state": "open", "labels": [{ "name": "task" }], "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10", "body": "Depends on: none.", "updated_at": "2026-09-01T00:00:00Z" },
-    { "number": 17, "title": "E10 task A7: held with no question", "state": "open", "labels": [{ "name": "task" }, { "name": "held" }], "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10", "body": "Do this later.", "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 18, "title": "E10 task A8: uses the export", "state": "open", "labels": [{ "name": "task" }], "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10", "body": "Depends on: A2 (see #99), and #40 (old plan).", "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 19, "title": "E10 task A2: export the widgets", "state": "open", "labels": [{ "name": "task" }], "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10", "body": "Goes before #22.", "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 20, "title": "Fix the broken widget icon", "state": "open", "labels": [], "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10", "body": "", "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 21, "title": "E10 task A9: claimed long ago", "state": "open", "labels": [{ "name": "task" }], "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10", "body": "Depends on: none.", "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 22, "title": "E30 task B1: report page for widgets", "state": "open", "labels": [{ "name": "task" }], "parent_issue_url": "https://api.github.com/repos/example/repo/issues/30", "body": "Reads `widget_rows` through `GET /api/widgets`.\nLabel `held`: the owner talks about the plan first. Owner question Q1 on #30.", "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 23, "title": "E10 task A10: no parent", "state": "open", "labels": [{ "name": "task" }], "body": "Depends on: none.", "updated_at": "2026-11-24T00:00:00Z" },
-    { "number": 40, "title": "E10 task A0: old plan", "state": "closed", "state_reason": "not_planned", "labels": [{ "name": "task" }], "body": "", "updated_at": "2026-11-01T00:00:00Z" }
+    {
+      "number": 10,
+      "title": "Epic: widgets",
+      "state": "open",
+      "labels": [
+        {
+          "name": "epic"
+        }
+      ],
+      "body": "",
+      "sub_issues_summary": {
+        "total": 95
+      },
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 30,
+      "title": "Epic: reports",
+      "state": "open",
+      "labels": [
+        {
+          "name": "epic"
+        }
+      ],
+      "body": "",
+      "sub_issues_summary": {
+        "total": 3
+      },
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 11,
+      "title": "E10 task A1: widget table and its route",
+      "state": "open",
+      "labels": [
+        {
+          "name": "task"
+        }
+      ],
+      "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10",
+      "body": "Depends on: none.\n- Migration creates `widget_rows`: id, name.\n- `GET /api/widgets` in `server/widgets/list.js`.",
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 12,
+      "title": "E10 task A1: widget table and its route",
+      "state": "open",
+      "labels": [
+        {
+          "name": "task"
+        }
+      ],
+      "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10",
+      "body": "Same as before.",
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 13,
+      "title": "E10 task A3: first half",
+      "state": "open",
+      "labels": [
+        {
+          "name": "task"
+        }
+      ],
+      "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10",
+      "body": "Depends on: #14 (A4).",
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 14,
+      "title": "E10 task A4: second half",
+      "state": "open",
+      "labels": [
+        {
+          "name": "task"
+        }
+      ],
+      "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10",
+      "body": "Depends on: #13 (A3). Done when: PR #50 is merged.",
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 15,
+      "title": "E10 task A5: shipped thing",
+      "state": "open",
+      "labels": [
+        {
+          "name": "task"
+        }
+      ],
+      "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10",
+      "body": "Depends on: none.",
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 16,
+      "title": "E10 task A6: old idea nobody touched",
+      "state": "open",
+      "labels": [
+        {
+          "name": "task"
+        }
+      ],
+      "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10",
+      "body": "Depends on: none.",
+      "updated_at": "2026-09-01T00:00:00Z"
+    },
+    {
+      "number": 17,
+      "title": "E10 task A7: held with no question",
+      "state": "open",
+      "labels": [
+        {
+          "name": "task"
+        },
+        {
+          "name": "held"
+        }
+      ],
+      "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10",
+      "body": "Do this later.",
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 18,
+      "title": "E10 task A8: uses the export",
+      "state": "open",
+      "labels": [
+        {
+          "name": "task"
+        }
+      ],
+      "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10",
+      "body": "Depends on: A2 (see #99), and #40 (old plan).",
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 19,
+      "title": "E10 task A2: export the widgets",
+      "state": "open",
+      "labels": [
+        {
+          "name": "task"
+        }
+      ],
+      "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10",
+      "body": "Goes before #22.",
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 20,
+      "title": "Fix the broken widget icon",
+      "state": "open",
+      "labels": [],
+      "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10",
+      "body": "",
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 21,
+      "title": "E10 task A9: claimed long ago",
+      "state": "open",
+      "labels": [
+        {
+          "name": "task"
+        }
+      ],
+      "parent_issue_url": "https://api.github.com/repos/example/repo/issues/10",
+      "body": "Depends on: none.",
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 22,
+      "title": "E30 task B1: report page for widgets",
+      "state": "open",
+      "labels": [
+        {
+          "name": "task"
+        }
+      ],
+      "parent_issue_url": "https://api.github.com/repos/example/repo/issues/30",
+      "body": "Reads `widget_rows` through `GET /api/widgets`.\nLabel `held`: the owner talks about the plan first. Owner question Q1 on #30.",
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 23,
+      "title": "E10 task A10: no parent",
+      "state": "open",
+      "labels": [
+        {
+          "name": "task"
+        }
+      ],
+      "body": "Depends on: none.",
+      "updated_at": "2026-11-24T00:00:00Z"
+    },
+    {
+      "number": 40,
+      "title": "E10 task A0: old plan",
+      "state": "closed",
+      "state_reason": "not_planned",
+      "labels": [
+        {
+          "name": "task"
+        }
+      ],
+      "body": "",
+      "updated_at": "2026-11-01T00:00:00Z"
+    }
   ],
   "pulls": [
-    { "number": 50, "title": "feat: shipped thing (A5)", "body": "Implements #10 Task A5", "merged_at": "2026-11-24T10:00:00Z" },
-    { "number": 51, "title": "fix: widget icon", "body": "Fixes part of it. Implements #20 Task 1", "merged_at": "2026-11-24T11:00:00Z" }
+    {
+      "number": 50,
+      "title": "feat: shipped thing (A5)",
+      "body": "Implements #10 Task A5",
+      "merged_at": "2026-11-24T10:00:00Z"
+    },
+    {
+      "number": 51,
+      "title": "fix: widget icon",
+      "body": "Fixes part of it. Implements #20 Task 1",
+      "merged_at": "2026-11-24T11:00:00Z"
+    }
   ],
-  "markers": { "release": [15], "claim": [21] },
+  "markers": {
+    "release": [
+      15
+    ],
+    "claim": [
+      21
+    ]
+  },
   "comments": {
     "15": [
-      { "user": "bot", "created_at": "2026-11-24T09:00:00Z", "body": "CLAIM session s1 | branch claude/a5 | model Haiku | started 2026-11-24T09:00Z | heartbeat 2026-11-24T09:00Z" },
-      { "user": "bot", "created_at": "2026-11-24T11:00:00Z", "body": "HANDOFF A5 (shipped thing) - done\nPR: #50 (merge abc1234)\nRELEASE" }
+      {
+        "user": "bot",
+        "created_at": "2026-11-24T09:00:00Z",
+        "body": "CLAIM session s1 | branch claude/a5 | model Haiku | started 2026-11-24T09:00Z | heartbeat 2026-11-24T09:00Z",
+        "author_association": "OWNER"
+      },
+      {
+        "user": "bot",
+        "created_at": "2026-11-24T11:00:00Z",
+        "body": "HANDOFF A5 (shipped thing) - done\nPR: #50 (merge abc1234)\nRELEASE",
+        "author_association": "OWNER"
+      }
     ],
     "21": [
-      { "user": "bot", "created_at": "2026-11-25T01:00:00Z", "body": "CLAIM session s2 | branch claude/a9 | model Haiku | started 2026-11-25T01:00Z | heartbeat 2026-11-25T02:00Z" }
+      {
+        "user": "bot",
+        "created_at": "2026-11-25T01:00:00Z",
+        "body": "CLAIM session s2 | branch claude/a9 | model Haiku | started 2026-11-25T01:00Z | heartbeat 2026-11-25T02:00Z",
+        "author_association": "OWNER"
+      }
     ]
   }
 }
