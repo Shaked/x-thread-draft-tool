@@ -86,6 +86,22 @@ describe('stage math for one merged pull request', () => {
     expect(pr.total).toBe(139)
   })
 
+  it('PR 101: a skipped smoke run from a pending status does not stand in for the real smoke run', async () => {
+    const withSkipped = structuredClone(FIXTURE)
+    withSkipped.runs[M[101]].unshift({
+      id: 2199,
+      name: 'Smoke test (deployed)',
+      event: 'deployment_status',
+      run_attempt: 1,
+      conclusion: 'skipped',
+      created_at: '2026-11-20T10:02:12Z',
+      run_started_at: '2026-11-20T10:02:12Z',
+      updated_at: '2026-11-20T10:02:12Z',
+    })
+    const pr = await measurePull(pullByNumber(101), fakeApi(withSkipped))
+    expect(pr.stages.smoke).toEqual({ running: 22, queue: 2 })
+  })
+
   it('PR 103: a merge before CI ended is flagged and its wait is clamped to 0', async () => {
     const pr = await measure(103)
     expect(pr.stages.merge).toEqual({ running: 0, wait: 0 })

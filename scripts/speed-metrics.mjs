@@ -93,11 +93,27 @@ export async function measurePull(pr, api) {
     const deployments = (await api.deploymentsForSha(pr.merge_commit_sha)).filter((d) => d.environment === 'Production')
     const successes = []
     for (const d of deployments) successes.push(...(await api.deploymentStatuses(d.id)).filter((s) => s.state === 'success'))
-    if (successes.length) vercel = { running: secs(pr.merged_at, earliest(successes).created_at) }
-    else flags.push('missing_vercel')
+    let successAt = null
+    if (successes.length) {
+      successAt = earliest(successes).created_at
+      vercel = { running: secs(pr.merged_at, successAt) }
+    } else flags.push('missing_vercel')
 
+    // The production smoke run starts after the deployment's success status. Earlier deployment_status
+    // runs (pending, in progress) can be skipped by the workflow's job condition, so they are not it.
     const mergeRuns = await api.runsForSha(pr.merge_commit_sha)
-    const run = earliest(mergeRuns.filter((r) => r.name === SMOKE_WORKFLOW && r.event === 'deployment_status'))
+    const run = successAt
+      ? earliest(
+          mergeRuns.filter(
+            (r) =>
+              r.name === SMOKE_WORKFLOW &&
+              r.event === 'deployment_status' &&
+              r.conclusion !== 'skipped' &&
+              r.conclusion !== 'cancelled' &&
+              Date.parse(r.created_at) >= Date.parse(successAt),
+          ),
+        )
+      : null
     if (run) {
       // run_started_at is the latest attempt's start (a re-run); the wait before it is queue time.
       smoke = { running: secs(run.run_started_at, run.updated_at), queue: secs(run.created_at, run.run_started_at) }
