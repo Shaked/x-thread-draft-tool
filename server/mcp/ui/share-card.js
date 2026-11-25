@@ -143,7 +143,6 @@ function stopControl(share, ctx, note, finish) {
         finish('Stopped')
       },
       function (err) {
-        // A timeout can be tried again. Any other failure means the host does not allow the call here: the action goes.
         const timedOut = /timed out$/.test(String(err && err.message))
         note.textContent = timedOut ? 'No answer from the host. Try again.' : 'Your app does not allow this here.'
         if (timedOut) {
@@ -178,7 +177,6 @@ export function renderShare(root, share, ctx) {
   const kind = share.oneTime ? 'Works once' : 'Works until it expires'
   let timer = null
   let stopBox = null
-  // The card is done (expired or stopped): no countdown, its buttons off, the stop action gone.
   const finish = function (text) {
     if (timer) clearInterval(timer)
     status.textContent = text
@@ -196,7 +194,6 @@ export function renderShare(root, share, ctx) {
     status.textContent = kind
     return function () {}
   }
-  // Returns true once the link has expired.
   const tick = function () {
     const now = ctx.now()
     if (now >= share.expiresAt) {

@@ -27,13 +27,11 @@ export function bridge(on) {
   }
 
   function observeSize() {
-    // Once only: after the handshake, or (#352) when a host sends the result without one or never answers it.
     if (state.sizing) return
     state.sizing = true
     const report = () => {
       post({
         method: 'ui/notifications/size-changed',
-        // The body's height follows the content, so a view that shrinks reports a smaller frame too.
         params: { width: Math.ceil(window.innerWidth), height: Math.ceil(document.body.getBoundingClientRect().height) }
       })
     }
@@ -47,7 +45,6 @@ export function bridge(on) {
   }
 
   window.addEventListener('message', (event) => {
-    // Only the host (the parent frame) is listened to.
     if (event.source !== window.parent) return
     const msg = event.data
     if (!msg || msg.jsonrpc !== '2.0') return
@@ -72,10 +69,8 @@ export function bridge(on) {
       if (msg.id !== undefined) post({ id: msg.id, result: {} })
       if (on.teardown) on.teardown()
     } else if (msg.id !== undefined) {
-      // A request the view does not handle gets a JSON-RPC error, so the host does not wait for a reply.
       post({ id: msg.id, error: { code: -32601, message: 'Method not found: ' + msg.method } })
     }
-    // A notification the view does not handle is ignored.
   })
 
   request('ui/initialize', {
@@ -165,7 +160,6 @@ export function tweetFrom(url) {
 export function linksIn(text) {
   const found = []
   for (const raw of String(text).match(/https?:\/\/[^\s]+/g) || []) {
-    // Trailing punctuation goes, but a closing ) or ] stays when the URL opens one of its own (Wikipedia style).
     let url = raw
     while (/[.,;:!?)\]]$/.test(url)) {
       const last = url.slice(-1)
@@ -186,7 +180,6 @@ export function el(tag, attrs, children) {
   const allowed = ['href', 'alt', 'dir', 'title']
   for (const name of Object.keys(attrs || {})) {
     if (!allowed.includes(name)) continue
-    // A link goes in only after the https check. Images are made by postNode, after safeImage.
     if (name === 'href') {
       const safe = safeUrl(attrs[name], null)
       if (safe) node.setAttribute('href', safe)
@@ -219,7 +212,6 @@ export function postNode(thread, index, total, open) {
     el('header', {}, [el('strong', {}, ['Draft']), el('span', {}, [' ' + (index + 1) + '/' + total])]),
     el('p', { dir: 'auto' }, [text])
   ])
-  // A cut preview makes no link buttons: a URL cut in the middle could name another host.
   const links = cut ? [] : linksIn(text)
   if (links.length > 0) body.appendChild(el('ul', {}, links.map((url) => el('li', {}, [linkButton(url, url, open)]))))
   if (images.length > 0) {
@@ -281,9 +273,11 @@ export function headerNode(thread, open) {
   const info = el('p', {}, [count + (count === 1 ? ' post' : ' posts')])
   if (thread.is_published) info.appendChild(el('span', {}, [' · Published']))
   const children = [el('h1', { dir: 'auto' }, [thread.title || 'Untitled draft']), info]
-  if (underEditorBase(thread.url, thread.editorBase)) children.push(linkButton('Open in editor', thread.url, open))
-  // T10 (#238): only when the starter found a way to go full screen (ChatGPT offers one; the host may still refuse).
-  if (typeof thread.expand === 'function') children.push(linkButton('Full screen', null, thread.expand))
+  const actions = el('div', {}, [])
+  actions.className = 'actions'
+  if (underEditorBase(thread.url, thread.editorBase)) actions.appendChild(linkButton('Open in editor', thread.url, open))
+  if (typeof thread.expand === 'function') actions.appendChild(linkButton('Full screen', null, thread.expand))
+  children.push(actions)
   return el('header', {}, children)
 }
 
@@ -297,7 +291,6 @@ export function renderThread(root, thread, open) {
     root.appendChild(el('p', {}, ['This draft has no posts.']))
     return
   }
-  // T10 (#238): a start line and an end line, so the thread's edges are clear inside a host's card.
   const list = el('div', {}, [el('p', { dir: 'auto' }, ['Start of thread'])])
   root.appendChild(list)
   const first = 25
@@ -385,12 +378,10 @@ export function threadFrom(result) {
     posts: fullPosts(source.posts, meta, result) || source.posts,
     saved,
     is_published: source.is_published === true,
-    // get_draft puts the editor link in the draft; the create tools put it at the top level of structuredContent.
     url: typeof source.url === 'string' ? source.url : typeof structured.url === 'string' ? structured.url : null,
     counts: outline && Array.isArray(outline.posts) ? outline.posts : null,
     editorBase: typeof meta['x-thread/editorBase'] === 'string' ? meta['x-thread/editorBase'] : null,
     imageOrigin: typeof meta['x-thread/imageOrigin'] === 'string' ? meta['x-thread/imageOrigin'] : null,
-    // The draft's id (a UUID), for the share actions of plan Task 7 (#189); null when the result has none.
     id: typeof source.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(source.id) ? source.id : null
   }
 }
