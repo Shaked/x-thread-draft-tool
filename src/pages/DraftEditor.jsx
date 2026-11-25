@@ -24,6 +24,18 @@ const withPostId = post =>
     ? { ...post, id: crypto.randomUUID() }
     : post
 
+// The draft as the editor holds it: images normalized for backward compatibility.
+const normalizeDraft = data => ({
+  ...data,
+  posts: data.posts?.map(post => ({
+    ...withPostId(post),
+    images: normalizeImages(post.images || [])
+  })) || []
+})
+
+// The text the user wrote, one post per paragraph, for copying after a conflict.
+const plainText = draft => [draft.title, ...draft.posts.map(post => post.text)].filter(Boolean).join('\n\n')
+
 export default function DraftEditor({ user }) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -37,9 +49,17 @@ export default function DraftEditor({ user }) {
   const [synced, setSynced] = useState(true)
   // True after a save gets 401: the session ended. The text stays in the editor for the user to copy.
   const [signedOut, setSignedOut] = useState(false)
+  // Set after a save gets 412: another app changed the draft. { version, theirs } until the user chooses.
+  const [conflict, setConflict] = useState(null)
+  // After "Show their changes": my text, for copying.
+  const [copyText, setCopyText] = useState(null)
 
   const saveTimeoutRef = useRef(null)
   const lastSavedRef = useRef(null)
+  // The version the editor last read or saved. Every save sends it as If-Match.
+  const versionRef = useRef(undefined)
+  // Mirrors `conflict`, so a save started in the same tick sees it at once. No save runs while it is set.
+  const conflictRef = useRef(false)
 
   const loadDraft = async () => {
     try {
@@ -49,17 +69,11 @@ export default function DraftEditor({ user }) {
       // The server returns a draft only to its owner: 401 when signed out, 404 for anyone else.
       const data = await draftsApi.get(id)
 
-      // Normalize images for backward compatibility
-      const normalizedData = {
-        ...data,
-        posts: data.posts?.map(post => ({
-          ...withPostId(post),
-          images: normalizeImages(post.images || [])
-        })) || []
-      }
+      const normalizedData = normalizeDraft(data)
 
       setDraft(normalizedData)
       lastSavedRef.current = JSON.stringify(normalizedData)
+      versionRef.current = data.version
 
       // Save to IndexedDB for offline access
       await idbSet(`draft-${id}`, data)
@@ -81,18 +95,22 @@ export default function DraftEditor({ user }) {
   }, [id, user])
 
   const saveDraft = useCallback(
-    async (draftToSave, immediate = false) => {
-      if (!user) return
+    async (draftToSave, immediate = false, keepalive = false) => {
+      // No save while another app's change is waiting for the user's choice.
+      if (!user || conflictRef.current) return false
 
       const saveFn = async () => {
         try {
           setSaving(true)
           setSynced(false)
 
-          await draftsApi.update(id, {
-            title: draftToSave.title,
-            posts: draftToSave.posts
-          })
+          const saved = await draftsApi.update(
+            id,
+            { title: draftToSave.title, posts: draftToSave.posts },
+            versionRef.current,
+            { keepalive }
+          )
+          versionRef.current = saved?.version ?? versionRef.current
 
           lastSavedRef.current = JSON.stringify(draftToSave)
           setSynced(true)
@@ -103,6 +121,13 @@ export default function DraftEditor({ user }) {
           return true
         } catch (err) {
           console.error('Save error:', err)
+          if (err.status === 412) {
+            // Nothing was written. Stop saving and let the user choose (see the banner).
+            conflictRef.current = true
+            setConflict({ version: err.version ?? err.draft?.version, theirs: err.draft })
+            setSynced(true)
+            return false
+          }
           // Still save to IndexedDB even if server fails, except when signed out (sign-out clears this cache)
           if (err.status === 401) setSignedOut(true)
           else await idbSet(`draft-${id}`, draftToSave)
@@ -139,10 +164,10 @@ export default function DraftEditor({ user }) {
   }, [draft, saveDraft])
 
   useEffect(() => {
-    // Save before unload
+    // Save before unload, but only real unsaved edits: an untouched draft must not overwrite a newer version.
     const handleBeforeUnload = () => {
-      if (draft) {
-        saveDraft(draft, true)
+      if (draft && JSON.stringify(draft) !== lastSavedRef.current) {
+        saveDraft(draft, true, true)
       }
     }
 
@@ -154,6 +179,37 @@ export default function DraftEditor({ user }) {
       }
     }
   }, [draft, saveDraft])
+
+  // "Show their changes": keep my text for copying, then show the draft the other app saved.
+  const showTheirs = () => {
+    if (!conflict?.theirs) return
+    setCopyText(plainText(draft))
+    const theirs = normalizeDraft(conflict.theirs)
+    versionRef.current = conflict.version
+    lastSavedRef.current = JSON.stringify(theirs)
+    setDraft(theirs)
+    conflictRef.current = false
+    setConflict(null)
+    idbSet(`draft-${id}`, theirs).catch(() => {})
+  }
+
+  // "Keep mine": save my text as a new version on top of theirs.
+  const keepMine = () => {
+    if (!Number.isInteger(conflict?.version)) return
+    versionRef.current = conflict.version
+    conflictRef.current = false
+    setConflict(null)
+    saveDraft(draft, true)
+  }
+
+  const copyMyText = async () => {
+    try {
+      await navigator.clipboard.writeText(copyText)
+      toast({ message: 'Copied', tone: 'success' })
+    } catch {
+      toast({ message: 'Could not copy. Select the text and copy it.', tone: 'danger' })
+    }
+  }
 
   const handleTitleChange = (newTitle) => {
     setDraft({ ...draft, title: newTitle })
@@ -217,7 +273,7 @@ export default function DraftEditor({ user }) {
   }
 
   // The save status word and its tone: the same texts as before, announced when they change.
-  const saveStatus = signedOut
+  const saveStatus = signedOut || conflict
     ? { tone: 'danger', text: 'Not saved' }
     : !synced || saving
       ? { tone: 'warning', text: 'Saving…' }
@@ -271,6 +327,45 @@ export default function DraftEditor({ user }) {
             )}
 
             <ThreadComposer posts={draft.posts} onPostsChange={handlePostsChange} />
+
+            {conflict && (
+              <Banner
+                tone="warning"
+                role="alert"
+                actions={
+                  <>
+                    <Button variant="secondary" onClick={showTheirs}>
+                      Show their changes
+                    </Button>
+                    <Button variant="primary" onClick={keepMine}>
+                      Keep mine
+                    </Button>
+                  </>
+                }
+              >
+                This draft changed in another app while you were editing. Autosave is paused until you choose.
+              </Banner>
+            )}
+
+            {copyText !== null && (
+              <Banner
+                tone="info"
+                role="status"
+                actions={
+                  <>
+                    <Button variant="secondary" onClick={copyMyText}>
+                      Copy
+                    </Button>
+                    <Button variant="ghost" onClick={() => setCopyText(null)}>
+                      Dismiss
+                    </Button>
+                  </>
+                }
+              >
+                <p>Your text is below. Copy what you need.</p>
+                <textarea readOnly rows={8} value={copyText} aria-label="Your text" />
+              </Banner>
+            )}
 
             {!draft.is_published && (
               <Banner tone="info" role="none">
