@@ -134,6 +134,21 @@ test.describe('app bar on phones', () => {
     }
   })
 
+  test('the editor notice keeps the page gutter on both sides (390 px)', async ({ browser }) => {
+    const { context, page } = await openContext(browser)
+    try {
+      await page.goto(`${BASE}/draft/${draftId}`)
+      await page.getByLabel('Draft title').waitFor()
+      const notice = await boxOf(page.getByText('Images upload automatically'))
+      const banner = await boxOf(page.locator('.ui-banner').first())
+      expect(banner.x, 'notice starts one gutter from the left edge').toBeGreaterThanOrEqual(15)
+      expect(PHONE.width - (banner.x + banner.width), 'notice ends one gutter from the right edge').toBeGreaterThanOrEqual(15)
+      expect(notice.x).toBeGreaterThanOrEqual(banner.x)
+    } finally {
+      await context.close()
+    }
+  })
+
   test('on the editor the bar is one row and the round toggle is gone', async ({ browser }) => {
     const { context, page } = await openContext(browser)
     try {
