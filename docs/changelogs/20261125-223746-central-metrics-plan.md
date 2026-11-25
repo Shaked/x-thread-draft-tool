@@ -4,7 +4,7 @@
 - Alerts will say what is slow, by how much, since when, and what to do.
 
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/pulls
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/444
 
 ## Technical details
 

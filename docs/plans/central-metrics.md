@@ -105,7 +105,7 @@ github.com but not the vendors' own sites: grafana.com, axiom.co, betterstack.co
 sentry.io, vercel.com, docs.github.com, opentelemetry.io and neon.com all failed to resolve. So I read,
 where it exists, the vendor's own docs source on GitHub (the files their docs site is built from), and
 Neon's page through Neon's own read-only docs tool. "Not checked" means neither route worked. Those hosts
-were added to the environment's allowed hosts at 22:45 UTC, so the next session can read the live pages
+were added to the environment's allowed hosts at about 22:42 UTC, so the next session can read the live pages
 and replace each "not checked" (task M0).
 
 ### What each option says, quoted
