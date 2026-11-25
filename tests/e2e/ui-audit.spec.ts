@@ -15,8 +15,9 @@ const OUT = path.join('test-results', 'ui-audit')
 
 // Pages under audit. A page joins when its migration PR lands (plan section 5, rules for every migration PR).
 // `drafts` are seeded for that page's user (the draft list with rows, one Hebrew title for the RTL pass).
-const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean }[] = [
+const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare' }[] = [
   { name: 'about', path: '/about' },
+  { name: 'flags', path: '/settings/flags' },
   { name: 'changelog', path: '/changelog' },
   { name: 'tokens', path: '/settings/tokens' },
   { name: 'apps', path: '/settings/apps' },
@@ -33,6 +34,31 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean }[
   {
     name: 'editor',
     path: '/draft/:first',
+    drafts: [
+      {
+        title: 'Editor audit',
+        posts: [
+          { id: 'a1', text: 'First post, in English.', images: [], embeddedTweet: null },
+          { id: 'a2', text: 'פוסט שני בעברית', images: [], embeddedTweet: null }
+        ]
+      }
+    ]
+  },
+  // The optional Rare UI look (feature flag, #406): the same checks with xt-skin=rare on the new page and two main pages.
+  { name: 'flags-rare', path: '/settings/flags', skin: 'rare' },
+  {
+    name: 'drafts-rare',
+    path: '/',
+    skin: 'rare',
+    drafts: [
+      { title: 'שרשור לדוגמה', posts: [{ id: 'h1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] },
+      { title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }
+    ]
+  },
+  {
+    name: 'editor-rare',
+    path: '/draft/:first',
+    skin: 'rare',
     drafts: [
       {
         title: 'Editor audit',
@@ -65,6 +91,8 @@ const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']
 const FONT_PX = [12, 14, 16, 18, 20, 24, 28]
 const SPACE_PX = [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64]
 const RADIUS_PX = [0, 6, 10, 14, 20, 999]
+// The Rare UI look (feature flag) has one extra radius: --radius-sm is 4 px there (6, 10 and 14 are on the default scale too).
+const RADIUS_PX_RARE = [...RADIUS_PX, 4]
 
 // Every colour token name in tokens.css (read once; the colour values come from the page through a probe element).
 const TOKEN_COLOURS = [...new Set([...readFileSync(path.join('src', 'styles', 'tokens.css'), 'utf8').matchAll(/--color-[\w-]+(?=:)/g)].map((m) => m[0]))]
@@ -103,7 +131,7 @@ async function devToken(request: APIRequestContext, login: string, admin = false
 }
 
 type Seed = { title: string; posts: unknown[] }
-async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean } = {}) {
+async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare' } = {}) {
   const phone = c.width < 800
   const context: BrowserContext = await browser.newContext({
     viewport: { width: c.width, height: phone ? 844 : 800 },
@@ -131,6 +159,7 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   }
   const page = await context.newPage()
   await page.addInitScript((value) => localStorage.setItem('xt-theme', value), c.theme)
+  if (extra.skin) await page.addInitScript((value) => localStorage.setItem('xt-skin', value), extra.skin)
   await page.goto(`${BASE}${pagePath.replace(':first', firstDraftId)}`, { waitUntil: 'networkidle' })
   await expect(extra.heading ? page.getByRole('heading', { name: extra.heading, level: 1 }) : page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(page.getByText('Loading…')).toHaveCount(0)
@@ -164,7 +193,7 @@ async function smallTargets(page: Page): Promise<string[]> {
 }
 
 // Every ui- element: type, radius and space on their scales; colours equal a --color token of this theme, or transparent.
-async function scaleAndColourProblems(page: Page, scope = '[class*="ui-"]'): Promise<string[]> {
+async function scaleAndColourProblems(page: Page, scope = '[class*="ui-"]', radii = RADIUS_PX): Promise<string[]> {
   return page.evaluate(
     ({ names, font, space, radius, scope }: { names: string[]; font: number[]; space: number[]; radius: number[]; scope: string }) => {
       // Resolves each colour token through the page's current theme (light-dark() depends on color-scheme).
@@ -206,7 +235,7 @@ async function scaleAndColourProblems(page: Page, scope = '[class*="ui-"]'): Pro
       }
       return problems
     },
-    { names: TOKEN_COLOURS, font: FONT_PX, space: SPACE_PX, radius: RADIUS_PX, scope }
+    { names: TOKEN_COLOURS, font: FONT_PX, space: SPACE_PX, radius: radii, scope }
   )
 }
 
@@ -217,7 +246,7 @@ test.describe('UI audit', () => {
   for (const pageInfo of MIGRATED) {
     for (const c of CASES) {
       test(`${pageInfo.name} at ${c.name}`, async ({ browser, request }) => {
-        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts, menu: pageInfo.menu })
+        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts, menu: pageInfo.menu, skin: pageInfo.skin })
         try {
           // No horizontal scroll (plan: scrollWidth <= innerWidth).
           const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }))
@@ -231,7 +260,7 @@ test.describe('UI audit', () => {
             expect(await smallTargets(page), 'targets under 44 x 44').toEqual([])
           }
 
-          expect(await scaleAndColourProblems(page), 'ui- elements off the scale or the theme colours').toEqual([])
+          expect(await scaleAndColourProblems(page, undefined, pageInfo.skin ? RADIUS_PX_RARE : RADIUS_PX), 'ui- elements off the scale or the theme colours').toEqual([])
 
           const axe = await new AxeBuilder({ page }).withTags(AXE_TAGS).disableRules(AXE_DISABLED).analyze()
           const serious = axe.violations
