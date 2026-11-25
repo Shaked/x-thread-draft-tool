@@ -206,17 +206,20 @@ Telegram sender. Two parts of the request are left out on purpose: local dev (se
   deploy, the speed stages of a merge, a production error. One row per event, a fixed set of fields
   (below), and a link to the place where the raw log already lives.
 - **Sources list**: `server/ops/sources.js` lists each repo (owner, name and numeric `repository_id`) and,
-  per repo, the workflows that get rows. Another public repo joins with one line here: nothing changes
+  per repo, the workflows that get rows and whether speed rows are made (`speed: true` only for this repo:
+  `speed-metrics.mjs` knows this repo's workflow names). Another public repo joins with one line here: nothing changes
   in that repo. A private repo would need a token to be read: not now.
 - **Collect**: `scripts/ops-emit.mjs` runs as a second step of O5's 6-hourly workflow `metrics-daily.yml`
   (owner default Q2 of #331). For each listed repo it reads the GitHub API (runs, merges, deployments, and
   the speed stages through the functions of `scripts/speed-metrics.mjs`) and posts one batch. It shares
   O5's database wake, so it costs no extra compute, however many repos are listed.
-- **Cursor**: per repo, the route keeps the completion time of the newest run it stored (`ops_cursor`) and
-  returns it in every answer. The script's first call per repo is an empty batch, to read the cursor; it
-  then asks the API for runs completed from one hour before it. A run that was still going at the last
-  fetch is picked up when it completes. The insert ignores an event it already has (unique key), so a late
-  or repeated run adds nothing twice.
+- **Cursor**: per repo, the route keeps the creation time of the oldest run that was still going at the
+  last fetch, or else of the newest run it stored (`ops_cursor`), and returns it in every answer. The
+  script's first call per repo is an empty batch, to read the cursor; it then lists runs created from one
+  hour before it (the list-runs API filters by creation time; whether it can filter by completion time:
+  not checked, M3 checks) and keeps only completed runs. A run still going is picked up by a later fetch,
+  because the cursor stays at or before it. The insert ignores an event it already has (unique key), so a
+  late or repeated run adds nothing twice.
 - **Counters**: skipped and cancelled runs, and runs of unlisted workflows, are counted per finished UTC
   day. The script recomputes each finished day from the API and replaces that day's counter rows, so a
   repeated run never counts twice.
@@ -229,9 +232,11 @@ Telegram sender. Two parts of the request are left out on purpose: local dev (se
 `POST /api/ops/events` is called only by this repo's `metrics-daily.yml`. It is not a `ci: true` route,
 and the workflow is not added to `CI_WORKFLOW_PATHS` (the O5 rule). The route verifies the GitHub OIDC
 token itself (same issuer, key set and age as `verifyCiToken`) and requires all of:
-- audience `x-thread-draft-tool/ops-events`. O5's route requires its own audience,
-  `x-thread-draft-tool/ops-metrics-daily`; the workflow asks for one token per audience, so each token
-  works on one route only;
+- audience `x-thread-draft-tool-ops-events-<VERCEL_ENV>`, built like `ciAudience` in `server/oidc-ci.js`,
+  so a production token does not pass on preview. O5's route gets its own audience,
+  `x-thread-draft-tool-ops-daily-<VERCEL_ENV>`, instead of the CI audience (this changes O5's text in
+  `docs/plans/observability.md` and #336). The workflow asks for one token per audience and targets
+  production only, so each token works on one route of one environment;
 - `repository_id` of this repo (a number, so a renamed or re-created repo cannot pass);
 - `workflow_ref` and `job_workflow_ref` both equal to
   `Shaked/x-thread-draft-tool/.github/workflows/metrics-daily.yml@refs/heads/main`, so a branch with an
@@ -437,8 +442,11 @@ Rules:
 - Line 3 is one cause with its evidence in a few words, or "not known yet".
 - Line 4 is `Nothing needed.` with who acts, or `Needs you:` with the only action.
 - Line 5 holds at most two links: where to look, and the doc that explains the number.
-- Who acts is real: the same workflow opens or updates the speed gate issue (label `task`), which the
+- Who acts is real: the same workflow opens or updates one speed gate issue (label `task`), which the
   AGENTS.md speed rule hands to Opus for a diagnosis, and the headline links that issue.
+- When it is sent: by the per-merge run of `speed-metrics.yml`, once when a streak over the limit starts,
+  and again only after the stages have been within their limits for 24 hours (the O7 rule). The
+  streak and the "last sent" time are read back from the gate issue, so no new state is stored.
 
 ### Worked example: the speed budget
 
@@ -458,7 +466,8 @@ What M7 builds in `scripts/speed-metrics.mjs` for this (none of it exists today)
   "since" is the first merge of the streak, "in a row" its length;
 - the likely cause: the slowest stage over its limit, and in it the step whose time is furthest above its
   median, from the jobs API (`/actions/runs/{id}/jobs`, one call per run of that stage);
-- the gate issue: open or update one issue per stage over its limit, labelled `task`, and link it;
+- the gate issue: open or update one issue for the whole gate, labelled `task`, listing the stages over
+  their limit, and link it; this needs `issues: write` in `speed-metrics.yml`, its only write permission;
 - the plain stage names: "CI checks", "merge wait", "deploy", "smoke test", "the total".
 
 ## 7. Tasks
@@ -466,13 +475,15 @@ What M7 builds in `scripts/speed-metrics.mjs` for this (none of it exists today)
 Every task: executor Haiku 5.5 unless the row says Sonnet (Sonnet also for a step Haiku fails twice), the
 validator named in the row, Opus judges the PR before merge, Codex optional (#154). Rules: AGENTS.md.
 Each PR keeps `docs/architecture/capabilities.md` true. Sub-issues of epic #407, each with its full task
-text. No `held` label (owner, 2026-11-25): a task starts when the tasks it depends on are closed. "Depends
+text. No `held` label (owner, 2026-11-25): a task starts when the tasks it depends on are closed. The same
+words remove `held` from O1 to O7 (#332 to #338), which M1 to M6 depend on; #331's question ("keep
+defaults") is answered by the #439 body, and the hold was only "until the owner has talked about this plan". "Depends
 on" lists issues that must be closed first. O1 to O7 (#332 to #338) are the tasks of #331.
 
 | Task | Issue | What | Validator | Size | Depends on | PR body line |
 |---|---|---|---|---|---|---|
 | M0 | see #439 | Read the live vendor pages now allowed (Grafana, Axiom pricing, Better Stack, Honeycomb, Sentry pricing, Vercel drains, GitHub artifact download) and replace each "not checked" in section 2 with a quote and the date. Docs only | Opus | S | none | `Implements #439 Task M0` |
-| M7 | see #439 | Telegram alert shape (section 6): the "Alert" shape in `telegram-message.md`; the speed kind sends it with the streak, likely cause, plain stage names and the gate issue; golden tests; `docs/operations/telegram.md` | Sonnet | M | the Telegram code step of #369 | `Implements #439 Task M7` |
+| M7 | see #439 | Telegram alert shape (section 6): the "Alert" shape in `telegram-message.md`; the per-merge speed run sends it once per streak (24 hours clear to send again) with the streak, likely cause, plain stage names and one gate issue (`issues: write`); golden tests; `docs/operations/telegram.md` | Sonnet | M | the Telegram code step of #369 | `Implements #439 Task M7` |
 | M1 | see #439 | Migration (next free number after O1): `ops_events` (unique repo, source, kind, id), `ops_daily` counters, `ops_cursor`; `server/ops/events.js` (version 1 shape, kinds, `attrs` keys, cuts, link and time rules, caps) and `server/ops/sources.js`, unit tests; measure the row size | Opus (SQL) | S | O1 #332 | `Implements #439 Task M1` |
 | M2 | see #439 | `POST /api/ops/events` with its own OIDC check (section 3), repo from the sources list, caps, row guard, cursor in the answer, insert that ignores known events, daily counter replace; Infrastructure row; token tests. Executor Sonnet (OIDC is security code) | Opus (OIDC) | M | M1, O5 #336 | `Implements #439 Task M2` |
 | M3 | see #439 | `scripts/ops-emit.mjs` and its step in `metrics-daily.yml`: per listed repo, CI runs, merges, deploys and speed stages from the GitHub API since the cursor, drop rules, day counters, rate-limit stop, `--dry-run`; reuse `speed-metrics.mjs` functions; offline fixture tests | Opus (workflow token) | M | M2 | `Implements #439 Task M3` |

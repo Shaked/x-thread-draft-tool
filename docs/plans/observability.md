@@ -251,7 +251,8 @@ drafts and uploading images, and the smoke and upload workflows, which anyone wi
 dispatch, would pass on the new route):
 
 - The route is not a `ci: true` route and the workflow is not added to `CI_WORKFLOW_PATHS`. The route
-  verifies the token itself (same issuer, key set, audience and age as `verifyCiToken`) and requires
+  verifies the token itself (same issuer, key set and age as `verifyCiToken`, but its own audience
+  `x-thread-draft-tool-ops-daily-<VERCEL_ENV>`, set by `docs/plans/central-metrics.md`) and requires
   `workflow_ref` and `job_workflow_ref` both equal to
   `Shaked/x-thread-draft-tool/.github/workflows/metrics-daily.yml@refs/heads/main`, `repository_id` of
   this repository, and `event_name` `schedule` or `workflow_dispatch`. `schedule` is allowed only for
