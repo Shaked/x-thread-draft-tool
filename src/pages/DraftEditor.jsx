@@ -221,6 +221,19 @@ export default function DraftEditor({ user }) {
     saveDraft(draft, true)
   }
 
+  // Back link: while a conflict or the copy box holds text that is not saved, ask before leaving.
+  const handleBack = async event => {
+    if (!conflict && copyText === null) return
+    event.preventDefault()
+    const confirmed = await ask({
+      title: 'Leave this draft?',
+      body: 'Your text is not saved. This draft changed in another app. Leaving now discards your text, so copy it first if you need it.',
+      confirmLabel: 'Leave',
+      tone: 'danger'
+    })
+    if (confirmed) navigate('/')
+  }
+
   const copyMyText = async () => {
     try {
       await navigator.clipboard.writeText(copyText)
@@ -302,7 +315,7 @@ export default function DraftEditor({ user }) {
     <div className="draft-editor">
       <PageHeader
         sticky
-        back={{ to: '/', label: '← Back' }}
+        back={{ to: '/', label: '← Back', onClick: handleBack }}
         titleSlot={
           <h1>
             <Input value={draft.title} onChange={handleTitleChange} ariaLabel="Draft title" placeholder="Untitled Draft" />

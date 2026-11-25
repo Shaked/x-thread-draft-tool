@@ -197,6 +197,20 @@ describe('DraftEditor save with a version (If-Match)', () => {
     expect(event.defaultPrevented).toBe(true)
   })
 
+  it('asks before Back leaves the editor while a conflict waits for the choice', async () => {
+    draftsApi.update.mockRejectedValue(
+      httpError(412, 'stale', { version: 5, draft: { ...DRAFT, title: 'Theirs', version: 5 } })
+    )
+    renderEditor()
+    await typeInTitle('!')
+    await screen.findByRole('alert')
+
+    await userEvent.click(screen.getByRole('link', { name: '← Back' }))
+
+    expect(await screen.findByText('Leave this draft?')).toBeInTheDocument()
+    expect(screen.getByLabelText('Draft title')).toHaveValue('Draft one!')
+  })
+
   it('asks before the page closes while a conflict waits for the choice', async () => {
     draftsApi.update.mockRejectedValue(
       httpError(412, 'stale', { version: 5, draft: { ...DRAFT, title: 'Theirs', version: 5 } })
