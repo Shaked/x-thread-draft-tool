@@ -23,7 +23,8 @@ Checked means I read it in the code or a source on 2026-11-21. "Not checked" mea
 ## 1. Today's facts
 
 ### How a draft is stored (checked: `db/migrations/*.sql`, `server/routes/drafts.js`)
-- Table `drafts`: `id`, `user_id`, `title` (text, at most 500 characters), `posts` (jsonb array),
+- Table `drafts`: `id`, `user_id`, `title` (text; the column has no limit, the routes check at most 500 characters, and duplicate adds
+  " (copy)" past that), `posts` (jsonb array),
   `is_published`, `published_at`, `created_at`, `updated_at`, `version`.
 - A post is a JSON object: `{ id, text, images, embeddedTweet }`. `id` is a string, usually a UUID
   (`server/mcp/tools.js` `withPostIds`). `images` holds URLs (strings or `{ url }`). `embeddedTweet` is
@@ -61,7 +62,7 @@ Checked means I read it in the code or a source on 2026-11-21. "Not checked" mea
 | `GET /drafts/:id`, `PATCH ...`, 412 answers | the full draft |
 | `GET /drafts/:id/outline` | counts and **the first 40 characters of each post** (`server/draft-stats.js`) |
 | `GET /drafts/:id/export` | the text in JSON or plain text |
-| `POST /drafts/:id/duplicate` | copies the text in SQL |
+| `POST /drafts/:id/duplicate` | reads the draft into JavaScript and inserts a copy with new post ids |
 | `GET /share/:token[.md|.html]` | **public**: the text and images to anyone with a live link |
 | MCP `get_draft`, `list_drafts detail=full`, `export_draft` | the text, to the AI app |
 | MCP write tools | the outline (40-character previews) and `x-thread/posts` (full posts) in `_meta` for the thread view |
@@ -69,9 +70,10 @@ Checked means I read it in the code or a source on 2026-11-21. "Not checked" mea
 | Editor `/draft/:id` and home `/` | the text in the browser; nothing kept in `localStorage` (only theme and bar preference) |
 | Admin (`server/admin/queries.js`, `server/routes/admin.js`) | **counts only**: drafts, posts, images, image file count and bytes. No title, no text, no image URL (the SQL never selects them) |
 | Admin delete (`server/admin/delete-user.js`) | reads nothing; deletes the files, then the rows |
-| Logs | `[perf]` logs method, route, status, timings, tool name: no text. `console.error` logs errors in `server/router.js`, `server/mcp/tools.js` and `server/mcp/server.js`: an error object could hold text (for example a database error detail). Not proven either way: the leak scan test (task H10) checks it |
+| Logs | `[perf]` logs method, route, status, timings, tool name: no text. `console.error` logs errors in `server/router.js`, `server/mcp/tools.js`, `server/mcp/server.js`,
+`server/blob.js`, `server/admin/delete-user.js`, `server/routes/admin.js` and `server/oauth/tokens.js`: an error object could hold text (for example a database error detail). Not proven either way: the leak scan test (task H10) checks it |
 | Error reports | none: no Sentry or similar (checked: no such package or call) |
-| Backups | Neon: 6 hours of history the owner can restore from; Neon's own backups in object storage, "retained for 30 days" (Neon security page, below). Vercel Blob backups: not checked |
+| Backups | Neon: 6 hours of history the owner can restore from; Neon's own backups in object storage, "retained for 30 days" (Neon security page, below). Neon preview branches: each preview deployment can get its own branch, and the stable preview is never deleted (`docs/agents/api.md`, checked); whether a branch starts as a copy of production data: not checked. Vercel Blob backups: not checked |
 | The person who runs the app | the Neon console, the database connection string, the Blob token and the Vercel project settings: **all text and images, in plain form** |
 | AI apps | everything the tools return goes to the AI app's company (OpenAI, Anthropic, xAI). Out of our control |
 
@@ -106,7 +108,7 @@ produced, as #354's handoff asked.
 | Works with encrypted posts | yes | **yes: the unit is the encrypted post** | no: you cannot diff ciphertext; the server cannot compact |
 | How to show it | compare two snapshots | same, by post id | same, after rebuilding both states |
 
-Sizes are before Postgres compression (TOAST compresses values over about 2 KB; not measured).
+Sizes are before Postgres compression (Postgres TOAST may compress large values; its threshold and the effect here: not checked).
 
 **Recommendation: (b).** It is 5 times smaller than (a) for normal edits, restore is one query, and it is
 the only option that still works when posts are encrypted (section 3). (c) saves another 0.4 MB per
@@ -177,7 +179,8 @@ In MCP (task H7) the answer is readable text, never a code block (#358). Example
   stay, so a restore can be undone by restoring again.
 - **Conflicts (#354, PR #359):** restore takes `If-Match` with the current `version`. A stale one is
   412 with the current draft, nothing written. MCP `restore_revision` takes `version` the same way.
-  A published draft cannot be restored (409, like every post edit). Restoring one post only is a later
+  A published draft cannot be restored (409, like the post routes and the post tools; note that
+  `PATCH /drafts/:id` itself has no published check today). Restoring one post only is a later
   option, not in the first tasks.
 - **Images:** today an image file is deleted when no draft uses it any more. With history, a file
   must also stay while a kept revision uses it, or a restore shows a broken image. Rule (task H8): a
@@ -232,16 +235,21 @@ per-request fees: not checked. AI apps: everything keeps working.
 **C. Key only the user has (end-to-end, in the browser).** The browser makes a key pair. The private key
 is wrapped with the user's passphrase (and a recovery code) and only the wrapped form is stored on our
 server. The server stores ciphertext and the user's public key. Only a browser that knows the passphrase
-can read. **This is the only design that can truthfully support "the owner cannot read it".** Its limits
+(or the recovery code) can read, and only if the passphrase is strong: the server holds the wrapped key
+and its salt, so whoever has the database can guess passphrases offline without limit (section 3.6). **This is the only design that can truthfully support "the owner cannot read it".** Its limits
 must be said in the same breath:
 - It is a web app: the browser runs code we send. If the owner shipped code that steals the passphrase,
   the promise would break. The code is public (github.com/Shaked/x-thread-draft-tool, a public
   repository, checked), so such a change would be visible, but it cannot be proven that no one does it.
 - Text an AI app sends to a draft passes through our server once, in plain form, on its way in. The
   server encrypts it to the user's public key at once and keeps no copy. At that moment a changed server
-  could read it. A changed server could also hand AI writes a public key of its own; that adds nothing it
-  could not already read on the way in, but it is why the browser never trusts the server's copy of the
-  public key for its own saves (section 3.6).
+  could read it.
+- **Anyone with database access, the owner included, can replace the stored public key without changing
+  any code.** The unchanged public code then seals every later AI write to that key, so it can be read at
+  any time. So text added by AI apps is never covered by "cannot read". The browser detects it: on every
+  unlock it compares the server's public key with the one inside the wrapped blob and shows "Your key on
+  our server was changed" if they differ, and a post that does not open with the user's key is shown as
+  "This post was not sealed to your key". The browser never seals its own saves to the server's copy.
 - The server can still swap a post's ciphertext for an older one of the same post (it keeps history).
   Locking promises secrecy, not that the server cannot roll a post back.
 - Whatever the user shows an AI app is seen by that AI company.
@@ -277,30 +285,45 @@ What the product loses for AI apps on a **locked** draft:
   no `#` part.
 - The thread view inside AI apps cannot show the posts.
 - History works (list, restore); the word diff is shown only in the browser.
+- Duplicate: a locked draft is duplicated in the browser (new draft and post ids need new seals). REST and
+  MCP `duplicate_draft` answer 409 for it.
 - To use AI on a locked draft, the user unlocks it (it becomes a normal draft, with the weaker promise).
 
 ### 3.4 The sentences to show the user (only these; nothing more)
 
 Normal draft (A plus the rules above):
-- EN: "Your drafts are stored encrypted. The app's server holds the key, so it can read them to show
-  them to you and to the AI apps you connect. Our admin screens show counts, never your text."
-- HE: "הטיוטות שלך נשמרות מוצפנות. המפתח נמצא בשרת של האפליקציה, ולכן השרת יכול לקרוא אותן כדי להציג
-  אותן לך ולאפליקציות ה-AI שחיברת. מסכי הניהול שלנו מציגים רק מספרים, אף פעם לא את הטקסט שלך."
+- EN: "The text of your drafts is stored encrypted. The app's server holds the key, so it can read your
+  drafts to show them to you and to the AI apps you connect, and whoever runs the app can read them too.
+  Images are stored as private files, not encrypted. Our admin screens show counts, never your text."
+- HE: "הטקסט של הטיוטות שלך נשמר מוצפן. המפתח נמצא בשרת של האפליקציה, ולכן השרת יכול לקרוא את הטיוטות
+  כדי להציג אותן לך ולאפליקציות ה-AI שחיברת, וגם מי שמפעיל את האפליקציה יכול לקרוא אותן. תמונות נשמרות
+  כקבצים פרטיים, לא מוצפנים. מסכי הניהול שלנו מציגים רק מספרים, אף פעם לא את הטקסט שלך."
+- The image part may be shown only after H12 (private images) is live; until then the sentence says
+  "Images are stored as files that anyone with their link can open." The last part may be shown only after
+  H11 (view as hides text) is live.
 
 Locked draft (C):
-- EN (short, next to the lock): "Locked: only you can open this draft, in your browser. We, including the
-  app's owner and admin, cannot read it."
-- EN (details, one tap away): "Your browser locks this draft with a key made from your passphrase. Our
-  server keeps only the locked copy and never your key. AI apps you connected can add text, which passes
-  through our server once on its way in, but they cannot read this draft. If you lose both your
-  passphrase and your recovery code, nobody can open it, not even us. This holds as long as the app runs
-  the public code on GitHub."
-- HE (קצר): "נעול: רק את/ה יכול/ה לפתוח את הטיוטה הזאת, בדפדפן שלך. אנחנו, כולל הבעלים והמנהל של
-  האפליקציה, לא יכולים לקרוא אותה."
-- HE (פרטים): "הדפדפן שלך נועל את הטיוטה עם מפתח שנוצר מהסיסמה שלך. השרת שלנו שומר רק את העותק הנעול
-  ואף פעם לא את המפתח שלך. אפליקציות AI שחיברת יכולות להוסיף טקסט, שעובר דרך השרת שלנו פעם אחת בדרך
-  פנימה, אבל הן לא יכולות לקרוא את הטיוטה. אם תאבד/י גם את הסיסמה וגם את קוד השחזור, אף אחד לא יוכל
-  לפתוח אותה, גם לא אנחנו. זה נכון כל עוד האפליקציה מריצה את הקוד הציבורי שב-GitHub."
+- EN (short, next to the lock): "Locked: your browser encrypts this draft before it is saved. Only you,
+  and people you send a share link to, can open it. We, including the app's owner and admin, cannot read
+  what you write in it while the app runs its public code. Text and images an AI app adds pass through our
+  server."
+- EN (details, one tap away): "Your browser locks this draft with a key that only your passphrase or
+  recovery code can open. Our server keeps the locked copy, and your key only in locked form. AI apps you
+  connected can add text, but they cannot read this draft; what they add passes through our server and is
+  not covered by this promise. If you lose both your passphrase and your recovery code, nobody can open
+  it, not even us. Older unlocked copies may stay in our database provider's backups for up to 30 days.
+  This holds as long as the app runs the public code on GitHub."
+- HE (קצר): "נעול: הדפדפן שלך מצפין את הטיוטה הזאת לפני שהיא נשמרת. רק את/ה, ומי ששלחת לו קישור שיתוף,
+  יכולים לפתוח אותה. אנחנו, כולל הבעלים והמנהל של האפליקציה, לא יכולים לקרוא את מה שכתבת בה, כל עוד
+  האפליקציה מריצה את הקוד הציבורי שלה. טקסט ותמונות שאפליקציית AI מוסיפה עוברים דרך השרת שלנו."
+- HE (פרטים): "הדפדפן שלך נועל את הטיוטה עם מפתח שרק הסיסמה שלך או קוד השחזור יכולים לפתוח. השרת שלנו
+  שומר את העותק הנעול, ואת המפתח שלך רק בצורה נעולה. אפליקציות AI שחיברת יכולות להוסיף טקסט, אבל הן לא
+  יכולות לקרוא את הטיוטה; מה שהן מוסיפות עובר דרך השרת שלנו ולא מכוסה בהבטחה הזאת. אם תאבד/י גם את
+  הסיסמה וגם את קוד השחזור, אף אחד לא יוכל לפתוח אותה, גם לא אנחנו. עותקים ישנים לא נעולים עשויים
+  להישאר בגיבויים של ספק מסד הנתונים שלנו עד 30 יום. זה נכון כל עוד האפליקציה מריצה את הקוד הציבורי
+  שב-GitHub."
+- The "30 days" part may be shown only after the Neon preview-branch question in section 1 is checked. If
+  preview branches copy production data, H19 must also clear those copies, or the sentence must name them.
 
 If the owner picks B instead of A, the normal-draft sentence becomes: "Your drafts are encrypted with keys
 kept in a separate key service. The app opens a draft only for you or an AI app you connected, and every
@@ -315,14 +338,19 @@ Banned words in any UI text: "zero knowledge", "military grade", "nobody can eve
   Ciphertext size also shows length; posts are padded to 64-byte steps so it shows no more than the X
   length already does.
 - **Images**: a locked draft's images are encrypted in the browser before upload; the editor shows them
-  from a decrypted copy. An image an AI app adds by URL came from a public URL, so its source is public.
+  from a decrypted copy. Images added from a URL: both MCP
+  `add_image_from_url` and the editor call `POST /images/from-url`, which today stores the fetched bytes
+  as a public file (`server/routes/images.js`, checked). For a locked draft that route must seal the
+  fetched bytes to the user's public key before `putBlob` and keep no plain copy; the source URL is sealed
+  inside the post. The server saw the image on the way in, like AI text.
 - **Share page**: a person's share link decrypts in the recipient's browser; whoever has the full link
   can read it (as today).
 - **Exports**: made in the browser for locked drafts.
 - **Logs and errors**: the leak scan test (H10) proves no text reaches logs or error answers.
 - **Backups**: plain text written **before** a draft was locked stays in Neon's history for up to 6 hours
   and in Neon's backups for up to 30 days. The lock screen says so: "Older copies of this draft may stay
-  in our database provider's backups for up to 30 days."
+  in our database provider's backups for up to 30 days." Neon preview branches may hold copies too: not
+  checked (section 1); the sentence ships only once that is checked.
 - **Search**: there is no server search today. A locked draft can only be searched in the browser.
 
 ### 3.6 Key management
@@ -330,13 +358,21 @@ Banned words in any UI text: "zero knowledge", "military grade", "nobody can eve
   a fresh ephemeral key, HKDF and AES-256-GCM, bound to draft id and post id (so ciphertext cannot be
   moved to another post or draft). It is **not** bound to the revision `seq`: a restore copies an old
   ciphertext into a new revision, and the server cannot re-encrypt it, so a `seq` binding would make every
-  restored post fail to open (Codex finding on PR #404). The browser encrypts its own saves to the public
-  key it computes from its unwrapped private key, never to the copy the server sends, so a changed server
-  cannot swap in its own key for the browser's saves. Private key wrapped with AES-GCM under a key from PBKDF2-SHA-256 (600,000
-  iterations: OWASP's current figure, not re-checked today; Argon2 is not in WebCrypto). A second wrap
-  under a random recovery code shown once (24 characters). The unwrapped key lives in the browser as a
+  restored post fail to open (Codex finding on PR #404). The wrapped blob is the private JWK (`d`, `x`,
+  `y`) under AES-GCM. The browser decrypts it, uses `x` and `y` as its public key, imports `d` as a
+  non-extractable `CryptoKey` and drops the JWK. (WebCrypto cannot derive a public key from a
+  non-extractable private key.) The browser seals its own saves to that public key, never to the copy the
+  server sends. Private key wrapped with AES-GCM under a key from PBKDF2-SHA-256 (600,000
+  iterations: OWASP's figure, https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html,
+  not re-read today; Argon2 is not in WebCrypto). Because whoever has the database can guess offline,
+  setup offers a generated passphrase of 6 words from a bundled 7,776-word list (about 77 bits); a typed
+  passphrase must be at least 16 characters and not on a bundled list of common passwords. A second wrap
+  under a random recovery code shown once: 24 Crockford base32 characters (120 bits), stretched with HKDF. The unwrapped key lives in the browser as a
   non-extractable `CryptoKey` for the tab's life, never in `localStorage`. Passkey unlock (WebAuthn PRF):
   browser support not checked, so not in the first tasks.
+- **Locked post format:** `{ id, sealed, xlen, images }`. The text and `embeddedTweet` are inside
+  `sealed`. Image URLs, which point to encrypted files, stay plain, so the "still used" image check
+  (`usedImageUrls` in `server/routes/drafts.js`) and the admin image counts keep working.
 - **Loss:** if the user loses both passphrase and recovery code, the locked drafts are gone. No escrow:
   any copy we kept would break the promise. This is an owner decision (H1-Q3).
 - **Rotation:** a new passphrase re-wraps the private key only (fast). A new key pair re-encrypts every
@@ -361,6 +397,13 @@ Banned words in any UI text: "zero knowledge", "military grade", "nobody can eve
   server-key (`k1:`) values of that draft. If a backup copy cannot be cleared, the lock is refused, so a
   locked draft never keeps a readable copy in our database (Codex finding on PR #404). Only the provider's
   backups (section 3.5) remain. Unlocking is the reverse, in the browser.
+- **The history trigger must not undo this.** The lock swap is an `UPDATE drafts`, so the trigger of 2.3
+  would fire on it, and on a draft with no history yet it would store the old plain state as revision 0.
+  Lock, unlock and the H14 batches therefore run with `set local app.revision_mode = 'rewrite'`, and the
+  trigger writes nothing in that mode. H14 also encrypts `draft_revisions.title` and
+  `draft_post_versions.body`, which H2 may have written in plain form before H13. The lock check runs last
+  in the transaction: no row of the draft in `drafts`, `draft_revisions` or `draft_post_versions` holds an
+  unsealed value, or the lock is refused.
 
 ## 4. Admin and "view as"
 - **Admin MCP tools and admin UI (#283 to #288):** they read counts only today (checked). The rule stays:
@@ -397,7 +440,8 @@ Banned words in any UI text: "zero knowledge", "military grade", "nobody can eve
 - **Admin and view as (H11):** every route under view as answers without the marker.
 
 ## 6. Tasks (all labelled `task` and `held`; none started)
-Each issue holds its full plan. H2 to H19 are sub-issues of #273; H20 (#402) is a sub-issue of #366, because #273 reached GitHub's limit of 100 sub-issues. Rules for all: the Rules section of #275.
+Each issue holds its full plan. H2 to H19 are sub-issues of #273; H20 (#402) is a sub-issue of #366, because GitHub refused a 101st sub-issue on #273
+("Parent cannot have more than 100 sub-issues", checked). Rules for all: the Rules section of #275.
 Revisions do not wait for the encryption decision; each task waits for the owner questions it names.
 
 | Task | Issue | What | Executor | Validator | Size | Depends on |
@@ -443,3 +487,7 @@ If nobody answers, nothing in section 6 is built. Answers are recorded in #273 w
 - A personal API token shows as "API token" in history, never its name.
 - Locked drafts keep the X length per post as a plain number (shape already leaks; it keeps limit checks).
 - No KMS in the first plan.
+- Security review by a second Opus agent (2026-11-25): 13 findings, all applied. The main ones: the locked-draft
+  sentence no longer covers text an AI app adds (the stored public key can be replaced through the database),
+  passphrases must be strong (offline guessing), images added from a URL are sealed, and the history trigger
+  is off while a draft is locked or migrated.
