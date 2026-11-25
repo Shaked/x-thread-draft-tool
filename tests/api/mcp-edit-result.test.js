@@ -6,6 +6,7 @@ import { route } from '../../server/router.js'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { uiResourceUri } from '../../server/mcp/ui/index.js'
 import { changeMeta } from '../../server/mcp/edit-result.js'
+import { changesOf } from '../../src/utils/draftChanges.js'
 import { APP_URL, setupTestDb } from './helpers/db.js'
 
 const MCP = `${APP_URL}/api/mcp`
@@ -80,6 +81,12 @@ describe('#405: get_draft, then update_post', () => {
     const before = { title: 'T', version: 3, posts: [{ id: 'a', text: 'x' }] }
     expect(changeMeta(before, { ...before, version: 5 })).toMatchObject({ known: false, full: true, posts: [] })
     expect(changeMeta(null, before)).toMatchObject({ known: false, full: true })
+  })
+
+  it('a long draft with one post moved lists that post only, in bounded memory (Codex review on PR 422)', () => {
+    const posts = Array.from({ length: 8000 }, (_, i) => ({ id: `p${i}`, text: `${i}` }))
+    const { posts: changed } = changesOf({ posts }, { posts: [...posts.slice(1), posts[0]] })
+    expect(changed.map((c) => [c.status, c.id, c.index, c.from])).toEqual([['moved', 'p0', 8000, 1]])
   })
 
   it('a refused stale edit says so in text, with no view data', async () => {

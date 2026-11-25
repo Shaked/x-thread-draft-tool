@@ -6,25 +6,29 @@ const textOf = (post) => (typeof post?.text === 'string' ? post.text : '')
 const imagesOf = (post) => (Array.isArray(post?.images) ? post.images.map((image) => (typeof image === 'string' ? image : image?.url)) : [])
 const sameList = (a, b) => a.length === b.length && a.every((value, i) => value === b[i])
 
-/** The ids of `after` (in order) that keep their order relative to each other: a longest common subsequence. */
+/**
+ * The ids of `after` (in order) that keep their order relative to each other: the longest run of posts whose places
+ * before the edit go up (O(n log n) time, O(n) memory, so a long draft stays cheap). Same order: every id.
+ */
 function steadyIds(beforeIds, afterIds) {
-  const n = beforeIds.length
-  const m = afterIds.length
-  const table = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
-  for (let i = n - 1; i >= 0; i--) {
-    for (let j = m - 1; j >= 0; j--) {
-      table[i][j] = beforeIds[i] === afterIds[j] ? table[i + 1][j + 1] + 1 : Math.max(table[i + 1][j], table[i][j + 1])
+  if (sameList(beforeIds, afterIds)) return new Set(afterIds)
+  const place = new Map(beforeIds.map((id, i) => [id, i]))
+  const seq = afterIds.map((id) => place.get(id))
+  const tails = []
+  const prev = new Array(seq.length)
+  seq.forEach((value, i) => {
+    let lo = 0
+    let hi = tails.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (seq[tails[mid]] < value) lo = mid + 1
+      else hi = mid
     }
-  }
+    prev[i] = lo > 0 ? tails[lo - 1] : -1
+    tails[lo] = i
+  })
   const steady = new Set()
-  for (let i = 0, j = 0; i < n && j < m; ) {
-    if (beforeIds[i] === afterIds[j]) {
-      steady.add(afterIds[j])
-      i++
-      j++
-    } else if (table[i + 1][j] >= table[i][j + 1]) i++
-    else j++
-  }
+  for (let i = tails.length > 0 ? tails[tails.length - 1] : -1; i >= 0; i = prev[i]) steady.add(afterIds[i])
   return steady
 }
 
