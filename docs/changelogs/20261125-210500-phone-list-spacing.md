@@ -4,4 +4,4 @@
 - The menu button and the title are no longer pushed far down from the top.
 
 Area: Drafts
-Link: https://github.com/Shaked/x-thread-draft-tool/issues/374
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/436

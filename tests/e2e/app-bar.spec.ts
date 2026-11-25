@@ -145,7 +145,7 @@ test.describe('app bar on phones', () => {
         const heading = await boxOf(page.locator('h1').first())
         expect(Math.abs(heading.x - gutter), `${pageInfo.name}: title starts one gutter from the edge (x ${heading.x}, gutter ${gutter})`).toBeLessThanOrEqual(1)
         const menu = await boxOf(page.locator('.ui-page-header__bar button').first())
-        expect(menu.y, `${pageInfo.name}: menu button is not pushed down`).toBeLessThanOrEqual(40)
+        expect(menu.y, `${pageInfo.name}: menu button is not pushed down`).toBeLessThanOrEqual(36)
       } finally {
         await context.close()
       }
