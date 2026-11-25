@@ -15,5 +15,11 @@
 - `.github/workflows/data-migrate.yml`: manual copy of Supabase data into Neon and Blob. Dry run unless `apply` is set.
 - Removed: `keep-supabase-alive.yml` (Neon Free does not pause) and `supabase-deploy.yml`.
 
+## Speed metrics
+- `scripts/speed-metrics.mjs` measures the four stages of `docs/plans/speed.md` section 1 (CI, merge wait, Vercel, smoke) from the GitHub API only. It writes `speed.json` and `speed.md`; the job summary shows `speed.md`.
+- Manual run: Actions, "Speed metrics", "Run workflow", input `last` (default 50). It sends one Telegram line when a stage's p90 is over its limit. Artifact `speed-metrics`, kept 90 days.
+- Per merge: after each production `Smoke test (deployed)` run, the same workflow measures that merge and writes one `::warning::` per stage over its limit. It never fails the run.
+- Local: `GITHUB_TOKEN=<read token> GITHUB_REPOSITORY=Shaked/x-thread-draft-tool node scripts/speed-metrics.mjs --last 50`. The token needs read access only.
+
 ## Request timing (`[perf]`)
 Every API request logs one line `[perf] {...}` on the function's log and sends a `server-timing` header. The line has `m` (method), `p` (the route template, such as `/drafts/:id`, or `unmatched`; never a real path, id, token, header, body or query), `s` (status), `ms` (total time), `q` (SQL round trips), `db` (ms spent in SQL and connecting), `conn` (new connections opened), `cold` (1 for the first request of a function instance), `region` (`VERCEL_REGION`, the region the function ran in), and for MCP, `rpc` and `tool`. To read it in production, use the Vercel log search for `[perf]` over the last 30 minutes. A high `conn` with `cold` 0 means the pool reconnected after an idle period, and `db` close to `ms` means the database is the slow part. `npm run smoke` prints a `TIME` line per step with the client time and the server header.
