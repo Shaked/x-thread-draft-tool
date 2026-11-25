@@ -308,7 +308,11 @@ The `speed` rows make the speed numbers readable through our MCP. Today they sit
 
 ### Fallback, in order
 
-1. Retention 7 days instead of 14 (the owner said 7 is fine). A one-line change; no owner step.
+1. Retention 7 days instead of 14 (the owner said 7 is fine). A one-line change; no owner step. The
+   baselines need 14 days of events for the `7d` window and 8 days for `24h` (the window plus the 7 days
+   before it), and the daily counters hold counts, not the stage times a percentile needs. So with 7 days
+   kept, the summary sets `baseline` to `null` where the history is too short, and its text says
+   "no baseline: events are kept 7 days" instead of a number.
 2. A second free Neon project only for `ops_*` tables, so a full events table can never stop the product
    database. Task M9, owner-only (a new connection string is a secret). Start it only when `ops_events`
    holds over 50 000 rows or the database uses over 70 of its 100 CU-hours in a month.
