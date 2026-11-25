@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 // Telegram notices (epic #241, tasks N1, N2, N4). Node 20, no dependencies.
 //
-// One template for all the kinds: buildMessage(kind, data) returns { html, plain }.
-//   live           production is live and the smoke test passed
-//   failed         production smoke test failed (the only urgent one)
-//   preview        a PR got the label try-preview: try it on the preview URL
-//   owner          the repository owner added the label owner: needs you
-//   cleanup        a PR got the label cleanup-pr (epic #255, task C3): review the cleanup PR
-//   cleanup-started the daily workflow opened a cleanup review issue (same kind "cleanup")
-//   speed          a stage's p90 is over its limit (speed-metrics.mjs, task #310 of epic #273)
+// buildMessage(kind, data) returns { html, plain }. The shapes are the forms in
+// .claude/skills/reply-style/templates/telegram-message.md (plan #369, step 7):
+//   live             production is live and the smoke test passed
+//   failed           production smoke test failed (the only urgent one)
+//   preview          a PR got the label try-preview: try it on the preview URL
+//   owner            the repository owner added the label owner: needs you
+//   cleanup          a PR got the label cleanup-pr (epic #255, task C3): review the cleanup PR
+//   cleanup-started  the daily workflow opened a cleanup review issue
+//   speed            a stage's p90 is over its limit (speed-metrics.mjs, task #310 of epic #273); not in the template yet
 //
 // CLI (the workflows pass every value through environment variables, never inside the shell text):
 //   NOTIFY_KIND, NOTIFY_SHA, NOTIFY_TITLE, NOTIFY_URL, NOTIFY_RUN_URL, NOTIFY_PREVIEW_URL,
@@ -25,15 +26,7 @@ export const PREVIEW_URL = 'https://x-thread-draft-tool-preview.vercel.app'
 // six times, so the longest message stays far under Telegram's 4096-character limit.
 export const MAX_TITLE = 120
 
-const KINDS = {
-  live: { emoji: '✅', headline: 'Production is live and tested', extra: 'Smoke tests passed.' },
-  failed: { emoji: '🚨', headline: 'Production smoke FAILED', extra: 'The smoke test did not pass.' },
-  preview: { emoji: '👀', headline: 'Try it on preview' },
-  owner: { emoji: '🙋', headline: 'Needs you' },
-  cleanup: { emoji: '🧹', headline: 'Cleanup review' },
-  'cleanup-started': { emoji: '🧹', headline: 'Cleanup review started' },
-  speed: { headline: 'Speed budget over limit' },
-}
+const SPEED_HEADLINE = 'Speed budget over limit'
 
 // Escapes the three characters Telegram HTML needs, plus the double quote for attribute values.
 export function escapeHtml(value) {
@@ -69,69 +62,85 @@ export function summaryLine(body) {
   return first.startsWith('Summary:') ? clip(first.slice('Summary:'.length).trim()) : ''
 }
 
-// Cleanup messages: a headline, the title in a quote block, one link (PR or issue number), and for
-// the PR the summary line when there is one.
-function cleanupMessage(kind, spec, data) {
-  const title = clip(data.title || '(no title)')
-  const isPr = kind === 'cleanup'
-  const number = String(data.url || '').match(isPr ? /\/pull\/(\d+)$/ : /\/issues\/(\d+)$/)?.[1]
-  const noun = isPr ? 'PR' : 'issue'
-  const link = [number ? `Open ${noun} #${number}` : `Open ${noun}`, data.url]
-  const summary = isPr ? summaryLine(data.body) : ''
-  const html = [`${spec.emoji} <b>${escapeHtml(spec.headline)}</b>`, `<blockquote>${escapeHtml(title)}</blockquote>`, linkHtml(...link)]
-  const plain = [`${spec.emoji} ${spec.headline}`, title, linkPlain(...link)]
-  if (summary) {
-    html.push(escapeHtml(summary))
-    plain.push(summary)
+// A line of plain text: escaped for HTML, the same text for the plain version.
+const text = (line) => ({ html: escapeHtml(line), plain: line })
+
+// The commit line of production messages: the short id in code font, then the title.
+const commitLine = (sha, title) =>
+  sha ? { html: `<code>${escapeHtml(sha)}</code> ${escapeHtml(title)}`, plain: `${sha} ${title}` } : text(title)
+
+// The shape of the template: a bold headline that links to the main page, the body lines, then the
+// other links on one line, separated by " · ". The headline's link is the first link of the message.
+function message([label, url], body, links = []) {
+  const html = [`<b>${linkHtml(label, url)}</b>`, ...body.map((line) => line.html)]
+  const plain = [linkPlain(label, url), ...body.map((line) => line.plain)]
+  if (links.length) {
+    html.push(links.map(([name, href]) => linkHtml(name, href)).join(' · '))
+    plain.push(links.map(([name, href]) => linkPlain(name, href)).join(' · '))
   }
   return { html: html.join('\n'), plain: plain.join('\n') }
 }
 
 // Speed budget: the headline links to the run page (its summary holds the stage table), then the
 // window, one line per stage over its p90 limit, and a line saying nothing is needed.
-function speedMessage(spec, data) {
-  const headline = clip(data.title || spec.headline)
+function speedMessage(data) {
+  const headline = clip(data.title || SPEED_HEADLINE)
   const body = [data.window, ...(data.lines || []), 'Nothing needed: this check only warns.'].filter(Boolean)
   const html = [`<b>${linkHtml(headline, data.url)}</b>`, ...body.map(escapeHtml)]
   const plain = [linkPlain(headline, data.url), ...body]
   return { html: html.join('\n'), plain: plain.join('\n') }
 }
 
-// Returns { html, plain } for a kind, or null for an unknown kind. The first link is the main
-// one, so Telegram's link preview is drawn from it.
+// Returns { html, plain } for a kind, or null for an unknown kind. The first link is the headline's,
+// so Telegram's link preview is drawn from it.
 export function buildMessage(kind, data = {}) {
-  const spec = KINDS[kind]
-  if (!spec) return null
-  if (kind === 'cleanup' || kind === 'cleanup-started') return cleanupMessage(kind, spec, data)
-  if (kind === 'speed') return speedMessage(spec, data)
   const title = clip(data.title || '(no title)')
   const sha = String(data.sha || '').slice(0, 7)
-
-  let links
-  if (kind === 'live') links = [['Open production', data.url || PROD_URL]]
-  else if (kind === 'failed') links = [['See the failed run', data.runUrl]]
-  else if (kind === 'preview') {
-    const number = String(data.url || '').match(/\/pull\/(\d+)$/)?.[1]
-    links = [['Open preview', data.previewUrl || PREVIEW_URL], [number ? `PR #${number}` : 'PR', data.url]]
+  const pr = String(data.url || '').match(/\/pull\/(\d+)$/)?.[1]
+  const summary = summaryLine(data.body)
+  switch (kind) {
+    case 'live':
+      return message(['Production is live and tested', data.url || PROD_URL], [commitLine(sha, title), text('Nothing needed.')], data.runUrl ? [['See the run', data.runUrl]] : [])
+    case 'failed':
+      return message(
+        ['Production smoke test failed', data.runUrl],
+        [
+          commitLine(sha, title),
+          text('Production runs this commit, and its smoke test failed or did not run.'),
+          text('Needs you: open the run and read the first failed step.'),
+        ],
+        [['Open production', PROD_URL]],
+      )
+    case 'preview':
+      return message(
+        ['Try it on preview', data.previewUrl || PREVIEW_URL],
+        [text(title), ...(summary ? [text(`What changed: ${summary}`)] : []), text('Needs you: try the change on preview.')],
+        [[pr ? `PR #${pr} on GitHub` : 'PR on GitHub', data.url]],
+      )
+    case 'owner':
+      return message(
+        [pr ? 'A PR needs you' : 'An issue needs you', data.url],
+        [text(title), text('Needs you: open it and answer or do what it asks.')],
+      )
+    case 'cleanup':
+      return message(
+        ['Cleanup review ready', data.url],
+        [
+          text(title),
+          ...(summary ? [text(`What it removes: ${summary}`)] : []),
+          text('Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR.'),
+        ],
+      )
+    case 'cleanup-started':
+      return message(
+        ['Cleanup review started', data.url],
+        [text(title), text('Nothing needed. An agent reviews the commits since the last review and opens up to three PRs.')],
+      )
+    case 'speed':
+      return speedMessage(data)
+    default:
+      return null
   }
-  else links = [['Open', data.url]]
-
-  const html = [`${spec.emoji} <b>${escapeHtml(spec.headline)}</b>`]
-  const plain = [`${spec.emoji} ${spec.headline}`]
-  if (sha) {
-    html.push(`<code>${escapeHtml(sha)}</code> ${escapeHtml(title)}`)
-    plain.push(`${sha} ${title}`)
-  } else {
-    html.push(escapeHtml(title))
-    plain.push(title)
-  }
-  if (spec.extra) {
-    html.push(escapeHtml(spec.extra))
-    plain.push(spec.extra)
-  }
-  html.push(links.map(([label, url]) => linkHtml(label, url)).join(' · '))
-  plain.push(links.map(([label, url]) => linkPlain(label, url)).join(' · '))
-  return { html: html.join('\n'), plain: plain.join('\n') }
 }
 
 // Reads the CLI values from the environment. Returns the message or null.
