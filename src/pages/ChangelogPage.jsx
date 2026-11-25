@@ -12,6 +12,44 @@ import { formatVersion, localBuildInfo } from '../utils/version'
 
 const dayText = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' })
 
+/** Groups entries by their Area, in the order each Area first appears. */
+function groupByArea(entries) {
+  const areas = []
+  for (const entry of entries) {
+    const group = areas.find((item) => item.area === entry.area)
+    if (group) group.entries.push(entry)
+    else areas.push({ area: entry.area, entries: [entry] })
+  }
+  return areas
+}
+
+/** One entry: the title, the summary, the pull request link and the Technical details fold. */
+function EntryCard({ entry }) {
+  return (
+    <article id={`changelog-${entry.id}`} tabIndex={-1}>
+      <Card>
+        {entry.title && <h3 dir="auto">{entry.title}</h3>}
+        {entry.summary && <p dir="auto">{entry.summary}</p>}
+        {entry.link && (
+          <p>
+            <a href={entry.link} target="_blank" rel="noopener noreferrer">
+              Open the pull request
+            </a>
+          </p>
+        )}
+        {entry.details && (
+          <details>
+            <summary>Technical details</summary>
+            <pre className="changelog-details" dir="auto">
+              {entry.details}
+            </pre>
+          </details>
+        )}
+      </Card>
+    </article>
+  )
+}
+
 /** Groups entries (newest first) by their UTC day, keeping their order. */
 function groupByDay(entries) {
   const days = []
@@ -94,15 +132,28 @@ export default function ChangelogPage() {
         {list.status === 'ready' &&
           groupByDay(list.entries).map(({ day, entries }) => (
             <Section key={day} title={dayText.format(new Date(`${day}T00:00:00Z`))}>
-              <Stack gap={3}>
-                {entries.map((entry) => (
-                  <article key={entry.id} id={`changelog-${entry.id}`} tabIndex={-1}>
-                    <Card>
-                      {entry.title && <h3 dir="auto">{entry.title}</h3>}
-                      {entry.summary && <p dir="auto">{entry.summary}</p>}
-                    </Card>
-                  </article>
+              <Stack gap={5}>
+                {groupByArea(entries.filter((entry) => entry.area)).map(({ area, entries: items }) => (
+                  <Section key={area} title={area} headingLevel={3}>
+                    <Stack gap={3}>
+                      {items.map((entry) => (
+                        <EntryCard key={entry.id} entry={entry} />
+                      ))}
+                    </Stack>
+                  </Section>
                 ))}
+                {entries.some((entry) => !entry.area) && (
+                  <details>
+                    <summary>Earlier changes (original text)</summary>
+                    <Stack gap={3}>
+                      {entries
+                        .filter((entry) => !entry.area)
+                        .map((entry) => (
+                          <EntryCard key={entry.id} entry={entry} />
+                        ))}
+                    </Stack>
+                  </details>
+                )}
               </Stack>
             </Section>
           ))}

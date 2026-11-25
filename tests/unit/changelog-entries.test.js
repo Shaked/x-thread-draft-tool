@@ -14,8 +14,41 @@ describe('changelogEntries', () => {
       id: '20261107-134726-vercel-migration-plan',
       date: '2026-11-07T13:47:26Z',
       title: 'Vercel plan',
-      summary: 'Move the app.'
+      summary: 'Move the app.',
+      area: null,
+      link: null,
+      details: ''
     })
+  })
+
+  it('reads Area and Link, keeps them out of the summary, and returns the text under Technical details', () => {
+    const text = [
+      '# Drafts save faster',
+      '',
+      'A draft opens in less than a second.',
+      '',
+      'Area: Speed',
+      'Link: https://github.com/Shaked/x-thread-draft-tool/pull/430',
+      '',
+      '## Technical details',
+      '',
+      'Fixed T7 in `server/x.js`. Area: nothing here.'
+    ].join('\n')
+    const [entry] = changelogEntries([file('20261125-100000-faster.md', text)])
+    expect(entry).toEqual({
+      id: '20261125-100000-faster',
+      date: '2026-11-25T10:00:00Z',
+      title: 'Drafts save faster',
+      summary: 'A draft opens in less than a second.',
+      area: 'Speed',
+      link: 'https://github.com/Shaked/x-thread-draft-tool/pull/430',
+      details: 'Fixed T7 in `server/x.js`. Area: nothing here.'
+    })
+  })
+
+  it('gives a null area and link when the lines are missing, and drops a link that is not https', () => {
+    const [entry] = changelogEntries([file('20261125-100001-x.md', '# X\n\nLink: http://insecure.test\n')])
+    expect(entry).toMatchObject({ area: null, link: null, details: '', summary: '' })
   })
 
   it('reads an old multi-section file: headings skipped, bullets and text lines used, at most three', () => {
@@ -75,7 +108,7 @@ describe('changelogEntries', () => {
 
   it('gives a null date and title when the name or heading is missing', () => {
     const [entry] = changelogEntries([file('plain-name.md', 'Only text.\n')])
-    expect(entry).toEqual({ id: 'plain-name', date: null, title: null, summary: 'Only text.' })
+    expect(entry).toEqual({ id: 'plain-name', date: null, title: null, summary: 'Only text.', area: null, link: null, details: '' })
   })
 })
 

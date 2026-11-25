@@ -46,7 +46,7 @@ function summaryOf(body) {
       fence = !fence
       continue
     }
-    if (fence || line === '' || line.startsWith('#')) continue
+    if (fence || line === '' || line.startsWith('#') || /^(Area|Link):/.test(line)) continue
     lines.push(line.replace(/^[-*+]\s+/, ''))
     if (lines.length === 3) break
   }
@@ -57,6 +57,8 @@ function summaryOf(body) {
  * Pure: the changelog entries from `{ name, text }` files, newest first (docs/plans/settings-menu.md M13).
  * `id` is the file name without `.md`, `date` the UTC time in the name (null if the name has none),
  * `title` the first `# ` heading (null if none), `summary` the short text. README.md is skipped.
+ * `area` and `link` come from the `Area:` and `Link:` lines (null if missing). `details` is the text under
+ * `## Technical details` (empty if none). The summary reads only the part above that heading.
  */
 export function changelogEntries(files) {
   const entries = files
@@ -65,11 +67,19 @@ export function changelogEntries(files) {
       const stamp = name.match(/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-/)
       const heading = text.match(/^#\s+(.+)$/m)
       const title = heading ? plain(heading[1]) : ''
+      const at = text.search(/^## Technical details\s*$/m)
+      const top = at === -1 ? text : text.slice(0, at)
+      const details = at === -1 ? '' : text.slice(at).replace(/^## Technical details\s*\n?/, '').trim()
+      const area = top.match(/^Area:\s*(.+?)\s*$/m)?.[1] ?? null
+      const link = top.match(/^Link:\s*(https:\/\/\S+)\s*$/m)?.[1] ?? null
       return {
         id: name.replace(/\.md$/, ''),
         date: stamp ? `${stamp[1]}-${stamp[2]}-${stamp[3]}T${stamp[4]}:${stamp[5]}:${stamp[6]}Z` : null,
         title: title || null,
-        summary: summaryOf(text)
+        summary: summaryOf(top),
+        area,
+        link,
+        details
       }
     })
   return entries.sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
