@@ -17,7 +17,7 @@ const pending = new Map()
 const inflight = new Set()
 
 /** METRICS_DISABLED=1 turns the write off. Read on every request, so a test can change it. */
-export function metricsEnabled() {
+function metricsEnabled() {
   return process.env.METRICS_DISABLED !== '1'
 }
 
@@ -106,7 +106,7 @@ async function writeRows(rows) {
  * that used the database writes its own row with the pending rows, in one statement. Resolves when
  * the write is done; it never rejects.
  */
-export function recordRequest(store, status, ms, now = Date.now()) {
+function recordRequest(store, status, ms, now = Date.now()) {
   if (!metricsEnabled()) return Promise.resolve()
   const row = rowOf(store, status, ms, now)
   if (store.q === 0) {
