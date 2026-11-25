@@ -5,6 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { route } from '../../server/router.js'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { uiResourceUri } from '../../server/mcp/ui/index.js'
+import { changeMeta } from '../../server/mcp/edit-result.js'
 import { APP_URL, setupTestDb } from './helpers/db.js'
 
 const MCP = `${APP_URL}/api/mcp`
@@ -49,8 +50,36 @@ describe('#405: get_draft, then update_post', () => {
     expect(edited.isError).toBe(false)
     expect(edited._meta['x-thread/posts'].map((post) => post.text)).toEqual(['old post 1', 'new post 2', 'old post 3', 'old post 4', 'old post 5', 'old post 6'])
     expect(edited._meta['x-thread/outline'].version).toBe(read.structuredContent.draft.version + 1)
-    expect(JSON.stringify(edited)).not.toContain('old post 2')
-    expect(edited.content.at(-1).text).toContain(`Saved: version ${read.structuredContent.draft.version + 1}, 6 posts.`)
+    // #405 (b): the view's posts hold no text from before the edit; the changes hold the one changed post, before and after.
+    expect(JSON.stringify(edited._meta['x-thread/posts'])).not.toContain('old post 2')
+    expect(edited._meta['x-thread/changes']).toMatchObject({ version: 2, post_count: 6, known: true, full: false })
+    expect(edited._meta['x-thread/changes'].posts).toEqual([{ id: 'p2', status: 'edited', index: 2, before: 'old post 2', after: 'new post 2' }])
+    // The text: only the changed post, never the rest of the draft.
+    const text = edited.content.slice(1).map((part) => part.text).join('\n')
+    expect(text).toMatch(/^Saved: version 2, 6 posts\. Changed: 1 post\. Saved\. Do not show the whole draft again/)
+    expect(text).toContain('Before:\n> old post 2\nAfter:\n> new post 2')
+    expect(text).not.toMatch(/old post [13456]/)
+  })
+
+  it('routing: most posts changed, or fewer than 4 posts, shows the whole draft; a move lists only the moved post', async () => {
+    const posts = (await call('get_draft', { id: db.draft.id })).structuredContent.draft.posts
+    const moved = await call('move_post', { id: db.draft.id, post_id: 'p6', position: 1 })
+    expect(moved._meta['x-thread/changes'].posts).toEqual([{ id: 'p6', status: 'moved', index: 1, from: 6, before: 'old post 6', after: 'old post 6' }])
+    const rewritten = await call('update_draft', { id: db.draft.id, posts: posts.map((post) => ({ ...post, text: `new ${post.text}` })) })
+    expect(rewritten._meta['x-thread/changes']).toMatchObject({ known: true, full: true })
+    expect(rewritten.content.at(-1).text).toMatch(/^Thread "Six", 6 posts, saved as a draft\./)
+    await call('remove_post', { id: db.draft.id, post_id: 'p1' })
+    await call('remove_post', { id: db.draft.id, post_id: 'p2' })
+    const small = await call('update_post', { id: db.draft.id, post_id: 'p3', text: 'three' })
+    expect(small._meta['x-thread/changes']).toMatchObject({ post_count: 4, full: false })
+    const three = await call('remove_post', { id: db.draft.id, post_id: 'p4' })
+    expect(three._meta['x-thread/changes']).toMatchObject({ post_count: 3, full: true })
+  })
+
+  it('another write between the read and this one: the state before is not known, so the whole draft is shown', () => {
+    const before = { title: 'T', version: 3, posts: [{ id: 'a', text: 'x' }] }
+    expect(changeMeta(before, { ...before, version: 5 })).toMatchObject({ known: false, full: true, posts: [] })
+    expect(changeMeta(null, before)).toMatchObject({ known: false, full: true })
   })
 
   it('a refused stale edit says so in text, with no view data', async () => {

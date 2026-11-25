@@ -316,6 +316,46 @@ export function renderThread(root, thread, open) {
   }
 }
 
+/**
+ * #405 (B1 b): the changes of an edit's result to show, from _meta["x-thread/changes"] (server/mcp/edit-result.js):
+ * null when there are none or the whole thread is to be shown. Each value reaches the page as text (rule 9).
+ */
+export function changesFrom(result) {
+  const raw = result && result._meta && result._meta['x-thread/changes']
+  return raw && Array.isArray(raw.posts) && raw.full !== true ? raw : null
+}
+
+/**
+ * Shows only what an edit changed (#405): the heading and the new version, then each changed post as it is now (its
+ * text before the edit above it) and each removed post's old text, then a button for the whole thread. With changes
+ * null (get_draft with view compact), the heading and the button only.
+ */
+export function renderChanges(root, thread, changes, open) {
+  const total = thread.posts.length
+  const add = (node) => root.appendChild(node)
+  const line = (text) => add(el('p', { dir: 'auto' }, [text]))
+  const was = (label, text) => add(el('section', {}, [el('p', {}, [label]), el('p', { dir: 'auto' }, [String(text)])]))
+  root.textContent = ''
+  add(headerNode(thread, open))
+  if (changes) {
+    line('Saved · version ' + Number(changes.version) + ' · ' + changes.posts.length + ' changed')
+    if (changes.title) was('Title before', changes.title.before)
+    for (const c of changes.posts) {
+      const n = Number(c.index)
+      if (c.status === 'removed') {
+        line('Removed: was post ' + n)
+        was('Text', c.before)
+        continue
+      }
+      line(({ added: 'Added', edited: 'Edited', moved: 'Moved' })[c.status] + ': post ' + n + (c.from ? ', was post ' + Number(c.from) : ''))
+      if (c.status === 'edited' && c.before !== c.after) was('Before', c.before)
+      if (n >= 1 && n <= total) add(postNode(thread, n - 1, total, open))
+    }
+  }
+  const all = add(linkButton('Show all ' + total + ' posts', null, null))
+  all.addEventListener('click', () => renderThread(root, thread, open))
+}
+
 /** Shows one message in root in place of the thread. */
 export function renderError(root, message) {
   root.textContent = ''

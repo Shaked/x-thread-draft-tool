@@ -719,8 +719,11 @@ describe('T5 short results from post edit tools', () => {
     const res = await route(modernPost('tools/call', { name: 'update_post', arguments: { id: draft.id, post_id: 'p3', text: 'Edited' } }, { token }))
     const { result } = await res.json()
     expect(result.isError).toBe(false)
-    // #405 adds a short text part after the JSON: the whole text stays under the limit.
-    expect(bytes(result.content.map((part) => part.text).join(''))).toBeLessThan(4000)
+    expect(bytes(result.content[0].text)).toBeLessThan(4000)
+    // #405: the part after the JSON quotes the one changed post only (its 280 characters before, its text now).
+    expect(result.content).toHaveLength(2)
+    expect(bytes(result.content[1].text)).toBeLessThan(1000)
+    expect(result.content[1].text.split('x'.repeat(280))).toHaveLength(2)
     const { draft: outlined, url } = result.structuredContent
     expect(outlined).toMatchObject({ id: draft.id, post_count: 25, version: await versionOf(draft.id) })
     expect(outlined.posts[2]).toMatchObject({ id: 'p3', index: 3, chars: 6, preview: 'Edited' })
