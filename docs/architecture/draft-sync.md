@@ -30,8 +30,8 @@ Checked against `main` on 2026-11-25 (after #360, #361 and #363 merged).
 | MCP `add_image_from_url` | `version` only with `replace`. |
 | MCP `add_post`, `remove_post` | No parameter. The handler reads the draft, then writes with that version. A change between the two steps gives `412`. |
 
-A `412` from MCP says: nothing was written, call `get_draft`, then repeat the change.
-The tool does not retry for the caller.
+A `412` from MCP says: nothing was written. It asks the caller to call `get_draft_outline` once (`get_draft` if the text is needed), then repeat the change.
+The tools do not retry for the caller, with one exception: `add_image_from_url` with `post_id` re-reads and retries a `412` itself, up to 4 times per post plus one. Each try adds a new image url, so a retry cannot add the same image twice.
 
 ## The editor
 
@@ -51,7 +51,7 @@ The tool does not retry for the caller.
 - Rate: every 4 s. After 2 min with no change and no input: every 15 s.
   After 10 min: paused until Resume, input or a visibility change.
 - A hidden page is not checked. Checks resume at once when the page is visible again.
-- Each check is one statement and two database round trips (checked by `tests/api/draft-poll.test.js`).
+- Each check runs two statements: the session check and one draft statement (checked by `tests/api/draft-poll.test.js`).
   The 304 has no body (checked by the same test).
 - MCP `get_draft` does not use the check. Nothing else sends `If-None-Match` today.
 
