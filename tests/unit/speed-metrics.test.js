@@ -222,15 +222,18 @@ describe('run(): modes, output and the checks', () => {
     expect(logs.length).toBe(2)
   })
 
-  it('--last sends one speed line when a stage is over its p90 limit, with the stage names only', async () => {
+  it('--last sends one speed message: the stage over its p90 limit, its numbers, the window and the run link', async () => {
     const sent = []
     await run(['--last', '5', '--out', tmp()], { GITHUB_REPOSITORY: 'owner/repo', GITHUB_RUN_ID: '42' }, {
       api: fakeApi(), now: NOW, log: () => {}, notifyImpl: async (m) => sent.push(m),
     })
     expect(sent).toHaveLength(1)
-    expect(sent[0].html).toContain('Speed budget over limit')
-    expect(sent[0].html).toContain('p90 over the limit: CI')
-    expect(sent[0].html).toContain('https://github.com/owner/repo/actions/runs/42')
+    expect(sent[0].html).toBe([
+      '<b><a href="https://github.com/owner/repo/actions/runs/42">Speed over the budget: CI</a></b>',
+      'The last 5 merged pull requests, merged since 2026-11-20.',
+      'Product code CI: p90 99 s, limit 90 s, usual 90 s',
+      'Nothing needed: this check only warns.',
+    ].join('\n'))
   })
 
   it('rejects options it does not know and out-of-range numbers', async () => {

@@ -335,3 +335,43 @@ describe('notify', () => {
     expect(output).not.toContain('api.telegram.org')
   })
 })
+
+describe('speed message (#440)', () => {
+  // The input is what speed-metrics.mjs passes for a CI p90 of 99 s over its 90 s limit.
+  const data = {
+    title: 'Speed over the budget: CI, Smoke',
+    url: 'https://github.com/owner/repo/actions/runs/42',
+    window: 'The last 50 merged pull requests, merged since 2026-11-02.',
+    lines: ['Product code CI: p90 99 s, limit 90 s, usual 90 s', 'Product code Smoke: p90 31 s, limit 25 s, usual 18 s'],
+  }
+
+  it('says what is over, the numbers, the window, what is needed and one link to the run', () => {
+    const msg = buildMessage('speed', data)
+    expect(msg.html).toBe([
+      '<b><a href="https://github.com/owner/repo/actions/runs/42">Speed over the budget: CI, Smoke</a></b>',
+      'The last 50 merged pull requests, merged since 2026-11-02.',
+      'Product code CI: p90 99 s, limit 90 s, usual 90 s',
+      'Product code Smoke: p90 31 s, limit 25 s, usual 18 s',
+      'Nothing needed: this check only warns.',
+    ].join('\n'))
+    expect(msg.plain).toBe([
+      'Speed over the budget: CI, Smoke: https://github.com/owner/repo/actions/runs/42',
+      'The last 50 merged pull requests, merged since 2026-11-02.',
+      'Product code CI: p90 99 s, limit 90 s, usual 90 s',
+      'Product code Smoke: p90 31 s, limit 25 s, usual 18 s',
+      'Nothing needed: this check only warns.',
+    ].join('\n'))
+  })
+
+  it('has no emoji and never puts a raw run link on a second line', () => {
+    const msg = buildMessage('speed', data)
+    expect(msg.html).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
+    expect(msg.html.match(/href=/g)).toHaveLength(1)
+  })
+
+  it('drops the link when it is not https, and escapes the text', () => {
+    const msg = buildMessage('speed', { ...data, title: 'Smoke <b>', url: 'http://example.com' })
+    expect(msg.html.startsWith('<b>Smoke &lt;b&gt;</b>')).toBe(true)
+    expect(msg.html).not.toContain('href=')
+  })
+})
