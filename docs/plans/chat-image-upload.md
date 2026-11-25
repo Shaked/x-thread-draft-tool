@@ -1,7 +1,7 @@
 # Plan: get an image that exists only in the chat into a draft (#367 part c)
 
-Owner: #367 (task I1 of epic #273). Planner: Opus, 2026-11-25. Status: plan; build tasks C1 to C6 below,
-none started. How assistants use the image tools in every client is the contract's section 3.1
+Owner: #367 (task I1 of epic #273). Planner: Opus, 2026-11-25. Status: plan; build tasks C1 to C6 below
+(#415 to #420), none started. How assistants use the image tools in every client is the contract's section 3.1
 (`docs/plans/draft-contract.md`); this plan picks the routes that section 3.1 point 5 names.
 
 ## 1. The problem, with evidence
@@ -124,14 +124,14 @@ none started. How assistants use the image tools in every client is the contract
 
 ## 7. Build tasks
 
-| Task | What | Executor | Validator | Complexity | Depends on | PR line |
+| Task (issue) | What | Executor | Validator | Complexity | Depends on | PR line |
 |---|---|---|---|---|---|---|
-| C1 | Non-URL input gets the editor-route error; `url` parameter text | Haiku 5.5 | Sonnet | S | none | `Implements #273 Task I1 C1` |
-| C6 | Type from bytes, no SVG, EXIF removed, storage cap | Sonnet | Opus (security, deletion) | M | Q2 for the cap value (ship without the cap if unanswered) | `Implements #273 Task I1 C6` |
-| C5 | Follow up to 3 checked redirects | Haiku 5.5 (Sonnet fallback) | Opus (SSRF) | S | none | `Implements #273 Task I1 C5` |
-| C2 | One-time upload link: table, REST routes, page, tool option, cleanup | Sonnet | Opus (auth, SQL) | L | C6; Q1 | `Implements #273 Task I1 C2` |
-| C4 | `data` input on `add_image_from_url` | Haiku 5.5 (Sonnet fallback) | Opus (security) | S | C6 | `Implements #273 Task I1 C4` |
-| C3 | Upload in the thread view, fallback to C2 | Sonnet | Opus (design) | M | C2, C4 | `Implements #273 Task I1 C3` |
+| C1 (#415) | Non-URL input gets the editor-route error; `url` parameter text | Haiku 5.5 | Sonnet | S | none | `Implements #273 Task I1 C1` |
+| C6 (#416) | Type from bytes, no SVG, EXIF removed, storage cap | Sonnet | Opus (security, deletion) | M | Q2 for the cap value (ship without the cap if unanswered) | `Implements #273 Task I1 C6` |
+| C5 (#417) | Follow up to 3 checked redirects | Haiku 5.5 (Sonnet fallback) | Opus (SSRF) | S | none | `Implements #273 Task I1 C5` |
+| C2 (#418) | One-time upload link: table, REST routes, page, tool option, cleanup | Sonnet | Opus (auth, SQL) | L | C6; Q1 | `Implements #273 Task I1 C2` |
+| C4 (#419) | `data` input on `add_image_from_url` | Haiku 5.5 (Sonnet fallback) | Opus (security) | S | C6 | `Implements #273 Task I1 C4` |
+| C3 (#420) | Upload in the thread view, fallback to C2 | Sonnet | Opus (design) | M | C2, C4 | `Implements #273 Task I1 C3` |
 
 Each PR also carries `Implements #<its task issue> Task 1` (the net-lines check needs a numeric task)
 and a changelog file. Text for every task follows section 3.1 of the contract and keeps the discovery
