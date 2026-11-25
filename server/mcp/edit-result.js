@@ -38,7 +38,7 @@ function postLines(change, total) {
 }
 
 /** The "after the edit" text of docs/plans/draft-contract.md section 2.4 (one set of instructions, #358). */
-export const AFTER_EDIT = 'Saved. Do not show the whole draft again: say in one line what changed and quote only the changed posts, if any.'
+const AFTER_EDIT = 'Saved. Do not show the whole draft again: say in one line what changed and quote only the changed posts, if any.'
 
 /**
  * The text of an edit's result: one line with the new version, the count and what to do, then the changed posts only,
