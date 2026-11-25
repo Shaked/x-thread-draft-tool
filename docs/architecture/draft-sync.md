@@ -31,7 +31,7 @@ Checked against `main` on 2026-11-25 (after #360, #361 and #363 merged).
 | MCP `add_post`, `remove_post` | No parameter. The handler reads the draft, then writes with that version. A change between the two steps gives `412`. |
 
 A `412` from MCP says: nothing was written. It asks the caller to call `get_draft_outline` once (`get_draft` if the text is needed), then repeat the change.
-The tools do not retry for the caller, with one exception: `add_image_from_url` with `post_id` re-reads and retries a `412` itself, up to 4 times per post plus one. Each try adds a new image url, so a retry cannot add the same image twice.
+The tools do not retry for the caller, with one exception: `add_image_from_url` with `post_id` re-reads and retries a `412` itself, up to 4 × posts + 1 tries in all. The image url is unique to the call and a `412` writes nothing, so a retry cannot add the image twice.
 
 ## The editor
 
