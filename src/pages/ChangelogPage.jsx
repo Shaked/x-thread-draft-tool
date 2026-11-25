@@ -147,7 +147,8 @@ export default function ChangelogPage() {
                   </Section>
                 ))}
                 {entries.some((entry) => !entry.area) && (
-                  <details>
+                  // Open when the day has no entries with an Area: otherwise the day would show only collapsed headings.
+                  <details open={!entries.some((entry) => entry.area)}>
                     <summary>Earlier changes (original text)</summary>
                     <Stack gap={3}>
                       {entries
