@@ -179,10 +179,15 @@ export default function DraftEditor({ user }) {
     // Save before unload, but only real unsaved edits: an untouched draft must not overwrite a newer version.
     const handleBeforeUnload = event => {
       // While a conflict waits for the user's choice nothing is saved, so ask before the page closes.
-      if (conflictRef.current || copyOpenRef.current) {
+      if (conflictRef.current) {
         event.preventDefault()
         event.returnValue = ''
         return
+      }
+      // The copy box holds my text: ask, and still save any unsaved edits below.
+      if (copyOpenRef.current) {
+        event.preventDefault()
+        event.returnValue = ''
       }
       if (draft && JSON.stringify(draft) !== lastSavedRef.current) {
         // Unsaved edits: ask before the page closes. The save below may be refused (412) or not finish.

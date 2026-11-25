@@ -211,6 +211,24 @@ describe('DraftEditor save with a version (If-Match)', () => {
     expect(screen.getByLabelText('Draft title')).toHaveValue('Draft one!')
   })
 
+  it('saves an edit made after Show their changes when the page closes', async () => {
+    draftsApi.update
+      .mockRejectedValueOnce(httpError(412, 'stale', { version: 5, draft: { ...DRAFT, title: 'Theirs', version: 5 } }))
+      .mockResolvedValue({ ...DRAFT, version: 6 })
+    renderEditor()
+    await typeInTitle('!')
+    await screen.findByRole('alert')
+    await userEvent.click(screen.getByRole('button', { name: 'Show their changes' }))
+    const title = await screen.findByLabelText('Draft title')
+    await typer().type(title, '?')
+
+    unload()
+
+    await waitFor(() => expect(draftsApi.update).toHaveBeenCalledTimes(2))
+    expect(draftsApi.update.mock.calls[1][2]).toBe(5)
+    expect(draftsApi.update.mock.calls[1][1].title).toBe('Theirs?')
+  })
+
   it('asks before the page closes while the copy box still holds my text', async () => {
     draftsApi.update.mockRejectedValue(
       httpError(412, 'stale', { version: 5, draft: { ...DRAFT, title: 'Theirs', version: 5 } })
