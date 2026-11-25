@@ -3,7 +3,7 @@
 - The weekly review now has written rules for what it may change, and what waits for the owner.
 
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/issues/294
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/464
 
 ## Technical details
 
