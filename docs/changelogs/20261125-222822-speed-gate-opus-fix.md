@@ -3,5 +3,5 @@
 - A speed check over its limit now gets an Opus diagnosis, then a fix pull request, not a stop.
 - Limits stay the same, and no test is skipped to pass the gate.
 
-Area: Process
+Area: Speed
 Link: https://github.com/Shaked/x-thread-draft-tool/pull/441
