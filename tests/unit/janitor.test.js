@@ -96,6 +96,7 @@ describe('parsers', () => {
     expect(dependencies('Wait until before #2 ships. Goes before #3.').before).toEqual([3])
     expect(dependencies('Depends on #12; done when #13 closes.').refs).toEqual([12])
     expect(dependencies('Depends on: #5. Blocked by #6.').refs).toEqual([5, 6])
+    expect(dependencies('Depends on #3 and not blocked by #8.').refs).toEqual([3])
     expect(dependencies('Depends on: #359 merged. Server only: it does not wait for #327.').refs).toEqual([359])
     expect(dependencies('Depends on: none (#278 is merged). Goes before #279 resumes.')).toMatchObject({ refs: [278], before: [279] })
     expect(dependencies('This is no longer depends on #5. Not blocked by A2.')).toMatchObject({ refs: [], named: [] })
@@ -182,6 +183,11 @@ describe('fetchSnapshot', () => {
 describe('allowed fixes stay narrow', () => {
   const base = (issues, comments = {}) => ({ repo: 'example/repo', issues, pulls: [], markers: {}, comments })
   const issue = (number, title, extra = {}) => ({ number, title, state: 'open', labels: [{ name: 'task' }], body: '', updated_at: TODAY, ...extra })
+
+  it('puts a task that says "Goes before #n" ahead of #n in the order', () => {
+    const snap = base([issue(10, 'E9 task A1: ten'), issue(20, 'E9 task A2: twenty', { body: 'Goes before #10.' })])
+    expect(order(snap).order).toEqual([20, 10])
+  })
 
   it('never proposes the reverse of "Do not start before #n"', () => {
     const snap = base([issue(1, 'E9 task A1: one', { body: 'Depends on: #2.\nDo not start this before #2 is merged.' }), issue(2, 'E9 task A2: two')])

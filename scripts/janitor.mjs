@@ -87,10 +87,12 @@ export function similarity(a, b) {
 const NEGATION = /\b(not|until|start|no longer)\b|n't\b/i
 const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 
-// One clause: it ends at the sentence end or where the next field starts ("Done when", "PR lines").
+// One clause: it ends at the sentence end, at the next dependency keyword, or where the next field starts.
 // Code spans are not dependencies; a "PR #n" or "see #n" is not one either.
 function dependencyClause(rest, refs, named) {
-  const text = rest.split(/\b(?:Done when|PR (?:body )?lines?|Owner steps)\b|\.\s+(?=[A-Z])/i)[0].replace(/`[^`]*`/g, ' ')
+  const [keyword] = /^\S+\s+\S+/.exec(rest)
+  const tail = rest.slice(keyword.length).split(/\b(?:Done when|PR (?:body )?lines?|Owner steps|depends on|blocked by|starts after)\b|\.\s+(?=[A-Z])/i)[0]
+  const text = (keyword + tail).replace(/`[^`]*`/g, ' ')
   for (const m of text.matchAll(/(PR\s+|see\s+)?#(\d+)/gi)) if (!m[1]) refs.add(Number(m[2]))
   // Task ids named without a number, outside parentheses: "Depends on: M5 (see #439)" names M5; "C2 (#418)" has its number.
   const bare = text.replace(/\b[A-Z]{1,2}\d+[a-z]?\s*\(#\d+[^)]*\)/g, ' ').replace(/\([^)]*\)/g, ' ').replace(/#\d+/g, ' ')
@@ -360,11 +362,14 @@ export function analyze(snapshot, { today = new Date().toISOString(), staleDays 
   return out
 }
 
-/** A valid order of the open tasks: dependencies first, then by number. Tasks in a cycle are left out. */
+/** A valid order of the open tasks: dependencies and "goes before" first, then by number. Tasks in a cycle are left out. */
 export function order(snapshot) {
   const open = (snapshot.issues || []).map(normalize).filter((i) => i.state === 'open' && i.labels.includes('task'))
   const set = new Set(open.map((i) => i.number))
-  const need = new Map(open.map((i) => [i.number, dependencies(i.body).refs.filter((n) => set.has(n) && n !== i.number)]))
+  const parsed = new Map(open.map((i) => [i.number, dependencies(i.body)]))
+  const need = new Map(open.map((i) => [i.number, parsed.get(i.number).refs.filter((n) => set.has(n) && n !== i.number)]))
+  // "Goes before #n" on task a means #n waits for a.
+  for (const [a, d] of parsed) for (const n of d.before) if (set.has(n) && n !== a && !need.get(n).includes(a)) need.get(n).push(a)
   const done = new Set()
   const result = []
   let progress = true
