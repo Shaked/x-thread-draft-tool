@@ -239,7 +239,11 @@ must be said in the same breath:
   repository, checked), so such a change would be visible, but it cannot be proven that no one does it.
 - Text an AI app sends to a draft passes through our server once, in plain form, on its way in. The
   server encrypts it to the user's public key at once and keeps no copy. At that moment a changed server
-  could read it.
+  could read it. A changed server could also hand AI writes a public key of its own; that adds nothing it
+  could not already read on the way in, but it is why the browser never trusts the server's copy of the
+  public key for its own saves (section 3.6).
+- The server can still swap a post's ciphertext for an older one of the same post (it keeps history).
+  Locking promises secrecy, not that the server cannot roll a post back.
 - Whatever the user shows an AI app is seen by that AI company.
 
 The three ways to let AI apps work with C (the question in #366):
@@ -323,8 +327,12 @@ Banned words in any UI text: "zero knowledge", "military grade", "nobody can eve
 
 ### 3.6 Key management
 - **Locked drafts:** WebCrypto only, no new library. ECDH P-256 key pair per user; each post sealed with
-  a fresh ephemeral key, HKDF and AES-256-GCM, bound to draft id, post id and seq (so ciphertext cannot be
-  moved between posts). Private key wrapped with AES-GCM under a key from PBKDF2-SHA-256 (600,000
+  a fresh ephemeral key, HKDF and AES-256-GCM, bound to draft id and post id (so ciphertext cannot be
+  moved to another post or draft). It is **not** bound to the revision `seq`: a restore copies an old
+  ciphertext into a new revision, and the server cannot re-encrypt it, so a `seq` binding would make every
+  restored post fail to open (Codex finding on PR #404). The browser encrypts its own saves to the public
+  key it computes from its unwrapped private key, never to the copy the server sends, so a changed server
+  cannot swap in its own key for the browser's saves. Private key wrapped with AES-GCM under a key from PBKDF2-SHA-256 (600,000
   iterations: OWASP's current figure, not re-checked today; Argon2 is not in WebCrypto). A second wrap
   under a random recovery code shown once (24 characters). The unwrapped key lives in the browser as a
   non-extractable `CryptoKey` for the tab's life, never in `localStorage`. Passkey unlock (WebAuthn PRF):
@@ -348,8 +356,11 @@ Banned words in any UI text: "zero knowledge", "military grade", "nobody can eve
   (it never reads text).
 - **C:** nothing is migrated by us. A user locks a draft in the browser: the browser downloads the
   current posts and every kept revision, encrypts them and uploads them; the server swaps them in one
-  transaction and checks the counts; the plain revision rows are deleted in the same transaction.
-  Unlocking is the reverse, in the browser.
+  transaction and checks that every `(post id, seq)` it holds was replaced. In the same transaction it
+  clears every other copy the server could read: the plain backup columns of the migration above and any
+  server-key (`k1:`) values of that draft. If a backup copy cannot be cleared, the lock is refused, so a
+  locked draft never keeps a readable copy in our database (Codex finding on PR #404). Only the provider's
+  backups (section 3.5) remain. Unlocking is the reverse, in the browser.
 
 ## 4. Admin and "view as"
 - **Admin MCP tools and admin UI (#283 to #288):** they read counts only today (checked). The rule stays:
@@ -375,7 +386,8 @@ Banned words in any UI text: "zero knowledge", "military grade", "nobody can eve
 - **Trigger (H2, H3):** each write route makes exactly one revision or merges into the last one; two
   actors never merge; the query count per route is unchanged.
 - **Encryption (H13, H15, H16):** ciphertext never contains the plaintext or a 4-character piece of it
-  (Hebrew too); a wrong key or passphrase fails; a post's ciphertext moved to another post or seq fails;
+  (Hebrew too); a wrong key or passphrase fails; a post's ciphertext moved to another post or draft fails; a restored
+  ciphertext still opens; locking clears the migration backup copy of that draft;
   key rotation (A) reads old and new rows; a wrong-format write to a locked draft is refused.
 - **Plaintext leak scan (H10, first and independent):** a test creates drafts with a unique marker
   through REST and MCP, edits and shares them, makes errors happen, then checks that the marker is absent

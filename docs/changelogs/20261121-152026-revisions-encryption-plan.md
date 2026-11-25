@@ -1,2 +1,5 @@
-- Plan for draft revisions (stored as per-post snapshots) and for encryption, with an honest answer to "not even the admin can read my drafts": `docs/plans/revisions-and-encryption.md` (#366, #273 H1).
-- 19 build tasks created and held (H2 to H20, #375 to #402); four owner questions posted on #273. Nothing is built yet.
+# Plan for draft history and privacy
+
+- A written plan for keeping a history of each draft that you can go back to.
+- It also says plainly what encryption can promise, and what you would give up with AI apps.
+- Nothing in the app changes yet.
