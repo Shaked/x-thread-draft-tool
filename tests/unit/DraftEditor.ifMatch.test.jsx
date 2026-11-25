@@ -221,6 +221,22 @@ describe('DraftEditor save with a version (If-Match)', () => {
     expect(await screen.findByLabelText('Your text')).toHaveValue('Draft one!\n\nhello')
   })
 
+  it('keeps my latest text when a save in flight is refused after I kept typing', async () => {
+    let refuse
+    draftsApi.update.mockImplementationOnce(() => new Promise((_, reject) => (refuse = reject)))
+    const first = renderEditor()
+    const title = await screen.findByLabelText('Draft title')
+    await typer().type(title, '!')
+    await runSaveDebounce()
+    await typer().type(title, '?')
+    await act(async () => refuse(httpError(412, 'stale', { version: 5, draft: { ...DRAFT, title: 'Theirs', version: 5 } })))
+    await screen.findByRole('alert')
+    first.unmount()
+
+    renderEditor()
+    expect(await screen.findByLabelText('Your text')).toHaveValue('Draft one!?\n\nhello')
+  })
+
   it('forgets my text once I dismiss the copy box', async () => {
     draftsApi.update.mockRejectedValue(
       httpError(412, 'stale', { version: 5, draft: { ...DRAFT, title: 'Theirs', version: 5 } })
