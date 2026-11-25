@@ -126,10 +126,21 @@ describe('rate limit', () => {
 })
 
 describe('requests that use no SQL', () => {
-  it('a signed-in cookie request (the readSession path) is caller web, not anon', async () => {
+  it('a signed-in cookie request through authenticate() is caller web, not anon', async () => {
     await route(listDrafts())
     await flushMetrics()
     expect((await rows()).map((r) => r.caller)).toEqual(['web'])
+  })
+
+  it('sign-out (readSession only, no authenticate) is caller web and one row', async () => {
+    const bob = await db.insertUser({ github_id: 78, login: 'metrics-logout' })
+    const bobCookie = await db.cookieFor(bob)
+    const res = await route(apiRequest('/api/auth/logout', { method: 'POST', cookie: bobCookie }))
+    await flushMetrics()
+    expect(res.status).toBeLessThan(500)
+    const logout = (await rows()).filter((r) => r.route === 'POST /auth/logout')
+    expect(logout).toHaveLength(1)
+    expect(logout[0].caller).toBe('web')
   })
 
   it('a health check runs no SQL, and its count is written with the next request that does', async () => {
