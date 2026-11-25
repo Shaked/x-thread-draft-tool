@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { draftsApi, authApi } from '../utils/api'
+import { useDraftLive, updatedLabel } from '../utils/useDraftLive'
+import { uploadsPending } from '../utils/pendingUploads'
 import { normalizeImages } from '../utils/images'
 import { set as idbSet, del as idbDel, get as idbGet } from 'idb-keyval'
 import ThreadComposer from '../components/ThreadComposer'
+import LiveStatus from '../components/LiveStatus'
 import AgentLinkButton from '../components/AgentLinkButton'
 import XThreadLinkButton from '../components/XThreadLinkButton'
 import ShareLinkButton from '../components/ShareLinkButton'
@@ -86,6 +89,16 @@ export default function DraftEditor({ user }) {
   }
   // Saves run one at a time, so a save never sends the version an earlier save of this editor just replaced.
   const saveChainRef = useRef(Promise.resolve())
+  // Saves in flight (the live check waits for none). The draft as last rendered (the live check compares it).
+  const savingCountRef = useRef(0)
+  const draftRef = useRef(null)
+  useEffect(() => {
+    draftRef.current = draft
+  })
+  // Live updates (#363): the posts another app changed, highlighted for a moment, and when they arrived.
+  const [highlighted, setHighlighted] = useState([])
+  const [updatedAt, setUpdatedAt] = useState(null)
+  const [clock, setClock] = useState(() => Date.now())
 
   const loadDraft = async () => {
     try {
@@ -140,6 +153,7 @@ export default function DraftEditor({ user }) {
       const saveFn = async () => {
         // A save queued before a conflict must not send anything once the conflict is open.
         if (conflictRef.current) return false
+        savingCountRef.current += 1
         try {
           setSaving(true)
           setSynced(false)
@@ -175,6 +189,7 @@ export default function DraftEditor({ user }) {
           else await idbSet(`draft-${id}`, draftToSave)
           return false
         } finally {
+          savingCountRef.current -= 1
           setSaving(false)
         }
       }
@@ -238,6 +253,47 @@ export default function DraftEditor({ user }) {
       }
     }
   }, [draft, saveDraft])
+
+  // Another app changed the draft (#363): show it without a reload, and highlight the posts whose text changed.
+  const showNewer = incoming => {
+    // Never move back to an older version than the one the editor holds.
+    if (!(incoming.version > versionRef.current)) return
+    const next = normalizeDraft(incoming)
+    const before = new Map((draftRef.current?.posts || []).map(post => [post.id, post.text]))
+    const changedIds = next.posts.filter(post => before.get(post.id) !== post.text).map(post => post.id)
+    versionRef.current = incoming.version
+    lastSavedRef.current = JSON.stringify(next)
+    setDraft(next)
+    idbSet(`draft-${id}`, incoming).catch(() => {})
+    setHighlighted(changedIds)
+    setUpdatedAt(Date.now())
+    setClock(Date.now())
+  }
+
+  // Checks for newer versions only while the page is visible, nothing is unsaved, and no save is in flight.
+  const live = useDraftLive(id, {
+    enabled: Boolean(draft) && Boolean(user) && !conflict && !loading,
+    canCheck: () =>
+      savingCountRef.current === 0 &&
+      !conflictRef.current &&
+      !uploadsPending() &&
+      draft !== null &&
+      JSON.stringify(draft) === lastSavedRef.current,
+    getVersion: () => versionRef.current,
+    onNewer: showNewer
+  })
+
+  // The highlight lasts 1.5 s; the "Updated ..." line is refreshed every 30 s.
+  useEffect(() => {
+    if (highlighted.length === 0) return undefined
+    const timer = setTimeout(() => setHighlighted([]), 1500)
+    return () => clearTimeout(timer)
+  }, [highlighted])
+  useEffect(() => {
+    if (updatedAt === null) return undefined
+    const timer = setInterval(() => setClock(Date.now()), 30000)
+    return () => clearInterval(timer)
+  }, [updatedAt])
 
   // "Show their changes": keep my text for copying, then show the draft the other app saved.
   const showTheirs = () => {
@@ -306,8 +362,9 @@ export default function DraftEditor({ user }) {
     try {
       setSaving(true)
 
-      // Publish reads the saved posts on the server, so flush the pending autosave first.
-      const saved = await saveDraft(draft, true)
+      // Publish reads the saved posts on the server, so flush the pending autosave first. The draft is read after
+      // the confirmation: a live update made while the dialog was open must not be overwritten (#363).
+      const saved = await saveDraft(draftRef.current, true)
       if (!saved) throw new Error('Could not save your latest edits. Try again.')
 
       // The server deletes the draft's images, clears them from posts and marks it published.
@@ -364,9 +421,16 @@ export default function DraftEditor({ user }) {
           </h1>
         }
         status={
-          <Badge tone={saveStatus.tone} live>
-            {saveStatus.text}
-          </Badge>
+          <>
+            <Badge tone={saveStatus.tone} live>
+              {saveStatus.text}
+            </Badge>
+            <LiveStatus
+              updatedText={updatedAt === null ? null : updatedLabel(clock - updatedAt)}
+              paused={live.paused}
+              onResume={live.resume}
+            />
+          </>
         }
         actions={
           <>
@@ -400,7 +464,7 @@ export default function DraftEditor({ user }) {
               </Banner>
             )}
 
-            <ThreadComposer posts={draft.posts} onPostsChange={handlePostsChange} />
+            <ThreadComposer posts={draft.posts} onPostsChange={handlePostsChange} highlightIds={highlighted} />
 
             {conflict && (
               <Banner

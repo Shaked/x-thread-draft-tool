@@ -127,6 +127,7 @@
   --ease-linear: linear;     /* spinner, skeleton shimmer */
   --duration-spin: 900ms;
   --duration-shimmer: 1500ms;
+  --duration-highlight: 1500ms; /* a post another app changed (#363) */
   --press-scale: 0.98;
   --opacity-disabled: 0.5;
 
