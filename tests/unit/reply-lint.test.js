@@ -59,7 +59,10 @@ describe('reply-lint rules', () => {
     expect(lint(templates('changelog-entry.md'), { kind: 'changelog' })).toEqual([])
     expect(rules('# Faster saves\n- Fixed in #359 and `server/x.js`.', { kind: 'changelog' })).toEqual(['internal-label'])
     expect(rules('- No title line.', { kind: 'changelog' })).toEqual(['shape', 'shape'])
-    for (const message of templates('telegram-message.md').split(/^## .*$/m).slice(1)) {
+    // Every example message in the template (five kinds, seven forms) passes the Telegram lint.
+    const examples = [...templates('telegram-message.md').matchAll(/^Example:\n```text\n([\s\S]*?)```$/gm)].map((m) => m[1])
+    expect(examples).toHaveLength(7)
+    for (const message of examples) {
       expect(lint(message, { kind: 'telegram' }), message).toEqual([])
     }
     expect(rules('Production is live\n[Open](https://x.test)', { kind: 'telegram' })).toEqual(['shape'])

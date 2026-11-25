@@ -357,7 +357,7 @@ without `group`.
 ## 6. Alerts (three kinds, Telegram)
 
 Worked out by every run of the daily step (every 6 hours). Sent with `scripts/notify-telegram.mjs`, new kind
-`metrics` (headline "📈 Metrics alert"), the existing secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+`metrics` (headline "Metrics alert", text in `.claude/skills/reply-style/templates/telegram-message.md`), the existing secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 The app itself still sends nothing (`docs/operations/telegram.md`).
 
 | Kind | Fires when | Why this one |

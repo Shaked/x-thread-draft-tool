@@ -44,9 +44,10 @@ Apply `pstack-unslop` and `pstack-technical-writing` to both.
   do or see, not how it was built.
 - **Telegram message (target format):** the script still sends the old text, with an emoji per
   headline, until task #369 changes the script, its tests and `docs/operations/telegram.md`.
-  The template is Markdown; the script turns it into HTML. One message per event, at most 5 lines. Line 1 is the headline in bold and
-  says the kind in words, with no emoji. Then the title, one line with the fact or the action, and
-  the links. Never a secret, a login name, draft text or log output (`docs/operations/telegram.md`).
+  The template is Markdown; the script turns it into HTML. One message per event, at most 5 lines.
+  Line 1 is the headline in bold, linked, saying what happened, with no emoji. Then the item, one
+  fact when the kind has one, `Needs you:` with one action or `Nothing needed.`, and other links.
+  Never a secret, a login name, draft text or log output (`docs/operations/telegram.md`).
 - Check them with `npm run reply-lint -- --kind=changelog <file>` or `--kind=telegram <file>`.
 
 ## The fixed headings

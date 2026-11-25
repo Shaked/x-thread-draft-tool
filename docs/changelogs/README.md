@@ -10,4 +10,4 @@ Example:
 ## Rules
 - Never append unrelated updates into a shared rolling file.
 - Create a new file for each task/PR.
-- Keep entries short and link to the relevant docs updated.
+- Follow `docs/operations/changelog.md`.
