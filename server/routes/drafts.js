@@ -223,7 +223,7 @@ async function createDraft({ request }) {
  * counts. No header, `*`, a weak tag, a list or a malformed value give null: the draft is sent.
  */
 function ifNoneMatchVersion(request) {
-  const match = (request.headers.get('if-none-match') ?? '').trim().match(/^"(\d+)"$/)
+  const match = (request.headers.get('if-none-match') ?? '').trim().match(/^"(0|[1-9]\d*)"$/)
   const version = match ? Number(match[1]) : NaN
   return Number.isSafeInteger(version) && version <= 2147483647 ? version : null
 }

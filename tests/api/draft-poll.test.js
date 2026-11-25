@@ -90,7 +90,7 @@ describe('GET /api/drafts/:id with If-None-Match (#360)', () => {
   })
 
   it('sends the draft (200) for *, a weak tag, a list, a malformed value and a tag beyond int range', async () => {
-    for (const ifNoneMatch of ['*', 'W/"1"', '"1", "2"', '1', 'garbage', '"abc"', '"99999999999"', '"0"']) {
+    for (const ifNoneMatch of ['*', 'W/"1"', '"1", "2"', '1', 'garbage', '"abc"', '"99999999999"', '"0"', '"01"', '"+1"']) {
       const res = await get(draft.id, { ifNoneMatch })
       expect(res.status, ifNoneMatch).toBe(200)
       expect((await res.json()).draft.version).toBe(1)
