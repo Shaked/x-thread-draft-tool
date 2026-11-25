@@ -21,7 +21,9 @@ const ROOT = (() => {
 export const FILE_LIMIT_MS = Number(process.env.TEST_BUDGET_FILE_MS ?? 5000)
 export const TOTAL_LIMIT_MS = Number(process.env.TEST_BUDGET_TOTAL_MS ?? 70000) // CI runner speed varies 46-62 s for the same green suite (#144 57.5 s, #145 62.3 s, #147 61.0 s, re-runs ~46 s); 70 s = worst + ~12%. Per-file limits are the real guard. Opus 2026-11-18, revises O11.
 // With --shard=n/m (speed plan task S2, #312) the run covers part of the suite, so its total limit is lower.
-export const SHARD_TOTAL_LIMIT_MS = Number(process.env.TEST_BUDGET_SHARD_TOTAL_MS ?? 45000)
+// Shard 1 ran 29.6-44.3 s on main and up to 46.8 s on a PR branch (the same files got slower on some runners).
+// 52 s = worst seen (46.8 s) + ~12%, the same rule as TOTAL_LIMIT_MS. Revises the 45 s limit (Opus ruling, PR #433).
+export const SHARD_TOTAL_LIMIT_MS = Number(process.env.TEST_BUDGET_SHARD_TOTAL_MS ?? 52000)
 // Per-file exceptions. Keep this list short and say why next to each entry.
 export const FILE_LIMIT_OVERRIDES = {
   'tests/api/migrate.test.js': 7000, // boots a fresh PGlite and replays every migration; O11 decided by Opus 2026-11-13, revises D-8

@@ -63,7 +63,7 @@ describe('test budget', () => {
   })
 
   it('gives a shard its own total limit, lower than the whole-suite limit', () => {
-    expect(SHARD_TOTAL_LIMIT_MS).toBe(45000)
+    expect(SHARD_TOTAL_LIMIT_MS).toBe(52000)
     expect(SHARD_TOTAL_LIMIT_MS).toBeLessThan(TOTAL_LIMIT_MS)
     // A shard's total is checked against the shard limit, and reported with it.
     const problems = violations([], SHARD_TOTAL_LIMIT_MS + 1, SHARD_TOTAL_LIMIT_MS)
