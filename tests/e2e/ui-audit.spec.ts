@@ -44,7 +44,6 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
       }
     ]
   },
-  // The same page with the menu drawer open.
   // The optional Rare UI look (feature flag, #406): the same checks with xt-skin=rare on the new page and two main pages.
   { name: 'flags-rare', path: '/settings/flags', skin: 'rare' },
   {
@@ -70,6 +69,7 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
       }
     ]
   },
+  // The same page with the menu drawer open.
   {
     name: 'drafts-menu',
     path: '/',

@@ -151,6 +151,10 @@ describe('rare skin overrides', () => {
     expect(skinNames.filter((name) => !baseNames.has(name))).toEqual([])
   })
 
+  it('has exactly one rare skin rule, so none can be added after the block where the test would not see it', () => {
+    expect(tokensCss.match(/data-skin/g)).toHaveLength(1)
+  })
+
   it('does not override any duration, so reduced motion keeps winning', () => {
     expect(rareBlock).not.toMatch(/--(duration|press-scale)/)
   })

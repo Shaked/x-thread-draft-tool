@@ -22,7 +22,7 @@ describe('FlagsPage', () => {
       </MemoryRouter>
     )
     expect(screen.getByRole('heading', { name: 'Feature flags' })).toBeTruthy()
-    expect(screen.getByRole('radio', { name: 'Current look (purple)' }).checked).toBe(true)
+    expect(screen.getByRole('radio', { name: 'Current (purple)' }).checked).toBe(true)
   })
 
   it('switches to the Rare UI look and remembers it', async () => {
@@ -32,9 +32,9 @@ describe('FlagsPage', () => {
         <FlagsPage />
       </MemoryRouter>
     )
-    await user.click(screen.getByRole('radio', { name: 'Rare UI look (black and orange)' }))
+    await user.click(screen.getByRole('radio', { name: 'Rare UI (black, orange)' }))
     expect(document.documentElement.dataset.skin).toBe('rare')
     expect(localStorage.getItem(SKIN_KEY)).toBe('rare')
-    expect(screen.getByRole('radio', { name: 'Rare UI look (black and orange)' }).checked).toBe(true)
+    expect(screen.getByRole('radio', { name: 'Rare UI (black, orange)' }).checked).toBe(true)
   })
 })

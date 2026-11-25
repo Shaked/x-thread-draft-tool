@@ -8,8 +8,8 @@ import Stack from '../ui/Stack'
 import { getSkin, setSkin } from '../utils/skin'
 
 const LOOKS = [
-  { value: 'default', label: 'Current look (purple)' },
-  { value: 'rare', label: 'Rare UI look (black and orange)' }
+  { value: 'default', label: 'Current (purple)' },
+  { value: 'rare', label: 'Rare UI (black, orange)' }
 ]
 
 // Feature flags: switches that change what this browser shows. They are stored on this device only,

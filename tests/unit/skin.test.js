@@ -46,10 +46,10 @@ describe('skin (look feature flag)', () => {
       expect(getSkin()).toBe('default')
     } finally {
       Storage.prototype.setItem = real
+      // The next write that works clears the page-only choice, so later tests start clean even if an assertion failed.
+      setSkin('default')
     }
     expect(document.documentElement.dataset.skin).toBe('default')
-    // The next write that works clears the page-only choice, so later tests start clean.
-    setSkin('default')
     expect(getSkin()).toBe('default')
   })
 })
