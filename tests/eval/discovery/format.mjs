@@ -61,8 +61,9 @@ function promptArgs(prompt, lang) {
 }
 
 /**
- * The texts one client is sent, each as { group, name, text, limit, keep, server }: `keep` is user text that must come
- * back unchanged, `server` is true when the whole text is written by the server (so it must be clean server text).
+ * The texts one client is sent, each as { group, name, text, limit, keep, fences, server }: `keep` is user text that
+ * must come back unchanged (the rest must be clean server text), `fences` the deliberate fence kinds the text may hold,
+ * and `server` marks text whose lines outside fences the server wrote (checked for code-block requests).
  */
 export function templatesFor(profile, server) {
   const reads = (field) => profile?.[field]?.value !== false
@@ -102,7 +103,10 @@ export function formatEval(clients, server) {
       const fences = fenceProblems(t.text, { allowed: t.fences, server: t.server })
       if (fences.length) problems.push(...fences.map((p) => `${where}: ${p}`))
       else row.fence += 1
-      const hebrewOk = (t.keep === undefined || t.text.includes(t.keep)) && (!t.server || t.fences?.includes('user') || isCleanServerText(t.text))
+      // The user's sample must come back as written; everything else in the text is the server's, and must be clean
+      // (NFC, no direction or invisible marks). So a mark the server adds around user text is found too.
+      const serverPart = t.keep === undefined ? t.text : t.text.split(t.keep).join('')
+      const hebrewOk = (t.keep === undefined || t.text.includes(t.keep)) && isCleanServerText(serverPart)
       if (hebrewOk) row.hebrew += 1
       else problems.push(`${where}: Hebrew or user text is not kept exactly as written`)
       if (t.limit && tooLong(t.text, t.limit)) problems.push(`${where}: longer than ${JSON.stringify(t.limit)}`)

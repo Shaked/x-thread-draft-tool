@@ -142,6 +142,9 @@ describe('per client (#365)', () => {
     console.log(formatEvalTable(rows))
     expect(problems, problems.join('\n')).toEqual([])
     expect(rows.filter((r) => r.group === 'prompts')).toHaveLength(Object.keys(clients.clients).length)
+    // A direction mark the server adds around the user's text is found (Codex review on #399).
+    const marked = formatEval(clients, { ...server, threadText: (args) => `\u202e${threadText(args)}` }).problems
+    expect(marked.join('\n')).toContain('results thread markdown (he): Hebrew or user text is not kept exactly as written')
   })
 
   it('format eval: finds a code fence around text, and allows only the fences that text may hold', () => {
