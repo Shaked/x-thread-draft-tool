@@ -67,12 +67,12 @@ describe('GET /api/changelog', () => {
     expect(res.headers.get('cache-control')).toBe('private, max-age=300')
   })
 
-  it('returns 20 entries by default, newest first, with id, date, title and summary', async () => {
+  it('returns 20 entries by default, newest first, with id, date, title, summary, area, link and details', async () => {
     const body = await (await get()).json()
     const all = await walk()
     expect(all.length).toBeGreaterThanOrEqual(2)
     expect(body.entries).toEqual(all.slice(0, 20))
-    expect(Object.keys(body.entries[0]).sort()).toEqual(['date', 'id', 'summary', 'title'])
+    expect(Object.keys(body.entries[0]).sort()).toEqual(['area', 'date', 'details', 'id', 'link', 'summary', 'title'])
     const ids = all.map((entry) => entry.id)
     expect([...ids].sort().reverse()).toEqual(ids)
   })

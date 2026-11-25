@@ -797,3 +797,13 @@ a {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+
+/* The changelog page's Technical details text: line breaks kept, long words wrap, mono font. */
+.changelog-details {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

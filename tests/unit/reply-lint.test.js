@@ -56,9 +56,23 @@ describe('reply-lint rules', () => {
   })
 
   it('checks changelog entries and Telegram messages by their own shape', () => {
-    expect(lint(templates('changelog-entry.md'), { kind: 'changelog' })).toEqual([])
-    expect(rules('# Faster saves\n- Fixed in #359 and `server/x.js`.', { kind: 'changelog' })).toEqual(['internal-label'])
-    expect(rules('- No title line.', { kind: 'changelog' })).toEqual(['shape', 'shape'])
+    // The template with its two placeholders filled in passes; the other placeholders are plain text.
+    const filled = templates('changelog-entry.md')
+      .replace('Area: <one word from the Area list in docs/operations/changelog.md>', 'Area: Docs')
+      .replace('Link: <the pull request address, starting with https://>', 'Link: https://x.test/pull/1')
+    expect(lint(filled, { kind: 'changelog' })).toEqual([])
+    expect(rules('# Faster saves\n- Fixed in #359 and `server/x.js`.', { kind: 'changelog' })).toEqual(['shape', 'shape', 'internal-label'])
+    expect(rules('- No title line.', { kind: 'changelog' })).toEqual(['shape', 'shape', 'shape', 'shape'])
+  })
+
+  it('checks the changelog Area and Link lines, and skips the Technical details part', () => {
+    const entry = (area, link, extra = '') => `# Faster saves\n- A draft opens sooner.\n\nArea: ${area}\nLink: ${link}\n${extra}`
+    expect(rules(entry('Speed', 'https://x.test/pull/2'), { kind: 'changelog' })).toEqual([])
+    expect(rules(entry('Billing', 'https://x.test/pull/2'), { kind: 'changelog' })).toEqual(['shape'])
+    expect(rules(entry('Speed', 'http://x.test/pull/2'), { kind: 'changelog' })).toEqual(['shape'])
+    expect(rules('# Faster saves\n- A draft opens sooner.\nArea: Speed\nLink: https://x.test/pull/2\nArea: Docs\n', { kind: 'changelog' })).toEqual(['shape'])
+    // Labels and code below the heading are not checked.
+    expect(rules(entry('Speed', 'https://x.test/pull/2', '\n## Technical details\n\nFixed T7 in `server/x.js`.\n'), { kind: 'changelog' })).toEqual([])
     // Every example message in the template (five kinds, seven forms) passes the Telegram lint.
     const examples = [...templates('telegram-message.md').matchAll(/^Example:\n```text\n([\s\S]*?)```$/gm)].map((m) => m[1])
     expect(examples).toHaveLength(7)

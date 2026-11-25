@@ -43,6 +43,9 @@ const EMOJI = /\p{Extended_Pictographic}/u
 const SLOP = /\b(delve[sd]?|seamless(?:ly)?|leverag(?:e|es|ed|ing)|game[- ]changer|rest assured|it'?s worth noting|i hope this helps|great question|needless to say|in conclusion)\b/i
 const ACT = /\b(Nothing needed from you|You need to do (\d+|one|two|three|four|five) things?)\b/i
 const NUMBERS = { one: 1, two: 2, three: 3, four: 4, five: 5 }
+// The one word of `Area:` in a changelog entry (plan #369, step 1). Changing it changes the page groups.
+export const AREAS = ['Drafts', 'Editor', 'AI apps', 'Admin', 'Design', 'Speed', 'Security', 'Docs']
+const DETAILS_HEADING = /^## Technical details\s*$/
 
 /** Word count of a description, labels and punctuation left out. */
 function words(text) {
@@ -132,8 +135,15 @@ function checkShape(lines, kind, add) {
   const first = body[0]?.text.trim() || ''
   if (kind === 'changelog') {
     if (!/^# \S/.test(first)) add(1, 'shape', 'start with one "# " title that says what changed for a person')
-    const rest = body.slice(1).length
-    if (rest < 1 || rest > 5) add(1, 'shape', 'write 1 to 5 short lines under the title')
+    const fields = (name) => body.filter(({ text }) => text.trim().startsWith(`${name}:`))
+    const text = body.slice(1).filter(({ text }) => !/^(Area|Link):/.test(text.trim()))
+    if (text.length < 1 || text.length > 5) add(1, 'shape', 'write 1 to 5 short lines under the title')
+    const area = fields('Area')
+    if (area.length !== 1) add(area[1]?.n ?? 1, 'shape', 'write one "Area:" line')
+    else if (!AREAS.includes(area[0].text.trim().slice('Area:'.length).trim())) add(area[0].n, 'shape', `Area must be one of: ${AREAS.join(', ')}`)
+    const link = fields('Link')
+    if (link.length !== 1) add(link[1]?.n ?? 1, 'shape', 'write one "Link:" line with the pull request address')
+    else if (!/^Link: https:\/\/\S+$/.test(link[0].text.trim())) add(link[0].n, 'shape', 'Link must start with https://')
   } else {
     if (!/^\*\*[^*]+\*\*$/.test(first)) add(1, 'shape', 'start with the headline in bold on its own line')
     if (body.length > 5) add(1, 'shape', 'a Telegram message has at most 5 lines')
@@ -147,8 +157,11 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
   const seen = new Set()
   const prose = []
   let fenced = false
+  let details = false // a changelog's "## Technical details" part is not checked (it may hold code and labels)
   text.split('\n').forEach((raw, i) => {
     const n = i + 1
+    if (kind === 'changelog' && DETAILS_HEADING.test(raw)) details = true
+    if (details) return
     if (/^\s*(```|~~~)/.test(raw)) { fenced = !fenced; return }
     if (fenced) return
     prose.push({ text: raw, n })

@@ -1,0 +1,27 @@
+name: Changelog check
+
+# Fails a pull request that changes or deletes an existing docs/changelogs entry, or adds one that breaks the
+# changelog shape (scripts/changelog-check.mjs, plan #369 step 1).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  changelog-check:
+    name: Changelog check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out (full history)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the changelog entries
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/changelog-check.mjs
