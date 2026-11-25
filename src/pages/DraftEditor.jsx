@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { draftsApi, authApi } from '../utils/api'
 import { normalizeImages } from '../utils/images'
-import { set as idbSet, del as idbDel } from 'idb-keyval'
+import { set as idbSet, del as idbDel, get as idbGet } from 'idb-keyval'
 import ThreadComposer from '../components/ThreadComposer'
 import AgentLinkButton from '../components/AgentLinkButton'
 import XThreadLinkButton from '../components/XThreadLinkButton'
@@ -32,6 +32,19 @@ const normalizeDraft = data => ({
     images: normalizeImages(post.images || [])
   })) || []
 })
+
+// My text from a conflict, kept in this browser until I copy it or keep mine. The `draft-` prefix means sign-out clears it.
+const mineKeyOf = id => `draft-${id}-mine`
+
+// The kept text, or null. Never throws: a blocked IndexedDB must not block the editor.
+const readKeptText = async id => {
+  try {
+    const kept = await idbGet(mineKeyOf(id))
+    return typeof kept === 'string' ? kept : null
+  } catch {
+    return null
+  }
+}
 
 // The text the user wrote, one post per paragraph, for copying after a conflict.
 const plainText = draft => [draft.title, ...draft.posts.map(post => post.text)].filter(Boolean).join('\n\n')
@@ -81,6 +94,13 @@ export default function DraftEditor({ user }) {
 
       // Save to IndexedDB for offline access
       await idbSet(`draft-${id}`, data)
+
+      // My text from an earlier conflict, kept in this browser: show it to copy, unless it is the server's text.
+      const kept = await readKeptText(id)
+      if (kept !== null && kept !== plainText(normalizedData)) {
+        setCopyText(kept)
+        copyOpenRef.current = true
+      }
     } catch (err) {
       console.error('Error loading draft:', err)
       // A copy kept in this browser must never show for a draft the server refuses.
@@ -128,7 +148,8 @@ export default function DraftEditor({ user }) {
           setSynced(true)
           setSignedOut(false)
 
-          // Update IndexedDB
+          // Update IndexedDB. A kept copy of my text goes once the copy box is closed.
+          if (!copyOpenRef.current) await idbDel(mineKeyOf(id)).catch(() => {})
           await idbSet(`draft-${id}`, draftToSave)
           return true
         } catch (err) {
@@ -137,6 +158,7 @@ export default function DraftEditor({ user }) {
             // Nothing was written. Stop saving and let the user choose (see the banner).
             conflictRef.current = true
             setConflict({ version: err.version ?? err.draft?.version, theirs: err.draft })
+            idbSet(mineKeyOf(id), plainText(draftToSave)).catch(() => {})
             setSynced(true)
             return false
           }
@@ -168,12 +190,15 @@ export default function DraftEditor({ user }) {
   useEffect(() => {
     if (!draft) return
 
+    // While a conflict is open, keep my text in this browser, so leaving or reloading keeps it.
+    if (conflictRef.current) idbSet(mineKeyOf(id), plainText(draft)).catch(() => {})
+
     // Auto-save on changes
     const currentState = JSON.stringify(draft)
     if (currentState !== lastSavedRef.current) {
       saveDraft(draft, false)
     }
-  }, [draft, saveDraft])
+  }, [draft, saveDraft, id])
 
   useEffect(() => {
     // Save before unload, but only real unsaved edits: an untouched draft must not overwrite a newer version.
@@ -218,6 +243,7 @@ export default function DraftEditor({ user }) {
     conflictRef.current = false
     setConflict(null)
     idbSet(`draft-${id}`, theirs).catch(() => {})
+    idbSet(mineKeyOf(id), plainText(draft)).catch(() => {})
   }
 
   // "Keep mine": save my text as a new version on top of theirs.
@@ -235,7 +261,7 @@ export default function DraftEditor({ user }) {
     event.preventDefault()
     const confirmed = await ask({
       title: 'Leave this draft?',
-      body: 'Your text is not saved. This draft changed in another app. Leaving now discards your text, so copy it first if you need it.',
+      body: 'This draft changed in another app and your text is not saved. Leaving keeps your text in this browser. Open this draft again to copy it.',
       confirmLabel: 'Leave',
       tone: 'danger'
     })
@@ -399,6 +425,7 @@ export default function DraftEditor({ user }) {
                     <Button variant="ghost" onClick={() => {
                       copyOpenRef.current = false
                       setCopyText(null)
+                      idbDel(mineKeyOf(id)).catch(() => {})
                     }}>
                       Dismiss
                     </Button>

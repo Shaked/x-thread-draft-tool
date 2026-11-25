@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import DraftEditor from '../../src/pages/DraftEditor.jsx'
 import { draftsApi } from '../../src/utils/api'
+import { clear as idbClear } from 'idb-keyval'
 import { ToastProvider } from '../../src/ui/Toast.jsx'
 import { ConfirmProvider } from '../../src/ui/Dialog.jsx'
 
@@ -11,7 +12,16 @@ vi.mock('../../src/utils/api', () => ({
   draftsApi: { get: vi.fn(), update: vi.fn() },
   authApi: { login: vi.fn() }
 }))
-vi.mock('idb-keyval', () => ({ set: vi.fn(() => Promise.resolve()), del: vi.fn(() => Promise.resolve()) }))
+// A real in-memory store, so a kept copy of my text can be read back after the editor unmounts.
+vi.mock('idb-keyval', () => {
+  const store = new Map()
+  return {
+    set: vi.fn(async (key, value) => void store.set(key, value)),
+    get: vi.fn(async key => store.get(key)),
+    del: vi.fn(async key => void store.delete(key)),
+    clear: async () => store.clear()
+  }
+})
 vi.mock('../../src/components/ThreadComposer', () => ({ default: () => null }))
 vi.mock('../../src/components/AgentLinkButton', () => ({ default: () => null }))
 vi.mock('../../src/components/XThreadLinkButton', () => ({ default: () => null }))
@@ -60,8 +70,9 @@ function unload() {
 }
 
 describe('DraftEditor save with a version (If-Match)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
+    await idbClear()
     draftsApi.get.mockResolvedValue(structuredClone(DRAFT))
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
@@ -195,6 +206,19 @@ describe('DraftEditor save with a version (If-Match)', () => {
     const event = new Event('beforeunload', { cancelable: true })
     window.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('keeps my text when I leave during a conflict, and shows it again when I open the draft', async () => {
+    draftsApi.update.mockRejectedValue(
+      httpError(412, 'stale', { version: 5, draft: { ...DRAFT, title: 'Theirs', version: 5 } })
+    )
+    const first = renderEditor()
+    await typeInTitle('!')
+    await screen.findByRole('alert')
+    first.unmount()
+
+    renderEditor()
+    expect(await screen.findByLabelText('Your text')).toHaveValue('Draft one!\n\nhello')
   })
 
   it('asks before Back leaves the editor while a conflict waits for the choice', async () => {
