@@ -73,8 +73,17 @@ export default function DraftEditor({ user }) {
   const versionRef = useRef(undefined)
   // Mirrors `conflict`, so a save started in the same tick sees it at once. No save runs while it is set.
   const conflictRef = useRef(false)
-  // Mirrors whether the copy box is open, for the unload guard. A ref, so the effect is not re-run (it would cancel a pending save).
-  const copyOpenRef = useRef(false)
+  // The copy box's text (null when closed). A ref too, so the unload guard and saves read it at once.
+  const copyTextRef = useRef(null)
+  const setCopy = text => {
+    copyTextRef.current = text
+    setCopyText(text)
+  }
+  // The text to keep for me: the copy box's text (if still open) followed by the current text, not replacing it.
+  const keptFor = current => {
+    const previous = copyTextRef.current
+    return previous && previous !== current ? `${previous}\n\n---\n\n${current}` : current
+  }
   // Saves run one at a time, so a save never sends the version an earlier save of this editor just replaced.
   const saveChainRef = useRef(Promise.resolve())
 
@@ -98,8 +107,7 @@ export default function DraftEditor({ user }) {
       // My text from an earlier conflict, kept in this browser: show it to copy, unless it is the server's text.
       const kept = await readKeptText(id)
       if (kept !== null && kept !== plainText(normalizedData)) {
-        setCopyText(kept)
-        copyOpenRef.current = true
+        setCopy(kept)
       }
     } catch (err) {
       console.error('Error loading draft:', err)
@@ -149,7 +157,7 @@ export default function DraftEditor({ user }) {
           setSignedOut(false)
 
           // Update IndexedDB. A kept copy of my text goes once the copy box is closed.
-          if (!copyOpenRef.current) await idbDel(mineKeyOf(id)).catch(() => {})
+          if (copyTextRef.current === null) await idbDel(mineKeyOf(id)).catch(() => {})
           await idbSet(`draft-${id}`, draftToSave)
           return true
         } catch (err) {
@@ -158,7 +166,7 @@ export default function DraftEditor({ user }) {
             // Nothing was written. Stop saving and let the user choose (see the banner).
             conflictRef.current = true
             setConflict({ version: err.version ?? err.draft?.version, theirs: err.draft })
-            idbSet(mineKeyOf(id), plainText(draftToSave)).catch(() => {})
+            idbSet(mineKeyOf(id), keptFor(plainText(draftToSave))).catch(() => {})
             setSynced(true)
             return false
           }
@@ -191,14 +199,14 @@ export default function DraftEditor({ user }) {
     if (!draft) return
 
     // While a conflict is open, keep my text in this browser, so leaving or reloading keeps it.
-    if (conflictRef.current) idbSet(mineKeyOf(id), plainText(draft)).catch(() => {})
+    if (conflictRef.current) idbSet(mineKeyOf(id), keptFor(plainText(draft))).catch(() => {})
 
     // Auto-save on changes
     const currentState = JSON.stringify(draft)
     if (currentState !== lastSavedRef.current) {
       saveDraft(draft, false)
     }
-  }, [draft, saveDraft, id])
+  }, [draft, saveDraft, id, conflict])
 
   useEffect(() => {
     // Save before unload, but only real unsaved edits: an untouched draft must not overwrite a newer version.
@@ -210,7 +218,7 @@ export default function DraftEditor({ user }) {
         return
       }
       // The copy box holds my text: ask, and still save any unsaved edits below.
-      if (copyOpenRef.current) {
+      if (copyTextRef.current !== null) {
         event.preventDefault()
         event.returnValue = ''
       }
@@ -234,8 +242,8 @@ export default function DraftEditor({ user }) {
   // "Show their changes": keep my text for copying, then show the draft the other app saved.
   const showTheirs = () => {
     if (!conflict?.theirs || !Number.isInteger(conflict.version)) return
-    setCopyText(plainText(draft))
-    copyOpenRef.current = true
+    const kept = keptFor(plainText(draft))
+    setCopy(kept)
     const theirs = normalizeDraft(conflict.theirs)
     versionRef.current = conflict.version
     lastSavedRef.current = JSON.stringify(theirs)
@@ -243,7 +251,7 @@ export default function DraftEditor({ user }) {
     conflictRef.current = false
     setConflict(null)
     idbSet(`draft-${id}`, theirs).catch(() => {})
-    idbSet(mineKeyOf(id), plainText(draft)).catch(() => {})
+    idbSet(mineKeyOf(id), kept).catch(() => {})
   }
 
   // "Keep mine": save my text as a new version on top of theirs.
@@ -423,8 +431,7 @@ export default function DraftEditor({ user }) {
                       Copy
                     </Button>
                     <Button variant="ghost" onClick={() => {
-                      copyOpenRef.current = false
-                      setCopyText(null)
+                      setCopy(null)
                       idbDel(mineKeyOf(id)).catch(() => {})
                     }}>
                       Dismiss
