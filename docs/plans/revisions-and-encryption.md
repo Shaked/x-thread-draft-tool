@@ -309,8 +309,8 @@ Locked draft (C):
   server."
 - EN (details, one tap away): "Your browser locks this draft with a key that only your passphrase or
   recovery code can open. Our server keeps the locked copy, and your key only in locked form. AI apps you
-  connected can add text, but they cannot read this draft; what they add passes through our server and is
-  not covered by this promise. If you lose both your passphrase and your recovery code, nobody can open
+  connected can add text, but they cannot read this draft; what they add, and any image added from a link,
+  passes through our server and is not covered by this promise. If you lose both your passphrase and your recovery code, nobody can open
   it, not even us. Older unlocked copies may stay in our database provider's backups for up to 30 days.
   This holds as long as the app runs the public code on GitHub."
 - HE (קצר): "נעול: הדפדפן שלך מצפין את הטיוטה הזאת לפני שהיא נשמרת. רק את/ה, ומי ששלחת לו קישור שיתוף,
@@ -318,7 +318,8 @@ Locked draft (C):
   האפליקציה מריצה את הקוד הציבורי שלה. טקסט ותמונות שאפליקציית AI מוסיפה עוברים דרך השרת שלנו."
 - HE (פרטים): "הדפדפן שלך נועל את הטיוטה עם מפתח שרק הסיסמה שלך או קוד השחזור יכולים לפתוח. השרת שלנו
   שומר את העותק הנעול, ואת המפתח שלך רק בצורה נעולה. אפליקציות AI שחיברת יכולות להוסיף טקסט, אבל הן לא
-  יכולות לקרוא את הטיוטה; מה שהן מוסיפות עובר דרך השרת שלנו ולא מכוסה בהבטחה הזאת. אם תאבד/י גם את
+  יכולות לקרוא את הטיוטה; מה שהן מוסיפות, וכל תמונה שנוספת מקישור, עובר דרך השרת שלנו ולא מכוסה בהבטחה
+  הזאת. אם תאבד/י גם את
   הסיסמה וגם את קוד השחזור, אף אחד לא יוכל לפתוח אותה, גם לא אנחנו. עותקים ישנים לא נעולים עשויים
   להישאר בגיבויים של ספק מסד הנתונים שלנו עד 30 יום. זה נכון כל עוד האפליקציה מריצה את הקוד הציבורי
   שב-GitHub."
@@ -348,8 +349,8 @@ Banned words in any UI text: "zero knowledge", "military grade", "nobody can eve
 - **Exports**: made in the browser for locked drafts.
 - **Logs and errors**: the leak scan test (H10) proves no text reaches logs or error answers.
 - **Backups**: plain text written **before** a draft was locked stays in Neon's history for up to 6 hours
-  and in Neon's backups for up to 30 days. The lock screen says so: "Older copies of this draft may stay
-  in our database provider's backups for up to 30 days." Neon preview branches may hold copies too: not
+  and in Neon's backups for up to 30 days. The lock screen says so: "Older unlocked copies may stay in our
+  database provider's backups for up to 30 days." Neon preview branches may hold copies too: not
   checked (section 1); the sentence ships only once that is checked.
 - **Search**: there is no server search today. A locked draft can only be searched in the browser.
 
