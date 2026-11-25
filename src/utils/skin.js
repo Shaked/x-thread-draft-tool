@@ -5,7 +5,7 @@
 export const SKIN_KEY = 'xt-skin'
 export const SKINS = ['default', 'rare']
 
-// The last choice made in this page. Used when storage is blocked, so the session keeps the choice.
+// Set only when storage refused the last write: this page's choice then wins over an older stored value.
 let sessionSkin = null
 
 function readStored() {
@@ -16,13 +16,11 @@ function readStored() {
   }
 }
 
-/** The saved choice, or 'default' when nothing valid is stored. */
+/** The current choice, or 'default' when nothing valid is stored. */
 export function getSkin() {
+  if (SKINS.includes(sessionSkin)) return sessionSkin
   const stored = readStored()
-  if (SKINS.includes(stored)) return stored
-  // Nothing stored (or storage blocked): use this page's last choice. A stored value we do not know means 'default'.
-  if (stored === null && SKINS.includes(sessionSkin)) return sessionSkin
-  return 'default'
+  return SKINS.includes(stored) ? stored : 'default'
 }
 
 /** Puts the skin on <html>. An unknown value falls back to 'default'. */
@@ -35,11 +33,12 @@ export function applySkin(value = getSkin()) {
 /** Saves and applies the choice. Returns the skin that is now active. */
 export function setSkin(value) {
   const skin = SKINS.includes(value) ? value : 'default'
-  sessionSkin = skin
   try {
     localStorage.setItem(SKIN_KEY, skin)
+    sessionSkin = null
   } catch {
-    // Storage can be blocked (private mode). The choice still applies for this page.
+    // Storage can be blocked (private mode, full). The choice still applies for this page.
+    sessionSkin = skin
   }
   return applySkin(skin)
 }

@@ -142,9 +142,9 @@
 }
 
 /*
- * Skin "rare" (feature flag, Settings > Feature flags): the Rare UI look (orange accent, neutral greys, tighter corners).
- * It only overrides tokens, so every page and every ui/ component changes together. Colours not listed here (danger,
- * success, warning and their soft backgrounds) keep the default values. tests/unit/contrast.test.js checks every pair
+ * Skin "rare" (feature flag, Settings > Feature flags): the Rare UI look (black accent in light, orange in dark, neutral greys, tighter corners).
+ * It only overrides tokens, so every page and every ui/ component changes together. Colours not listed here (success,
+ * warning and the soft danger and warning backgrounds) keep the default values. tests/unit/contrast.test.js checks every pair
  * again for this skin. Durations are not overridden here: the reduced-motion block below must keep winning.
  */
 :root[data-skin='rare'] {
@@ -158,12 +158,15 @@
   --color-text-on-accent: light-dark(#ffffff, #000000);
   --color-border: light-dark(#737373, #737373);
   --color-border-soft: light-dark(#e5e5e5, #262626);
-  --color-accent: light-dark(#b93a0a, #ff6a2b);
-  --color-accent-hover: light-dark(#9a3412, #ff8a57);
-  --color-accent-pressed: light-dark(#7c2d12, #ffa77d);
-  --color-accent-soft: light-dark(#ffedd5, #2a1508);
-  --color-accent-soft-text: light-dark(#9a3412, #ffb48a);
-  --color-focus: light-dark(#b93a0a, #ff8a57);
+  --color-accent: light-dark(#171717, #ff6a2b);
+  --color-accent-hover: light-dark(#404040, #ff8a57);
+  --color-accent-pressed: light-dark(#525252, #ffa77d);
+  --color-accent-soft: light-dark(#ebebeb, #262626);
+  --color-accent-soft-text: light-dark(#171717, #ffb48a);
+  /* Danger moves toward crimson here so a destructive button never looks like the orange brand colour. */
+  --color-danger: light-dark(#b42318, #ff6b9a);
+  --color-danger-hover: light-dark(#912018, #ff94b8);
+  --color-focus: light-dark(#171717, #ff8a57);
 
   --radius-sm: 4px;
   --radius-md: 6px;

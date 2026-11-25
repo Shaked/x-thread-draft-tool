@@ -9,7 +9,7 @@ import { getSkin, setSkin } from '../utils/skin'
 
 const LOOKS = [
   { value: 'default', label: 'Current look (purple)' },
-  { value: 'rare', label: 'Rare UI look (orange)' }
+  { value: 'rare', label: 'Rare UI look (black and orange)' }
 ]
 
 // Feature flags: switches that change what this browser shows. They are stored on this device only,
@@ -26,8 +26,13 @@ export default function FlagsPage() {
           <Stack gap={4}>
             <SegmentedControl legend="Look" value={look} options={LOOKS} onChange={choose} />
             <Banner tone="info" role="none">
-              The Rare UI look is inspired by the open-source <a href="https://rareui.com" target="_blank" rel="noreferrer">Rare UI</a>{' '}
-              project. Light, dark and Hebrew right-to-left layouts work in both looks.
+              <p>
+                No Rare UI code is used. The colours and corners are inspired by the{' '}
+                <a href="https://rareui.com" target="_blank" rel="noreferrer">
+                  Rare UI
+                </a>{' '}
+                project, linked here as credit. Light, dark and Hebrew right-to-left layouts work in both looks.
+              </p>
             </Banner>
           </Stack>
         </Section>

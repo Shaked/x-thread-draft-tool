@@ -35,16 +35,21 @@ describe('skin (look feature flag)', () => {
     expect(document.documentElement.dataset.skin).toBe('default')
   })
 
-  it('keeps the choice for the page when storage is blocked', () => {
+  it('keeps the choice for the page when storage is blocked, even over an older stored value', () => {
+    localStorage.setItem(SKIN_KEY, 'rare')
     const real = Storage.prototype.setItem
     Storage.prototype.setItem = () => {
       throw new Error('blocked')
     }
     try {
-      expect(setSkin('rare')).toBe('rare')
+      expect(setSkin('default')).toBe('default')
+      expect(getSkin()).toBe('default')
     } finally {
       Storage.prototype.setItem = real
     }
-    expect(document.documentElement.dataset.skin).toBe('rare')
+    expect(document.documentElement.dataset.skin).toBe('default')
+    // The next write that works clears the page-only choice, so later tests start clean.
+    setSkin('default')
+    expect(getSkin()).toBe('default')
   })
 })

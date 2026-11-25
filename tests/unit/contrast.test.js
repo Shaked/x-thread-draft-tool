@@ -33,8 +33,10 @@ function parseColours(css) {
 const SKIN_START = ":root[data-skin='rare'] {"
 const skinAt = tokensCss.indexOf(SKIN_START)
 const skinEnd = tokensCss.indexOf('\n}', skinAt)
+if (skinAt < 0 || skinEnd < skinAt) throw new Error('the rare skin block was not found in src/styles/tokens.css')
 const base = parseColours(tokensCss.slice(0, skinAt))
-const rareOverrides = parseColours(tokensCss.slice(skinAt, skinEnd))
+const rareBlock = tokensCss.slice(skinAt, skinEnd)
+const rareOverrides = parseColours(rareBlock)
 const THEMES = base.themes
 const notLightDark = base.plain
 const SKIN_THEMES = {
@@ -117,9 +119,50 @@ describe.each(Object.keys(SKIN_THEMES))('colour contrast, %s skin', (skin) => {
   })
 })
 
+// Hue (0 to 360) and saturation (0 to 1) of a hex colour.
+function hueSat(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const d = max - min
+  if (d === 0) return { hue: 0, sat: 0 }
+  const hue = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return { hue: (hue * 60 + 360) % 360, sat: d / (1 - Math.abs(max + min - 1)) }
+}
+
 describe('rare skin overrides', () => {
-  it('only overrides tokens that exist in the default set, as light-dark() pairs', () => {
+  // The exact list, so a renamed or dropped override fails here instead of silently falling back to the default.
+  const OVERRIDDEN_COLOURS = [
+    'accent', 'accent-hover', 'accent-pressed', 'accent-soft', 'accent-soft-text', 'bg', 'border', 'border-soft',
+    'danger', 'danger-hover', 'focus', 'scrim', 'surface', 'surface-2', 'surface-raised', 'text', 'text-on-accent', 'text-soft'
+  ]
+
+  it('finds the skin block and overrides exactly the listed colours, as light-dark() pairs', () => {
+    expect(skinAt).toBeGreaterThan(0)
     expect(rareOverrides.plain).toEqual([])
-    for (const name of Object.keys(rareOverrides.themes.light)) expect(THEMES.light).toHaveProperty(name)
+    expect(Object.keys(rareOverrides.themes.light).sort()).toEqual([...OVERRIDDEN_COLOURS].sort())
+    for (const name of OVERRIDDEN_COLOURS) expect(THEMES.light).toHaveProperty(name)
+  })
+
+  it('overrides only custom properties that exist in the default set (colours, radii, shadows, easing)', () => {
+    const baseNames = new Set([...tokensCss.slice(0, skinAt).matchAll(/^\s*(--[\w-]+):/gm)].map((m) => m[1]))
+    const skinNames = [...rareBlock.matchAll(/^\s*(--[\w-]+):/gm)].map((m) => m[1])
+    expect(skinNames.length).toBeGreaterThan(OVERRIDDEN_COLOURS.length)
+    expect(skinNames.filter((name) => !baseNames.has(name))).toEqual([])
+  })
+
+  it('does not override any duration, so reduced motion keeps winning', () => {
+    expect(rareBlock).not.toMatch(/--(duration|press-scale)/)
+  })
+
+  it('keeps the accent a clearly different hue from danger (a destructive button never looks like the brand)', () => {
+    for (const theme of ['light', 'dark']) {
+      const colours = SKIN_THEMES.rare[theme]
+      const accent = hueSat(colours.accent)
+      const danger = hueSat(colours.danger)
+      if (accent.sat < 0.2) continue // a neutral accent cannot be confused with a hue
+      const gap = Math.abs(accent.hue - danger.hue)
+      expect(Math.min(gap, 360 - gap), `${theme}: accent ${colours.accent} against danger ${colours.danger}`).toBeGreaterThanOrEqual(30)
+    }
   })
 })

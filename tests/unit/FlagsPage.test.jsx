@@ -32,9 +32,9 @@ describe('FlagsPage', () => {
         <FlagsPage />
       </MemoryRouter>
     )
-    await user.click(screen.getByRole('radio', { name: 'Rare UI look (orange)' }))
+    await user.click(screen.getByRole('radio', { name: 'Rare UI look (black and orange)' }))
     expect(document.documentElement.dataset.skin).toBe('rare')
     expect(localStorage.getItem(SKIN_KEY)).toBe('rare')
-    expect(screen.getByRole('radio', { name: 'Rare UI look (orange)' }).checked).toBe(true)
+    expect(screen.getByRole('radio', { name: 'Rare UI look (black and orange)' }).checked).toBe(true)
   })
 })
