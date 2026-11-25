@@ -362,8 +362,9 @@ export default function DraftEditor({ user }) {
     try {
       setSaving(true)
 
-      // Publish reads the saved posts on the server, so flush the pending autosave first.
-      const saved = await saveDraft(draft, true)
+      // Publish reads the saved posts on the server, so flush the pending autosave first. The draft is read after
+      // the confirmation: a live update made while the dialog was open must not be overwritten (#363).
+      const saved = await saveDraft(draftRef.current, true)
       if (!saved) throw new Error('Could not save your latest edits. Try again.')
 
       // The server deletes the draft's images, clears them from posts and marks it published.

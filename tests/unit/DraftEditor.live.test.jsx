@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import DraftEditor from '../../src/pages/DraftEditor.jsx'
@@ -11,7 +11,7 @@ import { beginUpload, endUpload } from '../../src/utils/pendingUploads'
 
 // Live updates (#363): the open editor asks the server for newer versions, with the rate, pause and stop rules.
 vi.mock('../../src/utils/api', () => ({
-  draftsApi: { get: vi.fn(), update: vi.fn(), check: vi.fn() },
+  draftsApi: { get: vi.fn(), update: vi.fn(), check: vi.fn(), publish: vi.fn() },
   authApi: { login: vi.fn() }
 }))
 vi.mock('idb-keyval', () => {
@@ -195,6 +195,27 @@ describe('DraftEditor live updates (#363)', () => {
     endUpload()
     await advance(4000)
     expect(draftsApi.check).toHaveBeenCalledTimes(1)
+  })
+
+  it('publishes the draft as it is after the confirmation, not the copy from before it', async () => {
+    draftsApi.check.mockResolvedValueOnce({
+      changed: true,
+      draft: { ...DRAFT, version: 4, title: 'Changed by an AI app' }
+    })
+    draftsApi.publish.mockResolvedValue({})
+    renderEditor()
+    await screen.findByLabelText('Draft title')
+
+    await typer().click(screen.getByRole('button', { name: 'Publish' }))
+    const dialog = await screen.findByRole('dialog')
+    await advance(4000) // another app changes the draft while the confirmation is open
+    expect(screen.getByLabelText('Draft title')).toHaveValue('Changed by an AI app')
+
+    await typer().click(within(dialog).getByRole('button', { name: 'Publish' }))
+    await advance(1000)
+    const lastSave = draftsApi.update.mock.calls.at(-1)
+    expect(lastSave[1].title).toBe('Changed by an AI app')
+    expect(lastSave[2]).toBe(4)
   })
 
   it('pauses after ten minutes, and Resume (or any input) starts checks again', async () => {
