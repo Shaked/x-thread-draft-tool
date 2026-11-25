@@ -257,6 +257,7 @@
         "body": "CLAIM session s2 | branch claude/a9 | model Haiku | started 2026-11-25T01:00Z | heartbeat 2026-11-25T02:00Z",
         "author_association": "OWNER"
       }
-    ]
+    ],
+    "12": []
   }
 }

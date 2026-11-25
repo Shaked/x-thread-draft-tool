@@ -45,7 +45,8 @@ Allowed without asking:
 - Add a missing `Depends on: #n` line to an issue body. Change nothing else in the body.
 - Add a label: `task` to a sub-issue with no label, `epic` to an issue with sub-issues.
 - Link duplicates: comment on both, then close the newer one with the state reason `duplicate`. Only when the titles
-  and bodies say the same work and the newer one has no CLAIM, HANDOFF or PR of its own.
+  and bodies say the same work, both are in one epic, and the newer one has no CLAIM, HANDOFF or PR of its own
+  (read its comments: the script says `dispatcher` when they are not loaded).
 
 Never:
 - Delete an issue, a comment or a label.

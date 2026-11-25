@@ -95,6 +95,7 @@ describe('parsers', () => {
     expect(dependencies('Do not start this before #2 is merged.').before).toEqual([])
     expect(dependencies('Wait until before #2 ships. Goes before #3.').before).toEqual([3])
     expect(dependencies('Depends on #12; done when #13 closes.').refs).toEqual([12])
+    expect(dependencies('Depends on: #5. Blocked by #6.').refs).toEqual([5, 6])
     expect(dependencies('Depends on: #359 merged. Server only: it does not wait for #327.').refs).toEqual([359])
     expect(dependencies('Depends on: none (#278 is merged). Goes before #279 resumes.')).toMatchObject({ refs: [278], before: [279] })
     expect(dependencies('This is no longer depends on #5. Not blocked by A2.')).toMatchObject({ refs: [], named: [] })
@@ -193,5 +194,16 @@ describe('allowed fixes stay narrow', () => {
     expect(withHandoff.find((f) => f.kind === 'duplicate').act).toBe('dispatcher')
     const twoEpics = analyze(base([issue(1, 'Same work', { parent: 7 }), issue(2, 'Same work', { parent: 8 })]), { today: TODAY })
     expect(twoEpics.find((f) => f.kind === 'duplicate').act).toBe('dispatcher')
+    const noParent = analyze(base([issue(1, 'Same work'), issue(2, 'Same work')], { 2: [] }), { today: TODAY })
+    expect(noParent.find((f) => f.kind === 'duplicate').act).toBe('dispatcher')
+  })
+
+  it('allows a same-title close only when the newer one has loaded comments, no claim marker and no PR', () => {
+    const pair = [issue(1, 'Same work', { parent: 7 }), issue(2, 'Same work', { parent: 7 })]
+    const act = (snap) => analyze(snap, { today: TODAY }).find((f) => f.kind === 'duplicate').act
+    expect(act(base(pair, { 2: [] }))).toBe('allowed')
+    expect(act(base(pair))).toBe('dispatcher')
+    expect(act({ ...base(pair, { 2: [] }), markers: { claim: [2] } })).toBe('dispatcher')
+    expect(act({ ...base(pair, { 2: [] }), pulls: [{ number: 9, title: 'x', body: 'Closes #2' }] })).toBe('dispatcher')
   })
 })

@@ -87,6 +87,16 @@ export function similarity(a, b) {
 const NEGATION = /\b(not|until|start|no longer)\b|n't\b/i
 const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 
+// One clause: it ends at the sentence end or where the next field starts ("Done when", "PR lines").
+// Code spans are not dependencies; a "PR #n" or "see #n" is not one either.
+function dependencyClause(rest, refs, named) {
+  const text = rest.split(/\b(?:Done when|PR (?:body )?lines?|Owner steps)\b|\.\s+(?=[A-Z])/i)[0].replace(/`[^`]*`/g, ' ')
+  for (const m of text.matchAll(/(PR\s+|see\s+)?#(\d+)/gi)) if (!m[1]) refs.add(Number(m[2]))
+  // Task ids named without a number, outside parentheses: "Depends on: M5 (see #439)" names M5; "C2 (#418)" has its number.
+  const bare = text.replace(/\b[A-Z]{1,2}\d+[a-z]?\s*\(#\d+[^)]*\)/g, ' ').replace(/\([^)]*\)/g, ' ').replace(/#\d+/g, ' ')
+  for (const m of bare.matchAll(/(?<![\w-])([A-PR-Z]{1,2}\d+[a-z]?)(?![\w-])/g)) named.add(m[1])
+}
+
 /** Issue numbers on "Depends on", "Blocked by" and "starts after" lines. A "PR #n" or "see #n" is not a dependency. */
 export function dependencies(body) {
   const refs = new Set()
@@ -97,16 +107,10 @@ export function dependencies(body) {
     for (const m of line.matchAll(/(?:^|[.;]\s+)(?:goes\s+)?before\s+#(\d+)/gi)) {
       if (!NEGATION.test(line.slice(Math.max(0, m.index - 20), m.index + m[0].length))) before.add(Number(m[1]))
     }
-    const at = line.search(/\b(depends on|blocked by|starts after)\b/i)
-    if (at === -1 || /\b(not|no longer)\s+$|n't\s+$/i.test(line.slice(Math.max(0, at - 12), at))) continue
-    // The clause ends at the sentence end or where the next field starts ("Done when", "PR lines").
-    // Code spans are not dependencies.
-    const text = line.slice(at).split(/\b(?:Done when|PR (?:body )?lines?|Owner steps)\b|\.\s+(?=[A-Z])/i)[0].replace(/`[^`]*`/g, ' ')
-    for (const m of text.matchAll(/(PR\s+|see\s+)?#(\d+)/gi)) if (!m[1]) refs.add(Number(m[2]))
-    // Task ids named without a number, outside parentheses: "Depends on: M5 (see #439)" names M5.
-    // "C2 (#418)" already has its number.
-    const bare = text.replace(/\b[A-Z]{1,2}\d+[a-z]?\s*\(#\d+[^)]*\)/g, ' ').replace(/\([^)]*\)/g, ' ').replace(/#\d+/g, ' ')
-    for (const m of bare.matchAll(/(?<![\w-])([A-PR-Z]{1,2}\d+[a-z]?)(?![\w-])/g)) named.add(m[1])
+    for (const m of line.matchAll(/\b(depends on|blocked by|starts after)\b/gi)) {
+      if (/\b(not|no longer)\s+$|n't\s+$/i.test(line.slice(Math.max(0, m.index - 12), m.index))) continue
+      dependencyClause(line.slice(m.index), refs, named)
+    }
   }
   return { refs: [...refs], named: [...named], before: [...before] }
 }
@@ -185,8 +189,7 @@ function checkShipped(c, i) {
   } else if (!c.loaded(i) && c.marked('release', i)) {
     c.add('shipped', [i.number], `${ref(i.number)}: a comment has RELEASE, comments not loaded.`, 'Read its comments; a HANDOFF that is not "done" keeps the issue open.')
   }
-  const re = new RegExp(`\\b(closes|fixes|resolves|implements)\\s+#${i.number}\\b`, 'i')
-  const named = [...c.pulls.values()].filter((p) => re.test(`${p.title}\n${p.body || ''}`)).map((p) => p.number).sort((a, b) => a - b)
+  const named = c.prsNaming(i.number)
   if (named.length && !done) {
     c.add('shipped', [i.number, ...named], `${ref(i.number)}: merged ${plural(named.length, 'PR', 'PRs')} ${refs(named)} ${plural(named.length, 'names', 'name')} it, and no done HANDOFF exists.`,
       'Read the PRs and the issue; close it, or write in the issue what is left.')
@@ -199,9 +202,10 @@ function checkPair(c, x, y) {
   const sameId = Boolean(ix) && ix.id === taskId(y)?.id && c.scope(x) !== null && c.scope(x) === c.scope(y)
   if (same) {
     // Allowed only in one epic (same parent or same title prefix) and when the newer one has no CLAIM or HANDOFF.
-    const sameScope = x.parent === y.parent || (Boolean(ix?.prefix) && ix.prefix === taskId(y)?.prefix)
+    const sameScope = (x.parent !== null && x.parent === y.parent) || (Boolean(ix?.prefix) && ix.prefix === taskId(y)?.prefix)
     const newer = c.facts.get(y.number)
-    const act = sameScope && !newer.claim && !newer.handoffs.length ? 'allowed' : 'dispatcher'
+    const untouched = Boolean(c.loaded(y)) && !c.marked('claim', y) && !newer.claim && !newer.handoffs.length && !c.prsNaming(y.number).length
+    const act = sameScope && untouched ? 'allowed' : 'dispatcher'
     c.add('duplicate', [x.number, y.number], `${ref(x.number)} and ${ref(y.number)} have the same title.`, `Read both; if the bodies match, close {#${y.number}} as a duplicate of {#${x.number}} with a comment.`, act)
   } else if (sameId) {
     c.add('duplicate', [x.number, y.number], `${ref(x.number)} and ${ref(y.number)} have the same task id \`${ix.id}\`.`, `Read both; if the bodies match, close {#${y.number}} as a duplicate of {#${x.number}} with a comment.`)
@@ -333,6 +337,8 @@ export function analyze(snapshot, { today = new Date().toISOString(), staleDays 
     deps: new Map(open.map((i) => [i.number, dependencies(i.body)])),
     loaded: (i) => comments[i.number] || comments[String(i.number)],
     marked: (kind, i) => (markers[kind] || []).includes(i.number),
+    // Merged PRs whose title or body says "Closes", "Fixes", "Resolves" or "Implements #n".
+    prsNaming: (n) => [...(snapshot.pulls || [])].filter((p) => new RegExp(`\\b(closes|fixes|resolves|implements)\\s+#${n}\\b`, 'i').test(`${p.title}\n${p.body || ''}`)).map((p) => p.number).sort((a, b) => a - b),
     scope: (i) => i.parent ?? taskId(i)?.prefix ?? null,
     add: (kind, issues, what, fix, act = 'dispatcher') => out.push({ kind, issues, what, fix, act })
   }
