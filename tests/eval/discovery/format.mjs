@@ -16,6 +16,7 @@ const FENCE = /^\s*(`{3,}|~{3,})/
 const LABELS = { user: /\(the user's own text, between the fences\):$/, copy: /^Post text to copy:$/ }
 const COPY_LABEL = 'Post text to copy:'
 // Server text that asks the assistant for a code block (#358): the model would write the fence, not the server.
+// It also refuses "do not use a code block": on purpose, the safe way. Lines inside a fence (the user's text) are skipped.
 const ASKS_FOR_CODE = /\bcode blocks?\b|`{3}/i
 export const SAMPLES = {
   en: 'Coffee notes: one `tick`, two ``` fences, **bold** and a link https://example.com',
@@ -75,7 +76,7 @@ export function templatesFor(profile, server) {
         const args = promptArgs(prompt, lang)
         const built = server.getPrompt(prompt.name, args, { origin: 'https://app.example' })
         const text = built.result.messages.map((m) => m.content.text).join('\n')
-        out.push({ group: 'prompts', name: `${prompt.name} (${lang} message)`, text, keep: Object.keys(args).length ? SAMPLES[lang] : undefined, fences: ['user'], intro: built.result.messages[0].content.text.split('\n\n')[0] })
+        out.push({ group: 'prompts', name: `${prompt.name} (${lang} message)`, text, keep: Object.keys(args).length ? SAMPLES[lang] : undefined, fences: ['user'], server: true })
       }
     }
   }
@@ -98,11 +99,10 @@ export function formatEval(clients, server) {
       const row = (groups[t.group] ??= { client, group: t.group, texts: 0, fence: 0, hebrew: 0, length: 0 })
       row.texts += 1
       const where = `${client} ${t.group} ${t.name}`
-      // A prompt message mixes server text and the user's sample, so its server part (the intro) is checked on its own.
-      const fences = [...fenceProblems(t.text, { allowed: t.fences, server: t.server }), ...(t.intro ? fenceProblems(t.intro, { server: true }) : [])]
+      const fences = fenceProblems(t.text, { allowed: t.fences, server: t.server })
       if (fences.length) problems.push(...fences.map((p) => `${where}: ${p}`))
       else row.fence += 1
-      const hebrewOk = (t.keep === undefined || t.text.includes(t.keep)) && (!t.server || isCleanServerText(t.text))
+      const hebrewOk = (t.keep === undefined || t.text.includes(t.keep)) && (!t.server || t.fences?.includes('user') || isCleanServerText(t.text))
       if (hebrewOk) row.hebrew += 1
       else problems.push(`${where}: Hebrew or user text is not kept exactly as written`)
       if (t.limit && tooLong(t.text, t.limit)) problems.push(`${where}: longer than ${JSON.stringify(t.limit)}`)
