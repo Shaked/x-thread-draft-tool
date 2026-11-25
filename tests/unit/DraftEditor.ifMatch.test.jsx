@@ -100,7 +100,7 @@ describe('DraftEditor save with a version (If-Match)', () => {
     await userEvent.type(title, '!')
     unload()
 
-    expect(draftsApi.update).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(draftsApi.update).toHaveBeenCalledTimes(1))
     expect(draftsApi.update.mock.calls[0][3]).toEqual({ keepalive: true })
   })
 
@@ -147,5 +147,37 @@ describe('DraftEditor save with a version (If-Match)', () => {
     expect(draftsApi.update.mock.calls[1][1].title).toBe('Draft one!')
     expect(draftsApi.update.mock.calls[1][2]).toBe(5)
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('saves one at a time: the next save waits for a slow save and sends its new version', async () => {
+    let finishFirst
+    draftsApi.update
+      .mockImplementationOnce(() => new Promise(resolve => (finishFirst = resolve)))
+      .mockResolvedValueOnce({ ...DRAFT, version: 5 })
+    renderEditor()
+    const title = await screen.findByLabelText('Draft title')
+    await userEvent.type(title, '!')
+    await runSaveDebounce()
+    await userEvent.type(title, '?')
+    await runSaveDebounce()
+
+    expect(draftsApi.update).toHaveBeenCalledTimes(1)
+    await act(async () => finishFirst({ ...DRAFT, version: 4 }))
+    await waitFor(() => expect(draftsApi.update).toHaveBeenCalledTimes(2))
+    expect(draftsApi.update.mock.calls[1][2]).toBe(4)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('asks before the page closes while a conflict waits for the choice', async () => {
+    draftsApi.update.mockRejectedValue(
+      httpError(412, 'stale', { version: 5, draft: { ...DRAFT, title: 'Theirs', version: 5 } })
+    )
+    renderEditor()
+    await typeInTitle('!')
+    await screen.findByRole('alert')
+
+    const event = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
   })
 })

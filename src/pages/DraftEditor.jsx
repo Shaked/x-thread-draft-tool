@@ -60,6 +60,8 @@ export default function DraftEditor({ user }) {
   const versionRef = useRef(undefined)
   // Mirrors `conflict`, so a save started in the same tick sees it at once. No save runs while it is set.
   const conflictRef = useRef(false)
+  // Saves run one at a time, so a save never sends the version an earlier save of this editor just replaced.
+  const saveChainRef = useRef(Promise.resolve())
 
   const loadDraft = async () => {
     try {
@@ -99,7 +101,15 @@ export default function DraftEditor({ user }) {
       // No save while another app's change is waiting for the user's choice.
       if (!user || conflictRef.current) return false
 
+      const enqueue = fn => {
+        const run = saveChainRef.current.then(fn)
+        saveChainRef.current = run.catch(() => {})
+        return run
+      }
+
       const saveFn = async () => {
+        // A save queued before a conflict must not send anything once the conflict is open.
+        if (conflictRef.current) return false
         try {
           setSaving(true)
           setSynced(false)
@@ -141,13 +151,13 @@ export default function DraftEditor({ user }) {
         if (saveTimeoutRef.current) {
           clearTimeout(saveTimeoutRef.current)
         }
-        return saveFn()
+        return enqueue(saveFn)
       } else {
         // Debounce
         if (saveTimeoutRef.current) {
           clearTimeout(saveTimeoutRef.current)
         }
-        saveTimeoutRef.current = setTimeout(saveFn, 1000)
+        saveTimeoutRef.current = setTimeout(() => enqueue(saveFn), 1000)
       }
     },
     [id, user]
@@ -165,7 +175,13 @@ export default function DraftEditor({ user }) {
 
   useEffect(() => {
     // Save before unload, but only real unsaved edits: an untouched draft must not overwrite a newer version.
-    const handleBeforeUnload = () => {
+    const handleBeforeUnload = event => {
+      // While a conflict waits for the user's choice nothing is saved, so ask before the page closes.
+      if (conflictRef.current) {
+        event.preventDefault()
+        event.returnValue = ''
+        return
+      }
       if (draft && JSON.stringify(draft) !== lastSavedRef.current) {
         saveDraft(draft, true, true)
       }
@@ -182,7 +198,7 @@ export default function DraftEditor({ user }) {
 
   // "Show their changes": keep my text for copying, then show the draft the other app saved.
   const showTheirs = () => {
-    if (!conflict?.theirs) return
+    if (!conflict?.theirs || !Number.isInteger(conflict.version)) return
     setCopyText(plainText(draft))
     const theirs = normalizeDraft(conflict.theirs)
     versionRef.current = conflict.version
