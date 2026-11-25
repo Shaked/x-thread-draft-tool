@@ -12,7 +12,7 @@ Code:
 
 ## The five kinds
 
-This section describes what the script sends today. The target format, with no emoji and one action line, is `.claude/skills/reply-style/templates/telegram-message.md`; task #369 moves the script to it.
+This section describes what the script sends today. The target format, with no emoji and one action line, is `.claude/skills/reply-style/templates/telegram-message.md`; task #369 moves the script to it. "The target messages" below shows each one.
 
 
 | Kind | Headline | When it is sent | Links |
@@ -37,6 +37,27 @@ Nothing else sends a message. There is no message for a push, a new PR, a CI run
 Limits of the text today:
 - The "passed" line has no number. "N/N passed" is not in the code yet.
 - The try-preview message does not say what to try. It has only the links.
+
+## The target messages
+
+Not sent yet. The script moves to these texts in the Telegram code step of task #369, with a golden test for each.
+The rules and the placeholders are in `.claude/skills/reply-style/templates/telegram-message.md`. Bold is the headline, and
+the headline is the link. English only: the owner reads English.
+
+| Kind | Example |
+|---|---|
+| Production passed | **Production is live and tested**<br>`46070af` Thread view: one action row and purple accent<br>Smoke tests passed.<br>Nothing needed.<br>See the run |
+| Production failed | **Production smoke test failed**<br>`46070af` Thread view: one action row and purple accent<br>Production runs this commit, and its smoke test failed or did not run.<br>Needs you: open the run and read the first failed step.<br>Open production |
+| Try it on preview | **Try it on preview**<br>Thread view: one action row and purple accent<br>What changed: the thread view shows its three buttons in one row.<br>Needs you: try the change on preview.<br>PR #424 on GitHub |
+| Needs you | **Needs you on GitHub**<br>Changelog entries and Telegram messages follow the writing templates<br>Needs you: open it and answer or do what it asks. |
+| Cleanup review ready | **Cleanup review ready**<br>Remove duplicate tests<br>What it removes: two parser tests that check the same thing.<br>Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR. |
+| Cleanup review started | **Cleanup review started**<br>Cleanup review 2026-11-25<br>Nothing needed. An agent reviews the changes and opens a PR if it finds something to remove. |
+| Metrics alert | **Metrics alert: slow answers**<br>Slow: 5 % of API answers took over 1380 ms in the last 24 hours. The limit is 1000 ms.<br>Needs you: open the metrics page and read which route or table it names. |
+
+What the code step changes, besides the text:
+- The "What changed" line of the try-preview message reads the `Summary:` line of the PR body, as the cleanup message does today.
+- The production passed message links the run only when `smoke-deployed.yml` passes `NOTIFY_RUN_URL` for it. Today it passes it only for the failed message.
+- No workflow sends a metrics alert yet. Task O7 of `docs/plans/observability.md` adds the kind `metrics` and uses this text.
 
 ## The two secrets, and how to set them
 
