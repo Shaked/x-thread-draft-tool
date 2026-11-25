@@ -11,17 +11,37 @@ const HEX = '#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?'
 const LIGHT_DARK = new RegExp(`^light-dark\\((${HEX}),\\s*(${HEX})\\)$`)
 const OVERLAYS = ['overlay', 'overlay-strong', 'on-overlay'] // the same in both themes, not light-dark()
 
-const THEMES = { light: {}, dark: {} }
-const notLightDark = []
-for (const [, name, value] of tokensCss.matchAll(/^\s*--color-([\w-]+):\s*([^;]+);/gm)) {
-  const pair = value.trim().match(LIGHT_DARK)
-  if (pair) {
-    THEMES.light[name] = pair[1]
-    THEMES.dark[name] = pair[2]
-  } else {
-    notLightDark.push(name)
-    THEMES.light[name] = value.trim()
-    THEMES.dark[name] = value.trim()
+// Parses the --color-* tokens of one block of CSS into a light and a dark map.
+function parseColours(css) {
+  const themes = { light: {}, dark: {} }
+  const plain = []
+  for (const [, name, value] of css.matchAll(/^\s*--color-([\w-]+):\s*([^;]+);/gm)) {
+    const pair = value.trim().match(LIGHT_DARK)
+    if (pair) {
+      themes.light[name] = pair[1]
+      themes.dark[name] = pair[2]
+    } else {
+      plain.push(name)
+      themes.light[name] = value.trim()
+      themes.dark[name] = value.trim()
+    }
+  }
+  return { themes, plain }
+}
+
+// The default tokens come before the skin block; the "rare" skin only overrides some of them (feature flag).
+const SKIN_START = ":root[data-skin='rare'] {"
+const skinAt = tokensCss.indexOf(SKIN_START)
+const skinEnd = tokensCss.indexOf('\n}', skinAt)
+const base = parseColours(tokensCss.slice(0, skinAt))
+const rareOverrides = parseColours(tokensCss.slice(skinAt, skinEnd))
+const THEMES = base.themes
+const notLightDark = base.plain
+const SKIN_THEMES = {
+  default: THEMES,
+  rare: {
+    light: { ...THEMES.light, ...rareOverrides.themes.light },
+    dark: { ...THEMES.dark, ...rareOverrides.themes.dark }
   }
 }
 
@@ -74,12 +94,12 @@ describe('colour tokens', () => {
   })
 })
 
-describe('colour contrast', () => {
-  for (const theme of Object.keys(THEMES)) {
+describe.each(Object.keys(SKIN_THEMES))('colour contrast, %s skin', (skin) => {
+  for (const theme of ['light', 'dark']) {
     describe(`${theme} theme`, () => {
       for (const [fg, bg, min] of PAIRS) {
         it(`${fg} on ${bg} is at least ${min}:1`, () => {
-          const colours = THEMES[theme]
+          const colours = SKIN_THEMES[skin][theme]
           const ratio = contrast(colours[fg], colours[bg])
           expect(ratio, `${fg} ${colours[fg]} on ${bg} ${colours[bg]}`).toBeGreaterThanOrEqual(min)
         })
@@ -88,11 +108,18 @@ describe('colour contrast', () => {
   }
 
   it('reads every pair token in both themes as a 6-digit hex colour', () => {
-    for (const colours of Object.values(THEMES)) {
+    for (const colours of Object.values(SKIN_THEMES[skin])) {
       for (const [fg, bg] of PAIRS) {
         expect(colours[fg]).toMatch(/^#[0-9a-f]{6}$/i)
         expect(colours[bg]).toMatch(/^#[0-9a-f]{6}$/i)
       }
     }
+  })
+})
+
+describe('rare skin overrides', () => {
+  it('only overrides tokens that exist in the default set, as light-dark() pairs', () => {
+    expect(rareOverrides.plain).toEqual([])
+    for (const name of Object.keys(rareOverrides.themes.light)) expect(THEMES.light).toHaveProperty(name)
   })
 })

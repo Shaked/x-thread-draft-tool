@@ -9,8 +9,10 @@ import XThreadPreviewPage from './pages/XThreadPreviewPage'
 import TokensPage from './pages/TokensPage'
 import AppsPage from './pages/AppsPage'
 import AboutPage from './pages/AboutPage'
+import FlagsPage from './pages/FlagsPage'
 import ChangelogPage from './pages/ChangelogPage'
 import { applyTheme, getTheme } from './utils/theme'
+import { applySkin } from './utils/skin'
 import { clearCachedDrafts } from './utils/draftCache'
 import { ToastProvider } from './ui/Toast'
 import { ConfirmProvider } from './ui/Dialog'
@@ -21,6 +23,7 @@ function App() {
   const [suspended, setSuspended] = useState(() => new URLSearchParams(window.location.search).get('suspended') === '1')
   useEffect(() => {
     applyTheme(getTheme())
+    applySkin()
   }, [])
   const [loading, setLoading] = useState(true)
 
@@ -77,6 +80,10 @@ function App() {
           <Route
             path="/settings/apps"
             element={user ? <AppsPage /> : <LoginPage suspended={suspended} />}
+          />
+          <Route
+            path="/settings/flags"
+            element={user ? <FlagsPage /> : <LoginPage suspended={suspended} />}
           />
           <Route
             path="/about"

@@ -21,7 +21,9 @@ import path from 'node:path'
 const BASE = process.env.XT_BASE_URL ?? 'http://localhost:4173'
 const ORIGIN = new URL(BASE).origin
 const WIDTHS = [390, 1280]
-const OUT = path.join('test-results', 'screens')
+// XT_SKIN=rare takes the shots with the Rare UI look (feature flag, Settings > Feature flags) into test-results/screens-rare.
+const SKIN = process.env.XT_SKIN === 'rare' ? 'rare' : null
+const OUT = path.join('test-results', SKIN ? `screens-${SKIN}` : 'screens')
 // The dev API checks the Origin of cookie POSTs against its own address; the preview (4173) is proxied to it.
 // A POST sent from the preview origin is therefore re-sent with the API origin (same trick as app-menu.spec.ts).
 const APP_ORIGIN = ORIGIN === 'http://127.0.0.1:4173' || ORIGIN === 'http://localhost:4173' ? 'http://127.0.0.1:8787' : ORIGIN
@@ -90,6 +92,7 @@ async function shoot(
   }
   const page = await context.newPage()
   if (options.theme) await page.addInitScript((value) => localStorage.setItem('xt-theme', value), options.theme)
+  if (SKIN) await page.addInitScript((value) => localStorage.setItem('xt-skin', value), SKIN)
   await page.goto(`${BASE}${pagePath}`, { waitUntil: 'networkidle' })
   if (options.ready) await options.ready(page).first().waitFor({ timeout: 15_000 })
   if (options.before) await options.before(page)
