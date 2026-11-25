@@ -432,7 +432,9 @@ export default function DraftEditor({ user }) {
                     </Button>
                     <Button variant="ghost" onClick={() => {
                       setCopy(null)
-                      idbDel(mineKeyOf(id)).catch(() => {})
+                      // A conflict is still open: keep my current text, not the copy that was dismissed.
+                      if (conflictRef.current) idbSet(mineKeyOf(id), plainText(draft)).catch(() => {})
+                      else idbDel(mineKeyOf(id)).catch(() => {})
                     }}>
                       Dismiss
                     </Button>
