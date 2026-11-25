@@ -66,6 +66,25 @@ export const draftsApi = {
   },
 
   /**
+   * The open editor's cheap "did it change?" check (#360). `version` is the one the editor holds: the server
+   * answers 304 with no body when it is current, so `{ changed: false }`. Otherwise `{ changed: true, draft }`.
+   */
+  async check(id, version) {
+    const response = await fetch(`/api/drafts/${encodeURIComponent(id)}`, {
+      credentials: 'same-origin',
+      headers: { 'if-none-match': `"${version}"` }
+    })
+    if (response.status === 304) return { changed: false }
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      const error = new Error(data.error || `HTTP ${response.status}`)
+      error.status = response.status
+      throw error
+    }
+    return { changed: true, draft: data.draft }
+  },
+
+  /**
    * `version` is the draft version the editor last read or saved. The server refuses a write made on an
    * older version with 412 and writes nothing (`If-Match`). `keepalive` lets a save during page unload finish.
    */

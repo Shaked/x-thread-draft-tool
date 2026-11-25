@@ -19,7 +19,7 @@ import Button from '../ui/Button'
 import PostBox from './PostBox'
 import './ThreadComposer.css'
 
-function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly }) {
+function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly, updated = false }) {
   const {
     attributes,
     listeners,
@@ -40,7 +40,7 @@ function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly })
   }, [setNodeRef, transform, transition])
 
   return (
-    <div ref={setRef} className={`thread-post${isDragging ? ' thread-post--dragging' : ''}`}>
+    <div ref={setRef} className={`thread-post${isDragging ? ' thread-post--dragging' : ''}${updated ? ' thread-post--updated' : ''}`}>
       <PostBox
         post={post}
         index={index}
@@ -54,7 +54,8 @@ function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly })
   )
 }
 
-export default function ThreadComposer({ posts, onPostsChange, readOnly = false }) {
+// highlightIds: posts another app just changed (#363). Their wrapper gets a short highlight (see ThreadComposer.css).
+export default function ThreadComposer({ posts, onPostsChange, readOnly = false, highlightIds = [] }) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
@@ -149,6 +150,7 @@ export default function ThreadComposer({ posts, onPostsChange, readOnly = false 
                   onUpdate={(updatedPost) => updatePost(index, updatedPost)}
                   onRemove={() => removePost(post.id)}
                   readOnly={readOnly}
+                  updated={highlightIds.includes(post.id)}
                 />
               </div>
             ))}

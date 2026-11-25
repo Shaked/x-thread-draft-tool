@@ -30,6 +30,27 @@
   opacity: var(--opacity-disabled);
 }
 
+/* Another app changed this post (#363): a short highlight. Reduced motion gets the colour with no animation. */
+.thread-post--updated {
+  animation: thread-post-updated var(--duration-highlight) var(--ease-standard);
+}
+
+@keyframes thread-post-updated {
+  from {
+    background-color: var(--color-accent-soft);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thread-post--updated {
+    animation: none;
+    background-color: var(--color-accent-soft);
+  }
+}
+
 .thread-insert {
   margin-block: var(--space-2);
 }

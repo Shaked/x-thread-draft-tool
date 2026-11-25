@@ -3,6 +3,7 @@
 - Create, edit, list, and delete drafts.
 - Published/archive state for completed drafts.
 - Owner vs shared-view behavior separation.
+- Live updates in the open editor (#363): while the page is visible and nothing is unsaved or saving, it checks the draft every 4 s with `If-None-Match` (304 when unchanged), with 15 s checks after 2 min idle and a pause after 10 min (Resume or any input restarts). A newer version replaces the editor's copy, highlights the changed posts and shows "Updated just now".
 
 ## The app bar
 
