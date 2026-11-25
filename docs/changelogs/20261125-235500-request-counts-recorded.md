@@ -4,7 +4,7 @@
 - Nothing shows the counts yet, so the app looks the same.
 
 Area: Admin
-Link: pending
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/460
 
 ## Technical details
 
