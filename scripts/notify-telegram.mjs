@@ -9,6 +9,7 @@
 //   owner            the repository owner added the label owner: needs you
 //   cleanup          a PR got the label cleanup-pr (epic #255, task C3): review the cleanup PR
 //   cleanup-started  the daily workflow opened a cleanup review issue
+//   weekly-started   the weekly workflow opened a weekly review issue (epic #273, task #295)
 //   speed            a stage is over its limit: the Alert shape (speed-metrics.mjs, tasks #310 and #446)
 //
 // CLI (the workflows pass every value through environment variables, never inside the shell text):
@@ -38,6 +39,7 @@ export const EMOJI = {
   owner: '🙋',
   cleanup: '🧹',
   'cleanup-started': '🧹',
+  'weekly-started': '🗓',
   speed: '🐢',
 }
 
@@ -160,6 +162,12 @@ export function buildMessage(kind, data = {}) {
           ...(summary ? [text(`What it removes: ${summary}`)] : []),
           text('Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR.'),
         ],
+      )
+    case 'weekly-started':
+      return message(
+        'weekly-started',
+        ['Weekly review started', data.url],
+        [text(title), text('An agent checks the signals and opens up to three PRs; owner items get the label owner.')],
       )
     case 'cleanup-started':
       return message(

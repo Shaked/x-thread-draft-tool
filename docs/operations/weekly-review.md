@@ -4,13 +4,20 @@ Epic #273, request 7 (Shaked, 2026-11-20): a weekly run checks what can be impro
 dependencies, uses the skill `.claude/skills/product-care.md`, and updates that skill in the same week when
 things changed. A human approves once something is available for a change. Small changes the agent decides itself.
 
-Task #294 wrote these rules. The workflow that starts the run is task #295. Until #295 merges, no run starts.
+Task #294 wrote these rules. Task #295 added the workflow `.github/workflows/weekly-review.yml` and the check
+`scripts/weekly-review-check.mjs`.
 
 ## How a run starts
 
 - Label `weekly`, executor Opus, at most one open `weekly` issue per week. The issue body is
   `.github/weekly-review-issue.md` plus the commit list since the last run.
-- Schedule: on (owner default, 2026-11-20, epic plan O3). To make it on demand only, Shaked changes the workflow file.
+- Schedule: on, Mondays 05:23 UTC (owner default, 2026-11-20, epic plan O3). To make it on demand only, Shaked changes the workflow file.
+- Before any run, the check (no model, no tokens) collects the signals: `npm outdated`, `npm audit`, the MCP and
+  Vercel pins against npm, the Telegram Bot API version, the Node LTS against the workflow Node versions, and the
+  client-matrix rows not checked for over 30 days (`node tests/eval/client-matrix.mjs --stale`).
+- It hashes the signals. The hash and the signals are stored in the issue body. The next run compares its hash with
+  the newest `weekly` issue. Same hash: nothing happens. A source that cannot be read keeps its last value, so it
+  never opens an issue by itself.
 - It opens no new issue while an earlier `weekly` issue is still open.
 
 ## What the run checks

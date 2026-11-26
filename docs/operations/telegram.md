@@ -24,6 +24,7 @@ The script sends the forms in `.claude/skills/reply-style/templates/telegram-mes
 | Needs you | An issue needs you, or A PR needs you (the item) | The label `owner` is added to an issue or a pull request, by the repository owner's account. | none |
 | Cleanup review ready | Cleanup review ready (the PR) | A pull request gets the label `cleanup-pr`, added by the repository owner's account. The same label on an issue sends nothing. | none |
 | Cleanup review started | Cleanup review started (the issue) | The daily workflow opens a cleanup review issue. | none |
+| Weekly review started | Weekly review started (the issue) | The weekly workflow (`weekly-review.yml`, task #295) opens a weekly review issue, because a signal changed and no `weekly` issue was opened within 6 days. | none |
 | 🐢 Delivery is slower than its limit: <stages> (plain stage names) | The per-merge run after a production merge, when a stage is over its limit: the first merge of a streak over a limit. Again only after the stages have been within their limits for 24 hours. A manual run of `speed-metrics.yml` (input `last`) sends it when a stage's p90 is over its limit. | The Alert shape (template section 6): "This merge took 2 min 49 s in CI checks. The limit is ..., since <UTC time> (N in a row)." Then the likely cause, or "not known yet". Links: the speed table and the stage definitions. No action line. | The gate issue (the per-merge run) or the run (manual) |
 
 What a message looks like (the forms in the template):
@@ -50,6 +51,7 @@ Bold is the headline, and the headline is the link. English only: the owner read
 | Needs you | 🙋 **An issue needs you**, or 🙋 **A PR needs you**<br>Changelog entries and Telegram messages follow the writing templates<br>Needs you: open it and answer or do what it asks. |
 | Cleanup review ready | 🧹 **Cleanup review ready**<br>Remove duplicate tests<br>What it removes: two parser tests that check the same thing.<br>Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR. |
 | Cleanup review started | 🧹 **Cleanup review started**<br>Cleanup review 2026-11-25<br>An agent reviews the commits since the last review and opens up to three PRs. |
+| Weekly review started | 🗓 **Weekly review started**<br>Weekly review 2026-11-30<br>An agent checks the signals and opens up to three PRs; owner items get the label owner. |
 | Metrics alert | 🚨 **Metrics alert: slow answers**<br>Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms.<br>Needs you: open the metrics page and find the route with the errors or the slow answers. |
 
 Notes:
