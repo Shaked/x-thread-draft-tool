@@ -135,6 +135,21 @@ describe('GET /admin/metrics/summary', () => {
     )
   })
 
+  it('a production error does not make stale delivery events look fresh', async () => {
+    await merge('m1', 10 * HOUR, 100000, 'ok')
+    await event('e1', 60000, { source: 'prod', kind: 'error', name: 'GET /drafts', status: '500' })
+    const { body } = await getJson('admin_metrics_summary', '/admin/metrics/summary')
+    expect(body.events_until).toBe(iso(now - 10 * HOUR))
+    expect(body.text.split('\n')[0]).toMatch(/^Delivery events are old/)
+  })
+
+  it('judges code and docs merges against their own limits', async () => {
+    await merge('c1', 3 * HOUR, 140000, 'ok')
+    await event('dm', HOUR, { source: 'speed', kind: 'merge', name: 'total', status: 'ok', ms: 40000, attrs: { limit_ms: 90000 } })
+    const { body } = await getJson('admin_metrics_summary', '/admin/metrics/summary')
+    expect(body.findings[0]).toMatchObject({ over: false, value: 140, limit: 150 })
+  })
+
   it('has no data: every line still answers', async () => {
     await db.pg.exec('delete from metrics_hourly')
     const { body } = await getJson('admin_metrics_summary', '/admin/metrics/summary')

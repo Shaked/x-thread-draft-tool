@@ -53,11 +53,16 @@ function finding(area, text, extra = {}) {
 
 function speedFinding(events, base, link) {
   const total = (list) => list.filter((e) => e.kind === 'merge' && e.name === 'total' && e.ms !== null)
-  const rows = total(events)
-  if (rows.length === 0) return finding('speed', 'Speed: no merges in this window.', { link })
-  const value = rank(rows.map((e) => e.ms), 0.9)
-  const baseValue = rank(total(base).map((e) => e.ms), 0.9)
-  const limit = rows[rows.length - 1].attrs?.limit_ms ?? SPEED_LIMIT_MS
+  const all = total(events)
+  if (all.length === 0) return finding('speed', 'Speed: no merges in this window.', { link })
+  // Code and docs-only merges have different limits: each kind is judged against its own, and the worst one is reported.
+  const limitOf = (e) => e.attrs?.limit_ms ?? SPEED_LIMIT_MS
+  const p90Of = (list) => rank(list.map((e) => e.ms), 0.9)
+  const limits = [...new Set(all.map(limitOf))]
+  const limit = limits.sort((a, b) => p90Of(all.filter((e) => limitOf(e) === b)) / b - p90Of(all.filter((e) => limitOf(e) === a)) / a)[0]
+  const rows = all.filter((e) => limitOf(e) === limit)
+  const value = p90Of(rows)
+  const baseValue = p90Of(total(base).filter((e) => limitOf(e) === limit))
   const over = value > limit
   const overs = rows.filter((e) => e.status === 'over')
   const since = over && overs.length ? overs[0].at : null
@@ -144,7 +149,8 @@ export async function summaryView({ window, repo }, now = Date.now()) {
   )
   const all = rows.map((row) => ({ ...row, at: new Date(row.at).getTime(), ms: row.ms === null ? null : Number(row.ms) }))
   const part = (source, inWindow) => all.filter((e) => e.source === source && (e.at >= from) === inWindow)
-  const last = (await query('select max(at) as at from ops_events where repo_id = $1', [repoId])).rows[0].at
+  // Only delivery sources: a production error must not hide a collector that has stopped.
+  const last = (await query("select max(at) as at from ops_events where repo_id = $1 and source <> 'prod'", [repoId])).rows[0].at
   const eventsUntil = last === null ? null : new Date(last).getTime()
   const findings = [
     speedFinding(part('speed', true), part('speed', false), `https://github.com/${repo}/actions/workflows/speed-metrics.yml`),
