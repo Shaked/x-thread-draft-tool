@@ -8,8 +8,13 @@ name: Weekly review
 #
 # Manual runs: `dry_run` (default false = do the real thing); true only prints what would happen.
 #
-# Safety: `contents: read` and `issues: write`, no tag, no push. The checkout keeps no token in .git.
-# The only secrets are the two Telegram ones. The Telegram step never fails the job.
+# Speed (task S7, #315): the speed metrics of the last 7 days are measured first, with the speed.json of the last
+# successful run as --previous (the `speed-metrics-weekly` artifact). Only booleans per stage enter the fingerprint.
+# The speed step has no Telegram secrets, so it never sends a message, and it never fails the job.
+#
+# Safety: `contents: read`, `issues: write`, and read-only `actions`, `pull-requests` and `deployments`, which
+# the speed metrics read (task S7, #315, see docs/operations/weekly-review.md). No tag, no push. The checkout keeps
+# no token in .git. The only secrets are the two Telegram ones. The Telegram step never fails the job.
 
 on:
   schedule:
@@ -24,6 +29,9 @@ on:
 
 permissions:
   contents: read
+  actions: read
+  pull-requests: read
+  deployments: read
   issues: write
 
 concurrency:
@@ -70,6 +78,42 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "open weekly issues $OPEN, newest created ${LAST_CREATED:-none}"
 
+      - name: Find the speed metrics of the last successful run
+        id: previous
+        # Optional: without it, every stage's `slower` is false, which is not a change.
+        continue-on-error: true
+        env:
+          RUNNER_TMP_DIR: ${{ runner.temp }}
+        run: |
+          RUN=$(gh run list --repo "$REPO" --workflow weekly-review.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId // ""')
+          if [ -n "$RUN" ]; then
+            gh run download "$RUN" --repo "$REPO" --name speed-metrics-weekly --dir "$RUNNER_TMP_DIR/previous-speed" || echo "no speed artifact in run $RUN"
+          fi
+          echo "previous weekly run: ${RUN:-none}"
+
+      - name: Measure the speed of the last 7 days (no Telegram secrets: no message)
+        id: speed
+        # Optional: a failed measurement leaves speed.json out, and the check reads speed as unreadable.
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUNNER_TMP_DIR: ${{ runner.temp }}
+        run: |
+          set -uo pipefail
+          ARGS=(--since 7d --out speed-metrics)
+          if [ -f "$RUNNER_TMP_DIR/previous-speed/speed.json" ]; then
+            ARGS+=(--previous "$RUNNER_TMP_DIR/previous-speed/speed.json")
+          fi
+          node scripts/speed-metrics.mjs "${ARGS[@]}"
+
+      - name: Upload the speed metrics of the week
+        if: hashFiles('speed-metrics/speed.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: speed-metrics-weekly
+          path: speed-metrics/
+          retention-days: 90
+
       - name: Decide (no model)
         id: plan
         env:
@@ -78,6 +122,8 @@ jobs:
           LAST_CREATED_AT: ${{ steps.state.outputs.last_created }}
           BODY_FILE: ${{ runner.temp }}/weekly-body.md
           DRY_RUN: ${{ inputs.dry_run == true }}
+          SPEED_FILE: speed-metrics/speed.json
+          SPEED_MD: speed-metrics/speed.md
         run: node scripts/weekly-review-check.mjs
 
       - name: Open the weekly issue

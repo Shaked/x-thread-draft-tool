@@ -15,6 +15,8 @@ import {
   planWeeklyReview,
   buildBody,
   collectSignals,
+  speedFacts,
+  speedFlagged,
 } from '../../scripts/weekly-review-check.mjs'
 import { buildMessage } from '../../scripts/notify-telegram.mjs'
 
@@ -222,6 +224,100 @@ describe('collectSignals', () => {
       empty: async () => undefined,
     })
     expect(out).toEqual({ ok: 42, boom: null, empty: null })
+  })
+})
+
+// A speed.json as scripts/speed-metrics.mjs writes it (only the fields the check reads, plus the table).
+// `change` is null when no previous file was given, as the script writes it.
+function speedDoc({ ciP90 = 80, ciMedian = 100, ciOver = false, ciChange = null, totalOver = false } = {}) {
+  const stat = (median, p90, over, limit, change = null) => ({ n: 5, median, p90, limit, over, change })
+  return {
+    mode: 'since 7d',
+    summary: {
+      code: {
+        count: 5,
+        ci: stat(ciMedian, ciP90, ciOver, 90, ciChange),
+        merge_wait: stat(3, 6, false, null),
+        vercel: stat(22, 23, false, 35),
+        smoke: stat(21, 30, false, 25),
+        total: stat(177, 206, totalOver, 150),
+      },
+      docs: { count: 2, ci: stat(40, 50, false, 90), merge_wait: stat(2, 3, false, null), vercel: null, smoke: null, total: stat(147, 169, false, 90) },
+    },
+  }
+}
+const SPEED_TABLE = '| Kind | Stage | p90 |\n|---|---|---|\n| Product code | CI | 80 s |'
+
+describe('speed signal (task S7, #315): booleans per stage, seconds never in the fingerprint', () => {
+  it('no flags: every stage is over=false and slower=false', () => {
+    const f = speedFacts(speedDoc())
+    expect(f.code.ci).toEqual({ over: false, slower: false })
+    expect(f.code.total).toEqual({ over: false, slower: false })
+    expect(f.docs.ci).toEqual({ over: false, slower: false })
+    expect(speedFlagged(f)).toBe(false)
+  })
+
+  it('over: a stage whose p90 is over its limit is flagged over', () => {
+    const f = speedFacts(speedDoc({ ciOver: true, ciP90: 167 }))
+    expect(f.code.ci.over).toBe(true)
+    expect(speedFlagged(f)).toBe(true)
+  })
+
+  it('slower: a change marked slower by the speed script is flagged slower', () => {
+    const f = speedFacts(speedDoc({ ciChange: { delta: 30, slower: true } }))
+    expect(f.code.ci.slower).toBe(true)
+    expect(f.code.ci.over).toBe(false)
+    expect(speedFlagged(f)).toBe(true)
+  })
+
+  it('missing previous artifact: no change means slower is false for every stage, which is not a change', () => {
+    const f = speedFacts(speedDoc({ ciChange: null }))
+    expect(Object.values(f).flatMap((stages) => Object.values(stages)).every((s) => s.slower === false)).toBe(true)
+  })
+
+  it('seconds alone never change the fingerprint: same flags, different medians and p90s give the same facts', () => {
+    const a = speedFacts(speedDoc({ ciMedian: 100, ciP90: 80 }))
+    const b = speedFacts(speedDoc({ ciMedian: 118, ciP90: 85 }))
+    expect(fingerprintOf({ speed: a })).toBe(fingerprintOf({ speed: b }))
+  })
+
+  it('an unreadable or empty speed document is unreadable (null), never "no flags"', () => {
+    expect(speedFacts(null)).toBeNull()
+    expect(speedFacts({})).toBeNull()
+    expect(speedFacts({ summary: {} })).toBeNull()
+  })
+
+  it('a flag that changed opens an issue whose body carries the speed table in a fence', () => {
+    const plan = planWeeklyReview({
+      current: { ...FULL, speed: speedFacts(speedDoc({ ciOver: true })) },
+      lastBody: '',
+      openWeekly: 0,
+      date: '2026-11-30',
+      speedMd: SPEED_TABLE,
+    })
+    expect(plan.action).toBe('create')
+    expect(plan.body).toContain('Speed, last 7 days: 1 stage(s) over the limit, 0 slower than last week')
+    expect(plan.body).toContain('```text\n| Kind | Stage | p90 |')
+    expect(readLastFacts(plan.body)).toEqual(plan.facts)
+  })
+
+  it('no speed flag: the body has no speed table, even when a table is given', () => {
+    const plan = planWeeklyReview({
+      current: { ...FULL, speed: speedFacts(speedDoc()) },
+      lastBody: '',
+      openWeekly: 0,
+      date: '2026-11-30',
+      speedMd: SPEED_TABLE,
+    })
+    expect(plan.action).toBe('create')
+    expect(plan.body).not.toContain('| Kind | Stage | p90 |')
+  })
+
+  it('an unreadable speed.json is carried from the last issue and never opens an issue by itself', () => {
+    const last = buildBody({ facts: { ...FULL, speed: speedFacts(speedDoc()) }, fingerprint: fingerprintOf({ ...FULL, speed: speedFacts(speedDoc()) }) })
+    const plan = planWeeklyReview({ current: { ...FULL, speed: null }, lastBody: last, openWeekly: 0 })
+    expect(plan.action).toBe('nochange')
+    expect(plan.unreadable).toEqual(['speed'])
   })
 })
 
