@@ -1,13 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { applySkin, getKit, getSkin, KIT_KEY, setKit, setSkin, SKIN_KEY } from '../../src/utils/skin.js'
+import { allowFlags, applySkin, getKit, getSkin, KIT_KEY, setKit, setSkin, SKIN_KEY } from '../../src/utils/skin.js'
 
 describe('skin (look feature flag)', () => {
   beforeEach(() => {
     localStorage.clear()
+    allowFlags(true)
     delete document.documentElement.dataset.skin
   })
   afterEach(() => {
     localStorage.clear()
+  })
+
+  it('ignores every stored value for a user who is not the admin (#483)', () => {
+    localStorage.setItem(SKIN_KEY, 'rare')
+    localStorage.setItem(KIT_KEY, 'rare')
+    expect(allowFlags(false)).toBe('default')
+    expect(document.documentElement.dataset.skin).toBe('default')
+    expect(getSkin()).toBe('default')
+    expect(getKit()).toBe('default')
+    expect(setSkin('rare')).toBe('default')
+    expect(setKit('rare')).toBe('default')
+    expect(localStorage.getItem(SKIN_KEY)).toBe('rare')
+    expect(allowFlags(true)).toBe('rare')
   })
 
   it('defaults to the current look', () => {
