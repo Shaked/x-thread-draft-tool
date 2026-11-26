@@ -1,6 +1,6 @@
 # Telegram message templates
 
-Five kinds, one shape. `scripts/notify-telegram.mjs` sends these forms. The owner reads English, so the messages are
+Six kinds, one shape. `scripts/notify-telegram.mjs` sends these forms. The owner reads English, so the messages are
 English only. The owner decided on 2026-11-25 (issue #463): every headline starts with its emoji, and a section with
 nothing to say is left out.
 
@@ -33,7 +33,7 @@ Example:
 ```text
 ✅ **[Production is live and tested](https://x-thread-draft-tool.vercel.app)**
 `46070af` Thread view: one action row and purple accent
-[Open production](https://x-thread-draft-tool.vercel.app) · [Commit 46070af](https://github.com/Shaked/x-thread-draft-tool/commit/46070af) · [See the run](https://github.com/Shaked/x-thread-draft-tool/actions/runs/1)
+[Open production](https://x-thread-draft-tool.vercel.app) · [Commit 46070af](https://github.com/Shaked/x-thread-draft-tool/commit/46070af1234567890abcdef1234567890abcdef1) · [See the run](https://github.com/Shaked/x-thread-draft-tool/actions/runs/1)
 ```
 
 Failed or skipped:
@@ -139,4 +139,20 @@ Example:
 🚨 **[Metrics alert: slow answers](https://x-thread-draft-tool.vercel.app/admin/metrics)**
 Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms.
 Needs you: open the metrics page and find the route with the errors or the slow answers.
+```
+
+## 6. Speed budget
+Sent by a manual run of the speed metrics when a stage is over its p90 limit. One line per stage over its limit.
+
+```text
+🐢 **[Speed over the budget: <stages>](<run url>)**
+<The window: the last N merged pull requests, merged since <date>.>
+<Stage>: p90 <seconds> s, limit <seconds> s, usual <seconds> s   [one line per stage over its limit]
+```
+
+Example:
+```text
+🐢 **[Speed over the budget: CI](https://github.com/Shaked/x-thread-draft-tool/actions/runs/2)**
+The last 50 merged pull requests, merged since 2026-11-02.
+Product code CI: p90 99 s, limit 90 s, usual 90 s
 ```

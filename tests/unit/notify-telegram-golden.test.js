@@ -5,10 +5,11 @@
 // message fits Telegram's limit, and special characters are escaped for parse mode HTML.
 import { readFileSync } from 'node:fs'
 import { describe, it, expect, vi } from 'vitest'
-import { buildMessage, notify, EMOJI, PROD_URL, PREVIEW_URL, REPO_URL } from '../../scripts/notify-telegram.mjs'
+import { buildMessage, notify, EMOJI, KINDS as SENDER_KINDS, PROD_URL, PREVIEW_URL, REPO_URL } from '../../scripts/notify-telegram.mjs'
+import { lint, EMPTY_SECTION } from '../../scripts/reply-lint.mjs'
 
 const P = REPO_URL
-const SHA40 = 'a11392e1234567890abcdef1234567890abcdef12'
+const SHA40 = 'a11392e1234567890abcdef1234567890abcdef1'
 const SHA7 = 'a11392e'
 const RUN = `${P}/actions/runs/1`
 const PR = `${P}/pull/12`
@@ -118,17 +119,24 @@ const GOLDEN = {
 }
 
 const KINDS = Object.keys(GOLDEN)
-// The placeholder lines Shaked does not want: a section whose whole body says there is nothing.
-const EMPTY_SECTION = /^(?:[^:]{0,40}:\s*)?(?:nothing(?: needed)?|none|n\/a)\.?$/i
+// The emoji check does not read EMOJI: a blank or wrong entry must still fail.
+const STARTS_WITH_EMOJI = /^\p{Extended_Pictographic}\uFE0F? \S/u
 const NOTHING_NEEDED = /nothing needed|waiting for: nothing|what you need to do: nothing/i
 const URL_IN_HTML = /href="(https:\/\/[^"]+)"/g
 
 describe('Telegram golden messages (#463)', () => {
   it('has a golden fixture for every kind the sender builds, and no fixture for a kind it lacks', () => {
-    const source = readFileSync(new URL('../../scripts/notify-telegram.mjs', import.meta.url), 'utf8')
-    const built = [...source.matchAll(/^\s*case '([\w-]+)':/gm)].map((m) => m[1]).sort()
-    expect(KINDS.slice().sort()).toEqual(built)
-    expect(Object.keys(EMOJI).sort()).toEqual(built)
+    expect(KINDS.slice().sort()).toEqual(SENDER_KINDS.slice().sort())
+    for (const kind of SENDER_KINDS) expect(buildMessage(kind, { title: 'T', url: PR }), kind).not.toBeNull()
+    // Every kind a workflow or script sends is one the sender builds.
+    const callers = ['.github/workflows/smoke-deployed.yml', '.github/workflows/notify-labels.yml', 'scripts/notify-label.mjs', 'scripts/cleanup-review-check.mjs', 'scripts/speed-metrics.mjs']
+    for (const file of callers) {
+      const text = readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8')
+      for (const m of text.matchAll(/(?:NOTIFY_KIND:|kind:|buildMessage\()\s*['"]?([a-z][a-z-]*)['"]?/g)) {
+        if (['live', 'failed', 'preview', 'owner', 'cleanup', 'cleanup-started', 'speed'].includes(m[1]) || !/^[a-z-]+$/.test(m[1])) continue
+        if (/NOTIFY_KIND/.test(m[0])) expect(SENDER_KINDS, `${file}: ${m[1]}`).toContain(m[1])
+      }
+    }
   })
 
   for (const kind of KINDS) {
@@ -142,8 +150,18 @@ describe('Telegram golden messages (#463)', () => {
       })
 
       it('starts with its emoji, in both versions', () => {
+        expect(msg.html).toMatch(STARTS_WITH_EMOJI)
+        expect(msg.plain).toMatch(STARTS_WITH_EMOJI)
         expect(msg.html.startsWith(`${EMOJI[kind]} <b>`)).toBe(true)
-        expect(msg.plain.startsWith(`${EMOJI[kind]} `)).toBe(true)
+      })
+
+      it('passes the Telegram lint of the reply-style skill when written as Markdown', () => {
+        const markdown = msg.html
+          .replace(/<b><a href="([^"]+)">([^<]+)<\/a><\/b>/g, '**[$2]($1)**')
+          .replace(/<a href="([^"]+)">([^<]+)<\/a>/g, '[$2]($1)')
+          .replace(/<code>([^<]+)<\/code>/g, '`$1`')
+          .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+        expect(lint(markdown, { kind: 'telegram' }), markdown).toEqual([])
       })
 
       it('has no empty section: no "nothing needed", "none" or empty line', () => {
@@ -158,7 +176,7 @@ describe('Telegram golden messages (#463)', () => {
 
       it('fits in one Telegram message even with a 5000-character title, summary and markup', () => {
         const nasty = '<b>&"é😀שלום'.repeat(500)
-        const big = buildMessage(kind, { ...data, title: nasty, body: `Summary: ${nasty}` })
+        const big = buildMessage(kind, { ...data, title: nasty, body: `Summary: ${nasty}`, sha: 'a'.repeat(5000) })
         expect(Array.from(big.html).length).toBeLessThan(4096)
         expect(Array.from(big.plain).length).toBeLessThan(4096)
       })
@@ -182,6 +200,15 @@ describe('Telegram golden messages (#463)', () => {
     expect(buildMessage('live', { title: 'T' }).html).toContain(`<a href="${PROD_URL}">Open production</a>`)
   })
 
+  it('a bad commit id gives no commit link and no commit line, never a broken link', () => {
+    for (const sha of ['abc def', '../../../../evil/x', 'abc"onmouseover', 'zzzzzzz', '12345']) {
+      const msg = buildMessage('live', { sha, title: 'T' })
+      expect(msg.html, sha).not.toContain('/commit/')
+      expect(msg.html, sha).not.toContain('<code>')
+      expect(msg.html, sha).toContain(`<a href="${PROD_URL}">Open production</a>`)
+    }
+  })
+
   it('Hebrew user text stays exactly as written', () => {
     const title = 'שרשור חדש: שלום עולם'
     for (const kind of ['live', 'preview', 'owner', 'cleanup']) {
@@ -203,7 +230,7 @@ describe('Telegram golden messages (#463)', () => {
       expect(bodies).toHaveLength(1)
       expect(bodies[0].parse_mode).toBe('HTML')
       expect(bodies[0].text).toBe(msg.html)
-      expect(bodies[0].text.startsWith(EMOJI[kind])).toBe(true)
+      expect(bodies[0].text).toMatch(STARTS_WITH_EMOJI)
       for (const m of msg.html.matchAll(URL_IN_HTML)) expect(bodies[0].text).toContain(m[1])
     }
   })

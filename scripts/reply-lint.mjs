@@ -40,6 +40,8 @@ const BLOCK_WORD = /\bblock(?:ed|ing|er|ers|s)?\b/gi
 const BLOCK_ON_HUMAN = /^\s+(?:on|by)\s+(?:you|your|Shaked|the owner)\b/i
 const WAITING_HUMAN = /\bwaiting\s+(?:on|for)\s*:?\s+(?:you|your|Shaked|the owner)\b/i
 const EMOJI = /\p{Extended_Pictographic}/u
+/** A section line that only says there is nothing: "Nothing needed.", "None", "Waiting for: nothing". Telegram messages never have one. */
+export const EMPTY_SECTION = /^(?:[^:]{0,40}:\s*)?(?:nothing(?: needed)?|none|n\/a)\b[^.]{0,40}\.?$/i
 const SLOP = /\b(delve[sd]?|seamless(?:ly)?|leverag(?:e|es|ed|ing)|game[- ]changer|rest assured|it'?s worth noting|i hope this helps|great question|needless to say|in conclusion)\b/i
 const ACT = /\b(Nothing needed from you|You need to do (\d+|one|two|three|four|five) things?)\b/i
 const NUMBERS = { one: 1, two: 2, three: 3, four: 4, five: 5 }
@@ -113,7 +115,7 @@ function checkTemplate(lines, force, add) {
 }
 
 /** The word and line checks every kind gets. */
-function checkWords(raw, line, n, add, kind = 'reply') {
+function checkWords(raw, line, n, add, kind = 'reply', headlineAt = 1) {
   const unquoted = raw.replace(/["'`]([A-Z])["'`]/g, '$1')
   if (OPTION_LETTERS.some((re) => re.test(unquoted))) add(n, 'option-letters', 'name each option by what it does, not by a letter')
   if (UNCHANGED.test(line)) add(n, 'unchanged', 'say what it is and what happens next')
@@ -125,9 +127,9 @@ function checkWords(raw, line, n, add, kind = 'reply') {
   if (WAITING_HUMAN.test(line)) add(n, 'waiting-human', 'a human decision goes under "Blocked on you"')
   if (!/^\s*\|/.test(raw) && raw.replace(/\[([^\]]*)\]\([^)\s]*\)/g, '$1').replace(/https?:\/\/\S+/g, 'link').length > MAX_LINE) add(n, 'long-line', `over ${MAX_LINE} characters`)
   // A Telegram headline (line 1) starts with one emoji; every other line and kind has none.
-  const headlineEmoji = kind === 'telegram' && n === 1 && /^\p{Extended_Pictographic}\uFE0F? \S/u.test(line) && !EMOJI.test(line.replace(/^\p{Extended_Pictographic}\uFE0F?/u, ''))
+  const headlineEmoji = kind === 'telegram' && n === headlineAt && /^\p{Extended_Pictographic}\uFE0F? \S/u.test(line) && !EMOJI.test(line.replace(/^\p{Extended_Pictographic}\uFE0F?/u, ''))
   if (EMOJI.test(line) && !headlineEmoji) add(n, 'emoji', kind === 'telegram' ? 'one emoji, at the start of the headline only' : 'no emoji')
-  if (kind === 'telegram' && /^(?:nothing needed\b|none\.?$|waiting for: nothing)/i.test(line.trim())) add(n, 'empty-section', 'leave out a section with nothing to say')
+  if (kind === 'telegram' && EMPTY_SECTION.test(line.trim())) add(n, 'empty-section', 'leave out a section with nothing to say')
   const slop = SLOP.exec(line)
   if (slop) add(n, 'slop', `filler phrase "${slop[1]}"`)
 }
@@ -159,6 +161,7 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
   const findings = []
   const add = (line, rule, message) => findings.push({ line, rule, message })
   const seen = new Set()
+  const headlineAt = text.split('\n').findIndex((l) => l.trim()) + 1
   const prose = []
   let fenced = false
   let details = false // a changelog's "## Technical details" part is not checked (it may hold code and labels)
@@ -178,7 +181,7 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
       seen.add(m[1])
       if (!described(line, m.index, m.index + m[0].length)) add(n, 'bare-label', `${m[1]}: add a link and 3 to 6 words saying what it is`)
     }
-    checkWords(raw, line, n, add, kind)
+    checkWords(raw, line, n, add, kind, headlineAt)
   })
   if (kind === 'reply') checkTemplate(prose, template, add)
   else checkShape(prose, kind, add)

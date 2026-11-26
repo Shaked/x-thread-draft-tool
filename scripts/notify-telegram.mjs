@@ -106,24 +106,29 @@ function speedMessage(data) {
 }
 
 // Production passed: the headline and "Open production" both link the site; the commit has its own link.
-function liveMessage(data, title, sha) {
+function liveMessage(data, title, sha, fullSha) {
   const prod = data.url || PROD_URL
   const links = [['Open production', prod]]
-  if (sha) links.push([`Commit ${sha}`, `${REPO_URL}/commit/${data.sha}`])
+  if (sha) links.push([`Commit ${sha}`, `${REPO_URL}/commit/${fullSha}`])
   if (data.runUrl) links.push(['See the run', data.runUrl])
   return message('live', ['Production is live and tested', prod], [commitLine(sha, title)], links)
 }
+
+// The kinds buildMessage builds. The golden test needs one fixture for each.
+export const KINDS = Object.keys(EMOJI)
 
 // Returns { html, plain } for a kind, or null for an unknown kind. The first link is the headline's,
 // so Telegram's link preview is drawn from it.
 export function buildMessage(kind, data = {}) {
   const title = clip(data.title || '(no title)')
-  const sha = String(data.sha || '').slice(0, 7)
+  // Only a hex commit id is used, for the label, the code line and the commit link.
+  const fullSha = /^[0-9a-f]{7,40}$/i.test(String(data.sha || '').trim()) ? String(data.sha).trim() : ''
+  const sha = fullSha.slice(0, 7)
   const pr = String(data.url || '').match(/\/pull\/(\d+)$/)?.[1]
   const summary = summaryLine(data.body)
   switch (kind) {
     case 'live':
-      return liveMessage(data, title, sha)
+      return liveMessage(data, title, sha, fullSha)
     case 'failed':
       return message(
         'failed',

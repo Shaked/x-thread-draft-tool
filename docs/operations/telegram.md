@@ -18,13 +18,13 @@ The script sends the forms in `.claude/skills/reply-style/templates/telegram-mes
 
 | Kind | Headline (it is the link) | When it is sent | Other links |
 |---|---|---|---|
-| Production is live and tested | Production is live and tested (the production address) | A production deployment is live and the deployed smoke test passed. Step "Telegram: production is live and tested". | See the run, only when the workflow passes the run link |
+| Production is live and tested | Production is live and tested (the production address) | A production deployment is live and the deployed smoke test passed. Step "Telegram: production is live and tested". | Open production · Commit <id> · See the run |
 | Production smoke test failed | Production smoke test failed (the run) | The smoke test on a production deployment failed or was skipped. Not sent when the run was cancelled, for example when a newer deployment replaced it. Step "Telegram: production smoke failed". | Open production |
 | Try it on preview | Try it on preview (the preview address) | A pull request gets the label `try-preview`, added by the repository owner's account. The same label on an issue sends nothing. | PR #n on GitHub |
 | Needs you | An issue needs you, or A PR needs you (the item) | The label `owner` is added to an issue or a pull request, by the repository owner's account. | none |
 | Cleanup review ready | Cleanup review ready (the PR) | A pull request gets the label `cleanup-pr`, added by the repository owner's account. The same label on an issue sends nothing. | none |
 | Cleanup review started | Cleanup review started (the issue) | The daily workflow opens a cleanup review issue. | none |
-| Speed budget over limit | Speed over the budget: <stages> (the headline is the link) | A manual run of `speed-metrics.yml` (input `last`) finds a stage whose p90 is over its limit (`docs/plans/speed.md` section 1). Lines of numbers: the window (the last N merged PRs and the date of the oldest), then one line per stage over its limit with its p90, limit and usual (median) value,  The link opens the run, whose summary has the stage table. The per-merge check after a production smoke run sends nothing. | The headline (the run) |
+| Speed budget over limit | Speed over the budget: <stages> (the headline is the link) | A manual run of `speed-metrics.yml` (input `last`) finds a stage whose p90 is over its limit (`docs/plans/speed.md` section 1). Lines of numbers: the window (the last N merged PRs and the date of the oldest), then one line per stage over its limit with its p90, limit and usual (median) value. The link opens the run, whose summary has the stage table. The per-merge check after a production smoke run sends nothing. | The headline (the run) |
 
 What a message looks like (the forms in the template):
 - Line 1: the headline in bold. It is the link (in the HTML version; the plain-text fallback shows the link as `label: url`).
@@ -50,13 +50,13 @@ Bold is the headline, and the headline is the link. English only: the owner read
 | Needs you | 🙋 **An issue needs you**, or **A PR needs you**<br>Changelog entries and Telegram messages follow the writing templates<br>Needs you: open it and answer or do what it asks. |
 | Cleanup review ready | 🧹 **Cleanup review ready**<br>Remove duplicate tests<br>What it removes: two parser tests that check the same thing.<br>Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR. |
 | Cleanup review started | 🧹 **Cleanup review started**<br>Cleanup review 2026-11-25<br>An agent reviews the commits since the last review and opens up to three PRs. |
-| Metrics alert | **Metrics alert: slow answers**<br>Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms.<br>Needs you: open the metrics page and find the route with the errors or the slow answers. |
+| Metrics alert | 🚨 **Metrics alert: slow answers**<br>Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms.<br>Needs you: open the metrics page and find the route with the errors or the slow answers. |
 
 Notes:
 - The needs-you headline says "A PR needs you" or "An issue needs you". The script decides from the link: a pull request address says PR.
 - The "What it removes" line (cleanup ready) comes from the `Summary:` line of the PR body. `scripts/notify-label.mjs` passes the body for the `cleanup-pr` label only, so it shows there.
 - The "What changed" line (try-preview) never shows: the preview label does not pass the body, and `messageFromEnv` does not read it. This was already true before task #369.
-- The production passed message links the run only when `smoke-deployed.yml` passes `NOTIFY_RUN_URL`. Today it passes it only for the failed message.
+- The production passed message links the site, the commit and the run. `smoke-deployed.yml` passes `NOTIFY_RUN_URL` for both production kinds. A commit id that is not 7 to 40 hex characters gives no commit line and no commit link.
 - The speed kind follows the same rules: an emoji, and no "nothing needed" line.
 - No workflow sends a metrics alert yet. Task O7 of `docs/plans/observability.md` adds the kind `metrics` and uses its form in the template.
 
