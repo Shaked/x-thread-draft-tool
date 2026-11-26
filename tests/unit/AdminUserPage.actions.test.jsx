@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import AdminLayout from '../../src/pages/admin/AdminLayout.jsx'
 import { ToastProvider } from '../../src/ui/Toast'
@@ -106,6 +106,21 @@ describe('admin user actions', () => {
     expect(button).toHaveAttribute('aria-disabled', 'true')
     fireEvent.click(button)
     expect(posts(fetchMock)).toHaveLength(0)
+  })
+
+  it('delete becomes available when the 10 minutes end, without a reload', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'], shouldAdvanceTime: true })
+    try {
+      mount({ ...BASE, suspended_at: new Date(Date.now() - 9 * 60 * 1000).toISOString() })
+      const button = await screen.findByRole('button', { name: 'Delete user' })
+      expect(button).toHaveAttribute('aria-disabled', 'true')
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(61 * 1000)
+      })
+      expect(screen.getByRole('button', { name: 'Delete user' })).not.toHaveAttribute('aria-disabled')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('delete is two steps: the dry run shows the counts, and only the typed login sends the real call with the token', async () => {

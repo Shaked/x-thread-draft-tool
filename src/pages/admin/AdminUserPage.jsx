@@ -167,7 +167,15 @@ function UserActions({ user, onChanged }) {
 
   const suspendedMs = user.suspended_at ? new Date(user.suspended_at).getTime() : null
   const deleteReadyAt = suspendedMs === null ? null : new Date(suspendedMs + DELETE_WAIT_MS)
-  const canDelete = deleteReadyAt !== null && deleteReadyAt <= new Date()
+  // The page can stay open across the 10-minute wait, so a timer re-renders it at the deadline.
+  const [now, setNow] = useState(() => Date.now())
+  const readyMs = deleteReadyAt === null ? null : deleteReadyAt.getTime()
+  useEffect(() => {
+    if (readyMs === null || readyMs <= Date.now()) return undefined
+    const timer = setTimeout(() => setNow(Date.now()), readyMs - Date.now() + 250)
+    return () => clearTimeout(timer)
+  }, [readyMs])
+  const canDelete = readyMs !== null && readyMs <= now
 
   const close = () => {
     setDialog(null)
