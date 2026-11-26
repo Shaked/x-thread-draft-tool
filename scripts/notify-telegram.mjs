@@ -2,7 +2,7 @@
 // Telegram notices (epic #241, tasks N1, N2, N4). Node 20, no dependencies.
 //
 // buildMessage(kind, data) returns { html, plain }. The shapes are the forms in
-// .claude/skills/reply-style/templates/telegram-message.md (plan #369, step 7):
+// .claude/reply-style-templates/telegram-message.md (plan #369, step 7):
 //   Every kind starts with its emoji, the app name in bold and the headline.
 //   live             production is live and the smoke test passed
 //   failed           production smoke test failed (the only urgent one)

@@ -13,7 +13,7 @@ Code:
 
 ## The eight kinds
 
-The script sends the forms in `.claude/skills/reply-style/templates/telegram-message.md` (task #369, step 7). Line 1 of every message is the emoji, the app name in bold and the headline (issue #504). Each message starts with one emoji (✅ live, 🚨 failed, 👀 preview, 🙋 needs you, 🧹 cleanup, 🐢 speed) and no section says "nothing". Each kind has a golden test in `tests/unit/notify-telegram-golden.test.js`. "The messages" below shows each one.
+The script sends the forms in `.claude/reply-style-templates/telegram-message.md` (task #369, step 7). Line 1 of every message is the emoji, the app name in bold and the headline (issue #504). Each message starts with one emoji (✅ live, 🚨 failed, 👀 preview, 🙋 needs you, 🧹 cleanup, 🐢 speed) and no section says "nothing". Each kind has a golden test in `tests/unit/notify-telegram-golden.test.js`. "The messages" below shows each one.
 
 
 | Kind | Headline (it is the link) | When it is sent | Other links |
@@ -40,7 +40,7 @@ Nothing else sends a message. There is no message for a push, a new PR, a CI run
 
 ## The messages
 
-Sent by the script since task #369, step 7. The rules and the placeholders are in `.claude/skills/reply-style/templates/telegram-message.md`.
+Sent by the script since task #369, step 7. The rules and the placeholders are in `.claude/reply-style-templates/telegram-message.md`.
 Bold is the app name, and the headline after it is the link. English only: the owner reads English.
 
 | Kind | Example |

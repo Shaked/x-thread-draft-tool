@@ -1,6 +1,6 @@
 {
   "name": "reply-style",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Reply templates for agents that report to a repository owner, with a lint and a Stop hook.",
   "author": { "name": "Shaked" },
   "license": "MIT",

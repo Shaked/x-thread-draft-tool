@@ -9,12 +9,15 @@ Reply templates and hard rules for an agent that reports to the owner of a repos
   end of each turn and asks the agent to rewrite a reply that fails. It never blocks twice in a row.
 - **Comment lint** (`scripts/reply-lint-comment.mjs`): checks an agent's GitHub comment written for the owner.
 
+`examples/` holds two GitHub workflows (lint the PR body, lint agent comments) to copy into a project; a plugin cannot install a workflow.
+
 Requires Node 20. No dependencies.
 
 ## Settings
 
 Settings are in `.claude/agent-kit.json` at the project root. The lint and the hook find it at
 `$CLAUDE_PROJECT_DIR/.claude/agent-kit.json`, else by walking up from the working folder to the folder with `.git`.
+The `owner` key is the owner's name: the skill tells the agent to use it, and the hook message names it.
 A missing file or key means the default. A broken file stops the command-line lint with exit 2 and names the key;
 the Stop hook prints a warning and lets the turn end.
 
