@@ -4,4 +4,4 @@
 - Nothing changes in the app.
 
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/issues/508
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/530
