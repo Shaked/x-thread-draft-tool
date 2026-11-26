@@ -11,6 +11,10 @@ const comments = load('comments.json')
 const pulls = load('pulls.json')
 const findings = analyzeSessions(sessions, snapshot, { comments, pulls })
 const of = (kind) => findings.filter((f) => f.kind === kind)
+const owner = (t, body) => ({ created_at: t, author_association: 'OWNER', body })
+const run = (doc = sessions, extra = {}, opts = {}) => analyzeSessions(doc, snapshot, { comments: { ...comments, ...extra }, pulls, ...opts })
+const only = (ids) => ({ ...sessions, sessions: sessions.sessions.filter((s) => ids.includes(s.id)) })
+const edit = (id, change) => ({ ...sessions, sessions: sessions.sessions.map((s) => (s.id === id ? { ...s, ...change } : s)) })
 
 describe('the sessions.json shape', () => {
   it('the fixture is valid, and the schema requires exactly the fields the script checks', () => {
@@ -78,6 +82,15 @@ describe('findings on the fixture sessions', () => {
     expect(validateSessions({ ...sessions, read_total: 2 })[0]).toContain('read_total')
   })
 
+  it('finds an untagged session named by a CLAIM in the dump, and never calls a missing one gone without a check', () => {
+    const claimed = run(sessions, { 109: [owner('1', 'CLAIM session session_other | branch b')] })
+    expect(claimed.some((f) => f.kind === 'orphan-claim' && f.issue === 109)).toBe(true)
+    expect(claimed.find((f) => f.issue === 109 && f.kind === 'orphan-claim').evidence).toContain('`failed`')
+    const live = run(edit('session_other', { status_bucket: 'working' }), { 109: [owner('1', 'CLAIM session session_other | branch b')] })
+    expect(live.some((f) => f.kind === 'orphan-claim' && f.issue === 109)).toBe(false)
+    expect(of('orphan-claim')[0].evidence).toContain('check it with `get_session` before a release')
+  })
+
   it('leaves the dispatcher out and finds the orphan session and the orphan claim', () => {
     expect(findings.some((f) => f.sessions.includes('session_disp'))).toBe(false)
     expect(of('orphan-session').map((f) => f.sessions[0])).toEqual(['session_orphan'])
@@ -137,10 +150,6 @@ describe('parsers', () => {
 })
 
 describe('edge cases from the review', () => {
-  const owner = (t, body) => ({ created_at: t, author_association: 'OWNER', body })
-  const run = (doc = sessions, extra = {}, opts = {}) => analyzeSessions(doc, snapshot, { comments: { ...comments, ...extra }, pulls, ...opts })
-  const only = (ids) => ({ ...sessions, sessions: sessions.sessions.filter((s) => ids.includes(s.id)) })
-  const edit = (id, change) => ({ ...sessions, sessions: sessions.sessions.map((s) => (s.id === id ? { ...s, ...change } : s)) })
 
   it('gives a done HANDOFF to the dispatcher when a newer CLAIM is live, or its PR is not merged', () => {
     const reopened = run(sessions, { 101: [...comments[101], owner('2026-11-26T11:00:00Z', 'CLAIM session session_new | branch b')] })
@@ -196,6 +205,7 @@ describe('edge cases from the review', () => {
   it('keeps session ids and paths in quoted text, and masks keys and URL passwords', () => {
     expect(quote('see session_01UU4t2FpQfySF3P8nhraSTD in tests/unit/fixtures/session-janitor/sessions.json')).toBe('see session_01UU4t2FpQfySF3P8nhraSTD in tests/unit/fixtures/session-janitor/sessions.json')
     expect(quote('secret wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY1 end')).toBe('secret [redacted] end')
+    expect(quote('src/components/editor/ThreadComposerToolbar')).toBe('src/components/editor/ThreadComposerToolbar')
     expect(quote('key AKIAABCDEFGHIJKLMNOP at https://me:hunter2@db.example')).toBe('key [redacted] at https://[redacted]@db.example')
   })
 

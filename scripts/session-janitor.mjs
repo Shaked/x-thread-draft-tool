@@ -103,13 +103,13 @@ export function titleIssue(title) {
 const TOKEN = /\b(?:gh[pousr]_\w{16,}|github_pat_\w{16,}|sk-[\w-]{16,}|xox[abprs]-[\w-]{10,}|AKIA[0-9A-Z]{16}|eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{4,})|\bBearer\s+\S+/g
 // Any other run of 32 or more key characters is masked too, except a session id. Paths keep their slashes, so they stay.
 const LONG = /\b[A-Za-z0-9+_-]{32,}/g
-// A base64 secret may hold slashes: a run of 40 or more base64 characters is masked as well.
+// A base64 secret may hold slashes: a run of 40 or more base64 characters with digits and both cases is masked as well.
 const BASE64 = /[A-Za-z0-9+/]{40,}={0,2}/g
 
 /** Text copied from a session for a table cell: one line, no backticks or pipes, tokens masked, at most `max` characters. */
 export function quote(text, max = 100) {
   const one = String(text || '').replace(/\s+/g, ' ').replace(/`/g, "'").replace(/\|/g, '/').replace(TOKEN, '[redacted]')
-    .replace(/:\/\/[^/\s:@]+:[^@\s]+@/g, '://[redacted]@').replace(LONG, (m) => (new RegExp(`^${SESSION_ID}$`).test(m) ? m : '[redacted]')).replace(BASE64, '[redacted]').trim()
+    .replace(/:\/\/[^/\s:@]+:[^@\s]+@/g, '://[redacted]@').replace(LONG, (m) => (new RegExp(`^${SESSION_ID}$`).test(m) ? m : '[redacted]')).replace(BASE64, (m) => (/\d/.test(m) && /[a-z]/.test(m) && /[A-Z]/.test(m) ? '[redacted]' : m)).trim()
   return one.length > max ? `${one.slice(0, max - 3).trimEnd()}...` : one
 }
 
@@ -272,15 +272,16 @@ function checkDuplicateSessions(c, workers) {
 // A live CLAIM on an open issue whose session is gone, archived or failed. The dispatcher's own claims are left out.
 // "Gone" needs every session of the account: a dump made with children=true holds only one dispatcher's children.
 function checkClaims(c, parents) {
-  const byId = new Map(c.sessions.map((s) => [s.id, s]))
+  // Every session of the dump, in scope or not: a claimed session without tags is still alive.
+  const byId = new Map(c.allSessions.map((s) => [s.id, s]))
   for (const [n, claim] of [...c.claims].sort((a, b) => a[0] - b[0])) {
     if (claim.released || c.byNum.get(n)?.state !== 'open' || parents.has(claim.session)) continue
     const s = claim.session ? byId.get(claim.session) : null
     let why = null
     if (!claim.session) why = 'the CLAIM names no session id'
-    else if (!s && !c.childrenOnly) why = 'its session is not in the session list (archived or gone)'
+    else if (!s && !c.childrenOnly) why = 'its session is not in the dump (archived, gone, or left out): check it with `get_session` before a release'
     else if (s && (s.status === 'archived' || s.bucket === 'failed')) why = `its session is ${code(s.status === 'archived' ? 'archived' : 'failed')}`
-    if (why) c.add('orphan-claim', claim.session ? [claim.session] : [], n, `${ref(n)} has a CLAIM with no RELEASE; ${why}.`, 'Dispatcher watchdog: resume the session or start a new one, or release the claim.')
+    if (why) c.add('orphan-claim', claim.session ? [claim.session] : [], n, `${ref(n)} has a CLAIM with no RELEASE; ${why}.`, 'Dispatcher watchdog: check the session with `get_session`, then resume it, start a new one, or release the claim.')
   }
 }
 
@@ -326,7 +327,7 @@ function context(sessionsDoc, snapshot, comments) {
   const naming = (list, re) => (list || []).filter((p) => re.test(`${p.title}\n${p.body || ''}`)).map((p) => p.number).sort((a, b) => a - b)
   const c = {
     childrenOnly: /children/i.test(sessionsDoc.source || ''),
-    sessions: scoped((sessionsDoc.sessions || []).map(normalizeSession)).sort((a, b) => a.id.localeCompare(b.id)),
+    allSessions: (sessionsDoc.sessions || []).map(normalizeSession),
     allComments,
     loaded: (n) => allComments[n] || allComments[String(n)],
     issues,
@@ -336,6 +337,7 @@ function context(sessionsDoc, snapshot, comments) {
     openNaming: (n) => naming(snapshot.open_pulls, new RegExp(`#${n}\\b`)),
     owner: String(snapshot.repo || REPO).split('/')[0]
   }
+  c.sessions = scoped(c.allSessions).sort((a, b) => a.id.localeCompare(b.id))
   c.facts = new Map(issues.filter((i) => i.state === 'open').map((i) => [i.number, commentFacts(c.loaded(i.number), { owner: c.owner })]))
   matchAll(c)
   // A session that is the parent of another one is the dispatcher: it has no issue of its own.
