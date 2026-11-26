@@ -20,3 +20,7 @@ so a reply makes sense without the agent's context. Owner request of 2026-11-21,
 - Every session finds the rule: it is at the top of `AGENTS.md`, and `CLAUDE.md` points to it.
 - Updates: the weekly improvement review (#294) edits the skill in the same run as its findings,
   and opens an issue when pstack has a newer version.
+- Golden tests (#486): `tests/unit/reply-lint-golden.test.js` runs fixtures in
+  `tests/unit/fixtures/reply-lint/golden/<kind>/`. Each kind has `good-*.md` files that pass and
+  `bad-*.md` files that fail for exactly the rules the test names (`WANT` in the test maps each file name to its rules). A kind without fixtures fails the test.
+  The rules `loose-label` (a `**Done:**` line instead of the heading) and `empty-details` came from that issue.

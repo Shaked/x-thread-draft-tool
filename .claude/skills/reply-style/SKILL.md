@@ -8,6 +8,14 @@ description: Templates and hard rules for every reply to Shaked (the owner), eve
 Shaked reads replies without the context you have. Every reply to him, every HANDOFF and every
 owner question uses one template below, follows the hard rules, and passes the lint.
 
+## Before you send
+1. Start from the template file for your kind. The `##` headings come first, in this order: `TL;DR`,
+   `What you need to do`, `Waiting for`, `Blocked on you`, `Done`, then `Details`.
+2. No loose bold or plain labels such as `**Done:**`, `Not done:` or `Blocked on you:`. Use the `##` heading.
+3. `What you need to do`, `Waiting for` and `Blocked on you` say "Nothing." when empty. `Done` always has content with "checked" or "not checked". Leave `Details` out when it is empty.
+4. Every label (`#279`, `Q1`) has a link and 3 to 6 words the first time. Never "unchanged" alone.
+5. Run `npm run reply-lint -- --template reply.md` and fix every finding before you send.
+
 ## Which template
 | You are writing | Template | Where it goes |
 |---|---|---|
