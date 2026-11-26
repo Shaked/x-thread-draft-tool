@@ -5,12 +5,13 @@ import Page from '../../ui/Page'
 import PageHeader from '../../ui/PageHeader'
 import SideLayout from '../../ui/SideLayout'
 import Stack from '../../ui/Stack'
+import AdminMetricsPage from './AdminMetricsPage'
 import AdminStatsPage from './AdminStatsPage'
 
 // The menu of the admin area (#482). `soon` entries have no page yet; each names the task that builds it.
 const ENTRIES = [
   { path: '', label: 'Statistics' },
-  { path: 'metrics', label: 'Metrics', soon: true },
+  { path: 'metrics', label: 'Metrics', Page: AdminMetricsPage },
   { path: 'flags', label: 'Feature flags', soon: true },
   { path: 'changelog', label: 'Changelog', soon: true },
   { path: 'users', label: 'Users', soon: true },
@@ -43,6 +44,9 @@ export default function AdminLayout() {
           <Route index element={<AdminStatsPage />} />
           {ENTRIES.filter((entry) => entry.soon).map((entry) => (
             <Route key={entry.path} path={entry.path} element={<EmptyState title={entry.label} description="Coming soon." />} />
+          ))}
+          {ENTRIES.filter((entry) => entry.Page).map(({ path, Page: Content }) => (
+            <Route key={path} path={path} element={<Content />} />
           ))}
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>

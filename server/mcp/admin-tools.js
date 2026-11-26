@@ -86,7 +86,7 @@ const ADMIN_TOOLS = [
       type: 'object',
       properties: {
         window: { type: 'string', enum: ['1h', '24h', '7d', '30d', '90d', '400d'], default: '24h', description: '1h is the current UTC hour so far; the others end now.' },
-        by: { type: 'string', enum: ['route', 'op', 'caller', 'all'], default: 'route', description: 'How to group the rows.' },
+        by: { type: 'string', enum: ['route', 'op', 'caller', 'all', 'total'], default: 'route', description: 'How to group the rows.' },
         route: { type: 'string', maxLength: 120, description: 'Only this route, as the result names it (for example GET /drafts/:id), or unmatched.' }
       }
     },

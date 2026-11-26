@@ -281,6 +281,11 @@ test.describe('screens', () => {
       await shoot(browser, width, 'changelog', '/changelog', { token: admin, ready: changelogReady })
       await shoot(browser, width, 'changelog-dark', '/changelog', { token: admin, theme: 'dark', ready: changelogReady })
 
+      // The admin metrics page (#337): light and dark at both widths.
+      const metricsReady = (p: Page) => p.getByRole('heading', { name: 'All routes' })
+      await shoot(browser, width, 'admin-metrics', '/admin/metrics', { token: admin, ready: metricsReady })
+      await shoot(browser, width, 'admin-metrics-dark', '/admin/metrics', { token: admin, theme: 'dark', ready: metricsReady })
+
       // The About page (plan U2): light and dark at both widths. Ready once the server's version has loaded.
       const aboutReady = (p: Page) => p.getByRole('heading', { name: 'About', level: 1 })
       const aboutLoaded = async (p: Page) => {

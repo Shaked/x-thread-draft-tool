@@ -39,6 +39,15 @@ async function request(path, { method = 'GET', body, headers = {}, keepalive = f
 export const adminApi = {
   stats() {
     return request('/admin/stats', { headers: { 'x-xt-admin': '1' } }).then((data) => data.stats)
+  },
+
+  // The metrics views (#337): `by` is route, op or total; a series is requests, p95 or a product column.
+  metrics(window, by) {
+    return request(`/admin/metrics?window=${window}&by=${by}`, { headers: { 'x-xt-admin': '1' } })
+  },
+
+  metricsSeries(name, window) {
+    return request(`/admin/metrics/series?name=${name}&window=${window}`, { headers: { 'x-xt-admin': '1' } })
   }
 }
 
