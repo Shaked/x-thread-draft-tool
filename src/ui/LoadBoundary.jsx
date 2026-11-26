@@ -2,8 +2,8 @@ import { Component } from 'react'
 import Banner from './Banner'
 import Button from './Button'
 
-// A failed dynamic import, as Chrome, Firefox and Safari word it.
-const LOAD_FAILED = /dynamically imported module|Importing a module script failed/i
+// A failed dynamic import, as Chrome, Firefox and Safari word it, or the failed stylesheet that Vite loads before it.
+const LOAD_FAILED = /dynamically imported module|Importing a module script failed|Unable to preload CSS/i
 
 // A page or component in its own file (React.lazy) that fails to load shows `fallback`, not an empty screen (#551).
 // It happens after a deploy: the open tab asks for a file of the build before, the host answers index.html and the

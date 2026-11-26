@@ -41,6 +41,20 @@ describe('LoadBoundary (#551)', () => {
     expect(reload).toHaveBeenCalledTimes(1)
   })
 
+  // Vite loads a lazy part's stylesheet before its script; after a deploy that stylesheet is gone too.
+  it('shows the fallback when the stylesheet of a lazy part fails to load', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const NoStyles = lazy(() => Promise.reject(new Error('Unable to preload CSS for /assets/AdminLayout-Cqv4zxca.css')))
+    render(
+      <LoadBoundary fallback={<p>Plain theme choice</p>}>
+        <Suspense fallback={<p>Loading</p>}>
+          <NoStyles />
+        </Suspense>
+      </LoadBoundary>
+    )
+    expect(await screen.findByText('Plain theme choice')).toBeInTheDocument()
+  })
+
   // A bug is not a failed load: a reload cannot fix it, so the boundary passes it on as if it were not there.
   it('passes any other render error on, without the fallback', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})

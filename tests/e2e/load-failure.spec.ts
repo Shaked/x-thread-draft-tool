@@ -14,6 +14,11 @@ const SIZES = [
   { name: '1280', width: 1280, height: 800 }
 ]
 
+// A deploy removes both the script and the stylesheet of a lazy part. The main bundle loads the stylesheet first, so its
+// failure ("Unable to preload CSS") comes before the import's. The Rare UI parts share the `cn-*.css` stylesheet.
+const ADMIN_FILES = /\/assets\/AdminLayout-[^/]+\.(js|css)$/
+const RARE_FILES = /\/assets\/(ThemeSelector|cn)-[^/]+\.(js|css)$/
+
 let api: APIRequestContext
 let adminCookie = ''
 
@@ -55,7 +60,7 @@ async function openMenu(page: Page) {
 
 for (const size of SIZES) {
   test(`admin area at ${size.name} px: a missing admin file shows a Reload notice, and Reload opens the admin`, async ({ browser }) => {
-    const { context, page, answered } = await openAsAdmin(browser, size, /\/assets\/AdminLayout-[^/]+\.js$/)
+    const { context, page, answered } = await openAsAdmin(browser, size, ADMIN_FILES)
     try {
       await page.goto(`${BASE}/`)
       await expect(page.getByRole('heading', { name: 'Your Threads', level: 1 })).toBeVisible()
@@ -70,7 +75,7 @@ for (const size of SIZES) {
       expect(answered(), 'the admin file was asked for and answered with index.html').toBeGreaterThan(0)
 
       // After the reload the file is there again (the new build): the admin pages open.
-      await context.unroute(/\/assets\/AdminLayout-[^/]+\.js$/)
+      await context.unroute(ADMIN_FILES)
       await page.getByRole('button', { name: 'Reload' }).click()
       await expect(page.getByRole('navigation', { name: 'Admin pages' })).toBeVisible()
       await expect(page.getByRole('heading', { name: 'Statistics', level: 2 })).toBeVisible()
@@ -80,7 +85,7 @@ for (const size of SIZES) {
   })
 
   test(`menu at ${size.name} px: a missing Rare UI theme selector file shows the plain theme choice`, async ({ browser }) => {
-    const { context, page, answered } = await openAsAdmin(browser, size, /\/assets\/ThemeSelector-[^/]+\.js$/)
+    const { context, page, answered } = await openAsAdmin(browser, size, RARE_FILES)
     try {
       // The admin's account has the Rare UI components on (the flag is the admin's, #483). Only this answer is fixed,
       // so this test does not change the shared admin account that other tests read.
