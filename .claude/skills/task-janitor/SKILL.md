@@ -123,15 +123,16 @@ it reuses the pass 2 matching (`context()` in `scripts/session-janitor.mjs`) and
 
 Groups, first match wins: Needs you, Stuck (failed, waits for an answer, or a dispatcher step from pass 2), Running, Waiting for CI
 or review, Done since the last board (rows older than 24 hours drop out), Held (`held` or `parked`). Epics and trackers (`dispatch`,
-`janitor`, `tracker`, the manual tests issue #430 (manual tests for Shaked)) are one line each.
+`janitor`, `tracker`, the manual tests issue #430 (manual tests for Shaked)) are one line each; an owner step on an epic or a
+tracker (not #430) is also a Needs you row. A session with no issue that asks for a decision is a Needs you row too.
 
-Owner needed is `yes` only by these rules, on an open issue:
+Owner needed is `yes` only by these rules, on an open issue (agent comments end with either Claude Code footer):
 | Rule | When | Answered when |
 |---|---|---|
 | `question` | An agent comment (Claude Code footer) whose first line ends with `?`, or whose TL;DR starts with "One question for you" | A later comment by Shaked without the footer |
 | `label` | The label `owner`, without `parked` (a parked owner task is Held: Shaked parked it) | The label is removed |
 | `handoff` | The last HANDOFF has a `## Blocked on you` that is not "Nothing" | A later comment by Shaked without the footer |
-| `needs-action` | A matched session that is not completed or working has a `needs_action` with decide, choose, pick, approve, owner... | The session moves on |
+| `needs-action` | A matched session, updated in the last 3 days and not completed or working, has a `needs_action` that asks: decide, choose, approve, your call, which option, pick one (not with "nothing for the owner") | The session moves on |
 
 The exact words are the first code span under the comment's `What you need to do`, or after "reply". Manual tests (`## N. title`
 in #430 and its agent comments, with no later comment by Shaked that names the title) are listed as optional: they never count

@@ -64,7 +64,7 @@ You need to do 4 things (below).
 - [#430 Manual tests for the owner](https://github.com/example/repo/issues/430) (tracker): 1 manual test with no answer, optional, nothing waits.
 
 ### Manual tests (optional, nothing waits)
-- [Phone: bottom bar spacing](https://github.com/example/repo/issues/430): no answer yet.
+- `Phone: bottom bar spacing` ([test](https://github.com/example/repo/issues/430)): no answer yet.
 
 ### What was read
 - Sessions: 7 read on 1 page (`list_sessions mine=true limit=100`) at 2026-11-26 12:00 UTC, 6 in scope, checked.

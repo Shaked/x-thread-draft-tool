@@ -96,7 +96,7 @@ describe('owner needed: each rule has a fixture', () => {
   })
 
   it('needs_action counts only when it names a decision and the session is not done or working', () => {
-    const s = (bucket, needs) => ({ id: 'session_x', bucket, needs })
+    const s = (bucket, needs) => ({ id: 'session_x', bucket, needs, updatedAt: '2026-11-26T10:00:00Z' })
     expect(ownerNeeded({ labels: [] }, [], [s('blocked', 'run npm ci again')], { owner: 'o', url: 'u' })).toEqual([])
     expect(ownerNeeded({ labels: [] }, [], [s('completed', 'decide the ranking')], { owner: 'o', url: 'u' })).toEqual([])
     expect(ownerNeeded({ labels: [] }, [], [s('blocked', 'decide the ranking')], { owner: 'o', url: 'u' })[0].rule).toBe('needs-action')
@@ -106,6 +106,52 @@ describe('owner needed: each rule has a fixture', () => {
     expect(isOwnerQuestion({ body: 'Should we ship?' })).toBe(false)
     expect(isOwnerQuestion({ body: `Should we ship?${FOOTER}` })).toBe(true)
     expect(isOwnerQuestion({ body: `HANDOFF A1 (a b c) - done${FOOTER}` })).toBe(false)
+  })
+})
+
+describe('Opus review findings on #503', () => {
+  const opts = { owner: 'o', url: 'u' }
+  const s = (bucket, needs) => ({ id: 'session_x', bucket, needs, updatedAt: '2026-11-26T10:00:00Z' })
+
+  it('a decision word is not enough: "owner" or a bare "pick" names no decision', () => {
+    expect(ownerNeeded({ labels: [] }, [], [s('review_ready', 'Nothing for the owner; waits for Opus review')], opts)).toEqual([])
+    expect(ownerNeeded({ labels: [] }, [], [s('blocked', 'dispatcher should pick up the retry')], opts)).toEqual([])
+    expect(ownerNeeded({ labels: [] }, [], [s('blocked', 'choose the font: serif or sans')], opts)).toHaveLength(1)
+  })
+
+  it('a session question older than the stale window is left to the janitor', () => {
+    const fresh = { ...opts, freshFrom: Date.parse('2026-11-23T12:00:00Z') }
+    expect(ownerNeeded({ labels: [] }, [], [{ ...s('blocked', 'decide the ranking'), updatedAt: '2026-11-19T05:00:00Z' }], fresh)).toEqual([])
+    expect(ownerNeeded({ labels: [] }, [], [s('blocked', 'decide the ranking')], fresh)).toHaveLength(1)
+  })
+
+  it('a session with no issue that asks for a decision is in Needs you', () => {
+    const extra = { id: 'session_font', title: 'Pick a font', status: 'idle', status_bucket: 'blocked', post_turn_summary: { needs_action: 'decide which font to ship' },
+      updated_at: '2026-11-26T11:00:00Z', created_at: '2026-11-26T10:00:00Z', parent: 'session_disp', tags: ['pipeline'], model: null }
+    const b = buildBoard({ ...sessions, sessions: [...sessions.sessions, extra] }, snapshot, { comments, pulls })
+    const r = b.rows.find((x) => x.key === 's:session_font')
+    expect(r).toMatchObject({ group: 'needs-you', issue: null })
+    expect(lint(formatBoard(b), { template: true })).toEqual([])
+  })
+
+  it('an owner question on a tracker issue is in Needs you; the tracker stays one line too', () => {
+    const tracker = { number: 154, title: 'Queue: what the agents do next', state: 'open', labels: [{ name: 'dispatch' }], body: '', updated_at: '2026-11-26T10:00:00Z' }
+    const b = buildBoard(sessions, { ...snapshot, issues: [...snapshot.issues, tracker] }, { comments: { ...comments, 154: comments[301] }, pulls })
+    expect(b.rows.find((x) => x.issue === 154)).toMatchObject({ group: 'needs-you', ticket: '{#154} (tracker)' })
+    expect(b.epics.map((e) => e.number)).toContain(154)
+  })
+
+  it('a manual test title is quoted: a token is masked and a bracket does not break the link', () => {
+    const body = `${snapshot.issues.at(-1).body}\n\n## 3. Sign-in blocked after ghp_abcdefghijklmnopqrstuvwxyz0123 rotation [beta]`
+    const issues = snapshot.issues.map((i) => (i.number === 430 ? { ...i, body } : i))
+    const out = formatBoard(buildBoard(sessions, { ...snapshot, issues }, { comments, pulls }))
+    expect(out).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz0123')
+    expect(lint(out, { template: true })).toEqual([])
+  })
+
+  it('a comment with the pull request footer is an agent comment, not an answer from Shaked', () => {
+    const late = { user: 'owner', author_association: 'OWNER', created_at: '2026-11-26T11:00:00Z', body: 'Note.\n\nGenerated with [Claude Code](https://claude.com/claude-code)' }
+    expect(ownerNeeded({ labels: [] }, [...comments[301], late], [], { owner: 'owner', url: 'u' })).toHaveLength(1)
   })
 })
 
