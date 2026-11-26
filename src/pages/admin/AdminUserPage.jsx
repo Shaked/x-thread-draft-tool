@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import Badge from '../../ui/Badge'
 import Banner from '../../ui/Banner'
+import ConfirmLoginDialog from '../../components/admin/ConfirmLoginDialog'
 import Button from '../../ui/Button'
 import DescriptionList from '../../ui/DescriptionList'
 import { List, ListItem } from '../../ui/List'
+import Field from '../../ui/Field'
+import Inline from '../../ui/Inline'
+import Input from '../../ui/Input'
 import Section from '../../ui/Section'
 import Skeleton from '../../ui/Skeleton'
 import Stack from '../../ui/Stack'
+import { useToast } from '../../ui/Toast'
 import { adminApi } from '../../utils/api'
 
 const LOGIN = /^[A-Za-z0-9-]{1,39}$/
@@ -19,6 +24,19 @@ const tokenBadge = (token) =>
   token.revoked_at ? <Badge tone="danger">Revoked</Badge>
     : token.expires_at && new Date(token.expires_at) <= new Date() ? <Badge>Expired</Badge>
       : <Badge tone="success">Active</Badge>
+
+const DELETE_WAIT_MS = 10 * 60 * 1000
+const COUNT_TERMS = [
+  ['drafts', 'Drafts'],
+  ['share_links', 'Share links'],
+  ['api_tokens', 'API tokens'],
+  ['connected_apps', 'Connected apps'],
+  ['oauth_tokens', 'App tokens'],
+  ['mcp_rate_rows', 'Rate rows']
+]
+
+// The server's own message, or a plain one when the server did not answer.
+const messageOf = (err) => err?.message || 'The server did not answer. Try again.'
 
 const bytes = (n) => (n === null || n === undefined ? 'unknown' : `${n} bytes`)
 
@@ -42,6 +60,11 @@ function UserDetails({ id }) {
     load()
   }, [])
 
+  const reload = () => {
+    setState({ status: 'loading', user: null })
+    load()
+  }
+
   if (state.status === 'loading') return <Skeleton variant="card" lines={3} />
   if (state.status === 'missing') return <Banner tone="danger" role="alert">User not found.</Banner>
   if (state.status === 'error') {
@@ -64,6 +87,7 @@ function UserDetails({ id }) {
   const imageSize = user.image_files_truncated ? `${bytes(user.image_bytes)} (list cut short)` : bytes(user.image_bytes)
   return (
     <Stack gap={8}>
+      {!user.protected && <UserActions user={user} onChanged={reload} />}
       <Section title={<span dir="auto">{user.name ?? user.login}</span>} headingLevel={2}>
         <Stack gap={4}>
           <div>{user.suspended_at ? <Badge tone="danger">Suspended</Badge> : <Badge tone="success">Active</Badge>}</div>
@@ -127,5 +151,146 @@ function UserDetails({ id }) {
         )}
       </Section>
     </Stack>
+  )
+}
+
+// Suspend, unsuspend and delete (#287). Every real call goes out from a dialog's confirm button, with the typed login.
+function UserActions({ user, onChanged }) {
+  // The open confirmation: { kind: 'suspend' | 'unsuspend' | 'delete', dry? }. The delete confirm token lives only here.
+  const [dialog, setDialog] = useState(null)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const [notice, setNotice] = useState(null)
+  const toast = useToast()
+  const navigate = useNavigate()
+
+  const suspendedMs = user.suspended_at ? new Date(user.suspended_at).getTime() : null
+  const deleteReadyAt = suspendedMs === null ? null : new Date(suspendedMs + DELETE_WAIT_MS)
+  // The page can stay open across the 10-minute wait, so a timer re-renders it at the deadline.
+  const [now, setNow] = useState(() => Date.now())
+  const readyMs = deleteReadyAt === null ? null : deleteReadyAt.getTime()
+  useEffect(() => {
+    if (readyMs === null || readyMs <= Date.now()) return undefined
+    const timer = setTimeout(() => setNow(Date.now()), readyMs - Date.now() + 250)
+    return () => clearTimeout(timer)
+  }, [readyMs])
+  const canDelete = readyMs !== null && readyMs <= now
+
+  const close = () => {
+    setDialog(null)
+    setError(null)
+    setReason('')
+  }
+
+  // Step 1 of delete: the dry run. Nothing is deleted. The dialog opens with the counts and the token.
+  const startDelete = async () => {
+    setNotice(null)
+    setBusy(true)
+    try {
+      const dry = await adminApi.deleteDryRun(user.id)
+      setDialog({ kind: 'delete', dry, expiresAt: new Date(Date.now() + dry.expires_in * 1000).toISOString() })
+    } catch (err) {
+      setNotice(messageOf(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Every real call goes out only from the dialog's confirm button, with the typed login.
+  const confirm = async (typed) => {
+    setBusy(true)
+    setError(null)
+    try {
+      if (dialog.kind === 'suspend') {
+        await adminApi.suspend(user.id, typed, reason.trim())
+        toast({ message: `Suspended ${typed}.` })
+      } else if (dialog.kind === 'unsuspend') {
+        await adminApi.unsuspend(user.id, typed)
+        toast({ message: `Unsuspended ${typed}.` })
+      } else {
+        await adminApi.deleteUser(user.id, dialog.dry.confirm_token, typed)
+        toast({ message: `Deleted ${typed} and their data.` })
+        navigate('/admin/users')
+        return
+      }
+      close()
+      onChanged()
+    } catch (err) {
+      setError(messageOf(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+          <Section title="Actions" headingLevel={2}>
+            <Stack gap={4}>
+              {notice && <Banner tone="danger" role="alert">{notice}</Banner>}
+              <Inline gap={3}>
+                {user.suspended_at ? (
+                  <Button variant="secondary" onClick={() => { setNotice(null); setDialog({ kind: 'unsuspend' }) }}>Unsuspend</Button>
+                ) : (
+                  <Button variant="danger" onClick={() => { setNotice(null); setDialog({ kind: 'suspend' }) }}>Suspend</Button>
+                )}
+                {user.suspended_at && (
+                  <Button variant="danger" onClick={startDelete} loading={busy && dialog === null} disabledReason={canDelete ? undefined : `Delete opens ${when(deleteReadyAt.toISOString())}, 10 minutes after the suspension.`}>
+                    Delete user
+                  </Button>
+                )}
+              </Inline>
+            </Stack>
+          </Section>
+        {dialog?.kind === 'suspend' && (
+          <ConfirmLoginDialog
+            title={`Suspend ${user.login}?`}
+            description={`User id ${user.id}. They cannot sign in, and their API tokens, connected apps, MCP calls and share links stop working at once. Nothing is deleted, and you can unsuspend them.`}
+            user={user}
+            confirmLabel="Suspend"
+            busy={busy}
+            error={error}
+            onConfirm={confirm}
+            onClose={close}
+          >
+            <Field label="Reason (optional)" help="Up to 200 characters. Kept in the audit log.">
+              <Input value={reason} onChange={setReason} maxLength={200} />
+            </Field>
+          </ConfirmLoginDialog>
+        )}
+        {dialog?.kind === 'unsuspend' && (
+          <ConfirmLoginDialog
+            title={`Unsuspend ${user.login}?`}
+            description={`User id ${user.id}. They can sign in again. Their tokens and connected apps work again, and their share links answer again.`}
+            user={user}
+            confirmLabel="Unsuspend"
+            tone="primary"
+            busy={busy}
+            error={error}
+            onConfirm={confirm}
+            onClose={close}
+          />
+        )}
+        {dialog?.kind === 'delete' && (
+          <ConfirmLoginDialog
+            title={`Delete ${user.login} for good?`}
+            description={`User id ${user.id}. This deletes the user, every item below and their image files. It cannot be undone. This confirmation expires at ${when(dialog.expiresAt)}.`}
+            user={user}
+            confirmLabel="Delete for good"
+            busy={busy}
+            error={error}
+            onConfirm={confirm}
+            onClose={close}
+          >
+            <DescriptionList
+              columns={2}
+              items={[
+                ...COUNT_TERMS.map(([key, term]) => ({ term, value: show(dialog.dry.will_delete[key]) })),
+                { term: 'Image files', value: dialog.dry.will_delete.image_files_truncated ? `${show(dialog.dry.will_delete.image_files)} (list cut short)` : show(dialog.dry.will_delete.image_files) }
+              ]}
+            />
+          </ConfirmLoginDialog>
+        )}
+    </>
   )
 }

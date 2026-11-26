@@ -9,7 +9,8 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
 // A modal dialog in a portal on <body>, outside #root. While it is open #root is inert (set through the DOM,
 // React 18.2 has no `inert` prop) and the page does not scroll. Tab stays inside, Escape and the scrim close it
 // (unless `dismissible` is false), and focus goes back to the element that was focused when it opened.
-// `actions`: [{ label, variant, onClick, autoFocus }]; the one with `autoFocus` gets focus first.
+// `actions`: [{ label, variant, onClick, autoFocus, disabledReason, loading, disabled }]; the one with `autoFocus` gets focus first.
+// `disabledReason` keeps the button focusable and shows the reason (see Button); `loading` ignores clicks.
 // `placement`: 'center' (default) or 'sheet-start', a drawer on the inline start edge (the app menu).
 // Focus goes to the first element inside `[data-autofocus]` when there is one (a link or a button), else the first control.
 // `returnTo`: a ref to the element that focus returns to on close (optional).
@@ -86,7 +87,7 @@ export default function Dialog({ open, onClose, title, description, children, ac
           <div className="ui-dialog__actions">
             {actions.map((action) => (
               <span key={action.label} className="ui-dialog__action" data-autofocus={action.autoFocus ? '' : undefined}>
-                <Button variant={action.variant ?? 'secondary'} onClick={action.onClick}>
+                <Button variant={action.variant ?? 'secondary'} onClick={action.onClick} disabledReason={action.disabledReason} loading={action.loading} disabled={action.disabled}>
                   {action.label}
                 </Button>
               </span>
