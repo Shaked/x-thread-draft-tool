@@ -1,0 +1,26 @@
+/* SideLayout: stacked on phones; a 14 rem side column and the content from 768 px. */
+.ui-side-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-inline-size: 0;
+}
+
+.ui-side-layout__main {
+  min-inline-size: 0;
+}
+
+@media (width >= 768px) {
+  .ui-side-layout {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .ui-side-layout__side {
+    flex: 0 0 var(--flex-min);
+  }
+
+  .ui-side-layout__main {
+    flex: 1 1 0;
+  }
+}

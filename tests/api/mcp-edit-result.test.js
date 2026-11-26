@@ -116,4 +116,17 @@ describe('#405: get_draft, then update_post', () => {
     expect(stale.content).toHaveLength(1)
     expect(stale.content[0].text).toContain('Nothing was saved: the draft changed since you read it. Call get_draft_outline once')
   })
+
+  it('a version above 2147483647 is a tool argument error, not a 400 from the database, and writes nothing (#474)', async () => {
+    const args = { id: db.draft.id, post_id: 'p2', text: 'too late' }
+    for (const version of [2147483648, 99999999999999]) {
+      const refused = await call('update_post', { ...args, version })
+      expect(refused.isError).toBe(true)
+      expect(refused.content[0].text).toBe('Invalid argument version: must be at most 2147483647')
+    }
+    const edge = await call('update_post', { ...args, version: 2147483647 })
+    expect(edge.content[0].text).toContain('Nothing was saved: the draft changed since you read it')
+    const { rows } = await db.pg.query('select version from drafts where id = $1', [db.draft.id])
+    expect(rows[0].version).toBe(1)
+  })
 })

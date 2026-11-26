@@ -10,8 +10,14 @@ import {
   measurePull,
   nearestRank,
   median,
+  ciCause,
+  gateBody,
   overLimit,
+  readGate,
   run,
+  GATE_TITLE,
+  streakFields,
+  streakOf,
   summarize,
 } from '../../scripts/speed-metrics.mjs'
 
@@ -45,8 +51,34 @@ function fakeApi(fixture = FIXTURE) {
     async commitFiles(sha) {
       return fixture.files[sha] ?? []
     },
+    // Gate issue (task M7): an in-memory list, so a test can see what the run wrote.
+    async jobsForRun(runId) {
+      return fixture.jobs?.[runId] ?? []
+    },
+    async openGateIssue() {
+      return gate.issue
+    },
+    async createGateIssue(body) {
+      gate.created.push(body)
+      gate.issue = { number: 900, html_url: 'https://github.com/owner/repo/issues/900', body }
+      return gate.issue
+    },
+    async updateGateBody(number, body) {
+      gate.updated.push(body)
+      gate.issue = { ...gate.issue, body }
+      return gate.issue
+    },
+    async closeGate(number, comment) {
+      gate.closed.push(comment)
+      gate.issue = null
+      return {}
+    },
   }
 }
+
+// The gate issue as the fake holds it; reset by each test that uses it.
+const gate = { issue: null, created: [], updated: [], closed: [] }
+const resetGate = (issue = null) => Object.assign(gate, { issue, created: [], updated: [], closed: [] })
 
 const pullByNumber = (n) => FIXTURE.pulls.find((p) => p.number === n)
 const measure = (n) => measurePull(pullByNumber(n), fakeApi())
@@ -203,15 +235,42 @@ describe('run(): modes, output and the checks', () => {
     expect(md).toMatch(/\| Product code \| CI \| 4 \| 90 s \| 99 s \| 90 s \| yes \| \+30 s \(slower\) \|/)
   })
 
-  it('--merge of a production merge warns for CI 93 s over 90 s, and sends no Telegram line', async () => {
+  it('--merge of a production merge warns for CI 93 s over 90 s, opens the gate issue and sends one alert', async () => {
+    resetGate()
     const sent = []
     const logs = []
-    const result = await run(['--merge', M[101], '--out', tmp()], {}, {
+    const result = await run(['--merge', M[101], '--out', tmp()], { GITHUB_REPOSITORY: 'owner/repo', GITHUB_RUN_ID: '42' }, {
       api: fakeApi(), now: NOW, log: (l) => logs.push(l), notifyImpl: async (m) => sent.push(m),
     })
     expect(result.status).toBe('done')
     expect(logs.filter((l) => l.startsWith('::warning'))).toEqual(['::warning title=Speed budget::#101 CI 93 s is over the limit of 90 s'])
+    expect(gate.created).toHaveLength(1)
+    expect(gate.created[0]).toContain('<!-- speed-gate {')
+    expect(sent).toHaveLength(1)
+    expect(sent[0].html.split('\n')[0]).toContain('Delivery is slower than its limit: CI checks')
+    expect(sent[0].html).toContain('href="https://github.com/owner/repo/issues/900"')
+  })
+
+  it('running the same over-limit merge again updates the gate and sends nothing', async () => {
+    resetGate()
+    const opts = { api: fakeApi(), now: NOW, log: () => {}, notifyImpl: async () => 'skipped' }
+    await run(['--merge', M[101], '--out', tmp()], {}, opts)
+    const sent = []
+    await run(['--merge', M[101], '--out', tmp()], {}, { ...opts, notifyImpl: async (m) => sent.push(m) })
     expect(sent).toEqual([])
+    expect(gate.updated).toHaveLength(1)
+    expect(gate.created).toHaveLength(1)
+  })
+
+  it('closes the gate once it has been within its limits for 24 hours, and sends nothing', async () => {
+    const state = { active: true, since: '2026-11-20T10:02:10Z', count: 3, clearSince: '2026-11-24T00:00:00Z' }
+    resetGate({ number: 900, html_url: 'https://github.com/owner/repo/issues/900', body: `x\n<!-- speed-gate ${JSON.stringify(state)} -->` })
+    // M[105] is a production merge within its limits (no warning), so the gate counts it as clear.
+    const sent = []
+    await run(['--merge', M[105], '--out', tmp()], {}, { api: fakeApi(), now: Date.parse('2026-11-25T00:00:00Z'), log: () => {}, notifyImpl: async (m) => sent.push(m) })
+    expect(sent).toEqual([])
+    expect(gate.closed).toHaveLength(1)
+    expect(gate.closed[0]).toContain('24 hours')
   })
 
   it('--merge skips a docs-only merge and an unknown commit', async () => {
@@ -222,18 +281,20 @@ describe('run(): modes, output and the checks', () => {
     expect(logs.length).toBe(2)
   })
 
-  it('--last sends one speed message: the stage over its p90 limit, its numbers, the window and the run link', async () => {
+  it('--last sends one alert: the stage over its p90 limit, the numbers, the window, and the run link', async () => {
+    resetGate()
     const sent = []
     await run(['--last', '5', '--out', tmp()], { GITHUB_REPOSITORY: 'owner/repo', GITHUB_RUN_ID: '42' }, {
       api: fakeApi(), now: NOW, log: () => {}, notifyImpl: async (m) => sent.push(m),
     })
     expect(sent).toHaveLength(1)
     expect(sent[0].html).toBe([
-      '<b><a href="https://github.com/owner/repo/actions/runs/42">Speed over the budget: CI</a></b>',
-      'The last 5 merged pull requests, merged since 2026-11-20.',
-      'Product code CI: p90 99 s, limit 90 s, usual 90 s',
-      'Nothing needed: this check only warns.',
+      '🐢 <b>Thread Draft</b> · <a href="https://github.com/owner/repo/actions/runs/42">Delivery is slower than its limit: CI checks</a>',
+      '1 in 10 merges took 1 min 39 s or more in CI checks. The limit is 1 min 30 s (10 % over), in the last 5 merges since 2026-11-20 10:02 UTC.',
+      'Likely cause: not known yet.',
+      '<a href="https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions">What the stages mean</a>',
     ].join('\n'))
+    expect(gate.created).toHaveLength(0)
   })
 
   it('rejects options it does not know and out-of-range numbers', async () => {
@@ -311,5 +372,98 @@ describe('githubApi.commitFiles pages', () => {
     const files = await api.commitFiles('a'.repeat(40))
     expect(files).toHaveLength(101)
     expect(shouldSkip({ VERCEL_ENV: 'production' }, files)).toBe(false)
+  })
+})
+
+describe('the gate: streak, cause and state (task M7, #446)', () => {
+  const rec = (number, merged_at, ci, smokeOver = false) => ({
+    number,
+    kind: 'code',
+    merged_at,
+    head_sha: `h${number}`,
+    stages: { ci: { running: ci }, merge: { wait: 0 }, vercel: { running: 20 }, smoke: { running: smokeOver ? 40 : 10 } },
+    total: ci + 30,
+  })
+
+  it('the streak counts back from the measured merge, and stops at the first merge within its limits', () => {
+    const records = [
+      rec(5, '2026-11-24T14:10:00Z', 120), // over
+      rec(4, '2026-11-24T13:00:00Z', 80), // within
+      rec(3, '2026-11-24T12:00:00Z', 130), // over, but older than the break
+    ]
+    const streak = streakOf(records, records[0])
+    expect(streak.map((r) => r.number)).toEqual([5])
+    // A later merge that is not measured yet does not count.
+    expect(streakOf(records, records[1])).toEqual([])
+  })
+
+  it('the cause is the step furthest above its usual time, in the newest run', async () => {
+    const jobs = {
+      1: [{ steps: [{ name: 'Install', started_at: '2026-11-24T10:00:00Z', completed_at: '2026-11-24T10:00:20Z' }, { name: 'Fonts', started_at: '2026-11-24T10:00:20Z', completed_at: '2026-11-24T10:01:30Z' }] }],
+      2: [{ steps: [{ name: 'Install', started_at: '2026-11-23T10:00:00Z', completed_at: '2026-11-23T10:00:20Z' }, { name: 'Fonts', started_at: '2026-11-23T10:00:20Z', completed_at: '2026-11-23T10:00:30Z' }] }],
+    }
+    const api = {
+      runsForSha: async (sha) => [{ id: sha === 'h5' ? 1 : 2, name: 'Tests', created_at: '2026-11-24T10:00:00Z' }],
+      jobsForRun: async (id) => jobs[id],
+    }
+    // A first over-limit merge (a streak of one): its usual time comes from the recent production merges.
+    const newest = rec(5, '2026-11-24T14:10:00Z', 120)
+    const recent = [newest, rec(4, '2026-11-24T13:00:00Z', 80)]
+    expect(await ciCause(newest, recent, api)).toBe('Fonts took 1 min 10 s against a usual 40 s')
+  })
+
+  it('no cause is named when there is only one run to compare', async () => {
+    const api = {
+      runsForSha: async () => [{ id: 1, name: 'Tests', created_at: '2026-11-24T10:00:00Z' }],
+      jobsForRun: async () => [{ steps: [{ name: 'Fonts', started_at: '2026-11-24T10:00:00Z', completed_at: '2026-11-24T10:01:00Z' }] }],
+    }
+    const only = rec(5, '2026-11-24T14:10:00Z', 120)
+    expect(await ciCause(only, [only], api)).toBeNull()
+  })
+
+  it('the gate state survives a round trip through the issue body, and a body without it reads as null', () => {
+    const state = { active: true, since: '2026-11-24T14:10:00Z', count: 7, clearSince: null }
+    expect(readGate(gateBody(state, ['CI checks: 120 s, limit 90 s']))).toEqual(state)
+    expect(readGate('no marker here')).toBeNull()
+  })
+})
+
+describe('the gate keeps a streak that is longer than its window (task M7, #446)', () => {
+  it('a streak that reaches the window keeps the earlier start and count of the same streak', async () => {
+    const prev = { active: true, since: '2026-11-01T08:00:00Z', count: 52, clearSince: null }
+    const window = Array.from({ length: 40 }, (_, i) => ({ merged_at: new Date(Date.parse('2026-11-25T00:00:00Z') - i * 3600000).toISOString(), kind: 'code', stages: { vercel: {} } }))
+    expect(streakFields(prev, window, true)).toEqual({ since: '2026-11-01T08:00:00Z', count: 52 })
+    // A streak that ends inside the window is measured in full, so its own start is used.
+    expect(streakFields(prev, window.slice(0, 3), false).since).toBe(window[2].merged_at)
+  })
+})
+
+describe('the gate: streak reset and lookups (task M7, #446)', () => {
+  const streakRec = (n, at) => ({ number: n, kind: 'code', merged_at: at, head_sha: 'h' + n, merge_sha: 'm' + n, stages: { ci: { running: 120 }, vercel: { running: 20 } }, total: 150 })
+
+  it('a gate that went clear starts a new streak: the old start and count are not kept', () => {
+    const prev = { active: true, since: '2026-11-24T14:10:00Z', count: 7, clearSince: '2026-11-25T10:00:00Z' }
+    expect(streakFields(prev, [streakRec(9, '2026-11-26T08:00:00Z')], true)).toEqual({ since: '2026-11-26T08:00:00Z', count: 1 })
+  })
+
+  it('an unclear streak shorter than the window still counts from its own start', () => {
+    const prev = { active: true, since: '2026-11-20T08:00:00Z', count: 7, clearSince: null }
+    expect(streakFields(prev, [streakRec(9, '2026-11-26T08:00:00Z')], false)).toEqual({ since: '2026-11-26T08:00:00Z', count: 1 })
+  })
+
+  it('a broken gate marker reads as no state', () => {
+    expect(readGate('<!-- speed-gate {bad} -->')).toBeNull()
+  })
+
+  it('finds the gate issue on page 2 of the open task issues', async () => {
+    const gateIssue = { number: 77, title: GATE_TITLE, body: 'b', html_url: 'https://github.com/owner/repo/issues/77' }
+    const filler = Array.from({ length: 100 }, (_, i) => ({ number: 1000 + i, title: 'other', body: '' }))
+    const fetchImpl = async (url) => {
+      const page = Number(new URL(url).searchParams.get('page'))
+      const list = page === 1 ? filler : [gateIssue]
+      return { ok: true, status: 200, json: async () => list }
+    }
+    const api = githubApi({ token: 'test-token', repo: 'owner/repo', fetchImpl })
+    expect((await api.openGateIssue())?.number).toBe(77)
   })
 })

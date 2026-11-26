@@ -252,8 +252,10 @@ When a task changes behavior, contributors should update:
 
 ## License
 
-MIT
+MIT (see [LICENSE](./LICENSE)), except the third-party files listed in THIRD_PARTY_LICENSES/, which keep their own licences.
 
 ## Credits
 
 Built with React, Vercel, Neon, and Vercel Blob.
+
+Some interface components come from [Rare UI](https://rareui.com) (MIT with Commons Clause and attribution; see THIRD_PARTY_LICENSES/rare-ui.md).

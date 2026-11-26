@@ -23,9 +23,9 @@ The central place is our own Neon database, which already holds the app's metric
 O7). This plan adds one small events table for CI, Git, deploys, speed stages and production errors, and
 two admin tools that answer in plain English with the number, the limit and last week's value.
 
-Nothing outside this repo sends anything. This repo's own 6-hourly workflow (O5) reads CI, Git and deploy
-data from the GitHub API, for this repo and for every public repo listed in one file, and writes it in the
-same database wake. A new repo joins with one line in that list: no workflow, no token and no permission
+Nothing outside this repo sends anything. This repo's own 6-hourly workflow (`metrics-daily.yml`, created by
+M3) reads CI, Git and deploy data from the GitHub API, for this repo and for every public repo listed in one
+file, and writes it in the same database wake. A new repo joins with one line in that list: no workflow, no token and no permission
 in that repo. Raw logs stay where they are (GitHub Actions); the table stores a link, never the log text.
 
 Cost: $0 a month. No sign-up, no secret, no money. Size is capped by drop rules, fixed keys, a 14-day
@@ -209,10 +209,10 @@ Telegram sender. Two parts of the request are left out on purpose: local dev (se
   per repo, the workflows that get rows and whether speed rows are made (`speed: true` only for this repo:
   `speed-metrics.mjs` knows this repo's workflow names). Another public repo joins with one line here: nothing changes
   in that repo. A private repo would need a token to be read: not now.
-- **Collect**: `scripts/ops-emit.mjs` runs as a second step of O5's 6-hourly workflow `metrics-daily.yml`
-  (owner default Q2 of #331). For each listed repo it reads the GitHub API (runs, merges, deployments, and
-  the speed stages through the functions of `scripts/speed-metrics.mjs`) and posts one batch. It shares
-  O5's database wake, so it costs no extra compute, however many repos are listed.
+- **Collect**: `scripts/ops-emit.mjs` runs in the 6-hourly workflow `metrics-daily.yml`, which M3 creates; O5
+  adds its own job to the same file later (owner default Q2 of #331; D4 in section 9). For each listed repo it
+  reads the GitHub API (runs, merges, deployments, and the speed stages through the functions of
+  `scripts/speed-metrics.mjs`) and posts one batch. It shares O5's database wake, so it costs no extra compute, however many repos are listed.
 - **Cursor**: per repo, the route keeps the creation time of the oldest run that was still going at the
   last fetch, or else of the newest run it stored (`ops_cursor`), and returns it in every answer. The
   script's first call per repo is an empty batch, to read the cursor; it then lists runs created from one
@@ -328,20 +328,20 @@ in-process; the UI calls the same route.
 
 | Capability | API | MCP | UI |
 |---|---|---|---|
-| Admin ops summary | `GET /admin/ops/summary` | `admin_ops_summary` | `/admin/*` (a "Delivery and CI" section on `/admin/metrics`, O6) |
-| Admin ops events | `GET /admin/ops/events` | `admin_ops_events` | `/admin/*` (the table under that section) |
+| Admin metrics summary | `GET /admin/metrics/summary` | `admin_metrics_summary` | `/admin/*` (a "Delivery and CI" section on `/admin/metrics`, O6) |
+| Admin metrics events | `GET /admin/metrics/events` | `admin_metrics_events` | `/admin/*` (the table under that section) |
 | Ops ingest (Infrastructure row, under O5's `/ops` gate) | `POST /ops/events` | none | none |
 
-### `GET /api/admin/ops/summary?window=24h|7d&repo=<listed repo>`
+### `GET /api/admin/metrics/summary?window=24h|7d&repo=<listed repo>`
 
-One function, `server/ops/summary.js`, builds every line, so the REST answer, the tool text and the page
+One function, `server/metrics/summary.js`, builds every line, so the REST answer, the tool text and the page
 say the same words. Each finding has the number now, the limit when there is one, the same number for the
 7 days before the window (the baseline), since when it has been over, and a link.
 
 Example answer of the tool (example values, not measured):
 
 ```text
-Ops summary for Shaked/x-thread-draft-tool, last 24 hours, as of 2026-11-26 06:00 UTC (events up to 05:40 UTC).
+Metrics summary for Shaked/x-thread-draft-tool, last 24 hours, as of 2026-11-26 06:00 UTC (events up to 05:40 UTC).
 - Speed: 1 in 10 merges took 3 min 38 s or more from push to tested production. Limit 2 min 30 s. Last week 2 min 50 s. Over since 2026-11-24 14:10 UTC (7 merges).
 - CI checks: 41 runs, 3 failed (7 %). Last week 9 %. Most failures: Tests, step "Install Playwright browsers" (2). Last failure: https://github.com/Shaked/x-thread-draft-tool/actions/runs/1
 - Deploys: 6 to production, all passed the smoke test. Median 22 s from merge to live. Last week 22 s.
@@ -376,7 +376,7 @@ of "p95", both with "or more" (nearest rank); each line starts with the area; "N
 limit." when that is true; when the events are older than 7 hours, the first line says so and gives the
 manual run link.
 
-### `GET /api/admin/ops/events?source=&kind=&status=&name=&since=&limit=`
+### `GET /api/admin/metrics/events?source=&kind=&status=&name=&since=&limit=`
 
 At most 100 rows, newest first, with `link`. For the agent's second step: find the failing runs, then
 read their logs with the GitHub MCP (`get_job_logs`).
@@ -409,9 +409,9 @@ For a repo that wants its CI, Git and deploy numbers in the central place.
 
 For an agent that is asked "is anything wrong?" or that receives an alert.
 
-1. Call `admin_ops_summary` with `window: 24h`. If `events_until` is older than 7 hours, start the
+1. Call `admin_metrics_summary` with `window: 24h`. If `events_until` is older than 7 hours, start the
    `metrics-daily.yml` workflow by hand (GitHub MCP `actions_run_trigger`) and read again.
-2. For each finding with `over: true`, call `admin_ops_events` for that area and read the linked runs
+2. For each finding with `over: true`, call `admin_metrics_events` for that area and read the linked runs
    with the GitHub MCP (`get_job_logs`, the failed step only).
 3. Name one cause, with evidence, from a fixed list: a slow setup step, a flaky test (passed on re-run),
    a real failure, a slow external service, more traffic, unknown.
@@ -426,7 +426,7 @@ This replaces the one-line speed message. Today the owner gets the headline "Spe
 and the line "p90 over the limit: CI, Smoke, Total" with a link to the run
 (`scripts/speed-metrics.mjs`, `alert()`). It does not say how much, since when, why, or what to do.
 
-The shape is close to `.claude/skills/reply-style/templates/telegram-message.md` (at most 5 lines, the bold
+The shape is close to `.claude/reply-style-templates/telegram-message.md` (at most 5 lines, the bold
 linked headline, `Needs you:` or `Nothing needed.`, links), written with `pstack-unslop`. An alert has no
 item line (a commit or an issue title); the number takes its place. So M7 adds a second shape, "Alert",
 to that file, with golden tests, and the speed kind uses it. O7's `metrics` kind uses it when O7 is built.
@@ -489,13 +489,14 @@ on" lists issues that must be closed first. O1 to O7 (#332 to #338) are the task
 | M0 | see #439 | Read the live vendor pages now allowed (Grafana, Axiom pricing, Better Stack, Honeycomb, Sentry pricing, Vercel drains, GitHub artifact download) and replace each "not checked" in section 2 with a quote and the date. Docs only | Opus | S | none | `Implements #439 Task M0` |
 | M7 | see #439 | Telegram alert shape (section 6): the "Alert" shape in `telegram-message.md`; the per-merge speed run sends it once per streak (24 hours clear to send again) with the streak, likely cause, plain stage names and one gate issue (`issues: write`); golden tests; `docs/operations/telegram.md` | Sonnet | M | the Telegram code step of #369 | `Implements #439 Task M7` |
 | M1 | see #439 | Migration (next free number after O1): `ops_events` (unique repo, source, kind, id), `ops_daily` counters, `ops_cursor`; `server/ops/events.js` (version 1 shape, kinds, `attrs` keys, cuts, link and time rules, caps) and `server/ops/sources.js`, unit tests; measure the row size | Opus (SQL) | S | O1 #332 | `Implements #439 Task M1` |
-| M2 | see #439 | `POST /api/ops/events` with its own OIDC check (section 3), repo from the sources list, caps, row guard, cursor in the answer, insert that ignores known events, daily counter replace; Infrastructure row; token tests. Executor Sonnet (OIDC is security code) | Opus (OIDC) | M | M1, O5 #336 | `Implements #439 Task M2` |
-| M3 | see #439 | `scripts/ops-emit.mjs` and its step in `metrics-daily.yml`: per listed repo, CI runs, merges, deploys and speed stages from the GitHub API since the cursor, drop rules, day counters, rate-limit stop, `--dry-run`; reuse `speed-metrics.mjs` functions; offline fixture tests | Opus (workflow token) | M | M2 | `Implements #439 Task M3` |
+| M2 | see #439 | `POST /api/ops/events` with its own OIDC check (section 3), repo from the sources list, caps, row guard, cursor in the answer, insert that ignores known events, daily counter replace; Infrastructure row; token tests. Executor Sonnet (OIDC is security code) | Opus (OIDC) | M | M1 (shipped without O5, D4) | `Implements #439 Task M2` |
+| M3 | see #439 | `scripts/ops-emit.mjs`; creates `metrics-daily.yml` (D4): per listed repo, CI runs, merges, deploys and speed stages from the GitHub API since the cursor, drop rules, day counters, rate-limit stop, `--dry-run`; reuse `speed-metrics.mjs` functions; offline fixture tests | Opus (workflow token) | M | M2 | `Implements #439 Task M3` |
 | M4 | see #439 | Production error events in the O2 recorder: route template, status, error class, code, region; 20 per instance per hour and 200 a day; no message text; tests (no real path, no text stored) | Opus (hot path) | S | O2 #333, M1 | `Implements #439 Task M4` |
-| M5 | see #439 | `GET /api/admin/ops/summary`, `GET /api/admin/ops/events`, tools `admin_ops_summary` and `admin_ops_events` (route binding as in O4), `server/ops/summary.js` (plain lines with baseline and since), retention in O5's step, OpenAPI, capabilities rows (UI `no: planned in #439 Task M6` until M6), `docs/operations/admin.md` | Opus (admin) | M | M1, O2 #333, O4 #335, O5 #336 | `Implements #439 Task M5` |
+| M5 | see #439 | `GET /api/admin/metrics/summary`, `GET /api/admin/metrics/events`, tools `admin_metrics_summary` and `admin_metrics_events` (route binding as in O4), `server/metrics/summary.js` (plain lines with baseline and since; its Production line reuses O4's `server/metrics/view.js`), OpenAPI, capabilities rows (UI `no: planned in #439 Task M6` until M6), `docs/operations/admin.md` | Opus (admin) | M | O4 #335, O5 #336 | `Implements #439 Task M5` |
 | M6 | see #439 | "Delivery and CI" section on `/admin/metrics`: the summary lines and the events table with links; capabilities UI cells | Opus (design) | S | M5, O6 #337 | `Implements #439 Task M6` |
 | M8 | see #439 | Write the two skills of section 5 (`ops-emit`, `ops-read-act`); list them in `CLAUDE.md` with `npm run docs:refresh` | Opus (design) | S | M3, M5 | `Implements #439 Task M8` |
 | M9 | see #439 | **Owner-only.** Second free Neon project for `ops_*` tables (fallback 2). Start only when `ops_events` holds over 50 000 rows or the month uses over 70 CU-hours | owner, then Opus | S | the trigger above | `Implements #439 Task M9` |
+| M10 | #475 | One alert shape in `telegram-message.md`: section 5 "Metrics alert" rewritten as the `metrics` use of the Alert shape (D6). Docs only | Sonnet | S | none | `Implements #407 Task M10` |
 
 The issue numbers are listed on #439 once the issues exist. M0 and M7 can start first: they need none of
 the database work, and M7 fixes the alert the owner did not understand.
@@ -514,3 +515,109 @@ M9, what the owner does (only when its trigger fires):
 
 None. Every choice here is free and needs no secret, and the owner asked for work without permission
 steps. M9 is the only owner step, and only when its trigger fires.
+
+## 9. Decision record: the O and M task sets (2026-11-26)
+
+Decided by Opus, 2026-11-26, task #458, from the janitor report on #458 (the overlap table). The owner's rule
+(#439): free, small, reuse what exists, one place that agents read over MCP, no duplicate tables, no two admin
+APIs for the same thing. Where this section and an older line of this plan or of `docs/plans/observability.md`
+disagree, this section wins. Each task issue names the decisions that change it.
+
+### State on `main` (`4865a14`), checked in the code
+
+- O1 (#332): `db/migrations/010_metrics.sql`: `metrics_hourly`, `metrics_daily`, `metrics_product_daily`,
+  `metrics_alert_state`. O2 (#333): `server/metrics/record.js` writes `metrics_hourly` after each answer.
+- M1 (#447): `db/migrations/011_ops_events.sql`: `ops_events`, `ops_daily`, `ops_cursor`; `server/ops/events.js`,
+  `server/ops/sources.js`.
+- M2 (PR 469; #448 still open): `POST /api/ops/events` in `server/routes/ops.js` (`selfAuth`),
+  `server/ops/ingest.js`, and `verifyOpsToken(token, env)` in `server/oidc-ci.js` with the audience
+  `x-thread-draft-tool-ops-events-<VERCEL_ENV>` (`opsEventsAudience`). It shares `verifySignature` with
+  `verifyCiToken`; it is not `verifyCiToken`. On the row guard it answers 503 and logs; it stores no flag.
+- M7 (PR 467; #446 still open): the Alert shape (section 6 of `telegram-message.md`), kind `speed`, gate issue.
+- Not on `main`: `POST /api/ops/metrics-daily`, an `/ops` 404 gate (a GET on
+  `/api/ops/events` answers 405 today), and any delete of `ops_events` rows (`ingest.js` deletes only the
+  `ops_daily` rows of the days it replaces).
+- M3 (#449, PR 472, merged in `252eefd` while this record was reviewed): `metrics-daily.yml` with the schedule,
+  `workflow_dispatch`, `concurrency: metrics-daily` and workflow-level permissions `contents`, `actions`,
+  `deployments` and `pull-requests` read, and `id-token: write`; `docs/operations/metrics-daily.md`. Its header
+  and that doc say events stay 14 days, which holds only once O5 ships the retention (D4).
+
+### Decisions
+
+| Id | Pair | What survives |
+|---|---|---|
+| D1 | O1 #332 and M1 #447 (tables) | Both table sets. They hold different things; no fold |
+| D2 | O2 #333 and M4 #450 (recorder) | M4, narrowed to the detail of one error |
+| D3 | O4 #335 and M5 #451 (admin APIs) | One admin metrics API under `/api/admin/metrics`; M5 renamed |
+| D4 | O5 #336, M2 #448, M3 #449 (daily step, ingest, workflow) | One workflow, one token check, one retention place |
+| D5 | O6 #337 and M6 #452 (page) | One page, `/admin/metrics`; delivery numbers from `ops_events` |
+| D6 | O7 #338 and M7 #446 (alerts) | O7, in M7's Alert shape; the second shape is folded by #475 |
+| D7 | O3 #334 and M4 #450 (`record.js`) | Both, unchanged; no order between them |
+
+**D1.** `metrics_*` counts requests: one row per hour and key, with a histogram. `ops_*` holds events that are not
+requests: CI runs, merges, deploys, speed stages, errors. `metrics_daily` and `ops_daily` have different keys.
+Rule: a request count, a latency or a 5xx count lives only in `metrics_hourly` and `metrics_daily`; `ops_events`
+never counts requests.
+
+**D2.** A `prod` / `error` row keeps only the detail of one error: route template, status, error class, code,
+region, tool. Every 5xx count, in the summary and in alert A1, comes from `metrics_hourly.n_5xx`. M4 builds its
+row with `normalizeEvent` of `server/ops/events.js` (the `prod/error` rule), not with a second check.
+
+**D3.**
+- O4 keeps `GET /api/admin/metrics` and `GET /api/admin/metrics/series` (tools `admin_metrics`,
+  `admin_metrics_series`).
+- M5 becomes `GET /api/admin/metrics/summary` (`admin_metrics_summary`) and `GET /api/admin/metrics/events`
+  (`admin_metrics_events`). No `/admin/ops/*` route and no `admin_ops_*` tool.
+- The summary's lines are built in `server/metrics/summary.js`. Its Production line calls O4's
+  `server/metrics/view.js`, so there is no second query over `metrics_hourly`.
+- The admin tool count goes from 8 (checked) to 12. The four paths are exact routes, and the `/admin` 404 gate and
+  `ADMIN_REST_ROUTES` cover them as they cover the other admin routes.
+
+**D4.**
+- Workflow: M3 creates `metrics-daily.yml` and owns the schedule, `workflow_dispatch` and
+  `concurrency: metrics-daily`. O5 adds one job to that file with job-level
+  `permissions: { id-token: write, contents: read }`, so it does not inherit M3's read permissions. M3 does not
+  depend on O5.
+- Token check: O5 reuses `verifyOpsToken`, with the audience as a third parameter:
+  `verifyOpsToken(token, env = process.env, audience = opsEventsAudience)`, plus
+  `opsDailyAudience(vercelEnv)` = `x-thread-draft-tool-ops-daily-<VERCEL_ENV>`. The existing calls keep working. No third
+  verifier. `verifyCiToken` and `CI_WORKFLOW_PATHS` do not change, and the about 5 lines of environment checks
+  that both functions repeat stay as they are, so the CI verifier is not touched.
+- Routes: two POST routes stay, because they do two jobs. `/api/ops/events` stores a batch;
+  `/api/ops/metrics-daily` rolls up and deletes. Both are `selfAuth`.
+- Gate: O5 adds `opsPathOpen(request)` in the router, before the 405 and the 401 answers. It maps the path to its
+  audience (`/ops/events` to `opsEventsAudience`, `/ops/metrics-daily` to `opsDailyAudience`) and fails closed
+  (`try { ... return true } catch { return false }`, the router tests `!== true`): any other `/ops` path, any other
+  method or a failed check answers 404. The three refusals in `tests/api/ops-ingest.test.js` that expect 401 then
+  expect 404; the refusal stays.
+- Retention moves from M5 to O5: the daily route deletes `ops_events` older than 14 days and `ops_daily` older
+  than 400 days, next to `metrics_daily`. The 14 days cover the `7d` window and its 7-day baseline. Until O5
+  ships, the worst case is about 23 400 rows per 14 days, far under the 100 000 guard.
+- O5 writes its docs in `docs/operations/metrics-daily.md` (from M3), not in `docs/operations/ci-cd.md`.
+- One helper for the database size, in `server/metrics/daily.js`, serves O5's snapshot, alert A3 and the
+  summary's Database line.
+
+**D5.** O6 builds `/admin/metrics`; M6 adds the "Delivery and CI" section with the D3 routes. O6 drops its
+"Delivery speed" link: the speed rows in `ops_events` are the one copy that an agent and the page read. They are
+kept 14 days, so M6's section ends with one link to the `speed-metrics` workflow runs for older history (the
+artifact stays the raw store). This replaces "Delivery numbers stay in GitHub" in `docs/plans/observability.md`.
+
+**D6.**
+- M7 is merged. O7 still adds A1 to A3 in O5's step, with `metrics_alert_state` (exists, O1).
+- O7's message uses the Alert shape. Section 5 "Metrics alert" of `telegram-message.md` is a second shape for the
+  same kind of message; #475 folds it first, and O7 depends on #475.
+- A3 reads `count(*)` of `ops_events` itself (over 100 000 rows, the M2 guard), since M2 stores no flag.
+- Two alert state stores stay on purpose: the speed check runs in a workflow with no database (gate issue), the
+  app alerts run in the server (`metrics_alert_state`).
+
+**D7.** O3 changes the `caller` key of `record.js`; M4 adds error rows. Different parts of one file.
+
+### What follows
+
+- Closed as superseded: none. No open task's work is fully covered by another task.
+- Merged duplicate, folded later: the two alert shapes in `telegram-message.md` (D6), task #475. The tables are
+  not a duplicate (D1).
+- Task order: M3 #449, then O5 #336 (it holds the retention that `ops_events` lacks today), O4 #335, M5 #451,
+  O6 #337, M6 #452, #475, O7 #338, M8 #453. O3 #334 and M4 #450 at any time.
+- Owner questions: none. Every decision here is free, needs no secret and deletes only metric rows, as the plans
+  already decided. M9 #454 stays the only owner step.

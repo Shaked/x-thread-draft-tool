@@ -6,9 +6,8 @@
  * color-scheme on <html>: light, dark, or "light dark" for Match device. No colour is repeated.
  * Text pairs are checked for 4.5:1 (3:1 for borders and the focus ring) by tests/unit/contrast.test.js.
  */
-:root {
-  color-scheme: light;
-
+:root,
+[data-color-scope] {
   /* Colour: surfaces */
   --color-bg: light-dark(#ffffff, #100c1c);
   --color-surface: light-dark(#f8f6fd, #18132a);
@@ -47,6 +46,13 @@
   --color-overlay: #000000b3;
   --color-overlay-strong: #000000e0;
   --color-on-overlay: #ffffff;
+}
+
+/* The colours above are also declared on every [data-color-scope] element, so light-dark() follows that element's
+   color-scheme (the build turns light-dark() into variables that resolve where they are declared). Used by the theme
+   previews of the Rare UI theme selector. */
+:root {
+  color-scheme: light;
 
   /* Type */
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Hebrew', Arial, sans-serif;
@@ -131,6 +137,13 @@
   --press-scale: 0.98;
   --opacity-disabled: 0.5;
 
+  /* Animated counter (Rare UI, feature flag "Components"): the height of one digit, and the fade at its top and bottom
+     edges. The fade uses alpha only, so it is the same in both themes. */
+  --counter-line: 1.5em;
+  --mask-counter-fade: linear-gradient(to bottom,
+    rgb(0 0 0 / 0) 0%, rgb(0 0 0 / 0.06) 5.5%, rgb(0 0 0 / 0.5) 11%, rgb(0 0 0 / 0.94) 16.5%, rgb(0 0 0) 22%,
+    rgb(0 0 0) 78%, rgb(0 0 0 / 0.94) 83.5%, rgb(0 0 0 / 0.5) 89%, rgb(0 0 0 / 0.06) 94.5%, rgb(0 0 0 / 0) 100%);
+
   /* Layers */
   --z-raised: 1;             /* inside one component, e.g. the row link overlay */
   --z-sticky: 100;
@@ -139,6 +152,49 @@
   --z-drawer: 400;
   --z-dialog: 500;
   --z-toast: 600;
+}
+
+/*
+ * Skin "rare" (feature flag, Settings > Feature flags): the Rare UI look (black accent in light, orange in dark, neutral greys, tighter corners).
+ * It only overrides tokens, so every page and every ui/ component changes together. Colours not listed here (success,
+ * warning and the soft danger and warning backgrounds) keep the default values. tests/unit/contrast.test.js checks every pair
+ * again for this skin. Durations are not overridden here: the reduced-motion block below must keep winning.
+ */
+:root[data-skin='rare'] {
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  --shadow-sm: 0 1px 3px light-dark(#0000001a, #00000099);
+  --shadow-md: 0 2px 6px -1px light-dark(#0000001a, #000000b3), 0 4px 12px -2px light-dark(#0000001a, #000000b3);
+  --shadow-lg: 0 10px 30px -6px light-dark(#00000033, #000000cc);
+
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Colours: on <html> and on every [data-color-scope] element (see the first block). */
+  &,
+  & [data-color-scope] {
+    --color-bg: light-dark(#ffffff, #0a0a0a);
+    --color-surface: light-dark(#f5f5f5, #141414);
+    --color-surface-2: light-dark(#ebebeb, #1f1f1f);
+    --color-surface-raised: light-dark(#ffffff, #171717);
+    --color-scrim: light-dark(#0000004d, #000000b3);
+    --color-text: light-dark(#171717, #ededed);
+    --color-text-soft: light-dark(#525252, #a3a3a3);
+    --color-text-on-accent: light-dark(#ffffff, #000000);
+    --color-border: light-dark(#737373, #737373);
+    --color-border-soft: light-dark(#e5e5e5, #262626);
+    --color-accent: light-dark(#171717, #ff6a2b);
+    --color-accent-hover: light-dark(#404040, #ff8a57);
+    --color-accent-pressed: light-dark(#525252, #ffa77d);
+    --color-accent-soft: light-dark(#ebebeb, #262626);
+    --color-accent-soft-text: light-dark(#171717, #ffb48a);
+    /* Danger moves toward crimson here so a destructive button never looks like the orange brand colour. */
+    --color-danger: light-dark(#b42318, #ff6b9a);
+    --color-danger-hover: light-dark(#912018, #ff94b8);
+    --color-focus: light-dark(#171717, #ff8a57);
+  }
 }
 
 :root[data-theme='dark'] { color-scheme: dark; }

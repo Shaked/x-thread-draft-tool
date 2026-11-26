@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
-export const SCAN_DIRS = ['src', 'server', 'api', 'scripts']
+export const SCAN_DIRS = ['src', 'server', 'api', 'scripts', 'plugins']
 const SOURCE_EXTENSIONS = /\.(c|m)?jsx?$|\.tsx?$/
 // Written with brackets so this file does not flag itself.
 const MARKER = /\b(T[O]DO|FIX[M]E|XX[X]|HAC[K]|lo[r]em ipsum)\b/i

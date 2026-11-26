@@ -137,7 +137,7 @@ describe('admin_delete_user', () => {
   it('refuses a user who is not suspended or suspended less than 10 minutes; a dry run changes nothing', async () => {
     const { token } = await adminConnection()
     const fresh = await db.insertUser({ github_id: 1, login: 'fresh', name: 'F' })
-    expect((await dry(token, fresh)).data.error).toBe('Suspend the user first with admin_suspend_user.')
+    expect((await dry(token, fresh)).data.error).toBe('Suspend the user first (admin_suspend_user, or Suspend on the admin page).')
     const early = await target('early', 2, { minutes: 5 })
     expect((await dry(token, early)).data.error).toMatch(/^Wait until .*: a user must be suspended for 10 minutes before deletion\.$/)
     const ready = await target('ready', 3)
@@ -193,9 +193,10 @@ describe('admin_delete_user', () => {
     const bob = await target('bob', 21)
     const minted = (await dry(token, alice)).data.confirm_token
     const bobToken = (await dry(token, bob)).data.confirm_token
-    const claims = { act: 'delete_user', target: alice.id, gh: '20', login: 'alice', counts: (await dry(token, alice)).data.will_delete, admin: admin.id, grant: grantId }
+    const claims = { act: 'delete_user', target: alice.id, gh: '20', login: 'alice', counts: (await dry(token, alice)).data.will_delete, admin: admin.id, surface: 'mcp', bind: grantId }
     const sign = (payload, exp) => new SignJWT(payload).setProtectedHeader({ alg: 'HS256' }).setAudience('admin-confirm').setIssuedAt(Math.floor(Date.now() / 1000) - 1200).setExpirationTime(exp).sign(secretKey())
-    const otherGrant = { ...claims, grant: '00000000-0000-0000-0000-000000000000' }
+    const otherGrant = { ...claims, bind: '00000000-0000-0000-0000-000000000000' }
+    const emptyBind = await sign({ ...claims, bind: '' }, '10m')
     const expired = await sign(claims, Math.floor(Date.now() / 1000) - 60)
     const otherAdmin = await sign(otherGrant, '10m')
     const decision = await sealDecision({ client_id: 'x', redirect_uri: 'https://claude.ai/api/mcp/auth_callback' })
@@ -204,6 +205,7 @@ describe('admin_delete_user', () => {
       real(token, alice, bobToken),
       real(token, alice, otherAdmin),
       real(token, alice, expired),
+      real(token, alice, emptyBind),
       real(token, alice, await db.cookieFor(alice).then((c) => c.replace('xt_session=', ''))),
       real(token, alice, decision),
       real(token, alice, undefined)
@@ -326,5 +328,70 @@ describe('admin_delete_user', () => {
     const out = await call(pair.access_token, 'admin_delete_user', { id: alice.id })
     const made = await call(pair.access_token, 'admin_zz', { id: alice.id })
     expect(JSON.stringify(out.parsed).replaceAll('admin_delete_user', 'N')).toEqual(JSON.stringify(made.parsed).replaceAll('admin_zz', 'N'))
+  })
+})
+
+// #284 (E273 Task 10): a confirm token is bound to its surface and to its binding (the MCP grant, or the browser session's jti).
+describe('web admin safety (#284)', () => {
+  const WEB = { 'x-xt-admin': '1' }
+  const webCall = (cookie, path, body) => route(apiRequest(`/api/admin/users/${path}/delete`, { method: 'POST', body, cookie, headers: WEB }))
+  const webDry = async (cookie, user) => (await webCall(cookie, user.id, {})).json()
+  const webReal = (cookie, user, confirm_token) => webCall(cookie, user.id, { dry_run: false, confirm_token, confirm_login: user.login })
+
+  it('a web token never opens on MCP, an MCP token never opens on web, another browser session is refused', async () => {
+    const alice = await target('alice', 20)
+    const { token } = await adminConnection()
+    const cookie = await db.cookieFor(admin)
+    const webToken = (await webDry(cookie, alice)).confirm_token
+    const mcpToken = (await dry(token, alice)).data.confirm_token
+    expect((await real(token, alice, webToken)).data.error).toBe('confirm_token is not valid for this call. Run the dry run again.')
+    const refusal = 'confirm_token is not valid for this call. Run the dry run again.'
+    const mcpOnWeb = await webReal(cookie, alice, mcpToken)
+    expect(mcpOnWeb.status).toBe(400)
+    expect((await mcpOnWeb.json()).error).toBe(refusal)
+    const otherSession = await db.cookieFor(admin)
+    const otherWeb = await webReal(otherSession, alice, webToken)
+    expect(otherWeb.status).toBe(400)
+    expect((await otherWeb.json()).error).toBe(refusal)
+    // Right binding, wrong surface: a token minted for the MCP connection's grant id, presented on web with that value as its jti.
+    const signTok = (payload) => new SignJWT(payload).setProtectedHeader({ alg: 'HS256' }).setAudience('admin-confirm').setIssuedAt().setExpirationTime('10m').sign(secretKey())
+    const forged = await signTok({ act: 'delete_user', target: alice.id, gh: '20', login: 'alice', counts: (await dry(token, alice)).data.will_delete, admin: admin.id, surface: 'web', bind: (await adminConnection()).grantId })
+    const forgedRes = await webReal(cookie, alice, forged)
+    expect(forgedRes.status).toBe(400)
+    expect(await userExists(alice)).toBe(true)
+  })
+
+  it('writes the surface on every audit row: web for the browser, mcp for the connection', async () => {
+    const bob = await target('bob', 21)
+    const cookie = await db.cookieFor(admin)
+    const webRes = await webReal(cookie, bob, (await webDry(cookie, bob)).confirm_token)
+    expect(webRes.status).toBe(200)
+    const carol = await target('carol', 22)
+    const { token } = await adminConnection()
+    expect((await real(token, carol, (await dry(token, carol)).data.confirm_token)).isError).toBe(false)
+    const rows = await audit()
+    const surfaceOf = (id) => rows.filter((r) => r.target_user_id === id).map((r) => r.details.surface)
+    expect(surfaceOf(bob.id).length).toBeGreaterThan(0)
+    expect(new Set(surfaceOf(bob.id))).toEqual(new Set(['web']))
+    expect(new Set(surfaceOf(carol.id))).toEqual(new Set(['mcp']))
+  })
+
+  it('a web write needs a sign-in from the last 12 hours; a read does not (O6 default)', async () => {
+    const alice = await target('alice', 20)
+    const sessionAt = (hoursAgo) =>
+      new SignJWT({ uid: admin.id, gh: '960015', login: 'shaked', jti: `old-${hoursAgo}` })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt(Math.floor(Date.now() / 1000) - hoursAgo * 3600)
+        .setExpirationTime('30d')
+        .sign(secretKey())
+        .then((t) => `xt_session=${t}`)
+    const fresh = await sessionAt(11)
+    const stale = await sessionAt(13)
+    expect((await webCall(fresh, alice.id, {})).status).toBe(200)
+    const refused = await webCall(stale, alice.id, {})
+    expect(refused.status).toBe(403)
+    expect((await refused.json()).error).toBe('Sign in again: admin changes on the web need a sign-in from the last 12 hours.')
+    const read = await route(apiRequest(`/api/admin/users/${alice.id}`, { cookie: stale, headers: WEB }))
+    expect(read.status).toBe(200)
   })
 })

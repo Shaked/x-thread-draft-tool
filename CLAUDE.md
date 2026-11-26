@@ -6,7 +6,7 @@ Read [`AGENTS.md`](./AGENTS.md) first: it holds the rules for every session in t
 This file is the primary, actionable map for what to use.
 
 <!-- AUTO-INDEX:START -->
-_Last refreshed: 2026-11-21 10:33:39.529 UTC_
+_Last refreshed: 2026-11-26 14:37:01.199 UTC_
 
 ## Feature Index (auto-generated, use directly)
 - Draft Management: [`docs/features/draft-management.md`](./docs/features/draft-management.md)
@@ -23,10 +23,13 @@ _Last refreshed: 2026-11-21 10:33:39.529 UTC_
 - Skill: End-to-end contract tests without real clients or LLMs: [`.claude/skills/e2e-contract-tests.md`](./.claude/skills/e2e-contract-tests.md)
 - Skill: High-Risk Feature Concentration: [`.claude/skills/high-risk-features.md`](./.claude/skills/high-risk-features.md)
 - Skill: JS/TS Quality and Type Safety Direction: [`.claude/skills/js-ts-quality.md`](./.claude/skills/js-ts-quality.md)
+- Skill: Emit metrics: [`.claude/skills/metrics-emit/SKILL.md`](./.claude/skills/metrics-emit/SKILL.md)
+- Skill: Product care (what to watch for this product): [`.claude/skills/product-care.md`](./.claude/skills/product-care.md)
 - pstack-bro: [`.claude/skills/pstack-bro/SKILL.md`](./.claude/skills/pstack-bro/SKILL.md)
 - Technical writing: [`.claude/skills/pstack-technical-writing/SKILL.md`](./.claude/skills/pstack-technical-writing/SKILL.md)
 - Unslop: [`.claude/skills/pstack-unslop/SKILL.md`](./.claude/skills/pstack-unslop/SKILL.md)
 - Skill: Reply style (templates for replies to the owner): [`.claude/skills/reply-style/SKILL.md`](./.claude/skills/reply-style/SKILL.md)
+- Skill: Task janitor: [`.claude/skills/task-janitor/SKILL.md`](./.claude/skills/task-janitor/SKILL.md)
 <!-- AUTO-INDEX:END -->
 
 ## Using the product as an agent

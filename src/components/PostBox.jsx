@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import ImageUpload from './ImageUpload'
 import Button from '../ui/Button'
+import Count from '../ui/Count'
 import IconButton from '../ui/IconButton'
 import { xLength } from '../utils/xLength.js'
 import './PostBox.css'
@@ -477,7 +478,7 @@ function RemovePostButton({ readOnly, onRemove, totalPosts, index }) {
 function CharCounter({ count, max, over }) {
   return (
     <div className={`char-counter ${over ? 'over-limit' : ''}`}>
-      {count}/{max}
+      <Count value={count} max={max} />
       {over && ` (${count - max} over)`}
     </div>
   )

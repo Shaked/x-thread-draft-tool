@@ -1,0 +1,72 @@
+/* Table: a real table from 768 px; label and value cards below. */
+.ui-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  text-align: start;
+}
+
+.ui-table__caption {
+  padding-block-end: var(--space-2);
+  color: var(--color-text-soft);
+  font-size: var(--font-size-sm);
+  text-align: start;
+}
+
+.ui-table th,
+.ui-table td {
+  padding: var(--space-3);
+  text-align: start;
+  font-weight: var(--font-weight-regular);
+}
+
+.ui-table thead th {
+  border-block-end: var(--border-width) solid var(--color-border);
+  color: var(--color-text-soft);
+  font-size: var(--font-size-sm);
+}
+
+.ui-table__row + .ui-table__row {
+  border-block-start: var(--border-width) solid var(--color-border-soft);
+}
+
+@media (width < 768px) {
+  .ui-table,
+  .ui-table tbody,
+  .ui-table__row,
+  .ui-table__row th,
+  .ui-table__row td {
+    display: block;
+  }
+
+  /* Visually hidden, still read: the labels come from data-label on each cell. */
+  .ui-table__head {
+    position: absolute;
+    inline-size: 0;
+    block-size: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .ui-table__row {
+    margin-block-end: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--color-surface);
+    border: var(--border-width) solid var(--color-border-soft);
+    border-radius: var(--radius-lg);
+  }
+
+  .ui-table__row th,
+  .ui-table__row td {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-1) var(--space-0);
+  }
+
+  .ui-table__row th::before,
+  .ui-table__row td::before {
+    content: attr(data-label);
+    color: var(--color-text-soft);
+    font-size: var(--font-size-sm);
+  }
+}

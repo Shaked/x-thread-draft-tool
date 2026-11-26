@@ -21,7 +21,7 @@ function ButtonContent({ icon, loading, loadingLabel, children }) {
 
 // A button, or a link that looks like one (`to` or `href`). `loading` keeps the width and ignores clicks.
 // `disabledReason` keeps the button focusable (aria-disabled) and shows the reason as help text.
-// `haspopup`, `expanded` and `controls` describe a button that opens a menu (see Menu).
+// `haspopup`, `expanded` and `controls` describe a button that opens a menu (see Menu). `ariaCurrent` ("page") marks the link of the open page.
 export default function Button({
   variant = 'secondary',
   size = 'md',
@@ -40,6 +40,7 @@ export default function Button({
   haspopup,
   expanded,
   controls,
+  ariaCurrent,
   children
 }) {
   const reasonId = useId()
@@ -62,6 +63,7 @@ export default function Button({
     'aria-haspopup': haspopup,
     'aria-expanded': expanded,
     'aria-controls': controls,
+    'aria-current': ariaCurrent,
     'aria-describedby': disabledReason ? reasonId : undefined,
     title: disabledReason || title
   }

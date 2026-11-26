@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { draftsApi } from '../utils/api'
 import { useToast } from '../ui/Toast'
-import { useConfirm } from '../ui/Dialog'
 import Banner from '../ui/Banner'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
+import DeleteButton from '../ui/DeleteButton'
 import EmptyState from '../ui/EmptyState'
 import { List, ListItem } from '../ui/List'
 import Page from '../ui/Page'
@@ -13,6 +13,8 @@ import PageHeader from '../ui/PageHeader'
 import Skeleton from '../ui/Skeleton'
 import Stack from '../ui/Stack'
 import Tabs from '../ui/Tabs'
+
+const DELETE_CONFIRM = { title: 'Delete this draft?', body: 'Are you sure you want to delete this draft?', confirmLabel: 'Delete draft' }
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -24,8 +26,6 @@ export default function DraftList({ user }) {
   const [error, setError] = useState(null)
   const navigate = useNavigate()
   const toast = useToast()
-  const ask = useConfirm()
-
 
   const loadDrafts = async () => {
     if (!user) return
@@ -90,23 +90,18 @@ export default function DraftList({ user }) {
     }
   }
 
+  // Runs after the user said yes (DeleteButton asks first). True when the draft was deleted.
   const deleteDraft = async (id) => {
-    const confirmed = await ask({
-      title: 'Delete this draft?',
-      body: 'Are you sure you want to delete this draft?',
-      confirmLabel: 'Delete draft',
-      tone: 'danger'
-    })
-    if (!confirmed) return
-
     try {
       await draftsApi.remove(id)
 
       // Refresh lists
       loadDrafts()
+      return true
     } catch (err) {
       console.error('Error deleting draft:', err)
       toast({ message: 'Failed to delete draft: ' + err.message, tone: 'danger' })
+      return false
     }
   }
 
@@ -170,9 +165,7 @@ export default function DraftList({ user }) {
                       <Button variant="ghost" size="sm" onClick={() => duplicateDraft(draft)}>
                         Duplicate
                       </Button>
-                      <Button variant="danger-quiet" size="sm" onClick={() => deleteDraft(draft.id)}>
-                        Delete draft
-                      </Button>
+                      <DeleteButton label="Delete draft" confirm={DELETE_CONFIRM} onConfirm={() => deleteDraft(draft.id)} />
                     </>
                   }
                 />

@@ -1,0 +1,16 @@
+## TL;DR
+The reply checks now run on every owner reply.
+Nothing needed from you.
+
+## What you need to do
+Nothing.
+
+## Waiting for
+- [Reply lint CI run](https://github.com/acme/sample-app/actions/runs/1): checking the PR. Expected: 5 minutes.
+
+## Blocked on you
+Nothing.
+
+## Done
+- [Reply lint golden tests](https://github.com/acme/sample-app/pull/34), for #12: catches loose labels.
+  Tests: checked, unit | Production: no deployment created; production still runs `abc1234`.

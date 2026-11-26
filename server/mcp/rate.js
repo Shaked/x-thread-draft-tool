@@ -4,15 +4,18 @@
 // Rows are kept for 8 days (cleanupExpired in server/oauth/tokens.js): the admin statistics read the last 7.
 import { query } from '../db.js'
 import { hashToken } from '../tokens.js'
+import { clientFamily } from '../metrics/client-family.js'
 
 const TOOL_CALLS_PER_MINUTE = 120
 export const RATE_LIMIT_MESSAGE = 'Rate limit reached: at most 120 tool calls per minute. Wait one minute.'
 
 // The same checks as resolveAccess (server/oauth/tokens.js).
+// The client's kind, client_id and redirect URIs give its app family (O3, client-family.js); client_id is not returned.
 const TOKEN_OWNER = `
   select g.id as grant_id, u.id as uid, u.github_id, u.login, u.suspended_at, g.resource,
-         (g.resource like '%/api/mcp') as admin
+         (g.resource like '%/api/mcp') as admin, c.kind as client_kind, c.client_id, c.redirect_uris
     from oauth_tokens t join oauth_grants g on g.id = t.grant_id join users u on u.id = g.user_id
+    join oauth_clients c on c.client_id = g.client_id
    where t.token_hash = $1 and t.kind = 'access' and t.expires_at > now()
      and g.revoked_at is null and g.resource = $2`
 
@@ -57,6 +60,7 @@ export async function authorizeAndCount(token, resource, count) {
     login: row.login,
     via: 'oauth',
     grantId: row.grant_id,
+    family: clientFamily({ kind: row.client_kind, client_id: row.client_id, redirect_uris: row.redirect_uris }),
     resource: row.resource,
     suspended: row.suspended_at !== null,
     admin: row.admin === true,

@@ -119,6 +119,18 @@ export const OPENAPI = {
   },
   paths: {
     '/health': { get: { summary: 'Health check', responses: json({ type: 'object', properties: { ok: { type: 'boolean' } } }) } },
+    '/ops/events': {
+      post: {
+        summary: 'Metrics ingest: one batch from the metrics-daily workflow (its GitHub OIDC token only)',
+        responses: json({ type: 'object', properties: { accepted: { type: 'integer' }, duplicates: { type: 'integer' }, refused: { type: 'integer' }, cursor: { type: 'string', nullable: true } } })
+      }
+    },
+    '/ops/metrics-daily': {
+      post: {
+        summary: 'Daily metrics step: rolls up counters and deletes old metric rows (its GitHub OIDC token only)',
+        responses: json({ type: 'object', properties: { product_day_written: { type: 'integer' }, hourly_moved: { type: 'integer' }, daily_deleted: { type: 'integer' }, ops_events_deleted: { type: 'integer' }, ops_daily_deleted: { type: 'integer' } } })
+      }
+    },
     '/version': {
       get: {
         summary: 'The running version: commit, deploy time and database schema (public)',
@@ -243,7 +255,12 @@ export const OPENAPI = {
           ...json({
             type: 'object',
             properties: {
-              user: { type: ['object', 'null'] },
+              user: {
+                type: ['object', 'null'],
+                properties: {
+                  role: { type: 'string', description: 'Browser session only (#282). Absent for API token callers.' }
+                }
+              },
               auth: { type: ['string', 'null'], enum: ['session', 'token', null] }
             }
           }),

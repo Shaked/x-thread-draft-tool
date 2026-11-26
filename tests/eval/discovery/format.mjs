@@ -6,6 +6,7 @@
 //   2. Hebrew stays as written: the user's Hebrew comes back byte for byte, and server text adds no direction marks.
 //   3. each text fits its length limit.
 //   4. (#405) an edit result quotes only the posts the edit changed, never the whole draft again.
+//   5. (#371) the view labels (English and Hebrew) hold no direction mark or invisible character.
 // A part that clients.json says the client does not read (false) is skipped for that client; "not checked" counts
 // as read, the safe case. tests/api/mcp-discovery.test.js runs it and prints the table.
 import { isCleanServerText } from '../../../server/mcp/language.js'
@@ -84,6 +85,15 @@ export function templatesFor(profile, server) {
     }
   }
   if (reads('reads_resources')) out.push({ group: 'skill', name: 'SKILL.md', text: server.skillText, limit: LIMITS.skill, server: true })
+  // #371: the view labels, English and Hebrew, for a client that shows views. Each is server text: no direction mark,
+  // no invisible character, NFC. The page gets dir="rtl" from the view, so a label never carries a mark of its own.
+  if (reads('renders_ui_views') && server.viewLabels) {
+    for (const [view, table] of Object.entries(server.viewLabels)) {
+      for (const [key, pair] of Object.entries(table)) {
+        pair.forEach((text, i) => out.push({ group: 'views', name: `${view}.${key} (${['en', 'he'][i]})`, text, server: true }))
+      }
+    }
+  }
   // Every client gets tool results: the thread as markdown (#352), with each sample as a post.
   for (const [lang, sample] of Object.entries(SAMPLES)) {
     const text = server.threadText({ title: 'T', posts: [{ text: sample }, { text: sample }], url: 'https://app.example/draft/1', saved: true })

@@ -68,7 +68,24 @@ describe('AppMenu', () => {
     const user = userEvent.setup()
     renderMenu({ login: 'owner', admin: true })
     await user.click(screen.getByRole('button', { name: 'Menu' }))
-    expect(screen.getByRole('link', { name: 'Changelog' })).toHaveAttribute('href', '/changelog')
+    expect(screen.getByRole('link', { name: 'Changelog' })).toHaveAttribute('href', '/admin/changelog')
+  })
+
+  it('shows the Admin badge and the Admin section only for role admin (#282)', async () => {
+    const user = userEvent.setup()
+    const { unmount } = renderMenu({ login: 'owner', admin: true, role: 'admin' })
+    expect(screen.getByRole('status', { name: 'You are the admin' })).toHaveTextContent('Admin')
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    expect(screen.getByRole('heading', { name: 'Admin', level: 3 })).toBeInTheDocument()
+    unmount()
+
+    cleanup()
+    const normal = renderMenu({ login: 'bob', role: 'user' })
+    expect(screen.queryByText('Admin')).toBeNull()
+    expect(screen.queryByRole('status', { name: 'You are the admin' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    expect(screen.queryByRole('heading', { name: 'Admin' })).toBeNull()
+    expect(normal.container.textContent).not.toMatch(/\bAdmin\b/)
   })
 
   it('has no changelog link for a normal user (#368)', async () => {

@@ -31,19 +31,24 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | Delete draft | `DELETE /drafts/:id` | `delete_draft` | `/` | Delete button on the home list |
 | Split text into posts | `POST /threads/split` | `split_text`, `create_thread_from_text` | `no: the UI never calls this route, the editor splits text in the browser` | Rule gap: `create_thread_from_text` also calls `POST /drafts` |
 | Share link | `POST /drafts/:id/share-tokens`, `DELETE /drafts/:id/share-tokens`, `DELETE /drafts/:id/share-tokens/:token`, `GET /share/:token` | `create_share_link`, `revoke_share_link` | `/draft/:id`, `/x-thread-preview/:token` | Rule gap: the UI creates links only; no UI revokes them. The share page reads `GET /share/:token` |
-| Signed-in user | `GET /auth/me` | `whoami` | `no: the app reads the user once at start, no page of its own` | |
-| Version and changelog | `GET /version`, `GET /changelog` | `app_version` | `/about`, `/changelog` | Changelog is admin only (#368): `GET /changelog` and `/changelog` answer 404 to everyone else, and `app_version` adds the `changelog` key only for the admin |
+| Signed-in user | `GET /auth/me` | `whoami` | `no: the app reads the user once at start, no page of its own` (the Admin badge and menu section read its `role`) | `role` (#282) is for a browser session only, so `whoami` (an MCP caller) has none: `no: MCP callers are never browser sessions` |
+| Version and changelog | `GET /version`, `GET /changelog` | `app_version` | `/about`, `/changelog`, `/admin/*` | Changelog is admin only (#368, #484): `GET /changelog` answers 404 to everyone else; the page is `/admin/changelog` in the admin shell, `/changelog` redirects the admin there and is an unknown path for everyone else, and `app_version` adds the `changelog` key only for the admin |
 | API tokens | `GET /tokens`, `POST /tokens`, `DELETE /tokens/:id` | `no: S-5: a person creates and revokes credentials on the Settings page` | `/settings/tokens` | Own page since #281 |
 | Connected apps | `GET /grants`, `DELETE /grants/:id` | `no: S-5: a person disconnects apps on the Settings page` | `/settings/apps` | Own page since #281 |
 | MCP prompts | `no: a prompt is a message template, it has no REST route` | `prompt:thread_from_notes`, `prompt:tighten_draft`, `prompt:review_before_publish`, `prompt:rewrite_hook` | `no: the AI app shows prompts, no page of ours` | Slash commands in the AI app |
-| Admin status | `GET /admin/status` | `admin_status` | `no: the admin badge (Task 8) shows the same fact` | Admin only |
-| Admin list users | `GET /admin/users` | `admin_list_users` | `no: planned in #273 Tasks 11 to 14` | Admin only |
-| Admin user details | `GET /admin/users/:id` | `admin_get_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
-| Admin statistics | `GET /admin/stats` | `admin_stats` | `no: planned in #273 Tasks 11 to 14` | Admin only |
-| Admin audit log | `GET /admin/audit` | `admin_audit_log` | `no: planned in #273 Tasks 11 to 14` | Admin only |
-| Admin suspend user | `POST /admin/users/:id/suspend` | `admin_suspend_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
-| Admin unsuspend user | `POST /admin/users/:id/unsuspend` | `admin_unsuspend_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
-| Admin delete user | `POST /admin/users/:id/delete` | `admin_delete_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
+| Admin status | `GET /admin/status` | `admin_status` | `no: the admin badge (Task 8) shows the same fact` | Admin only. Web surface (#283): the owner's browser session with `x-xt-admin: 1` answers every `/admin/*` route; the UI pages come in #285 and later |
+| Admin list users | `GET /admin/users` | `admin_list_users` | `/admin/*` | Admin only. Same fields: paging, login prefix, status filter (#286) |
+| Admin user details | `GET /admin/users/:id` | `admin_get_user` | `users/:id` | Admin only. Tokens and apps without secrets (#286) |
+| Admin statistics | `GET /admin/stats` | `admin_stats` | `/admin/*` | Admin only. The UI is a lazy chunk (#285); anyone else is sent to `/`, as for an unknown path |
+| Admin audit log | `GET /admin/audit` | `admin_audit_log` | `/admin/*` | Admin only. The page (#288) reads the same route, 50 rows at a time; its action filter works on the rows loaded |
+| Admin suspend user | `POST /admin/users/:id/suspend` | `admin_suspend_user` | `users/:id` | Admin only. Suspend button and dialog (#287): the dialog names the user id and the effect, and the button enables on the exact typed login. Optional reason |
+| Admin unsuspend user | `POST /admin/users/:id/unsuspend` | `admin_unsuspend_user` | `users/:id` | Admin only. Unsuspend button and dialog (#287), same typed login |
+| Admin delete user | `POST /admin/users/:id/delete` | `admin_delete_user` | `users/:id` | Admin only. Delete user (#287): offered 10 minutes after the suspension; step 1 is the dry run with the counts, step 2 the typed login and the confirm token, kept only in page state |
+| Admin metrics | `GET /admin/metrics` | `admin_metrics` | `/admin/*` | Admin only (#335): counts and percentiles by route, op, caller or total |
+| Admin feature flags | `GET /admin/flags`, `POST /admin/flags` | `admin_list_flags`, `admin_set_flag` | `/admin/*` | Admin only (#483). The Rare UI look and components (#406), saved on the admin's own account (`users.ui_flags`) and copied to the device as `xt-skin` and `xt-kit`; a normal user always gets the default look and `/settings/flags` is gone. A change touches only the admin's own view, so it needs no confirm token; it writes one audit row (`set_flag`) |
+| Admin metrics history | `GET /admin/metrics/series` | `admin_metrics_series` | `/admin/*` | Admin only (#335): points per hour or day |
+| Admin metrics summary | `GET /admin/metrics/summary` | `admin_metrics_summary` | `/admin/*` | Admin only (#451, #452): plain lines for delivery speed, CI, deploys, production and the database, each with its limit and last week's value |
+| Admin metrics events | `GET /admin/metrics/events` | `admin_metrics_events` | `/admin/*` | Admin only (#451, #452): delivery events, newest first, at most 100, each with a link |
 
 ## Infrastructure
 
@@ -56,5 +61,7 @@ Routes that are not user capabilities. Each has a reason. The keys follow the sa
 | `/.well-known/*` | OAuth metadata documents |
 | `GET /openapi.json` | Documentation, not a user function |
 | `GET /health` | Health check, not a user function |
+| `POST /ops/events` | Metrics ingest from the `metrics-daily` workflow (its own OIDC token, #448), not a user function |
+| `POST /ops/metrics-daily` | Scheduled metrics step for its own workflow's OIDC token (#336), not a user function |
 | `GET /mcp/ui-manifest` | Deploy check: view hashes for the production smoke step, not a user function |
 | `POST /mcp` | The MCP endpoint itself |

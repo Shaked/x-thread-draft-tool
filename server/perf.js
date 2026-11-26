@@ -23,13 +23,31 @@ let cold = true
 const round = (n) => Math.round(n * 10) / 10
 const current = () => als.getStore() ?? null
 
-/** Wraps a route handler. A nested in-process call (an MCP tool) joins the outer request's store. */
-export function measured(fn) {
+/**
+ * Wraps a route handler. A nested in-process call (an MCP tool) joins the outer request's store.
+ * `done(store, status, ms)`, when given, runs after the answer is built; it never changes the answer.
+ */
+export function measured(fn, done = null) {
   return async (request) => {
     if (current()) return fn(request)
     const wasCold = cold
     cold = false
-    const store = { route: 'unmatched', q: 0, dbMs: 0, conn: 0, rpc: null, tool: null }
+    const store = {
+      method: request.method,
+      route: 'unmatched',
+      q: 0,
+      dbMs: 0,
+      conn: 0,
+      rpc: null,
+      tool: null,
+      caller: 'anon',
+      cold: wasCold,
+      rateLimited: false,
+      rpcError: false,
+      toolError: false,
+      errorClass: null,
+      errorCode: null
+    }
     const start = performance.now()
     const response = await als.run(store, () => fn(request))
     const total = performance.now() - start
@@ -60,6 +78,13 @@ export function measured(fn) {
           tool: store.tool
         })
     )
+    if (done) {
+      try {
+        done(store, response.status, total)
+      } catch {
+        // Recording must never change the answer.
+      }
+    }
     return response
   }
 }
@@ -93,4 +118,38 @@ export function noteRpc(method, tool) {
   if (!store) return
   store.rpc = RPC_METHODS.has(method) ? method : 'other'
   store.tool = tool ?? null
+}
+
+/** Who is calling: web, token, mcp, ci or anon (the default). Set by the path that resolves the caller. */
+export function noteCaller(kind) {
+  const store = current()
+  if (store) store.caller = kind
+}
+
+/** An outcome the status code cannot show: rateLimited, rpcError or toolError (plan O2). */
+export function noteOutcome(flag) {
+  const store = current()
+  if (store) store[flag] = true
+}
+
+const ERROR_CLASS = /^[A-Za-z][A-Za-z0-9]{0,39}$/
+const ERROR_CODE = /^(?:[A-Z][A-Z0-9_]{0,29}|\d{5})$/
+
+/**
+ * The class name and code of the error behind a 5xx answer (plan M4, #450). Both are kept only when
+ * they have the shape of a class name or a code; anything else is dropped (class 'Error', code null).
+ */
+export function noteError(err) {
+  const store = current()
+  if (!store) return
+  let name = null
+  let code = null
+  try {
+    name = typeof err?.name === 'string' ? err.name : null
+    code = typeof err?.code === 'string' ? err.code : null
+  } catch {
+    // A getter that throws tells nothing: the class stays the default.
+  }
+  store.errorClass = name && ERROR_CLASS.test(name) ? name : 'Error'
+  store.errorCode = code && ERROR_CODE.test(code) ? code : null
 }

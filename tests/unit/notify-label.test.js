@@ -139,7 +139,7 @@ describe('run', () => {
     expect(body.text.indexOf(PREVIEW_URL)).toBeLessThan(body.text.indexOf(PR_URL))
   })
 
-  it('sends the cleanup notice with the quote block and the summary line from the PR body', async () => {
+  it('sends the cleanup notice with the summary line from the PR body', async () => {
     const fetchImpl = fakeFetch({ status: 200 })
     const { lines, log } = logger()
     const result = await run(
@@ -148,10 +148,10 @@ describe('run', () => {
     )
     expect(result).toBe('sent')
     const body = JSON.parse(fetchImpl.mock.calls[0][1].body)
-    expect(body.text).toContain('🧹 <b>Cleanup review</b>')
-    expect(body.text).toContain('<blockquote>T</blockquote>')
-    expect(body.text).toContain(`href="${PR_URL}">Open PR #12</a>`)
-    expect(body.text.endsWith('Drop dead helpers')).toBe(true)
+    expect(body.text).toContain(`<b>Thread Draft</b> · <a href="${PR_URL}">Cleanup review ready</a>`)
+    expect(body.text).toContain('\nT\n')
+    expect(body.text).toContain('What it removes: Drop dead helpers')
+    expect(body.text.endsWith('Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR.')).toBe(true)
     expect(lines).toEqual(['notify sent'])
   })
 

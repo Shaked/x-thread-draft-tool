@@ -8,7 +8,7 @@ import { getPrompt, listPrompts } from './prompts.js'
 import { getSkill, listSkillResources, listSkills, readSkillResource } from './skills.js'
 import { listUiResources, readUiResource } from './ui/index.js'
 import { RATE_LIMIT_MESSAGE, authorizeAndCount, withinToolRate } from './rate.js'
-import { noteRpc } from '../perf.js'
+import { noteCaller, noteOutcome, noteRpc } from '../perf.js'
 import { getVersion } from '../version.js'
 import { SUSPENDED_MESSAGE, admit } from '../suspension.js'
 
@@ -204,6 +204,7 @@ export async function handleMcp(request) {
   const counted = !checked.response && message.id !== undefined && isCountedToolCall(message)
   const caller = await authorizeAndCount(token, `${origin}/api/mcp`, counted)
   if (!caller) return unauthorized(origin)
+  noteCaller(caller.family)
   // A suspended user is refused with 403 and no www-authenticate header: a 401 would make the app
   // start a new sign-in loop. `admit` also fails closed when the flag was not loaded (an error, not a pass).
   try {
@@ -227,7 +228,10 @@ export async function handleMcp(request) {
     const result = await dispatch(message, { caller, origin, modern })
     return reply({ jsonrpc: '2.0', id, result: modern ? { resultType: 'complete', ...result } : result })
   } catch (err) {
-    if (err instanceof RpcError) return rpcError(id, err.code, err.message, err.status, err.data)
+    if (err instanceof RpcError) {
+      noteOutcome('rpcError')
+      return rpcError(id, err.code, err.message, err.status, err.data)
+    }
     console.error('[mcp] unhandled error', err)
     return rpcError(id, -32603, 'Internal error', 500)
   }
@@ -283,27 +287,39 @@ async function dispatch(message, ctx) {
       if (got.problem) throw new RpcError(-32602, got.problem)
       return got.result
     }
-    case 'tools/call': {
-      // An admin tool name from a caller who is not the admin is the same unknown-tool error as any unknown name.
-      if (typeof params.name !== 'string' || !hasTool(params.name, ctx.caller, ctx.origin)) {
-        throw new RpcError(-32602, `Invalid params: unknown tool ${JSON.stringify(params.name ?? null)}`)
-      }
-      const args = argumentsOf(params)
-      if (!isPlainObject(args)) throw new RpcError(-32602, 'Invalid params: arguments must be an object')
-      // The call was counted in authorizeAndCount. Over the limit is a tool error (isError), not a
-      // JSON-RPC error, so the client can show it.
-      if (!ctx.caller.withinRate) {
-        return { content: [{ type: 'text', text: RATE_LIMIT_MESSAGE }], isError: true }
-      }
-      // An admin tool is not in the counted path above. It gets its own count here (plan A3, step 4).
-      if (isAdminToolName(params.name) && !(await withinToolRate(ctx.caller.uid))) {
-        return { content: [{ type: 'text', text: RATE_LIMIT_MESSAGE }], isError: true }
-      }
-      return runAs(ctx.caller, () => callTool(params.name, args, { caller: ctx.caller, origin: ctx.origin }))
-    }
+    case 'tools/call':
+      return toolsCall(params, ctx)
     default:
       return dispatchResources(message.method, params, ctx)
   }
+}
+
+/** tools/call: an unknown tool is a JSON-RPC error; a rate-limited or failed call is an isError result (plan O2 counts it). */
+async function toolsCall(params, ctx) {
+  // An admin tool name from a caller who is not the admin is the same unknown-tool error as any unknown name.
+  if (typeof params.name !== 'string' || !hasTool(params.name, ctx.caller, ctx.origin)) {
+    throw new RpcError(-32602, `Invalid params: unknown tool ${JSON.stringify(params.name ?? null)}`)
+  }
+  const args = argumentsOf(params)
+  if (!isPlainObject(args)) throw new RpcError(-32602, 'Invalid params: arguments must be an object')
+  // The call was counted in authorizeAndCount. Over the limit is a tool error (isError), not a
+  // JSON-RPC error, so the client can show it.
+  if (!ctx.caller.withinRate) {
+    return rateLimitedResult()
+  }
+  // An admin tool is not in the counted path above. It gets its own count here (plan A3, step 4).
+  if (isAdminToolName(params.name) && !(await withinToolRate(ctx.caller.uid))) {
+    return rateLimitedResult()
+  }
+  const result = await runAs(ctx.caller, () => callTool(params.name, args, { caller: ctx.caller, origin: ctx.origin }))
+  if (result?.isError) noteOutcome('toolError')
+  return result
+}
+
+/** Over the rate limit: a tool error for the client, and an outcome for the metrics (plan O2). */
+function rateLimitedResult() {
+  noteOutcome('rateLimited')
+  return { content: [{ type: 'text', text: RATE_LIMIT_MESSAGE }], isError: true }
 }
 
 /** resources/* and skills/*: static text, no SQL and no rate-limit count (D-14). */

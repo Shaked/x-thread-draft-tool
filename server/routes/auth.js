@@ -1,4 +1,5 @@
 import { adminField } from '../admin/guard.js'
+import { roleOf } from '../admin/role.js'
 import { query } from '../db.js'
 import { fetchGithubUser, upsertGithubUser } from '../github-user.js'
 import { HttpError, cookie, json, parseCookies } from '../http.js'
@@ -116,7 +117,9 @@ async function me({ request }) {
   if (!caller) return json({ user: null, auth: null })
   const { rows } = await query('select id, login, name, avatar_url from users where id = $1', [caller.uid])
   // `admin: true` only for the admin (adminField, #368): the UI shows the changelog link from it.
-  return json({ user: rows[0] ? { ...rows[0], ...adminField(caller) } : null, auth: rows[0] ? caller.via : null })
+  // `role` (#282) only for a browser session: the app bar badge and the Admin menu section read it. Bearer callers get no role.
+  const role = caller.via === 'session' ? { role: roleOf(caller.gh) } : {}
+  return json({ user: rows[0] ? { ...rows[0], ...adminField(caller), ...role } : null, auth: rows[0] ? caller.via : null })
 }
 
 /** POST /api/auth/logout: ends this browser's session on the server (not API tokens or AI apps), then clears the cookie. */

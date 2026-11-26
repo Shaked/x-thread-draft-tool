@@ -6,7 +6,7 @@
 // and thread.js), so each uses only its own arguments, the page globals and the other functions in these lists.
 // The token is held in memory for that one call and never written to the page (rule 9). Nothing is sent except
 // through the bridge's callTool (rule 10).
-import { el, linkButton, safeUrl } from './client.js'
+import { el, linkButton, safeUrl, tr } from './client.js'
 
 export const CARD_STYLE = `
 section input { display: block; width: 100%; box-sizing: border-box; margin: 4px 0 8px; font: inherit; font-size: 14px; color: var(--x-fg); background: var(--x-card); border: 1px solid var(--x-line); border-radius: 8px; padding: 8px 10px; }
@@ -55,7 +55,7 @@ function canCopy() {
 
 /** Copies the field's text. When the write fails, the button says "Select and copy" and the field is selected. */
 function copyButton(field) {
-  const button = el('button', {}, ['Copy'])
+  const button = el('button', {}, [tr('share', 'copy')])
   button.addEventListener('click', function () {
     let done
     try {
@@ -65,10 +65,10 @@ function copyButton(field) {
     }
     Promise.resolve(done).then(
       function () {
-        button.textContent = 'Copied'
+        button.textContent = tr('share', 'copied')
       },
       function () {
-        button.textContent = 'Select and copy'
+        button.textContent = tr('share', 'select_copy')
         field.focus()
         field.select()
       }
@@ -81,11 +81,12 @@ function copyButton(field) {
 function linkRow(label, url, ctx, buttons) {
   const field = document.createElement('input')
   field.readOnly = true
+  field.setAttribute('dir', 'ltr')
   field.value = url
   field.addEventListener('focus', function () {
     field.select()
   })
-  const open = linkButton('Open', url, ctx.open)
+  const open = linkButton(tr('share', 'open'), url, ctx.open)
   const actions = el('div', {}, [open])
   buttons.push(open)
   if (canCopy()) {
@@ -99,13 +100,13 @@ function linkRow(label, url, ctx, buttons) {
 /**
  * "Stop this link" (plan Task 7, #189). One click shows "Are you sure?"; only "Yes" calls ctx.revoke(draftId, token),
  * once. While the call is open the note says "Waiting for your OK in the chat" (the host may ask the user first). A
- * stopped link calls finish('Stopped'). Returns the box to add to the card.
+ * stopped link calls finish(tr('share', 'stopped')). Returns the box to add to the card.
  */
 function stopControl(share, ctx, note, finish) {
-  const stop = el('button', {}, ['Stop this link'])
-  const question = el('p', {}, ['Are you sure? The link stops working at once.'])
-  const yes = el('button', {}, ['Yes, stop this link'])
-  const no = el('button', {}, ['Cancel'])
+  const stop = el('button', {}, [tr('share', 'stop')])
+  const question = el('p', {}, [tr('share', 'sure')])
+  const yes = el('button', {}, [tr('share', 'yes_stop')])
+  const no = el('button', {}, [tr('share', 'cancel')])
   const row = el('div', {}, [stop])
   const ask = el('div', {}, [question, yes, no])
   ask.hidden = true
@@ -121,7 +122,7 @@ function stopControl(share, ctx, note, finish) {
   yes.addEventListener('click', function () {
     yes.disabled = true
     no.disabled = true
-    note.textContent = 'Waiting for your OK in the chat'
+    note.textContent = tr('share', 'waiting')
     let call
     try {
       call = ctx.revoke(share.draftId, share.token)
@@ -132,7 +133,7 @@ function stopControl(share, ctx, note, finish) {
       function (result) {
         if (result && result.isError) {
           const first = result.content && result.content[0]
-          note.textContent = first && first.text ? first.text : 'The link could not be stopped.'
+          note.textContent = first && first.text ? first.text : tr('share', 'stop_failed')
           yes.disabled = false
           no.disabled = false
           ask.hidden = true
@@ -140,11 +141,11 @@ function stopControl(share, ctx, note, finish) {
           return
         }
         note.textContent = ''
-        finish('Stopped')
+        finish(tr('share', 'stopped'))
       },
       function (err) {
         const timedOut = /timed out$/.test(String(err && err.message))
-        note.textContent = timedOut ? 'No answer from the host. Try again.' : 'Your app does not allow this here.'
+        note.textContent = timedOut ? tr('share', 'no_answer') : tr('share', 'not_allowed')
         if (timedOut) {
           yes.disabled = false
           no.disabled = false
@@ -166,15 +167,15 @@ function stopControl(share, ctx, note, finish) {
  */
 export function renderShare(root, share, ctx) {
   root.textContent = ''
-  root.appendChild(el('header', {}, [el('h1', {}, ['Share link'])]))
+  root.appendChild(el('header', {}, [el('h1', {}, [tr('share', 'title')])]))
   const status = el('p', {}, [])
   const note = el('p', { dir: 'auto' }, [])
   root.appendChild(status)
   root.appendChild(note)
   const buttons = []
-  root.appendChild(linkRow('Preview link', share.preview, ctx, buttons))
-  root.appendChild(linkRow('Markdown link', share.markdown, ctx, buttons))
-  const kind = share.oneTime ? 'Works once' : 'Works until it expires'
+  root.appendChild(linkRow(tr('share', 'preview'), share.preview, ctx, buttons))
+  root.appendChild(linkRow(tr('share', 'markdown'), share.markdown, ctx, buttons))
+  const kind = share.oneTime ? tr('share', 'once') : tr('share', 'until')
   let timer = null
   let stopBox = null
   const finish = function (text) {
@@ -197,10 +198,10 @@ export function renderShare(root, share, ctx) {
   const tick = function () {
     const now = ctx.now()
     if (now >= share.expiresAt) {
-      finish(kind + ' · Expired')
+      finish(kind + ' · ' + tr('share', 'expired'))
       return true
     }
-    status.textContent = kind + ' · Expires in ' + countdownText(share.expiresAt, now) + ' (' + localTime(share.expiresAt, ctx.locale) + ')'
+    status.textContent = kind + ' · ' + tr('share', 'expires_in', { left: countdownText(share.expiresAt, now), time: localTime(share.expiresAt, ctx.locale) })
     return false
   }
   if (!tick()) {

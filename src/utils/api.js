@@ -35,6 +35,69 @@ async function request(path, { method = 'GET', body, headers = {}, keepalive = f
   return data
 }
 
+// The admin routes (#283) answer only the admin's browser session that sends this header; the server decides.
+const PAGE_SIZE = 50
+
+export const adminApi = {
+  stats() {
+    return request('/admin/stats', { headers: { 'x-xt-admin': '1' } }).then((data) => data.stats)
+  },
+  users({ q, status, cursor } = {}) {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (status && status !== 'all') params.set('status', status)
+    if (cursor) params.set('cursor', cursor)
+    const query = params.toString()
+    return request(`/admin/users${query ? `?${query}` : ''}`, { headers: { 'x-xt-admin': '1' } })
+  },
+  user(id) {
+    return request(`/admin/users/${encodeURIComponent(id)}`, { headers: { 'x-xt-admin': '1' } }).then((data) => data.user)
+  },
+  // Suspend, unsuspend and delete (#287). Each needs the typed login; delete is a dry run, then the real call with the token.
+  suspend(id, confirmLogin, reason) {
+    return request(`/admin/users/${encodeURIComponent(id)}/suspend`, { method: 'POST', body: { confirm_login: confirmLogin, ...(reason ? { reason } : {}) }, headers: { 'x-xt-admin': '1' } })
+  },
+  unsuspend(id, confirmLogin) {
+    return request(`/admin/users/${encodeURIComponent(id)}/unsuspend`, { method: 'POST', body: { confirm_login: confirmLogin }, headers: { 'x-xt-admin': '1' } })
+  },
+  deleteDryRun(id) {
+    return request(`/admin/users/${encodeURIComponent(id)}/delete`, { method: 'POST', body: { dry_run: true }, headers: { 'x-xt-admin': '1' } })
+  },
+  deleteUser(id, confirmToken, confirmLogin) {
+    return request(`/admin/users/${encodeURIComponent(id)}/delete`, { method: 'POST', body: { dry_run: false, confirm_token: confirmToken, confirm_login: confirmLogin }, headers: { 'x-xt-admin': '1' } })
+  },
+  audit(before) {
+    const query = before ? `&before=${encodeURIComponent(before)}` : ''
+    return request(`/admin/audit?limit=${PAGE_SIZE}${query}`, { headers: { 'x-xt-admin': '1' } }).then((data) => data.events)
+  },
+  flags() {
+    return request('/admin/flags', { headers: { 'x-xt-admin': '1' } }).then((data) => data.flags)
+  },
+  setFlag(name, value) {
+    return request('/admin/flags', { method: 'POST', body: { name, value }, headers: { 'x-xt-admin': '1' } }).then((data) => data.flags)
+  },
+
+  // The metrics views (#337): `by` is route, op or total; a series is requests, p95 or a product column.
+  metrics(window, by) {
+    return request(`/admin/metrics?window=${window}&by=${by}`, { headers: { 'x-xt-admin': '1' } })
+  },
+  metricsSeries(name, window) {
+    return request(`/admin/metrics/series?name=${name}&window=${window}`, { headers: { 'x-xt-admin': '1' } })
+  },
+  // The delivery section (#452): the summary lines and the newest delivery events (window is 24h or 7d).
+  metricsSummary(window) {
+    return request(`/admin/metrics/summary?window=${window}`, { headers: { 'x-xt-admin': '1' } })
+  },
+  // The delivery events only (ci, speed, deploy): one call each, so a burst of production errors cannot push them out.
+  metricsEvents(since) {
+    return Promise.all(
+      ['ci', 'speed', 'deploy'].map((source) =>
+        request(`/admin/metrics/events?source=${source}&limit=20&since=${encodeURIComponent(since)}`, { headers: { 'x-xt-admin': '1' } })
+      )
+    ).then((lists) => lists.flatMap((list) => list.events).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 20))
+  }
+}
+
 export const authApi = {
   me() {
     return request('/auth/me')

@@ -1,38 +1,59 @@
 #!/usr/bin/env node
 // Telegram notices (epic #241, tasks N1, N2, N4). Node 20, no dependencies.
 //
-// One template for all the kinds: buildMessage(kind, data) returns { html, plain }.
-//   live           production is live and the smoke test passed
-//   failed         production smoke test failed (the only urgent one)
-//   preview        a PR got the label try-preview: try it on the preview URL
-//   owner          the repository owner added the label owner: needs you
-//   cleanup        a PR got the label cleanup-pr (epic #255, task C3): review the cleanup PR
-//   cleanup-started the daily workflow opened a cleanup review issue (same kind "cleanup")
-//   speed          a stage's p90 is over its limit (speed-metrics.mjs, task #310 of epic #273)
+// buildMessage(kind, data) returns { html, plain }. The shapes are the forms in
+// .claude/reply-style-templates/telegram-message.md (plan #369, step 7):
+//   Every kind starts with its emoji, the app name in bold and the headline.
+//   live             production is live and the smoke test passed
+//   failed           production smoke test failed (the only urgent one)
+//   preview          a PR got the label try-preview: try it on the preview URL
+//   owner            the repository owner added the label owner: needs you
+//   cleanup          a PR got the label cleanup-pr (epic #255, task C3): review the cleanup PR
+//   cleanup-started  the daily workflow opened a cleanup review issue
+//   weekly-started   the weekly workflow opened a weekly review issue (epic #273, task #295)
+//   speed            a stage is over its limit: the Alert shape (speed-metrics.mjs, tasks #310 and #446)
 //
 // CLI (the workflows pass every value through environment variables, never inside the shell text):
 //   NOTIFY_KIND, NOTIFY_SHA, NOTIFY_TITLE, NOTIFY_URL, NOTIFY_RUN_URL, NOTIFY_PREVIEW_URL,
 //   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+// The app identity (issue #504) is read from the environment too, with defaults from DEFAULT_APP:
+//   TELEGRAM_APP_NAME, TELEGRAM_APP_REPO_URL, TELEGRAM_APP_SITE_URL, TELEGRAM_APP_PREVIEW_URL
 // Without both secrets it prints a skip line and exits 0. A network or API error prints the HTTP
 // status only and also exits 0, so a notice can never fail a workflow. The token and the request
 // URL are never printed.
 
 import { pathToFileURL } from 'node:url'
 
-export const PROD_URL = 'https://x-thread-draft-tool.vercel.app'
-export const PREVIEW_URL = 'https://x-thread-draft-tool-preview.vercel.app'
+// The one place that names the app (issue #504). The channel is shared with other apps, so every
+// message starts with the app name. Another repo sets TELEGRAM_APP_NAME and the three URLs; no template
+// or message builder below types a name or an address.
+export const DEFAULT_APP = {
+  name: 'Thread Draft',
+  repoUrl: 'https://github.com/Shaked/x-thread-draft-tool',
+  siteUrl: 'https://x-thread-draft-tool.vercel.app',
+  previewUrl: 'https://x-thread-draft-tool-preview.vercel.app',
+}
+export const PROD_URL = DEFAULT_APP.siteUrl
+export const PREVIEW_URL = DEFAULT_APP.previewUrl
 // Titles are cut before escaping, so a tag is never cut in half. Escaping can grow a title up to
 // six times, so the longest message stays far under Telegram's 4096-character limit.
 export const MAX_TITLE = 120
 
-const KINDS = {
-  live: { emoji: '✅', headline: 'Production is live and tested', extra: 'Smoke tests passed.' },
-  failed: { emoji: '🚨', headline: 'Production smoke FAILED', extra: 'The smoke test did not pass.' },
-  preview: { emoji: '👀', headline: 'Try it on preview' },
-  owner: { emoji: '🙋', headline: 'Needs you' },
-  cleanup: { emoji: '🧹', headline: 'Cleanup review' },
-  'cleanup-started': { emoji: '🧹', headline: 'Cleanup review started' },
-  speed: { headline: 'Speed budget over limit' },
+export const REPO_URL = DEFAULT_APP.repoUrl
+export const MAX_APP_NAME = 40
+
+// One emoji per kind, at the start of the headline (owner decision, issue #463). It sits outside the
+// bold link so the link text stays clean. A section with nothing to say is never written: no
+// "Nothing needed" line exists in any kind.
+export const EMOJI = {
+  live: '✅',
+  failed: '🚨',
+  preview: '👀',
+  owner: '🙋',
+  cleanup: '🧹',
+  'cleanup-started': '🧹',
+  'weekly-started': '🗓',
+  speed: '🐢',
 }
 
 // Escapes the three characters Telegram HTML needs, plus the double quote for attribute values.
@@ -52,6 +73,19 @@ export function safeUrl(url) {
   return /^https:\/\/[^\s"<>]+$/.test(s) ? s : ''
 }
 
+// The app identity for one message: the defaults, then the environment. A name is cut to MAX_APP_NAME;
+// an address that is not https:// is ignored.
+export function appFromEnv(env = process.env) {
+  // One line, no bold markers: a newline or * would break line 1 or the lint.
+  const name = clip(String(env.TELEGRAM_APP_NAME || '').replace(/[\p{C}*]/gu, ' ').replace(/\s+/g, ' ').trim(), MAX_APP_NAME)
+  return {
+    name: name || DEFAULT_APP.name,
+    repoUrl: safeUrl(env.TELEGRAM_APP_REPO_URL) || DEFAULT_APP.repoUrl,
+    siteUrl: safeUrl(env.TELEGRAM_APP_SITE_URL) || DEFAULT_APP.siteUrl,
+    previewUrl: safeUrl(env.TELEGRAM_APP_PREVIEW_URL) || DEFAULT_APP.previewUrl,
+  }
+}
+
 function linkHtml(label, url) {
   const href = safeUrl(url)
   return href ? `<a href="${escapeHtml(href)}">${escapeHtml(label)}</a>` : escapeHtml(label)
@@ -69,69 +103,121 @@ export function summaryLine(body) {
   return first.startsWith('Summary:') ? clip(first.slice('Summary:'.length).trim()) : ''
 }
 
-// Cleanup messages: a headline, the title in a quote block, one link (PR or issue number), and for
-// the PR the summary line when there is one.
-function cleanupMessage(kind, spec, data) {
-  const title = clip(data.title || '(no title)')
-  const isPr = kind === 'cleanup'
-  const number = String(data.url || '').match(isPr ? /\/pull\/(\d+)$/ : /\/issues\/(\d+)$/)?.[1]
-  const noun = isPr ? 'PR' : 'issue'
-  const link = [number ? `Open ${noun} #${number}` : `Open ${noun}`, data.url]
-  const summary = isPr ? summaryLine(data.body) : ''
-  const html = [`${spec.emoji} <b>${escapeHtml(spec.headline)}</b>`, `<blockquote>${escapeHtml(title)}</blockquote>`, linkHtml(...link)]
-  const plain = [`${spec.emoji} ${spec.headline}`, title, linkPlain(...link)]
-  if (summary) {
-    html.push(escapeHtml(summary))
-    plain.push(summary)
+// A line of plain text: escaped for HTML, the same text for the plain version.
+const text = (line) => ({ html: escapeHtml(line), plain: line })
+
+// The commit line of production messages: the short id in code font, then the title.
+const commitLine = (sha, title) =>
+  sha ? { html: `<code>${escapeHtml(sha)}</code> ${escapeHtml(title)}`, plain: `${sha} ${title}` } : text(title)
+
+// The shape of the template: line 1 is the kind's emoji, the app name in bold, " · " and the headline,
+// which links to the main page. Then the body lines, then the other links on one line, separated by
+// " · ". The headline's link is the first link of the message. Every kind goes through here, so none can
+// leave out the app name.
+function message(kind, app, [label, url], body, links = []) {
+  if (!EMOJI[kind]) throw new Error(`no emoji for the kind ${kind}`)
+  const html = [`${EMOJI[kind]} <b>${escapeHtml(app.name)}</b> · ${linkHtml(label, url)}`, ...body.map((line) => line.html)]
+  const plain = [`${EMOJI[kind]} ${app.name} · ${linkPlain(label, url)}`, ...body.map((line) => line.plain)]
+  if (links.length) {
+    html.push(links.map(([name, href]) => linkHtml(name, href)).join(' · '))
+    plain.push(links.map(([name, href]) => linkPlain(name, href)).join(' · '))
   }
   return { html: html.join('\n'), plain: plain.join('\n') }
 }
 
-// Speed budget: the headline links to the run page (its summary holds the stage table), then the
-// window, one line per stage over its p90 limit, and a line saying nothing is needed.
-function speedMessage(spec, data) {
-  const headline = clip(data.title || spec.headline)
-  const body = [data.window, ...(data.lines || []), 'Nothing needed: this check only warns.'].filter(Boolean)
-  const html = [`<b>${linkHtml(headline, data.url)}</b>`, ...body.map(escapeHtml)]
-  const plain = [linkPlain(headline, data.url), ...body]
-  return { html: html.join('\n'), plain: plain.join('\n') }
+// Alert shape (task M7, plan #439 section 6): the headline (what is over, in plain words) links to the gate
+// issue or the run, then the number, the likely cause, and what is needed when someone must act. At most two links.
+function alertMessage(data, app) {
+  const headline = clip(data.headline || 'Delivery is slower than its limit')
+  const body = [data.numberLine, data.causeLine, data.actionLine].filter(Boolean).map(text)
+  return message('speed', app, [headline, data.url], body, (data.links || []).slice(0, 2))
 }
 
-// Returns { html, plain } for a kind, or null for an unknown kind. The first link is the main
-// one, so Telegram's link preview is drawn from it.
-export function buildMessage(kind, data = {}) {
-  const spec = KINDS[kind]
-  if (!spec) return null
-  if (kind === 'cleanup' || kind === 'cleanup-started') return cleanupMessage(kind, spec, data)
-  if (kind === 'speed') return speedMessage(spec, data)
+// Production passed: the headline and "Open production" both link the site; the commit has its own link.
+function liveMessage(data, title, sha, fullSha, app) {
+  const prod = data.url || app.siteUrl
+  const links = [['Open production', prod]]
+  if (sha) links.push([`Commit ${sha}`, `${app.repoUrl}/commit/${fullSha}`])
+  if (data.runUrl) links.push(['See the run', data.runUrl])
+  return message('live', app, ['Production is live and tested', prod], [commitLine(sha, title)], links)
+}
+
+// Only a hex commit id is used, for the label, the code line and the commit link.
+function commitIds(value) {
+  const fullSha = /^[0-9a-f]{7,40}$/i.test(String(value || '').trim()) ? String(value).trim() : ''
+  return { fullSha, sha: fullSha.slice(0, 7) }
+}
+
+// The kinds buildMessage builds. The golden test needs one fixture for each.
+export const KINDS = Object.keys(EMOJI)
+
+// Returns { html, plain } for a kind, or null for an unknown kind. The first link is the headline's,
+// so Telegram's link preview is drawn from it.
+export function buildMessage(kind, data = {}, app = appFromEnv()) {
   const title = clip(data.title || '(no title)')
-  const sha = String(data.sha || '').slice(0, 7)
-
-  let links
-  if (kind === 'live') links = [['Open production', data.url || PROD_URL]]
-  else if (kind === 'failed') links = [['See the failed run', data.runUrl]]
-  else if (kind === 'preview') {
-    const number = String(data.url || '').match(/\/pull\/(\d+)$/)?.[1]
-    links = [['Open preview', data.previewUrl || PREVIEW_URL], [number ? `PR #${number}` : 'PR', data.url]]
+  const { fullSha, sha } = commitIds(data.sha)
+  const pr = String(data.url || '').match(/\/pull\/(\d+)$/)?.[1]
+  const summary = summaryLine(data.body)
+  switch (kind) {
+    case 'live':
+      return liveMessage(data, title, sha, fullSha, app)
+    case 'failed':
+      return message(
+        'failed',
+        app,
+        ['Production smoke test failed', data.runUrl],
+        [
+          commitLine(sha, title),
+          text('Production runs this commit, and its smoke test failed or did not run.'),
+          text('Needs you: open the run and read the first failed step.'),
+        ],
+        [['Open production', app.siteUrl]],
+      )
+    case 'preview':
+      return message(
+        'preview',
+        app,
+        ['Try it on preview', data.previewUrl || app.previewUrl],
+        [text(title), ...(summary ? [text(`What changed: ${summary}`)] : []), text('Needs you: try the change on preview.')],
+        [[pr ? `PR #${pr} on GitHub` : 'PR on GitHub', data.url]],
+      )
+    case 'owner':
+      return message(
+        'owner',
+        app,
+        [pr ? 'A PR needs you' : 'An issue needs you', data.url],
+        [text(title), text('Needs you: open it and answer or do what it asks.')],
+      )
+    case 'cleanup':
+      return message(
+        'cleanup',
+        app,
+        ['Cleanup review ready', data.url],
+        [
+          text(title),
+          ...(summary ? [text(`What it removes: ${summary}`)] : []),
+          text('Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR.'),
+        ],
+      )
+    case 'weekly-started':
+      return message(
+        'weekly-started',
+        app,
+        ['Weekly review started', data.url],
+        [text(title), text('An agent checks the signals and opens up to three PRs; owner items get the label owner.')],
+      )
+    case 'cleanup-started':
+      return message(
+        'cleanup-started',
+        app,
+        ['Cleanup review started', data.url],
+        [text(title), text('An agent reviews the commits since the last review and opens up to three PRs.')],
+      )
+    case 'speed':
+      return alertMessage(data, app)
+    default:
+      return null
   }
-  else links = [['Open', data.url]]
-
-  const html = [`${spec.emoji} <b>${escapeHtml(spec.headline)}</b>`]
-  const plain = [`${spec.emoji} ${spec.headline}`]
-  if (sha) {
-    html.push(`<code>${escapeHtml(sha)}</code> ${escapeHtml(title)}`)
-    plain.push(`${sha} ${title}`)
-  } else {
-    html.push(escapeHtml(title))
-    plain.push(title)
-  }
-  if (spec.extra) {
-    html.push(escapeHtml(spec.extra))
-    plain.push(spec.extra)
-  }
-  html.push(links.map(([label, url]) => linkHtml(label, url)).join(' · '))
-  plain.push(links.map(([label, url]) => linkPlain(label, url)).join(' · '))
-  return { html: html.join('\n'), plain: plain.join('\n') }
 }
 
 // Reads the CLI values from the environment. Returns the message or null.
@@ -142,7 +228,7 @@ export function messageFromEnv(env = {}) {
     url: env.NOTIFY_URL,
     runUrl: env.NOTIFY_RUN_URL,
     previewUrl: env.NOTIFY_PREVIEW_URL,
-  })
+  }, appFromEnv(env))
 }
 
 // True when a 400 answer says Telegram could not parse the HTML. Reads the body once; never throws.

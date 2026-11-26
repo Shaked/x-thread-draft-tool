@@ -1,1 +1,14 @@
-{}
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/plugins/reply-style/scripts/reply-style-stop.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

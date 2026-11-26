@@ -1,0 +1,152 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import AdminLayout from '../../src/pages/admin/AdminLayout.jsx'
+import App from '../../src/App.jsx'
+
+const group = (route, op, count, p95) => ({
+  group: { route, op, caller: 'all' },
+  count,
+  errors: { '4xx': 3, '429': 1, '5xx': 2, tool_error: 0 },
+  p50: 8.4, p90: 15.9, p95, p99: null, p99_9: null
+})
+
+const series = (name, values, grain = 'hour', p95 = []) => ({
+  name,
+  grain,
+  points: values.map((value, i) => ({ at: `2026-11-2${i}T10:00:00Z`, value, p95: p95[i] ?? null }))
+})
+
+function answer(me = {}) {
+  return vi.fn(async (url) => {
+    const path = String(url)
+    if (path === '/api/auth/me') return { ok: true, json: async () => me }
+    if (path.startsWith('/api/admin/metrics/summary')) return { ok: true, json: async () => SUMMARY }
+    if (path.startsWith('/api/admin/metrics/events')) {
+      // One call per delivery source; none asks for production errors.
+      const source = new URL(path, 'http://x').searchParams.get('source')
+      return { ok: true, json: async () => ({ events: EVENTS.events.filter((e) => e.source === source) }) }
+    }
+    if (path.startsWith('/api/admin/metrics/series')) {
+      const name = new URL(path, 'http://x').searchParams.get('name')
+      if (name === 'requests') return { ok: true, json: async () => series('requests', [5, 9, 3], 'hour', [20, null, 30]) }
+      return { ok: true, json: async () => series(name, [1, null, 4], 'day') }
+    }
+    if (path.startsWith('/api/admin/metrics')) {
+      const by = new URL(path, 'http://x').searchParams.get('by')
+      const metrics =
+        by === 'total' ? [group('all', '-', 100, 22.4)]
+        : by === 'route' ? [group('GET /drafts', '-', 60, 22.4), group('GET /me', '-', 40, null)]
+        : [group('all', 'tool:list_drafts', 7, 12), group('all', 'tools/list', 2, 3)]
+      return { ok: true, json: async () => ({ metrics }) }
+    }
+    return { ok: false, status: 404, json: async () => ({}) }
+  })
+}
+
+const finding = (area, extra = {}) => ({ area, text: '', value: null, baseline: null, ci: null, ...extra })
+const SUMMARY = {
+  text: 'Metrics summary for Shaked/x-thread-draft-tool, last 24 hours.\n- CI checks: 4 runs, 1 failed (25 %). Last week 50 %.\nNothing is over its limit.',
+  findings: [
+    finding('speed', { value: 200, baseline: 120, link: 'https://github.com/x/y/actions/workflows/speed-metrics.yml' }),
+    finding('ci', { value: 25, baseline: 50, ci: { median_ms: 120000, p90_ms: 300000, flaky_pct: 25, baseline_median_ms: 90000, baseline_p90_ms: null, baseline_flaky_pct: 0 } }),
+    finding('deploys', { value: 22, baseline: null })
+  ]
+}
+const EVENTS = {
+  events: [
+    { at: '2026-11-26T10:00:00.000Z', source: 'ci', kind: 'run', id: '1.2', name: 'Tests', status: 'failure', ms: 61000, link: 'https://github.com/x/y/actions/runs/1' },
+    { at: '2026-11-26T09:00:00.000Z', source: 'deploy', kind: 'deploy', id: 'd1', name: 'Production', status: 'success', ms: null, link: null }
+  ]
+}
+
+const open = () =>
+  render(
+    <MemoryRouter initialEntries={['/admin/metrics']}>
+      <Routes>
+        <Route path="/admin/*" element={<AdminLayout />} />
+      </Routes>
+    </MemoryRouter>
+  )
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  window.history.pushState({}, '', '/')
+})
+
+describe('admin metrics page', () => {
+  it('shows the summary, both tables and the product table, with – and the samples text for a null percentile', async () => {
+    const fetchMock = answer()
+    vi.stubGlobal('fetch', fetchMock)
+    open()
+    expect(await screen.findByText('5xx share')).toBeInTheDocument()
+    expect(screen.getByText('2%')).toBeInTheDocument()
+    const routes = screen.getByRole('table', { name: 'Requests and times by route' })
+    expect(within(routes).getAllByRole('row')).toHaveLength(3)
+    expect(within(routes).getAllByText('– (needs 200 samples)')).toHaveLength(1)
+    expect(within(routes).getAllByText('– (needs 1000 samples)').length).toBe(2)
+    const tools = screen.getByRole('table', { name: 'Requests and times by tool' })
+    expect(within(tools).getAllByRole('row')).toHaveLength(2)
+    expect(within(tools).getByText('list_drafts')).toBeInTheDocument()
+    const product = screen.getByRole('table', { name: /Product numbers/ })
+    expect(within(product).getAllByRole('row')).toHaveLength(4)
+    expect(fetchMock.mock.calls.find(([url]) => String(url).includes('/admin/metrics?'))[1].headers['x-xt-admin']).toBe('1')
+    expect(screen.getByRole('link', { name: 'Metrics' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('draws one point for each series entry', async () => {
+    vi.stubGlobal('fetch', answer())
+    open()
+    const chart = await screen.findByRole('img', { name: /Requests and p95 per hour, 3 points/ })
+    expect(chart.querySelectorAll('circle')).toHaveLength(5) // 3 requests + 2 p95 (the null is a gap)
+  })
+
+  it('shows the delivery section: each number with last week, the events with links, and the history link', async () => {
+    const fetchMock = answer()
+    vi.stubGlobal('fetch', fetchMock)
+    open()
+    const section = within(await screen.findByRole('region', { name: 'Delivery and CI' }))
+    await section.findByText('CI time, median')
+    expect(section.getByText('2 min (last week 1 min 30 s)')).toBeInTheDocument()
+    expect(section.getByText('5 min (last week –)')).toBeInTheDocument()
+    expect(section.getByText('3 min 20 s (last week 2 min)')).toBeInTheDocument()
+    expect(section.getByText('22 s (last week –)')).toBeInTheDocument()
+    expect(section.getByText('25 % (last week 50 %)')).toBeInTheDocument()
+    expect(section.getByText('25 % (last week 0 %)')).toBeInTheDocument()
+    const table = section.getByRole('table', { name: 'Delivery events, newest first' })
+    expect(within(table).getAllByRole('row')).toHaveLength(3)
+    expect(within(table).getByRole('link', { name: /Open Tests run of 2026-11-26 10:00/ })).toHaveAttribute('href', 'https://github.com/x/y/actions/runs/1')
+    expect(section.getByRole('link', { name: /speed-metrics workflow runs/ })).toHaveAttribute('href', expect.stringContaining('speed-metrics.yml'))
+    expect(fetchMock.mock.calls.find(([url]) => String(url).includes('/metrics/summary'))[1].headers['x-xt-admin']).toBe('1')
+    const sources = fetchMock.mock.calls.map(([url]) => new URL(String(url), 'http://x').searchParams.get('source')).filter(Boolean)
+    expect(sources.sort()).toEqual(['ci', 'deploy', 'speed']) // never the production errors
+    fireEvent.click(section.getByRole('radio', { name: '7 days' }))
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url) === '/api/admin/metrics/summary?window=7d')).toBe(true))
+  })
+
+  it('loads the new window when the switch changes', async () => {
+    const fetchMock = answer()
+    vi.stubGlobal('fetch', fetchMock)
+    open()
+    await screen.findByText('5xx share')
+    const pageSwitch = within(screen.getByRole('group', { name: 'Time window' }))
+    fireEvent.click(pageSwitch.getByRole('radio', { name: '7 days' }))
+    expect(pageSwitch.getByRole('radio', { name: '7 days' })).toBeChecked() // the switch stays while the new window loads
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url) === '/api/admin/metrics?window=7d&by=total')).toBe(true))
+  })
+
+  it('shows an error with a retry when the numbers do not load', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}) })))
+    open()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the metrics.')
+  })
+
+  it('sends a normal user from /admin/metrics to /', async () => {
+    window.history.pushState({}, '', '/admin/metrics')
+    vi.stubGlobal('fetch', answer({ user: { login: 'bob', role: 'user' } }))
+    render(<App />)
+    await waitFor(() => expect(window.location.pathname).toBe('/'))
+    expect(document.body.textContent).not.toMatch(/5xx share/)
+  })
+})

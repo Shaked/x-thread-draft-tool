@@ -15,6 +15,8 @@ The admin sees it on one page, one REST route pair and two MCP tools. Three aler
 
 CI, Git, deploy and production error events, and the agent's plain-English summary, are added by
 `docs/plans/central-metrics.md` (#439), on top of this plan.
+Where the two plans overlap, the decision record in section 9 of that file (2026-11-26, #458) wins: it names
+which table, route, tool and file each task uses.
 
 ## 1. What we can read today, for free
 
@@ -132,7 +134,7 @@ hour, the whole app reaches 10 000 requests in about 5 days, so p99.9 is shown f
 | Security | suspended users (now and per day), admin actions per day by action and outcome | S, D (`admin_audit`) | yes |
 | Security | sign-in errors: 4xx and 5xx on `/auth/*` routes | R | no |
 | Security | refused sign-ins of suspended users as their own number | X: needs a new counter in the sign-in code. Not planned (the 3xx on the callback route is visible in R) | no |
-| Delivery | feature to deploy time, stages (a) to (d), median and p90 | G (#306, #310) | yes, in GitHub |
+| Delivery | feature to deploy time, stages (a) to (d), median and p90 | G (#306, #310); `ops_events` speed rows (central-metrics D5) | yes, in GitHub |
 | Browser | page load (LCP, INP, CLS) | X: Web Analytics off (checked), Speed Insights queries need Plus. Owner question Q3 | no |
 
 ## 3. Where to keep history
@@ -242,8 +244,8 @@ most 4 times a day (at most 5 minutes at 0.25 CU each, about 0.08 CU-hours a day
 
 ### The daily step (task O5)
 
-`POST /api/ops/metrics-daily`, called by a new workflow `.github/workflows/metrics-daily.yml` with a
-GitHub Actions OIDC token (the same issuer and key check as `server/oidc-ci.js`). No new secret.
+`POST /api/ops/metrics-daily`, called by a job in `.github/workflows/metrics-daily.yml` (M3 creates the file;
+central-metrics D4) with a GitHub Actions OIDC token (the same issuer and key check as `server/oidc-ci.js`). No new secret.
 
 Security (the Opus review found that simply adding the workflow to `CI_WORKFLOW_PATHS` opens access in
 both directions: its token would be accepted as `ci-smoke` on every `ci: true` route, such as creating
@@ -293,7 +295,7 @@ Two capabilities, each on all three surfaces (AGENTS.md rule), each with its own
 
 - Admin only, through `adminRoute` and the guard. The tools are in `ADMIN_TOOLS`, hidden from everyone
   else, and each tool may reach only its own route (the per-route binding of #298).
-- `GET /api/admin/metrics?window=1h|24h|7d|30d|90d|400d&by=route|op|caller|all&route=<route key>`:
+- `GET /api/admin/metrics?window=1h|24h|7d|30d|90d|400d&by=route|op|caller|all|total&route=<route key>`:
   one entry per group, sorted by `count`, at most 200 entries. `1h` is the current UTC hour so far; the
   other windows end at the read time. `route` must be a key of `ROUTES` or `unmatched`, else 400, so the
   60 s cache stays small.
@@ -301,8 +303,8 @@ Two capabilities, each on all three surfaces (AGENTS.md rule), each with its own
   hour (windows up to 7 days) or per day. `name` is one of `requests`, `errors_5xx`, `errors_4xx`,
   `rate_limited`, `p50`, `p95`, `p99`, `cold_starts` (from R) or one column of `metrics_product_daily`.
 - Product numbers "now" stay in `admin_stats`; the new routes do not repeat them.
-- Delivery numbers stay in GitHub: the page links to the `speed-metrics` workflow runs (#310). No copy
-  in the app (decided by Opus: one source for each number).
+- Delivery numbers: changed by central-metrics D5 (2026-11-26). The one copy is the speed rows in `ops_events`,
+  shown by M6; the `speed-metrics` artifact stays the raw store (one source for each number, as before).
 
 ### The response shape (defined once, in `server/metrics/view.js`)
 
@@ -341,7 +343,7 @@ without `group`.
   count, errors and p50 to p99.9 (`–` with "needs 10 000 samples" when `null`), and one line chart
   (requests and p95 per hour or day) drawn as inline SVG. No chart library.
 - Components and colours from the design system of #305 (U1, U2) where they exist.
-- A "Product" table from `metrics_product_daily` (last 30 days) and a link "Delivery speed" to GitHub.
+- A "Product" table from `metrics_product_daily` (last 30 days). No "Delivery speed" link (central-metrics D5).
 
 ## 5. Privacy and safety
 
@@ -361,7 +363,8 @@ without `group`.
 ## 6. Alerts (three kinds, Telegram)
 
 Worked out by every run of the daily step (every 6 hours). Sent with `scripts/notify-telegram.mjs`, new kind
-`metrics` (headline "Metrics alert", text in `.claude/skills/reply-style/templates/telegram-message.md`), the existing secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+`metrics`, in the Alert shape of `.claude/reply-style-templates/telegram-message.md` once #475 folds
+its section 5 (central-metrics D6), with the existing secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 The app itself still sends nothing (`docs/operations/telegram.md`).
 
 | Kind | Fires when | Why this one |
@@ -371,7 +374,9 @@ The app itself still sends nothing (`docs/operations/telegram.md`).
 | A3 capacity | the database is over 700 MB (70 % of the free 1 GB), or more than 100 requests were rate limited (`n_429`, which includes refused MCP tool calls) in the last 24 hours | the free Neon limit blocks writes when full; many 429s mean the rate limit hurts real users |
 
 - An alert is sent when it starts and again only after it has been clear for 24 hours
-  (`metrics_alert_state`). One line per alert: the kind, the value, the limit, a link to `/admin/metrics`.
+  (`metrics_alert_state`). One message per alert, in the Alert shape of `.claude/reply-style-templates/telegram-message.md`
+  (section 6): the headline links to `/admin/metrics`, then the value, the limit and since when, the likely cause, and a
+  `Needs you:` line only for capacity.
 - No alert for a single slow request, for cold starts, or for the `pg` SSL warning.
 
 ## 7. Tasks
@@ -388,9 +393,9 @@ about this plan (#331). Removing `held` starts them in the order of the table.
 | O2 | #333 | Record each request in `measured()` with `waitUntil`: write only when `q > 0`, pending in-memory rows for `q = 0`; caller kind; flags for MCP rate limit, JSON-RPC error and tool error; `METRICS_DISABLED`; `flushMetrics()`; tests (one request adds one, a `q = 0` request runs no SQL, a failed write keeps the answer, no real path stored, query budget unchanged) | Opus (SQL, hot path) | M | O1 | `Implements #331 Task 2` |
 | O3 | #334 | Client app family for MCP calls: the token check also returns the client's host, mapped to a fixed list (`claude`, `chatgpt`, `grok`, `cli`, `other`). Executor Sonnet (the MCP token statement is security code) | Opus (auth statement) | S | O2 | `Implements #331 Task 3` |
 | O4 | #335 | `GET /api/admin/metrics`, `GET /api/admin/metrics/series`, tools `admin_metrics` and `admin_metrics_series`, per-route binding (`ADMIN_REST_ROUTES` in `server/mcp/admin-tools.js`), sums in SQL, 60 s cache, caps, OpenAPI, capabilities rows (UI `no: planned in #331 Task 6` until O6), `docs/operations/admin.md` | Opus (admin, auth) | M | O2 | `Implements #331 Task 4` |
-| O5 | #336 | `POST /api/ops/metrics-daily` (its own OIDC check, exact workflow path, not a `ci: true` route), `/ops` 404 gate, `metrics-daily.yml` (every 6 hours, manual run, `concurrency`), product snapshot, hourly to daily move with `delete ... returning`, retention, Infrastructure row in capabilities. Executor Sonnet (OIDC is security code, as for #283) | Opus (OIDC, deletion) | M | O1 | `Implements #331 Task 5` |
-| O6 | #337 | Admin page `/admin/metrics`: tables, inline SVG chart, product table, link to delivery speed; capabilities UI cells | Opus (design) | M | O4, #285 | `Implements #331 Task 6` |
-| O7 | #338 | Alerts A1 to A3 in the daily step, `metrics_alert_state`, Telegram kind `metrics`, `docs/operations/telegram.md` | Sonnet | S | O5 | `Implements #331 Task 7` |
+| O5 | #336 | `POST /api/ops/metrics-daily` (its own OIDC check, exact workflow path, not a `ci: true` route), `/ops` 404 gate, a job in `metrics-daily.yml` (M3 owns the file, D4), product snapshot, hourly to daily move with `delete ... returning`, retention (also `ops_*`, D4), Infrastructure row in capabilities. Executor Sonnet (OIDC is security code, as for #283) | Opus (OIDC, deletion) | M | O1 | `Implements #331 Task 5` |
+| O6 | #337 | Admin page `/admin/metrics`: tables, inline SVG chart, product table (no delivery link, D5); capabilities UI cells | Opus (design) | M | O4, #285 | `Implements #331 Task 6` |
+| O7 | #338 | Alerts A1 to A3 in the daily step, `metrics_alert_state`, Telegram kind `metrics`, `docs/operations/telegram.md` | Sonnet | S | O5, #475 (D6) | `Implements #331 Task 7` |
 
 Not a task (decided by Opus, 2026-11-21):
 

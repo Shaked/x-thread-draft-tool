@@ -5,6 +5,8 @@ Pages only compose these and pass props. They take no `className`, and pages hav
 `tests/unit/ui-components.test.js` checks this file against `src/ui/`: every `## <Name>` below is a file in `src/ui/`, every
 file has a section, a `Status:` line (`built`, or `not built:` with a reason), a props table and an example.
 
+Some components have a second implementation behind the Components feature flag (`xt-kit`, `src/utils/skin.js`): real Rare UI components copied into `src/ui/rare/` (licence in `THIRD_PARTY_LICENSES/rare-ui.md`). They are styled only with Tailwind utilities that take token values (`src/styles/rare-kit.css`; the token lint checks their class strings) and load in their own chunk. The wrapper in `src/ui/` keeps our props, so pages do not change. Files in `src/ui/rare/` have no section of their own; their wrapper's section names them.
+
 ## Icon
 - File: `src/ui/Icon.jsx`
 - Status: built
@@ -133,6 +135,7 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 | `haspopup` | `menu` | | The button opens a menu: sets `aria-haspopup`. Used by `Menu`. |
 | `expanded` | boolean | | Whether that menu is open: sets `aria-expanded`. |
 | `controls` | string | | The `id` of the menu it opens: sets `aria-controls`. |
+| `ariaCurrent` | `page` | | Marks the link of the open page: sets `aria-current`. |
 | `onClick` | function | | |
 
 - States: default, hover (only where hover exists), pressed (scale 0.98), focus-visible (the base focus ring), disabled (half opacity), loading, disabled with reason.
@@ -396,3 +399,73 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 
 - States: none of its own. 48 px of room around the text.
 - Example: `<EmptyState title="No drafts yet." description="Create your first thread to get started." action={<Button variant="primary">Create your first draft</Button>} />`
+
+## ThemePicker
+- File: `src/ui/ThemePicker.jsx` (flag on: `src/ui/rare/ThemeSelector.jsx`, from Rare UI)
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `legend` | string | required | Shown above the choices; names the group. |
+| `value` | string | required | The chosen theme. |
+| `options` | `[{ value, label }]` | required | `value` is `light`, `dark` or `system`. |
+| `onChange` | function | required | Called with the new value. |
+
+- States: flag off (default): a `SegmentedControl` in a column. Flag on (`xt-kit` = `rare`, Feature flags > Components): Rare UI's theme selector, a 4:3 preview per theme drawn from the colour tokens in that scheme (`data-color-scope`), Match device split light and dark; radios with arrow keys (mirrored in right-to-left), Home and End; a 2 px accent ring on the chosen one. Loads in its own chunk; the segmented control shows until then.
+- Example: `<ThemePicker legend="Theme" value={value} options={[{ value: 'light', label: 'Light' }]} onChange={setValue} />`
+
+## DeleteButton
+- File: `src/ui/DeleteButton.jsx` (flag on: `src/ui/rare/DeleteButton.jsx`, from Rare UI)
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `label` | string | required | The button's name ("Delete draft"). |
+| `confirm` | `{ title, body, confirmLabel }` | required | The question: the dialog's title, sentence and yes button (flag off), or the panel's name, description and yes button (flag on). |
+| `onConfirm` | function | required | Runs only after a yes. May return a promise; `false` or a rejection means it failed (flag on: the button goes back to idle; the caller shows the error). |
+
+- States: flag off (default): a `danger-quiet` small Button that opens the confirm dialog (Cancel focused). Flag on: Rare UI's delete button: a 44 px bin; a press widens it into a panel with Cancel (focused) and the yes button, both 44 px; Escape or Cancel keeps; after yes the bin is busy (`aria-busy`) until `onConfirm` settles; the check mark and "Deleted" show only on success, a failure goes back to idle; the lid and walls animate with motion, instant under reduced motion; mirrored in right-to-left. Loads in its own chunk; the Button shows until then.
+- Example: `<DeleteButton label="Delete draft" confirm={{ title: 'Delete this draft?', body: 'Are you sure you want to delete this draft?', confirmLabel: 'Delete draft' }} onConfirm={remove} />`
+
+## Count
+- File: `src/ui/Count.jsx` (flag on: `src/ui/rare/AnimatedCounter.jsx`, from Rare UI)
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `value` | number | required | The count shown first (the post's characters). |
+| `max` | number | none | The limit after a slash ("/280"); shown as text, not animated. |
+
+- States: flag off (default): plain text, `120/280`. Flag on (`xt-kit` = `rare`, Feature flags > Components): the value's digits roll to the new value (a spring, 0.6 s); the number is read once through a sr-only span; the rolling digits are aria-hidden; not a live region; the value sits in a left-to-right box so Hebrew text keeps `120/280` in order. Under the over-limit colour of `.char-counter`, the counter inherits it. Reduced motion: the digits change at once. Loads in its own chunk; the plain text shows until then.
+- Tokens: `--counter-line` (one digit's height) and `--mask-counter-fade` (the top and bottom fade, alpha only) in `src/styles/tokens.css`.
+- Example: `<Count value={count} max={280} />`
+
+## Table
+- File: `src/ui/Table.jsx`
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `caption` | string | required | Names the table; shown as soft text above it. |
+| `columns` | `{ key, label }[]` | required | The first column names each row. |
+| `rows` | object[] | required | One object per row, with the column keys. |
+
+- States: a real table from 768 px; below that each row is a card with a label and value line per cell.
+- Example: `<Table caption="Signups" columns={[{ key: 'day', label: 'Day' }, { key: 'n', label: 'Signups' }]} rows={rows} />`
+
+## SideLayout
+- File: `src/ui/SideLayout.jsx`
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `side` | node | required | The menu. Sits at the inline start from 768 px, above the content below that. |
+| `children` | node | | The page content. |
+
+- States: stacked under 768 px; a 14 rem side column from 768 px (`--flex-min`).
+- Example: `<SideLayout side={<nav>…</nav>}><Section title="Statistics" /></SideLayout>`

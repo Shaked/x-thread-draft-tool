@@ -38,6 +38,7 @@
     "@vercel/functions": "3.10.6",
     "idb-keyval": "^6.2.1",
     "jose": "^6.2.15",
+    "motion": "12.43.0",
     "pg": "^8.23.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -51,6 +52,7 @@
     "@modelcontextprotocol/ext-apps": "1.7.5",
     "@modelcontextprotocol/sdk": "1.32.2",
     "@playwright/test": "^1.59.1",
+    "@tailwindcss/vite": "4.3.5",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -72,6 +74,8 @@
     "vitest": "4.1.12"
   },
   "overrides": {
-    "zod": "^4.6.6"
+    "zod": "^4.6.6",
+    "enhanced-resolve": "5.26.1",
+    "tapable": "2.3.3"
   }
 }
