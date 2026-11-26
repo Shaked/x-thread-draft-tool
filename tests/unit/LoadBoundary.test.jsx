@@ -38,7 +38,8 @@ describe('LoadBoundary (#551)', () => {
     )
     expect(await screen.findByRole('alert')).toHaveTextContent('This part of the app could not load. A new version may be out: reload to get it.')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Reload' }))
-    expect(reload).toHaveBeenCalledTimes(1)
+    // reloadToNewest: no service worker in jsdom, so it reloads at once (after its await).
+    await vi.waitFor(() => expect(reload).toHaveBeenCalledTimes(1))
   })
 
   // Vite loads a lazy part's stylesheet before its script; after a deploy that stylesheet is gone too.
