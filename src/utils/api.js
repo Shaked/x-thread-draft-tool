@@ -88,8 +88,13 @@ export const adminApi = {
   metricsSummary(window) {
     return request(`/admin/metrics/summary?window=${window}`, { headers: { 'x-xt-admin': '1' } })
   },
+  // The delivery events only (ci, speed, deploy): one call each, so a burst of production errors cannot push them out.
   metricsEvents(since) {
-    return request(`/admin/metrics/events?limit=100&since=${encodeURIComponent(since)}`, { headers: { 'x-xt-admin': '1' } })
+    return Promise.all(
+      ['ci', 'speed', 'deploy'].map((source) =>
+        request(`/admin/metrics/events?source=${source}&limit=20&since=${encodeURIComponent(since)}`, { headers: { 'x-xt-admin': '1' } })
+      )
+    ).then((lists) => lists.flatMap((list) => list.events).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 20))
   }
 }
 

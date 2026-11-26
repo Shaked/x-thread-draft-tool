@@ -105,7 +105,7 @@ export default function DeliverySection() {
             { key: 'link', label: 'Link' }
           ]}
           rowKey={(row) => row.key}
-          rows={state.events.events.filter((e) => e.source !== 'prod').slice(0, 20).map((e) => ({
+          rows={state.events.map((e) => ({
             key: `${e.source}/${e.kind}/${e.id}`,
             at: e.at.slice(0, 16).replace('T', ' '),
             source: e.source,
@@ -113,7 +113,7 @@ export default function DeliverySection() {
             status: e.status,
             took: time(e.ms),
             link: e.link ? (
-              <Button variant="ghost" size="sm" href={e.link} ariaLabel={`Open ${e.name} ${e.kind}`}>
+              <Button variant="ghost" size="sm" href={e.link} ariaLabel={`Open ${e.name} ${e.kind} of ${e.at.slice(0, 16).replace('T', ' ')}`}>
                 Open
               </Button>
             ) : (

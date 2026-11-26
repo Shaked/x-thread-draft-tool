@@ -247,7 +247,7 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
       if (url.pathname === '/api/admin/metrics') return route.fulfill({ json: metricsAnswer(url.searchParams.get('by') ?? 'route') })
       if (url.pathname === '/api/admin/metrics/series') return route.fulfill({ json: metricsSeries(url.searchParams.get('name') ?? 'requests') })
       if (url.pathname === '/api/admin/metrics/summary') return route.fulfill({ json: DELIVERY_SUMMARY })
-      if (url.pathname === '/api/admin/metrics/events') return route.fulfill({ json: DELIVERY_EVENTS })
+      if (url.pathname === '/api/admin/metrics/events') return route.fulfill({ json: { events: url.searchParams.get('source') === 'ci' ? DELIVERY_EVENTS.events : [] } })
       if (url.pathname === '/api/admin/flags') {
         const flag = (name: string, value?: string) => ({ name, value: value ?? 'default', values: ['default', 'rare'], default: 'default', meaning: '' })
         return route.fulfill({ json: { flags: [flag('look', extra.skin), flag('components', extra.kit)] } })

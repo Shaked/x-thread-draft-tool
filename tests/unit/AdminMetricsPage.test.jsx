@@ -22,7 +22,11 @@ function answer(me = {}) {
     const path = String(url)
     if (path === '/api/auth/me') return { ok: true, json: async () => me }
     if (path.startsWith('/api/admin/metrics/summary')) return { ok: true, json: async () => SUMMARY }
-    if (path.startsWith('/api/admin/metrics/events')) return { ok: true, json: async () => EVENTS }
+    if (path.startsWith('/api/admin/metrics/events')) {
+      // One call per delivery source; none asks for production errors.
+      const source = new URL(path, 'http://x').searchParams.get('source')
+      return { ok: true, json: async () => ({ events: EVENTS.events.filter((e) => e.source === source) }) }
+    }
     if (path.startsWith('/api/admin/metrics/series')) {
       const name = new URL(path, 'http://x').searchParams.get('name')
       if (name === 'requests') return { ok: true, json: async () => series('requests', [5, 9, 3], 'hour', [20, null, 30]) }
@@ -112,9 +116,11 @@ describe('admin metrics page', () => {
     expect(section.getByText('25 % (last week 0 %)')).toBeInTheDocument()
     const table = section.getByRole('table', { name: 'Delivery events, newest first' })
     expect(within(table).getAllByRole('row')).toHaveLength(3)
-    expect(within(table).getByRole('link', { name: 'Open Tests run' })).toHaveAttribute('href', 'https://github.com/x/y/actions/runs/1')
+    expect(within(table).getByRole('link', { name: /Open Tests run of 2026-11-26 10:00/ })).toHaveAttribute('href', 'https://github.com/x/y/actions/runs/1')
     expect(section.getByRole('link', { name: /speed-metrics workflow runs/ })).toHaveAttribute('href', expect.stringContaining('speed-metrics.yml'))
     expect(fetchMock.mock.calls.find(([url]) => String(url).includes('/metrics/summary'))[1].headers['x-xt-admin']).toBe('1')
+    const sources = fetchMock.mock.calls.map(([url]) => new URL(String(url), 'http://x').searchParams.get('source')).filter(Boolean)
+    expect(sources.sort()).toEqual(['ci', 'deploy', 'speed']) // never the production errors
     fireEvent.click(section.getByRole('radio', { name: '7 days' }))
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url) === '/api/admin/metrics/summary?window=7d')).toBe(true))
   })
