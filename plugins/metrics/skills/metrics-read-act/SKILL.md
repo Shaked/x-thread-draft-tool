@@ -45,8 +45,11 @@ How to read it:
 If line 1 says the events are old or none: start the workflow its link names, once, with `actions_run_trigger`
 (`method: run_workflow`, `owner` and `repo` from `repo`, `workflow_id` the file name in
 the link, `ref` the default branch). End your turn and read again when it has finished. Do not loop
-or sleep. If the events are still old after a finished run, that is itself the problem: open an issue that says the
-collector stores nothing, with the run link.
+or sleep. Events carry the time of the run, merge or deploy they describe, not the time of collection. So a quiet
+repository can keep line 1 after a good run. Read the finished run: if it failed, that is the problem, so open an issue
+with the run link. If it succeeded, list the repository's recent runs, merges and deploys with the GitHub tools. Only when
+there are newer ones than the last event, the collector stores nothing: open an issue with the run link. Otherwise
+report the quiet period and open no issue.
 
 ## 2. What counts as a problem
 A line is a problem when:
@@ -59,7 +62,7 @@ A line is a problem when:
 | Deploys | at least one production deploy failed |
 | Production | at least one server error, or the slowest 5 % is at least twice last week's value |
 | Database | 70 % of the limit or more (a full free database stops writes) |
-| Events | line 1 is still there after one manual run |
+| Events | the manual run failed, or it succeeded and newer runs, merges or deploys exist than the last event |
 
 These margins are this skill's own. They keep one flaky run from opening an issue. A project's agent rules may set
 other margins, and then they win. When nothing is a problem, report that with the time you checked and stop. Open no issue.
@@ -72,7 +75,7 @@ It has no `repo` filter, so keep only rows whose `link` starts with `https://git
 |---|---|
 | Speed | `source: speed`, `status: over` |
 | CI checks | `source: ci`, `kind: run`, `status: failure` (then again with `timed_out`) |
-| Deploys | `source: deploy`, `status: failure` |
+| Deploys | `source: deploy`, `name: Production`, `status: failure` |
 | Production | `source: prod` |
 
 Each row has a `link`. For a CI run, read the failed step only: `get_job_logs` with `run_id`, `failed_only: true`,
