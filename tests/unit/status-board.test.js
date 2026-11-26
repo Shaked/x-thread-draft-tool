@@ -251,6 +251,14 @@ describe('Opus findings on #519', () => {
     expect(ownerNeeded({ labels: [] }, [q2, at('2026-11-26T10:00:00Z', 'Owner decision (Shaked): `serif`.')], [], opts)).toEqual([{ rule: 'question', what: 'Colour', words: 'purple', url: 'h' }])
     expect(asks(['### What is decided', 'x', '### Options', '1. **A** (reply `a`)'])).toHaveLength(1)
   })
+
+  it('a step before the first ### question is an ask too; plain intro text is not (Opus finding on #519)', () => {
+    const h = at('2026-11-26T09:00:00Z', 'HANDOFF B3 (x y z) - partial\n\n## Blocked on you\nTwo decisions, below.\n- Merge PR 5 after the screenshot (reply `merged`).\n'
+      + '### How long history is kept\n1. **Month** (reply `keep-30`).\n\nRELEASE')
+    const got = ownerNeeded({ labels: [] }, [h, at('2026-11-26T10:00:00Z', 'Owner decision (Shaked): `keep-30`.')], [], opts)
+    expect(got).toEqual([{ rule: 'handoff', what: 'Merge PR 5 after the screenshot (reply `merged`)', words: 'merged', url: 'h' }])
+    expect(asks(['Two decisions, below.', '### Font', '1. **Serif** (reply `serif`).'])).toHaveLength(1)
+  })
 })
 
 describe('manual tests are optional', () => {

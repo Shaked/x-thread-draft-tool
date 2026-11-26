@@ -99,14 +99,17 @@ export function asks(lines) {
       parts[parts.length - 1].lines.push(l)
     }
   }
-  return parts.some((p) => p.title) ? parts.filter((p) => p.title) : parts
+  // Plain intro text before the first ### question is dropped; a list item or a reply there is an ask of its own.
+  const ask = (p) => p.title || p.lines.some((l) => /^(?:[-*+]|\d+\.)\s/.test(l) || replies(l).length)
+  return parts.some((p) => p.title) ? parts.filter(ask) : parts
 }
 
-/** What one ask is about: its "What is decided" line, else its ### title, else its first line that is not a heading. */
+/** What one ask is about: its "What is decided" line, else its ### title, else its first list item or other line. */
 function askText(part) {
   const decided = part.lines.map((l) => /^\*\*What is decided:\*\*\s*(.+)/i.exec(l)?.[1]).find(Boolean)
-  const line = decided || part.title || part.lines.find((l) => !/^#/.test(l)) || part.lines[0].replace(/^#+\s*/, '')
-  return line.replace(/^[-*]\s+/, '').replace(/\.$/, '')
+  const item = part.lines.find((l) => /^(?:[-*+]|\d+\.)\s/.test(l))
+  const line = decided || part.title || item || part.lines.find((l) => !/^#/.test(l)) || part.lines[0].replace(/^#+\s*/, '')
+  return line.replace(/^(?:[-*+]|\d+\.)\s+/, '').replace(/\.$/, '')
 }
 
 /** The asks of one comment that no later decision record names; each ask's replies are its own. */
