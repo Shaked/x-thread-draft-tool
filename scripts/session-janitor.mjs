@@ -14,7 +14,7 @@
 
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { analyze as passOne, commentFacts, normalize, REPO } from './janitor.mjs'
+import { analyze as passOne, commentFacts, normalize, REPO, TRUSTED } from './janitor.mjs'
 
 export const REVIEW_HOURS = 2
 export const STALE_DAYS = 3
@@ -33,6 +33,9 @@ export const KINDS = [
 // The fields of one session in sessions.json, as the schema requires them.
 export const SESSION_FIELDS = ['id', 'title', 'status', 'status_bucket', 'post_turn_summary', 'updated_at', 'created_at', 'parent', 'tags', 'model']
 const FINISHED = new Set(['completed', 'review_ready'])
+// One session id pattern for titles, CLAIM and HANDOFF comments, and the dump.
+const SESSION_ID = 'session_[A-Za-z0-9]+'
+const validTime = (t) => typeof t === 'string' && !Number.isNaN(Date.parse(t))
 
 /** "SESSION_STATUS_BUCKET_REVIEW_READY" and "review_ready" both give "review_ready". */
 const word = (s) => String(s || '').replace(/^SESSION_STATUS_(?:BUCKET_)?/, '').toLowerCase()
@@ -68,9 +71,11 @@ export function validateSessions(doc) {
   const ids = new Set()
   doc.sessions.forEach((s, k) => {
     for (const f of SESSION_FIELDS) if (!(f in (s || {}))) errors.push(`sessions[${k}]: missing ${f}`)
-    if (typeof s?.id !== 'string' || !/^session_\w+$/.test(s.id)) errors.push(`sessions[${k}]: id must look like session_...`)
+    if (typeof s?.id !== 'string' || !new RegExp(`^${SESSION_ID}$`).test(s.id)) errors.push(`sessions[${k}]: id must look like session_...`)
     else if (ids.has(s.id)) errors.push(`sessions[${k}]: ${s.id} is listed twice`)
     else ids.add(s.id)
+    if (s && 'title' in s && typeof s.title !== 'string') errors.push(`sessions[${k}]: title must be a string`)
+    for (const f of ['updated_at', 'created_at']) if (s && f in s && !validTime(s[f])) errors.push(`sessions[${k}]: ${f} must be an ISO time`)
   })
   return errors
 }
@@ -81,28 +86,38 @@ export function titleIssue(title) {
   return m ? Number(m[1]) : null
 }
 
-const TOKEN = /\b(?:gh[pousr]_\w{16,}|github_pat_\w{16,}|sk-[\w-]{16,}|xox[abprs]-[\w-]{10,}|eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{4,})|\bBearer\s+\S+|[A-Za-z0-9+/_-]{32,}/g
+const TOKEN = /\b(?:gh[pousr]_\w{16,}|github_pat_\w{16,}|sk-[\w-]{16,}|xox[abprs]-[\w-]{10,}|AKIA[0-9A-Z]{16}|eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{4,})|\bBearer\s+\S+/g
+// Any other run of 32 or more key characters is masked too, except a session id. Paths keep their slashes, so they stay.
+const LONG = /\b[A-Za-z0-9+_-]{32,}/g
 
 /** Text copied from a session for a table cell: one line, no backticks or pipes, tokens masked, at most `max` characters. */
 export function quote(text, max = 100) {
-  const one = String(text || '').replace(/\s+/g, ' ').replace(/`/g, "'").replace(/\|/g, '/').replace(TOKEN, '[redacted]').trim()
+  const one = String(text || '').replace(/\s+/g, ' ').replace(/`/g, "'").replace(/\|/g, '/').replace(TOKEN, '[redacted]')
+    .replace(/:\/\/[^/\s:@]+:[^@\s]+@/g, '://[redacted]@').replace(LONG, (m) => (new RegExp(`^${SESSION_ID}$`).test(m) ? m : '[redacted]')).trim()
   return one.length > max ? `${one.slice(0, max - 3).trimEnd()}...` : one
 }
 
-/** Live CLAIM per open issue: { session, at, released } from the last CLAIM comment. */
-export function claimOf(comments = []) {
+/** Comments from the owner, a member or a collaborator, in time order: only these can claim, hand off or release. */
+export function trusted(comments = [], owner = REPO.split('/')[0]) {
+  return comments.filter((c) => TRUSTED.has(c.author_association) || c.user === owner)
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+}
+
+/** Live CLAIM per open issue: { session, at, released } from the last trusted CLAIM comment. */
+export function claimOf(comments = [], owner) {
   let claim = null
-  for (const c of [...comments].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))) {
+  for (const c of trusted(comments, owner)) {
     const body = c.body || ''
     const first = body.split('\n')[0]
     if (/^CLAIM\b/.test(first)) {
-      const m = /\bsession\s+(session_\w+)/.exec(first)
+      const m = new RegExp(`\\bsession\\s+(${SESSION_ID})`).exec(first)
       claim = { session: m ? m[1] : null, at: c.created_at, released: false }
     } else if (claim && /^RELEASE\s*$/m.test(body)) claim.released = true
   }
   return claim
 }
 
+// NaN when a time is missing or invalid: every time check below is then skipped.
 const hours = (now, t) => (now - Date.parse(t)) / 3600000
 const ref = (n) => `{#${n}}`
 const code = (s) => `\`${s}\``
@@ -121,13 +136,13 @@ function matchAll(c) {
   }
   c.claims = new Map()
   for (const i of c.issues) {
-    const list = c.loaded(i.number) || []
-    const claim = claimOf(list)
+    const list = trusted(c.loaded(i.number) || [], c.owner)
+    const claim = claimOf(list, c.owner)
     if (claim) c.claims.set(i.number, claim)
     for (const x of list) {
       const first = (x.body || '').split('\n')[0]
-      if (/^CLAIM\b/.test(first)) for (const m of first.matchAll(/\bsession\s+(session_\w+)/g)) match(m[1], i.number, 'claim')
-      if (/^HANDOFF\b/.test(first)) for (const m of (x.body || '').matchAll(/\b(session_[A-Za-z0-9]+)/g)) match(m[1], i.number, 'handoff')
+      if (/^CLAIM\b/.test(first)) for (const m of first.matchAll(new RegExp(`\\bsession\\s+(${SESSION_ID})`, 'g'))) match(m[1], i.number, 'claim')
+      if (/^HANDOFF\b/.test(first)) for (const m of (x.body || '').matchAll(new RegExp(`\\b(${SESSION_ID})`, 'g'))) match(m[1], i.number, 'handoff')
     }
   }
 }
@@ -163,16 +178,24 @@ function checkDone(c, s, n) {
   const done = Boolean(f.last?.done && f.last.release)
   const prs = c.mergedNaming(n)
   const how = `matched by ${c.matches.get(s.id).get(n).join(' and ')}`
-  if (done || prs.length) {
-    const prMerged = Boolean(done && f.last.pr && c.merged.has(f.last.pr))
-    const pr = done && f.last.pr ? `; PR ${ref(f.last.pr)} is ${prMerged ? 'merged' : 'not in the merged list'}` : ''
-    const evidence = done ? `${state(s)}; the last HANDOFF says done and has RELEASE${pr}` : `${state(s)}; merged PR ${prs.map(ref).join(', ')} names it; no done HANDOFF`
-    if (prMerged) c.add('done-open', [s.id], n, `${evidence}; ${how}.`, `Close ${ref(n)} as completed after reading its HANDOFF.`, 'allowed')
-    else c.add('done-open', [s.id], n, `${evidence}; ${how}.`, 'Read the PRs and the issue: close it, or write in the issue what is left.')
-  } else if (!c.openNaming(n).length && !f.handoffs.length) {
-    const note = c.loaded(n) ? 'no HANDOFF comment' : 'comments not loaded'
-    c.add('no-handoff', [s.id], n, `${state(s)}; ${note}; no open PR names it; ${how}.`, 'Ask the session to post its HANDOFF with RELEASE.')
+  if (done || prs.length) closeProposal(c, s, n, { f, done, prs, how })
+  else if (!c.openNaming(n).length && !f.handoffs.length) {
+    if (c.loaded(n)) c.add('no-handoff', [s.id], n, `${state(s)}; no HANDOFF comment; no open PR names it; ${how}.`, 'Ask the session to post its HANDOFF with RELEASE.')
+    else c.add('no-handoff', [s.id], n, `${state(s)}; comments not loaded; no open PR names it; ${how}.`, 'Load its comments first (`need` lists them), then run the report again.')
   }
+}
+
+/** Done with the issue open: `allowed` only for a done HANDOFF with RELEASE, its PR merged, and no newer live CLAIM. */
+function closeProposal(c, s, n, { f, done, prs, how }) {
+  const prMerged = Boolean(done && f.last.pr && c.merged.has(f.last.pr))
+  // A CLAIM after the done HANDOFF with no RELEASE means the work was picked up again: never an allowed close.
+  const claim = c.claims.get(n)
+  const reopened = Boolean(done && claim && !claim.released && String(claim.at) > String(f.last.at))
+  const pr = done && f.last.pr ? `; PR ${ref(f.last.pr)} is ${prMerged ? 'merged' : 'not in the merged list'}` : ''
+  const evidence = (done ? `${state(s)}; the last HANDOFF says done and has RELEASE${pr}` : `${state(s)}; merged PR ${prs.map(ref).join(', ')} names it; no done HANDOFF`)
+    + (reopened ? '; a newer CLAIM has no RELEASE' : '')
+  if (prMerged && !reopened) c.add('done-open', [s.id], n, `${evidence}; ${how}.`, `Close ${ref(n)} as completed after reading its HANDOFF.`, 'allowed')
+  else c.add('done-open', [s.id], n, `${evidence}; ${how}.`, 'Read the PRs and the issue: close it, or write in the issue what is left.')
 }
 
 function prFlag(c, p) {
@@ -187,34 +210,39 @@ function prFlag(c, p) {
 function checkReview(c, s, n) {
   const openPrs = c.openNaming(n)
   const age = hours(c.now, s.updatedAt)
-  if (s.bucket !== 'review_ready' || !openPrs.length || age <= c.reviewHours) return
+  if (s.bucket !== 'review_ready' || !openPrs.length || !(age > c.reviewHours)) return
   const flags = openPrs.map((p) => prFlag(c, p))
   c.add('nudge-merge', [s.id], n, `${state(s)} for ${Math.floor(age)} hours; ${flags.map((x) => x.text).join('; ')}.`,
     flags.some((x) => x.red) ? 'Nudge it: fix the red checks and answer the Codex threads, then merge.' : 'Nudge it to merge once Opus has judged the final head.')
 }
 
-function checkStale(c, s, issue) {
-  const days = (c.now - Date.parse(s.updatedAt)) / 86400000
-  if (s.bucket === 'working' || days <= c.staleDays) return
-  const action = s.bucket === 'completed' ? 'Can be archived: it is completed.' : 'Not completed, so never archive it: read why it stopped.'
+function checkStale(c, s, issue, named) {
+  const days = hours(c.now, s.updatedAt) / 24
+  if (s.bucket === 'working' || !(days > c.staleDays)) return
+  // A completed session that another finding names still has something to post: it is not archived yet.
+  let action = 'Not completed, so never archive it: read why it stopped.'
+  if (s.bucket === 'completed') action = named ? 'Not yet: another finding names it; archive it once that is done.' : 'Can be archived: it is completed.'
   c.add('stale', [s.id], issue, `${state(s)}; no update for ${Math.floor(days)} days.`, action)
 }
 
 function checkSession(c, s) {
   const found = [...c.matches.get(s.id).keys()].sort((a, b) => a - b)
+  const before = c.count()
   const stuck = checkStuck(c, s, found[0] ?? null)
   if (!found.length) checkOrphan(c, s)
   for (const n of found.filter((k) => c.byNum.get(k).state === 'open')) {
     checkDone(c, s, n)
     checkReview(c, s, n)
   }
-  if (!stuck) checkStale(c, s, found[0] ?? null)
+  if (!stuck) checkStale(c, s, found[0] ?? null, c.count() > before)
 }
 
-// Two or more sessions (the dispatcher left out) match one issue.
+// Two or more sessions (the dispatcher left out) match one open issue.
 function checkDuplicateSessions(c, workers) {
   const perIssue = new Map()
-  for (const s of workers) for (const n of c.matches.get(s.id).keys()) perIssue.set(n, [...(perIssue.get(n) || []), s])
+  for (const s of workers) {
+    for (const n of c.matches.get(s.id).keys()) if (c.byNum.get(n).state === 'open') perIssue.set(n, [...(perIssue.get(n) || []), s])
+  }
   for (const [n, list] of [...perIssue].sort((a, b) => a[0] - b[0])) {
     if (list.length < 2) continue
     const claim = c.claims.get(n)
@@ -225,24 +253,25 @@ function checkDuplicateSessions(c, workers) {
   }
 }
 
-// A live CLAIM on an open issue whose session is gone, archived or failed.
-function checkClaims(c) {
+// A live CLAIM on an open issue whose session is gone, archived or failed. The dispatcher's own claims are left out.
+// "Gone" needs every session of the account: a dump made with children=true holds only one dispatcher's children.
+function checkClaims(c, parents) {
   const byId = new Map(c.sessions.map((s) => [s.id, s]))
   for (const [n, claim] of [...c.claims].sort((a, b) => a[0] - b[0])) {
-    if (claim.released || c.byNum.get(n)?.state !== 'open') continue
+    if (claim.released || c.byNum.get(n)?.state !== 'open' || parents.has(claim.session)) continue
     const s = claim.session ? byId.get(claim.session) : null
     let why = null
     if (!claim.session) why = 'the CLAIM names no session id'
-    else if (!s) why = 'its session is not in the session list (archived or gone)'
-    else if (s.status === 'archived' || s.bucket === 'failed') why = `its session is ${code(s.status === 'archived' ? 'archived' : 'failed')}`
+    else if (!s && !c.childrenOnly) why = 'its session is not in the session list (archived or gone)'
+    else if (s && (s.status === 'archived' || s.bucket === 'failed')) why = `its session is ${code(s.status === 'archived' ? 'archived' : 'failed')}`
     if (why) c.add('orphan-claim', claim.session ? [claim.session] : [], n, `${ref(n)} has a CLAIM with no RELEASE; ${why}.`, 'Dispatcher watchdog: resume the session or start a new one, or release the claim.')
   }
 }
 
 // Pass 1 finds duplicate issues; the sessions on either issue are added.
-function checkDuplicateIssues(c, snapshot) {
+function checkDuplicateIssues(c, snapshot, workers) {
   for (const f of passOne({ ...snapshot, comments: c.allComments }, { today: new Date(c.now).toISOString() }).filter((x) => x.kind === 'duplicate')) {
-    const ids = c.sessions.filter((s) => f.issues.some((n) => c.matches.get(s.id).has(n))).map((s) => s.id)
+    const ids = workers.filter((s) => f.issues.some((n) => c.matches.get(s.id).has(n))).map((s) => s.id)
     // A session on either issue means work has started: the dispatcher decides, the agent closes nothing.
     const what = ids.length ? `${f.what.replace(/\.$/, '')}; ${ids.length} ${ids.length > 1 ? 'sessions match' : 'session matches'} them.` : f.what
     c.add('duplicate-issue', ids, f.issues[1], what, f.fix, ids.length ? 'dispatcher' : f.act)
@@ -254,12 +283,33 @@ function checkDuplicateIssues(c, snapshot) {
  * `pulls` maps an open PR number to { checks: green | red | pending, codex_threads: n } (read by the agent).
  */
 export function analyzeSessions(sessionsDoc, snapshot, { today, comments = {}, pulls = {}, reviewHours = REVIEW_HOURS, staleDays = STALE_DAYS } = {}) {
+  const now = Date.parse(today || sessionsDoc.read_at)
+  if (Number.isNaN(now)) throw new Error(`not an ISO time: ${today || sessionsDoc.read_at}`)
+  const out = []
+  const c = context(sessionsDoc, snapshot, comments)
+  Object.assign(c, {
+    now,
+    pulls,
+    reviewHours,
+    staleDays,
+    count: () => out.length,
+    add: (kind, ids, issue, evidence, action, act = 'dispatcher') => out.push({ kind, sessions: ids, issue, evidence, action, act })
+  })
+  for (const s of c.workers) checkSession(c, s)
+  checkDuplicateSessions(c, c.workers)
+  checkClaims(c, c.parents)
+  checkDuplicateIssues(c, snapshot, c.workers)
+  const rank = new Map(KINDS.map(([k], i) => [k, i]))
+  return out.sort((a, b) => rank.get(a.kind) - rank.get(b.kind) || (a.issue ?? 0) - (b.issue ?? 0) || String(a.sessions[0]).localeCompare(String(b.sessions[0])))
+}
+
+/** Sessions, issues, comment facts and matches, shared by the report and the `need` command. */
+function context(sessionsDoc, snapshot, comments) {
   const allComments = { ...(snapshot.comments || {}), ...comments }
   const issues = (snapshot.issues || []).map(normalize)
   const naming = (list, re) => (list || []).filter((p) => re.test(`${p.title}\n${p.body || ''}`)).map((p) => p.number).sort((a, b) => a - b)
-  const out = []
   const c = {
-    now: Date.parse(today || sessionsDoc.read_at),
+    childrenOnly: /children/i.test(sessionsDoc.source || ''),
     sessions: (sessionsDoc.sessions || []).map(normalizeSession).sort((a, b) => a.id.localeCompare(b.id)),
     allComments,
     loaded: (n) => allComments[n] || allComments[String(n)],
@@ -268,39 +318,25 @@ export function analyzeSessions(sessionsDoc, snapshot, { today, comments = {}, p
     merged: new Map((snapshot.pulls || []).map((p) => [p.number, p])),
     mergedNaming: (n) => naming(snapshot.pulls, new RegExp(`\\b(closes|fixes|resolves|implements)\\s+#${n}\\b`, 'i')),
     openNaming: (n) => naming(snapshot.open_pulls, new RegExp(`#${n}\\b`)),
-    pulls,
-    reviewHours,
-    staleDays,
-    add: (kind, ids, issue, evidence, action, act = 'dispatcher') => out.push({ kind, sessions: ids, issue, evidence, action, act })
+    owner: String(snapshot.repo || REPO).split('/')[0]
   }
-  const owner = String(snapshot.repo || REPO).split('/')[0]
-  c.facts = new Map(issues.filter((i) => i.state === 'open').map((i) => [i.number, commentFacts(c.loaded(i.number), { owner })]))
+  c.facts = new Map(issues.filter((i) => i.state === 'open').map((i) => [i.number, commentFacts(c.loaded(i.number), { owner: c.owner })]))
   matchAll(c)
   // A session that is the parent of another one is the dispatcher: it has no issue of its own.
-  const parents = new Set(c.sessions.map((s) => s.parent).filter(Boolean))
-  const workers = c.sessions.filter((s) => !parents.has(s.id))
-  for (const s of workers) checkSession(c, s)
-  checkDuplicateSessions(c, workers)
-  checkClaims(c)
-  checkDuplicateIssues(c, snapshot)
-  const rank = new Map(KINDS.map(([k], i) => [k, i]))
-  return out.sort((a, b) => rank.get(a.kind) - rank.get(b.kind) || (a.issue ?? 0) - (b.issue ?? 0) || String(a.sessions[0]).localeCompare(String(b.sessions[0])))
+  c.parents = new Set(c.sessions.map((s) => s.parent).filter(Boolean))
+  c.workers = c.sessions.filter((s) => !c.parents.has(s.id))
+  return c
 }
 
 /** Issues whose comments the report still needs, and open PRs whose checks it needs (for the `need` command). */
 export function needs(sessionsDoc, snapshot, comments = {}) {
-  const all = { ...(snapshot.comments || {}), ...comments }
-  const openSet = new Set((snapshot.issues || []).filter((i) => String(i.state).toLowerCase() === 'open').map((i) => i.number))
-  const sessions = (sessionsDoc.sessions || []).map(normalizeSession)
-  const parents = new Set(sessions.map((s) => s.parent).filter(Boolean))
+  const c = context(sessionsDoc, snapshot, comments)
+  const isOpen = (n) => c.byNum.get(n)?.state === 'open'
   const wanted = new Set([...(snapshot.markers?.claim || []), ...(snapshot.markers?.release || [])])
-  for (const s of sessions.filter((x) => !parents.has(x.id))) {
-    const n = titleIssue(s.title)
-    if (n !== null && openSet.has(n)) wanted.add(n)
-  }
-  const issues = [...wanted].filter((n) => openSet.has(n) && !(all[n] || all[String(n)])).sort((a, b) => a - b)
-  const review = new Set(sessions.filter((s) => s.bucket === 'review_ready').map((s) => titleIssue(s.title)).filter((n) => n !== null))
-  const prs = (snapshot.open_pulls || []).filter((p) => [...review].some((n) => new RegExp(`#${n}\\b`).test(`${p.title}\n${p.body || ''}`))).map((p) => p.number).sort((a, b) => a - b)
+  for (const s of c.workers) for (const n of c.matches.get(s.id).keys()) wanted.add(n)
+  const issues = [...wanted].filter((n) => isOpen(n) && !c.loaded(n)).sort((a, b) => a - b)
+  const review = c.workers.filter((s) => s.bucket === 'review_ready').flatMap((s) => [...c.matches.get(s.id).keys()].filter(isOpen))
+  const prs = [...new Set(review.flatMap((n) => c.openNaming(n)))].sort((a, b) => a - b)
   return { issues, prs }
 }
 
@@ -326,12 +362,25 @@ function main() {
     console.log(`Read checks and Codex threads for ${n.prs.length} open PRs: ${n.prs.map((x) => `#${x}`).join(' ') || 'none'}`)
     return
   }
+  const number = (name, fallback) => {
+    const v = Number(opt(name) ?? fallback)
+    if (!(v >= 0)) {
+      console.error(`${name} must be a number of 0 or more`)
+      process.exit(2)
+    }
+    return v
+  }
+  const today = opt('--today') || doc.read_at
+  if (!validTime(today)) {
+    console.error('--today must be an ISO time')
+    process.exit(2)
+  }
   const findings = analyzeSessions(doc, snapshot, {
-    today: opt('--today') || doc.read_at,
+    today,
     comments,
     pulls: json(opt('--pulls')),
-    reviewHours: Number(opt('--review-hours') || REVIEW_HOURS),
-    staleDays: Number(opt('--stale-days') || STALE_DAYS)
+    reviewHours: number('--review-hours', REVIEW_HOURS),
+    staleDays: number('--stale-days', STALE_DAYS)
   })
   process.stdout.write(JSON.stringify(findings, null, 1) + '\n')
 }

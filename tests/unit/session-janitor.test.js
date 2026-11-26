@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { analyzeSessions, claimOf, KINDS, needs, normalizeSession, quote, SESSION_FIELDS, titleIssue, validateSessions } from '../../scripts/session-janitor.mjs'
 
 const load = (name) => JSON.parse(readFileSync(new URL(`./fixtures/session-janitor/${name}`, import.meta.url), 'utf8'))
@@ -108,9 +109,11 @@ describe('parsers', () => {
   })
 
   it('reads the last CLAIM and its RELEASE', () => {
-    const at = (t, body) => ({ created_at: t, body })
+    const at = (t, body, author_association = 'OWNER') => ({ created_at: t, body, author_association })
     expect(claimOf([at('2', 'RELEASE'), at('1', 'CLAIM session session_a | branch b')])).toEqual({ session: 'session_a', at: '1', released: true })
     expect(claimOf([at('1', 'CLAIM session session_a'), at('2', 'CLAIM session session_b')]).session).toBe('session_b')
+    expect(claimOf([at('1', 'CLAIM session session_a'), at('2', 'RELEASE', 'NONE')]).released).toBe(false)
+    expect(claimOf([at('1', 'CLAIM session session_a', 'NONE')])).toBeNull()
   })
 
   it('matches a session named in a HANDOFF', () => {
@@ -123,5 +126,78 @@ describe('parsers', () => {
   it('lists the comments and PR checks still needed, without the dispatcher', () => {
     expect(needs(sessions, snapshot, comments)).toEqual({ issues: [], prs: [206, 212] })
     expect(needs(sessions, snapshot).issues).toEqual([101, 102, 103, 104, 105, 106, 107, 108, 110, 112])
+  })
+})
+
+describe('edge cases from the review', () => {
+  const owner = (t, body) => ({ created_at: t, author_association: 'OWNER', body })
+  const run = (doc = sessions, extra = {}, opts = {}) => analyzeSessions(doc, snapshot, { comments: { ...comments, ...extra }, pulls, ...opts })
+  const only = (ids) => ({ ...sessions, sessions: sessions.sessions.filter((s) => ids.includes(s.id)) })
+  const edit = (id, change) => ({ ...sessions, sessions: sessions.sessions.map((s) => (s.id === id ? { ...s, ...change } : s)) })
+
+  it('gives a done HANDOFF to the dispatcher when a newer CLAIM is live, or its PR is not merged', () => {
+    const reopened = run(sessions, { 101: [...comments[101], owner('2026-11-26T11:00:00Z', 'CLAIM session session_new | branch b')] })
+    expect(reopened.find((f) => f.issue === 101 && f.kind === 'done-open')).toMatchObject({ act: 'dispatcher' })
+    expect(reopened.find((f) => f.issue === 101).evidence).toContain('a newer CLAIM has no RELEASE')
+    const unmerged = run(sessions, { 101: [owner('1', 'HANDOFF A1 - done\nPR: #299\nRELEASE')] })
+    expect(unmerged.find((f) => f.issue === 101)).toMatchObject({ act: 'dispatcher' })
+    expect(unmerged.find((f) => f.issue === 101).evidence).toContain('not in the merged list')
+  })
+
+  it('ignores a CLAIM or HANDOFF from an untrusted author', () => {
+    const fake = { created_at: '1', author_association: 'NONE', user: 'stranger', body: 'CLAIM session session_orphan | branch x' }
+    const result = run(sessions, { 103: [fake] })
+    expect(result.some((f) => f.kind === 'orphan-session' && f.sessions[0] === 'session_orphan')).toBe(true)
+    expect(result.some((f) => f.kind === 'duplicate-session' && f.issue === 103)).toBe(false)
+  })
+
+  it('rejects a dump with an invalid date, and never prints NaN', () => {
+    expect(validateSessions(edit('session_old', { updated_at: null }))).toEqual(['sessions[11]: updated_at must be an ISO time'])
+    expect(validateSessions(edit('session_old', { title: 7 }))).toEqual(['sessions[11]: title must be a string'])
+    expect(JSON.stringify(run(edit('session_review', { updated_at: 'soon' })))).not.toContain('NaN')
+    expect(() => run(sessions, {}, { today: 'later' })).toThrow('not an ISO time')
+  })
+
+  it('leaves the dispatcher out of duplicate issues and claims', () => {
+    const doc = edit('session_disp', { title: 'Dispatcher #109' })
+    expect(run(doc).some((f) => f.sessions.includes('session_disp'))).toBe(false)
+    const claimed = run(sessions, { 104: [owner('1', 'CLAIM session session_disp | branch b')] })
+    expect(claimed.some((f) => f.kind === 'orphan-claim' && f.issue === 104)).toBe(false)
+  })
+
+  it('asks to load comments before asking a session for its HANDOFF', () => {
+    const result = analyzeSessions(only(['session_nohand']), snapshot, {})
+    expect(result.find((f) => f.kind === 'no-handoff').action).toContain('Load its comments first')
+  })
+
+  it('does not call a claimed session gone when the dump holds only one dispatcher\'s children', () => {
+    expect(run({ ...sessions, source: 'list_sessions children=true' }).some((f) => f.kind === 'orphan-claim')).toBe(false)
+  })
+
+  it('reads a disconnected worker as stuck, and a session on two issues once per issue', () => {
+    const gone = run(edit('session_orphan', { connection_status: 'disconnected' }))
+    expect(gone.find((f) => f.kind === 'stuck' && f.sessions[0] === 'session_orphan').evidence).toContain('disconnected')
+    const two = run(edit('session_nohand', {}), { 104: [owner('1', 'CLAIM session session_nohand | branch b')] })
+    expect(two.filter((f) => f.kind === 'no-handoff' && f.sessions[0] === 'session_nohand').map((f) => f.issue)).toEqual([103, 104])
+  })
+
+  it('does not propose to archive a completed session that another finding names', () => {
+    const old = edit('session_nohand', { updated_at: '2026-11-10T00:00:00Z' })
+    expect(run(old).find((f) => f.kind === 'stale' && f.sessions[0] === 'session_nohand').action).toContain('Not yet')
+  })
+
+  it('keeps session ids and paths in quoted text, and masks keys and URL passwords', () => {
+    expect(quote('see session_01UU4t2FpQfySF3P8nhraSTD in tests/unit/fixtures/session-janitor/sessions.json')).toBe('see session_01UU4t2FpQfySF3P8nhraSTD in tests/unit/fixtures/session-janitor/sessions.json')
+    expect(quote('key AKIAABCDEFGHIJKLMNOP at https://me:hunter2@db.example')).toBe('key [redacted] at https://[redacted]@db.example')
+  })
+
+  it('the command exits 1 on a dump with pages left and 2 on bad usage', () => {
+    const cli = (...args) => spawnSync(process.execPath, ['scripts/session-janitor.mjs', ...args], { encoding: 'utf8' })
+    const dir = 'tests/unit/fixtures/session-janitor'
+    expect(cli('findings').status).toBe(2)
+    expect(cli('findings', `${dir}/sessions.json`, `${dir}/snapshot.json`, '--stale-days', 'x').status).toBe(2)
+    const ok = cli('findings', `${dir}/sessions.json`, `${dir}/snapshot.json`, '--comments', `${dir}/comments.json`, '--pulls', `${dir}/pulls.json`)
+    expect(JSON.parse(ok.stdout)).toEqual(findings)
+    expect(cli('need', `${dir}/sessions-more.json`, `${dir}/snapshot.json`).status).toBe(1)
   })
 })

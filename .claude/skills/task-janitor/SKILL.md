@@ -66,14 +66,16 @@ before you post. The script output passes the lint on its own: each issue gets i
 
 ## Pass 2: sessions matched with issues
 `scripts/session-janitor.mjs` (#493, janitor pass 2) matches Claude Code sessions with issues: by the `#NNN` in the
-session title, by `CLAIM session <id>` comments, and by a session id in a HANDOFF. It is read-only, offline and has no
-model. A script cannot call the session tools, so you hand it the sessions as a file.
+session title, by `CLAIM session <id>` comments, and by a session id in a HANDOFF. A CLAIM, HANDOFF or RELEASE counts
+only from the owner, a member or a collaborator. It is read-only, offline and has no model. A script cannot call the
+session tools, so you hand it the sessions as a file.
 
 1. Dump the sessions into `sessions.json` (shape: [`sessions.schema.json`](sessions.schema.json); example:
    `tests/unit/fixtures/session-janitor/sessions.json`):
-   - Call `mcp__claude-code-remote__list_sessions` with `mine: true` and `limit: 100`. The dispatcher may use
-     `children: true` instead, which adds `connection_status`. While `has_more` is true, call it again with
-     `after_id` set to the page's `last_id`. Count the pages.
+   - Call `mcp__claude-code-remote__list_sessions` with `mine: true` and `limit: 100`. While `has_more` is true,
+     call it again with `after_id` set to the page's `last_id`. Count the pages. Write the call in `source`.
+     A dump made with `children: true` (it adds `connection_status`) holds one dispatcher's children only, so the
+     script then skips the "session gone" case of `orphan-claim`.
    - Write one entry per session: `id`, `title`, `status` (`session_status`), `status_bucket`, `post_turn_summary`
      (or null), `updated_at`, `created_at`, `parent` (`parent_session_id`, or null), `tags`, `model`.
      `model` is `session_context.model` from `get_session`: read it for failed, blocked and review-ready sessions
@@ -91,15 +93,15 @@ model. A script cannot call the session tools, so you hand it the sessions as a 
 
 | Kind | When | Proposed action |
 |---|---|---|
-| `done-open` | Session completed or review-ready; the issue is open; a done HANDOFF with RELEASE, or a merged PR names it | Close the issue (`allowed` only when the HANDOFF's PR is merged) |
-| `no-handoff` | Session completed or review-ready, no HANDOFF, no open PR | Ask the session to post it |
+| `done-open` | Session completed or review-ready; the issue is open; a done HANDOFF with RELEASE, or a merged PR names it | Close the issue (`allowed` only when the HANDOFF's PR is merged and no newer CLAIM is live) |
+| `no-handoff` | Session completed or review-ready, no HANDOFF, no open PR | Ask the session to post it; load the comments first when they are missing |
 | `stuck` | Session failed or disconnected, or waits for input | Resume, or decide what it asked (quoted, tokens masked) |
 | `nudge-merge` | Review-ready for more than 2 hours with an open PR | Nudge to merge; red checks and open Codex threads are flagged |
 | `orphan-session` | No issue matches the session | Link it with a CLAIM, or archive it once completed |
 | `orphan-claim` | A CLAIM with no RELEASE whose session is gone, archived or failed | Watchdog: resume, restart or release |
-| `duplicate-session` | Two or more sessions match one issue | Keep the one in the live CLAIM |
+| `duplicate-session` | Two or more sessions match one open issue | Keep the one in the live CLAIM |
 | `duplicate-issue` | Pass 1 finds a duplicate pair | Pass 1's fix; `dispatcher` when a session works on either issue |
-| `stale` | Not working and no update for 3 days | Archive only when completed |
+| `stale` | Not working and no update for 3 days | Archive only when completed and no other finding names it |
 
 A session that is the parent of another session is the dispatcher: it is left out of every finding.
 
