@@ -336,7 +336,7 @@ test('API tokens page at 390 px: no horizontal overflow, a 44 px Create button, 
   }
 })
 
-// The changelog page (settings-menu.md Task 6): reached from the drawer, paged, readable in both themes.
+// The changelog page (settings-menu.md Task 6): reached from the drawer through Admin, paged, readable in both themes.
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
 
 for (const size of SIZES) {
