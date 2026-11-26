@@ -10,8 +10,8 @@ The owner asked (2026-11-26, #502): the skills, commands and hooks of this repo 
 projects can install; they become generic (nothing about this app); the reply templates come first.
 
 Out of scope: the product (the app, its API and MCP server). The marketplace is developer tooling for agents that
-work on a repository. It is not a product surface, so it gets no row in `docs/architecture/client-matrix.md`: no AI
-app connected to the product sees it. Claude Code is the only client that installs these plugins; Codex and other
+work on a repository, not a product surface. It still has a row in `docs/architecture/client-matrix.md`, because
+`AGENTS.md` names skills and plugin metadata: Claude Code only, English only (owner replies are English). Claude Code is the only client that installs these plugins; Codex and other
 agents read the same files by path through `AGENTS.md` (section 4.2).
 
 ## 2. Licence
