@@ -289,10 +289,9 @@ describe('run(): modes, output and the checks', () => {
     })
     expect(sent).toHaveLength(1)
     expect(sent[0].html).toBe([
-      '<b><a href="https://github.com/owner/repo/actions/runs/42">Delivery is slower than its limit: CI checks</a></b>',
+      '🐢 <b><a href="https://github.com/owner/repo/actions/runs/42">Delivery is slower than its limit: CI checks</a></b>',
       '1 in 10 merges took 1 min 39 s or more in CI checks. The limit is 1 min 30 s (10 % over), in the last 5 merges since 2026-11-20 10:02 UTC.',
       'Likely cause: not known yet.',
-      'Nothing needed. The speed check only warns.',
       '<a href="https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions">What the stages mean</a>',
     ].join('\n'))
     expect(gate.created).toHaveLength(0)

@@ -462,7 +462,6 @@ export async function gateStep({ record, streak, recent, api, now, runUrl, docsU
       url,
       numberLine: `This merge took ${secsText(worst.value)} in ${PLAIN_STAGE[worst.stage]}. The limit is ${secsText(worst.limit)} (${pct(worst.value, worst.limit)} % over), since ${utcText(state.since)} (${state.count} in a row).`,
       causeLine: cause ? `Likely cause: ${cause}.` : 'Likely cause: not known yet.',
-      actionLine: 'Nothing needed. A diagnosis follows on the linked issue, then an agent opens the fix PR.',
       links: [['Speed table', runUrl], ['What the stages mean', docsUrl]],
     })
   }
@@ -488,7 +487,6 @@ function manualAlert(summary, prs, runUrl, docsUrl) {
     url: runUrl,
     numberLine: `1 in 10 merges took ${secsText(first.st.p90)} or more in ${PLAIN_STAGE[first.stage]}. The limit is ${secsText(first.st.limit)} (${pct(first.st.p90, first.st.limit)} % over), in the last ${prs.length} merges since ${utcText(since)}.`,
     causeLine: 'Likely cause: not known yet.',
-    actionLine: 'Nothing needed. The speed check only warns.',
     links: [['What the stages mean', docsUrl]],
   })
 }
