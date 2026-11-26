@@ -4,7 +4,7 @@ import { recordAdminAction } from './audit.js'
 
 // The feature flags of the admin's own account (#483). They change what this admin sees, never what another user sees,
 // so a change needs no confirm token. Each change writes one audit row.
-export const FLAGS = [
+const FLAGS = [
   { name: 'look', values: ['default', 'rare'], meaning: 'Colours, corner radius, shadows and motion. default is the purple look; rare is the Rare UI look (black, orange).' },
   { name: 'components', values: ['default', 'rare'], meaning: 'default uses the app components; rare uses the real Rare UI components (theme choice, Delete draft, character count) and takes the colours of the look.' }
 ]
@@ -12,7 +12,7 @@ export const FLAGS = [
 const valueOf = (flag, stored) => (flag.values.includes(stored?.[flag.name]) ? stored[flag.name] : flag.values[0])
 
 /** Every flag with its value for this account, its allowed values, its default and its meaning. */
-export const flagsView = (stored) => FLAGS.map((flag) => ({ name: flag.name, value: valueOf(flag, stored), values: flag.values, default: flag.values[0], meaning: flag.meaning }))
+const flagsView = (stored) => FLAGS.map((flag) => ({ name: flag.name, value: valueOf(flag, stored), values: flag.values, default: flag.values[0], meaning: flag.meaning }))
 
 export async function listFlags({ admin }) {
   const { rows } = await query('select ui_flags from users where id = $1', [admin.uid])
