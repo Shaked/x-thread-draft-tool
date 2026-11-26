@@ -5,7 +5,7 @@
 - Lines that only said "nothing needed" are gone.
 
 Area: Admin
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/466
 
 ## Technical details
 
