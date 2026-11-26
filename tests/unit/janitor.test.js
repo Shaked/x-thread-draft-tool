@@ -187,6 +187,13 @@ describe('allowed fixes stay narrow', () => {
   const base = (issues, comments = {}) => ({ repo: 'example/repo', issues, pulls: [], open_pulls: [], markers: {}, comments })
   const issue = (number, title, extra = {}) => ({ number, title, state: 'open', labels: [{ name: 'task' }], body: '', updated_at: TODAY, ...extra })
 
+  it('never reads an owner question as a task, even in an epic with a task of the same id', () => {
+    expect(dependencies('Depends on: owner question Q1 on #273, and Q2.').named).toEqual(['Q2'])
+    expect(dependencies('Depends on: owner answer H1-Q2 and the answer to Q3.').named).toEqual([])
+    const snap = base([issue(1, 'E9 task A1: first', { parent: 7, body: 'Depends on owner question Q1.' }), issue(2, 'E9 task Q1: a task', { parent: 7 })])
+    expect(analyze(snap, { today: TODAY }).filter((f) => f.kind === 'missing-dependency')).toEqual([])
+  })
+
   it('ignores dependency keywords inside code spans, and reads Q task ids', () => {
     expect(dependencies('Write the line as `Depends on A2` in the body.')).toMatchObject({ refs: [], named: [] })
     expect(dependencies('Example: `Goes before #3`.').before).toEqual([])

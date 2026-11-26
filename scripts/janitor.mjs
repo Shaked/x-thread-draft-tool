@@ -96,6 +96,8 @@ function dependencyClause(rest, refs, named) {
   for (const m of text.matchAll(/(PR\s+|see\s+)?#(\d+)/gi)) if (!m[1]) refs.add(Number(m[2]))
   // Task ids named without a number, outside parentheses: "Depends on: M5 (see #439)" names M5; "C2 (#418)" has its number.
   let bare = text.replace(/\b[A-Z]{1,2}\d+[a-z]?\s*\(#\d+[^)]*\)/g, ' ')
+  // An owner question is not a task: "owner question Q1", "answer Q2" and "Q-W2" name no task, even where a task Q1 exists.
+  bare = bare.replace(/\b(?:owner|questions?|answers?|answered)\s+(?:\S+\s+){0,2}?[A-Z]{1,2}\d+[a-z]?(?![\w-])/gi, ' ')
   // A split-task suffix is part of the id, as taskId() reads it: "L1 (b)" is not "L1".
   bare = bare.replace(/(?<![\w-])([A-Z]{1,2}\d+[a-z]?)\s*\(([a-z]\d?)\)/g, (_, id, part) => {
     named.add(`${id} (${part})`)
