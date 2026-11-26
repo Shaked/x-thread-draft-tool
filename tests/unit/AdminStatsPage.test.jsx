@@ -75,7 +75,7 @@ describe('admin shell', () => {
   it('shows Coming soon for a page that is not built yet', async () => {
     vi.stubGlobal('fetch', answer({}))
     render(
-      <MemoryRouter initialEntries={['/admin/users']}>
+      <MemoryRouter initialEntries={['/admin/audit']}>
         <Routes>
           <Route path="/admin/*" element={<AdminLayout />} />
         </Routes>

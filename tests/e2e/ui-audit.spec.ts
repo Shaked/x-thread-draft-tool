@@ -11,6 +11,14 @@ import path from 'node:path'
 
 const BASE = process.env.XT_BASE_URL ?? 'http://localhost:4173'
 const ORIGIN = new URL(BASE).origin
+const ADMIN_USER = {
+  id: '11111111-1111-4111-8111-111111111111', github_id: '1', login: 'ada-l', name: 'עדה לאבלייס', avatar_url: null,
+  created_at: '2026-11-01T10:00:00.000Z', last_sign_in_at: '2026-11-25T10:00:00.000Z', last_active_at: '2026-11-25T10:00:00.000Z',
+  suspended_at: null, suspended_reason: null, protected: false, drafts: 3, published_drafts: 1, posts: 9, images: 2, api_tokens_active: 1,
+  api_tokens_total: 2, connected_apps: 1, share_links_active: 0, mcp_calls_24h: 4, mcp_calls_7d: 20,
+  api_tokens: [{ id: 't1', created_via: 'web', created_at: '2026-11-02T10:00:00.000Z', last_used_at: null, expires_at: null, revoked_at: null }],
+  image_files: 2, image_bytes: 2048, image_files_truncated: false
+}
 const OUT = path.join('test-results', 'ui-audit')
 
 // Pages under audit. A page joins when its migration PR lands (plan section 5, rules for every migration PR).
@@ -20,6 +28,8 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
   { name: 'flags', path: '/admin/flags' },
   { name: 'changelog', path: '/admin/changelog' },
   { name: 'admin-stats', path: '/admin' },
+  { name: 'admin-users', path: '/admin/users' },
+  { name: 'admin-user', path: `/admin/users/${ADMIN_USER.id}` },
   { name: 'tokens', path: '/settings/tokens' },
   { name: 'apps', path: '/settings/apps' },
   { name: 'drafts-empty', path: '/' },
@@ -189,6 +199,10 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
         })
       }
       if (url.pathname === '/api/admin/stats') return route.fulfill({ json: ADMIN_STATS })
+      if (url.pathname === '/api/admin/users') return route.fulfill({ json: { users: [ADMIN_USER], next_cursor: null } })
+      if (url.pathname === `/api/admin/users/${ADMIN_USER.id}`) {
+        return route.fulfill({ json: { user: { ...ADMIN_USER, connected_apps: [{ id: 'g1', kind: 'claude', redirect_host: 'claude.ai', resource: 'mcp', created_at: ADMIN_USER.created_at, last_used_at: null, revoked_at: null }] } } })
+      }
       if (url.pathname === '/api/admin/flags') {
         const flag = (name: string, value?: string) => ({ name, value: value ?? 'default', values: ['default', 'rare'], default: 'default', meaning: '' })
         return route.fulfill({ json: { flags: [flag('look', extra.skin), flag('components', extra.kit)] } })
