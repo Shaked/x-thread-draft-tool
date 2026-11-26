@@ -34,13 +34,12 @@ Task #294 wrote these rules. The workflow that starts the run is task #295. Unti
 - The **skill PR** (theme `skill`) updates `.claude/skills/product-care.md` and `.claude/skills/reply-style/`, with
   the findings of the run. It is the only place the skill changes.
 - The agent may merge, under the standing permission, after the Opus judgement passes on the final head:
-  - skill text, docs, and test fixtures that follow a published spec;
-  - a PR on a theme with no product behaviour change.
+  - skill text, docs, and test fixtures that follow a published spec.
 - Never merged by an agent, and labelled `owner` (Telegram "Needs you"):
   - any dependency bump, of any size;
   - any product behaviour change;
   - `npm audit` high or critical findings. The first line of the PR body says so.
-  - a change to a limit, a gate or a test (AGENTS.md: a limit change is for Shaked).
+  - a change to a limit, a gate, or a test (test fixtures that follow a published spec excepted). AGENTS.md: a limit change is for Shaked.
 
 ## Rules that still apply
 

@@ -1,4 +1,4 @@
-Executor: Opus. Validator: Sonnet for skill and docs changes; a second Opus subagent for anything else. Read docs/operations/weekly-review.md and .claude/skills/product-care.md first.
+Executor: Opus. Validator: Opus (a second Opus subagent, separate from the executor). Read docs/operations/weekly-review.md and .claude/skills/product-care.md first.
 
 Changes since the last review are listed below.
 

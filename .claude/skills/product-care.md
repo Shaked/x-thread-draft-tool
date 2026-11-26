@@ -20,7 +20,7 @@ table lists what each AI app shows or reads. `true` or `false` only with a sourc
 |---|---|---|---|---|---|
 | Claude.ai | not checked | not checked | not checked | true (https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp, checked 2026-11-21) | not checked |
 | Claude Desktop | not checked | not checked | not checked | not checked | not checked |
-| ChatGPT | not checked | not checked | not checked | true (https://github.com/Shaked/x-thread-draft-tool/issues/357, owner record) | not checked |
+| ChatGPT | not checked | not checked | not checked | true (https://github.com/Shaked/x-thread-draft-tool/issues/357, checked 2026-11-21) | not checked |
 | Grok | not checked | not checked | not checked | not checked | not checked |
 | Claude Code | not checked (https://code.claude.com/docs/en/mcp) | not checked (https://code.claude.com/docs/en/mcp) | not checked (https://code.claude.com/docs/en/mcp) | not checked | not checked |
 | Codex | not checked | not checked | not checked | not checked | not checked |
