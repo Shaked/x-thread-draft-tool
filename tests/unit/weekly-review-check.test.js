@@ -55,6 +55,16 @@ describe('bump kind', () => {
 })
 
 describe('parsers', () => {
+  it('npm outdated: an error object from a failed registry request is unreadable, never "nothing outdated"', () => {
+    const text = JSON.stringify({ error: { code: 'E503', summary: 'Service Unavailable' } })
+    expect(parseOutdated(text)).toBeNull()
+  })
+
+  it('npm outdated: a package that happens to be named error is still read', () => {
+    const text = JSON.stringify({ error: { current: '1.0.0', latest: '1.1.0' } })
+    expect(parseOutdated(text)).toEqual([{ name: 'error', current: '1.0.0', latest: '1.1.0', kind: 'minor' }])
+  })
+
   it('npm outdated: sorted by name, up-to-date packages left out, exit code 1 output is read', () => {
     const text = JSON.stringify({
       zod: { current: '3.0.0', latest: '4.0.0' },
@@ -127,6 +137,21 @@ describe('planWeeklyReview', () => {
     const last = buildBody({ facts: FULL, fingerprint: fingerprintOf(FULL) })
     const changed = { ...FULL, telegramApi: '9.3' }
     expect(planWeeklyReview({ current: changed, lastBody: last, openWeekly: 0 }).action).toBe('create')
+  })
+
+  it('one review per week: a weekly issue opened within 7 days blocks a new one, even when it has closed', () => {
+    const last = buildBody({ facts: FULL, fingerprint: fingerprintOf(FULL) })
+    const changed = { ...FULL, telegramApi: '9.3' }
+    const now = new Date('2026-12-02T12:00:00Z')
+    const plan = planWeeklyReview({ current: changed, lastBody: last, openWeekly: 0, lastCreatedAt: '2026-11-30T05:23:00Z', now })
+    expect(plan.action).toBe('this-week')
+  })
+
+  it('one review per week: 7 days after the newest weekly issue, a changed review may open', () => {
+    const last = buildBody({ facts: FULL, fingerprint: fingerprintOf(FULL) })
+    const changed = { ...FULL, telegramApi: '9.3' }
+    const now = new Date('2026-12-07T05:30:00Z')
+    expect(planWeeklyReview({ current: changed, lastBody: last, openWeekly: 0, lastCreatedAt: '2026-11-30T05:23:00Z', now }).action).toBe('create')
   })
 
   it('changed facts, but a weekly issue is still open: still-open, no new issue', () => {

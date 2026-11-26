@@ -29,6 +29,8 @@ export const FINGERPRINT_MARK = /<!-- weekly-fingerprint:([0-9a-f]{64}) -->/
 export const TELEGRAM_API_PAGE = 'https://core.telegram.org/bots/api'
 export const NODE_INDEX = 'https://nodejs.org/dist/index.json'
 // The packages whose pins the check compares with the newest version on npm.
+// One weekly review per week (AGENTS.md): a new issue waits until 7 days after the newest one.
+export const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 export const PINNED_PACKAGES = ['@modelcontextprotocol/ext-apps', '@modelcontextprotocol/sdk', '@vercel/functions']
 
 // Canonical JSON: keys sorted at every level, so the same facts always give the same text.
@@ -73,6 +75,9 @@ export function bumpKind(current, latest) {
 export function parseOutdated(text) {
   if (text === null || text === undefined) return null
   const data = JSON.parse(String(text).trim() || '{}')
+  // npm prints { "error": { ... } } when the registry fails. That is unreadable, not "nothing is outdated".
+  const err = data.error
+  if (err && typeof err === 'object' && !('current' in err) && !('latest' in err)) return null
   return Object.keys(data)
     .sort()
     .map((name) => {
@@ -138,7 +143,7 @@ export function readLastFacts(body) {
 }
 
 // Decides the action. `current` maps each source to its value, or null when it could not be read.
-export function planWeeklyReview({ current, lastBody = '', openWeekly = 0, date = '', template = '' }) {
+export function planWeeklyReview({ current, lastBody = '', openWeekly = 0, lastCreatedAt = '', now = new Date(), date = '', template = '' }) {
   const last = readLastFacts(lastBody) || {}
   const unreadable = Object.keys(current).filter((k) => current[k] === null)
   // A source that cannot be read keeps its last value, so it never changes the fingerprint.
@@ -157,6 +162,10 @@ export function planWeeklyReview({ current, lastBody = '', openWeekly = 0, date 
     return { action: 'nochange', fingerprint, unreadable, message: 'nothing changed since the last weekly review' }
   }
   const message = `changed: fingerprint ${fingerprint.slice(0, 12)}` + (unreadable.length ? `, unreadable: ${unreadable.join(', ')}` : '')
+  const created = Date.parse(lastCreatedAt)
+  if (Number.isFinite(created) && now.getTime() - created < WEEK_MS) {
+    return { action: 'this-week', fingerprint, unreadable, facts, message: 'changed, but a weekly issue was opened within the last 7 days' }
+  }
   if (openWeekly > 0) return { action: 'still-open', fingerprint, unreadable, facts, message: 'changed, but a weekly issue is still open' }
   return {
     action: 'create',
@@ -275,6 +284,7 @@ async function planMain(env) {
     current,
     lastBody,
     openWeekly: Number(env.OPEN_WEEKLY || 0),
+    lastCreatedAt: env.LAST_CREATED_AT || '',
     date: utcDate(),
     template,
   })

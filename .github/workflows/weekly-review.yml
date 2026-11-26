@@ -62,14 +62,20 @@ jobs:
           set -euo pipefail
           gh issue list --repo "$REPO" --label weekly --state all --limit 1 --json body --jq '.[0].body // ""' > "$RUNNER_TMP_DIR/last-weekly.md"
           OPEN=$(gh issue list --repo "$REPO" --label weekly --state open --json number --jq 'length')
-          echo "open=$OPEN" >> "$GITHUB_OUTPUT"
-          echo "open weekly issues $OPEN"
+          # The newest weekly issue, open or closed: one review per week, also after it closed.
+          LAST_CREATED=$(gh issue list --repo "$REPO" --label weekly --state all --limit 1 --json createdAt --jq '.[0].createdAt // ""')
+          {
+            echo "open=$OPEN"
+            echo "last_created=$LAST_CREATED"
+          } >> "$GITHUB_OUTPUT"
+          echo "open weekly issues $OPEN, newest created ${LAST_CREATED:-none}"
 
       - name: Decide (no model)
         id: plan
         env:
           LAST_BODY_FILE: ${{ runner.temp }}/last-weekly.md
           OPEN_WEEKLY: ${{ steps.state.outputs.open }}
+          LAST_CREATED_AT: ${{ steps.state.outputs.last_created }}
           BODY_FILE: ${{ runner.temp }}/weekly-body.md
           DRY_RUN: ${{ inputs.dry_run == true }}
         run: node scripts/weekly-review-check.mjs
