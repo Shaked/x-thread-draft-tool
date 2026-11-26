@@ -158,6 +158,18 @@ describe('report text', () => {
     expect(text).toContain('In a cycle or waiting on one, left out: #13 #14')
   })
 
+  it('wraps a long line with no comma at a space outside code, and leaves issue numbers out of a name', () => {
+    const lines = wrap(`- ${'word '.repeat(30)}\`a b c\` ${'more '.repeat(10)}end`, 60)
+    expect(lines.length).toBeGreaterThan(1)
+    expect(lines.every((l) => l.length <= 60 && l.split('`').length % 2 === 1)).toBe(true)
+    expect(shortName({ title: 'E407 task M9: what #354 still misses: merge' })).toBe('what still misses: merge')
+    for (const pad of [21, 22, 23, 24]) {
+      const label = wrap(`- ${'word '.repeat(pad)}then #101 (export button for drafts) is next ${'more '.repeat(8)}end`, 120)
+      expect(label.length).toBeGreaterThan(1)
+      expect(lint(label.join('\n')), `pad ${pad}`).toEqual([])
+    }
+  })
+
   it('wraps a long line at a comma', () => {
     const lines = wrap(`- ${'word, '.repeat(40)}end`, 60)
     expect(lines.length).toBeGreaterThan(1)
@@ -277,5 +289,36 @@ describe('allowed fixes stay narrow', () => {
     expect(act({ ...base(pair, { 2: [] }), open_pulls: [{ number: 9, title: 'wip', body: 'Work for #2' }] })).toBe('dispatcher')
     expect(act({ ...base(pair, { 2: [] }), open_pulls: undefined })).toBe('dispatcher')
     expect(act(base(pair, { 2: [{ created_at: TODAY, body: 'Started in PR #9' }] }))).toBe('dispatcher')
+  })
+})
+
+describe('reply-style check (#486)', () => {
+  const bad = 'HANDOFF #1 (x) - done\n\n**Done:** shipped.\nCI is blocked.\n'
+  const comment = (body, created) => ({ user: 'Shaked', author_association: 'OWNER', created_at: created, body })
+  const ok = readFileSync(new URL('./fixtures/reply-lint/golden/handoff/good-1.md', import.meta.url), 'utf8')
+
+  it('reports a failing HANDOFF with its rules and a link, and passes a good one', () => {
+    const snap = { ...snapshot, comments: { 900: [comment(bad, '2026-11-25T10:00:00Z')], 901: [comment(ok, '2026-11-25T11:00:00Z')] } }
+    const out = analyze(snap, { today: TODAY, knownTables: ['widget_rows'] }).filter((f) => f.kind === 'reply-style')
+    expect(out).toHaveLength(1)
+    expect(out[0].issues).toEqual([900])
+    expect(out[0].what).toContain('`loose-label`')
+    // The report text passes the reply lint even when a rule name such as `blocked` is in it (Codex finding on #498).
+    const text = formatReport(out, { openCount: 1, today: TODAY, names: new Map() })
+    expect(lint(text).filter((f) => f.rule === 'blocked')).toEqual([])
+    expect(out[0].what).toContain('/issues/900)')
+  })
+
+  it('reports an open issue that carries the label reply-style-fail', () => {
+    const issue = { number: 901, title: 'A task with a failed comment', body: '', state: 'open', labels: ['task', 'reply-style-fail'], created_at: '2026-11-20T00:00:00Z', updated_at: '2026-11-25T00:00:00Z' }
+    const out = analyze({ ...snapshot, issues: [...snapshot.issues, issue] }, { today: TODAY }).filter((f) => f.kind === 'reply-style' && f.issues.includes(901))
+    expect(out).toHaveLength(1)
+    expect(out[0].what).toContain('`reply-style-fail`')
+  })
+
+  it('looks only at the newest ten HANDOFF comments', () => {
+    const many = Array.from({ length: 12 }, (_, k) => comment(bad, `2026-11-${String(10 + k).padStart(2, '0')}T10:00:00Z`))
+    const snap = { ...snapshot, comments: { 902: many } }
+    expect(analyze(snap, { today: TODAY }).filter((f) => f.kind === 'reply-style')).toHaveLength(10)
   })
 })

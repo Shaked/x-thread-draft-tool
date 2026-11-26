@@ -188,7 +188,8 @@ await step('bogus xt_ token is refused (401, invalid or expired)', async () => {
 })
 
 // Admin paths answer like an unknown path (plan A2). The smoke identity is not an admin, so every
-// answer is the same 404 as an unknown route, with or without its token. No admin credential is used.
+// answer is the same 404 as an unknown route, with or without its token, and with or without the web admin header
+// `x-xt-admin: 1` (#283). No admin credential is used.
 await step('admin paths answer like an unknown path (404)', async () => {
   const paths = [
     ['GET', '/api/admin/status'],
@@ -196,8 +197,8 @@ await step('admin paths answer like an unknown path (404)', async () => {
     ['POST', '/api/admin/users/00000000-0000-4000-8000-000000000000/delete'],
     ['GET', '/api/zz-no-such-route']
   ]
-  const variants = [['no token', {}]]
-  if (token) variants.push(['smoke token', { authorization: `Bearer ${token}` }])
+  const variants = [['no token', {}], ['no token, admin header', { 'x-xt-admin': '1' }]]
+  if (token) variants.push(['smoke token', { authorization: `Bearer ${token}` }], ['smoke token, admin header', { authorization: `Bearer ${token}`, 'x-xt-admin': '1' }])
   for (const [name, auth] of variants) {
     for (const [method, path] of paths) {
       const init = { method, headers: { ...auth, ...(bypass ? { 'x-vercel-protection-bypass': bypass } : {}) } }

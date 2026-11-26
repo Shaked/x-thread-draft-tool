@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { formatVersion, localBuildInfo, utcText } from '../utils/version'
+import Badge from '../ui/Badge'
 import Button from '../ui/Button'
 import Dialog from '../ui/Dialog'
 import IconButton from '../ui/IconButton'
@@ -24,6 +25,7 @@ export default function AppMenu() {
   const close = () => setOpen(false)
   const menuButton = useRef(null)
   const user = useCurrentUser()
+  const isAdmin = user?.role === 'admin'
   const build = localBuildInfo()
   const version = formatVersion(build, new Date())
 
@@ -31,6 +33,12 @@ export default function AppMenu() {
   return (
     <>
       <IconButton ref={menuButton} icon="menu" label="Menu" expanded={open} controls="app-menu" onClick={() => setOpen(true)} />
+      {/* Shown only to the admin (#282): `role` comes from /api/auth/me for a browser session. */}
+      {isAdmin && (
+        <span role="status" aria-label="You are the admin">
+          <Badge tone="accent">Admin</Badge>
+        </span>
+      )}
       <Dialog id="app-menu" open={open} onClose={close} placement="sheet-start" title="X Thread Draft Tool" returnTo={menuButton}>
         <div className="app-menu-close">
           <IconButton icon="close" label="Close menu" onClick={close} />
@@ -60,6 +68,8 @@ export default function AppMenu() {
               )}
             </Stack>
           </Section>
+          {/* The admin area (#482) fills this section in later tasks; it stays empty until then. Shown only to the admin. */}
+          {isAdmin && <Section title="Admin" headingLevel={3} />}
           <div className="app-menu-foot">
             <Button variant="ghost" fullWidth onClick={signOut}>
               Sign out
