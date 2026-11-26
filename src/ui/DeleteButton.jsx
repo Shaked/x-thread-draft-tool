@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { getKit } from '../utils/skin'
 import Button from './Button'
 import { useConfirm } from './Dialog'
+import LoadBoundary from './LoadBoundary'
 
 // Rare UI's delete button (feature flag "Components", src/utils/skin.js). Its chunk loads only when the flag is on.
 const RareDeleteButton = lazy(() => import('./rare/DeleteButton.jsx'))
@@ -22,8 +23,10 @@ export default function DeleteButton({ label, confirm, onConfirm }) {
   )
   if (getKit() !== 'rare') return current
   return (
-    <Suspense fallback={current}>
-      <RareDeleteButton label={label} question={confirm.title} description={confirm.body} confirmLabel={confirm.confirmLabel} onConfirm={onConfirm} />
-    </Suspense>
+    <LoadBoundary fallback={current}>
+      <Suspense fallback={current}>
+        <RareDeleteButton label={label} question={confirm.title} description={confirm.body} confirmLabel={confirm.confirmLabel} onConfirm={onConfirm} />
+      </Suspense>
+    </LoadBoundary>
   )
 }

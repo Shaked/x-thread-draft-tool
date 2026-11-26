@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { getKit } from '../utils/skin'
+import LoadBoundary from './LoadBoundary'
 
 // Rare UI's animated counter (feature flag "Components", src/utils/skin.js). Its chunk loads only when the flag is on.
 const RareCounter = lazy(() => import('./rare/AnimatedCounter.jsx'))
@@ -12,9 +13,11 @@ export default function Count({ value, max = null }) {
   if (getKit() !== 'rare') return `${value}${suffix}`
   return (
     <span dir="ltr" className="inline-flex [unicode-bidi:isolate]">
-      <Suspense fallback={<span className="inline-flex h-(--counter-line) items-center">{value}</span>}>
-        <RareCounter value={value} />
-      </Suspense>
+      <LoadBoundary fallback={value}>
+        <Suspense fallback={<span className="inline-flex h-(--counter-line) items-center">{value}</span>}>
+          <RareCounter value={value} />
+        </Suspense>
+      </LoadBoundary>
       {suffix}
     </span>
   )
