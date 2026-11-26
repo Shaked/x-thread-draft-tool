@@ -20,6 +20,7 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
   { name: 'flags', path: '/settings/flags' },
   { name: 'changelog', path: '/changelog' },
   { name: 'admin-stats', path: '/admin' },
+  { name: 'admin-audit', path: '/admin/audit' },
   { name: 'tokens', path: '/settings/tokens' },
   { name: 'apps', path: '/settings/apps' },
   { name: 'drafts-empty', path: '/' },

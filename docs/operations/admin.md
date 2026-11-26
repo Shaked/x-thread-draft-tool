@@ -98,7 +98,7 @@ What the server does, in order:
 - Table `admin_audit` (migration `009_admin.sql`). It has no foreign keys on purpose, so a row outlives the user it is about.
 - Each row keeps the admin's id and login, the action, the outcome (`started`, `done`, `failed`, `refused`), and the target's id, GitHub id and login.
 - Every row has `details.surface`: `mcp` or `web`. The `details` field never holds a secret.
-- Read it with `admin_audit_log`, newest first.
+- Read it with `admin_audit_log`, newest first. The browser page is `/admin/audit` (#288): the same rows, 50 at a time; its action filter works on the rows already loaded.
 
 ## Scale note
 
