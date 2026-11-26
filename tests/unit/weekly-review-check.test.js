@@ -147,6 +147,14 @@ describe('planWeeklyReview', () => {
     expect(plan.action).toBe('this-week')
   })
 
+  it('one review per week: a run a few minutes short of 7 days after the last issue still opens (cron delay must not skip a week)', () => {
+    const last = buildBody({ facts: FULL, fingerprint: fingerprintOf(FULL) })
+    const changed = { ...FULL, telegramApi: '9.3' }
+    // Last issue opened late on Monday 05:45; this Monday's scheduled run starts on time at 05:24, 6 days 23h 39m later.
+    const now = new Date('2026-12-07T05:24:00Z')
+    expect(planWeeklyReview({ current: changed, lastBody: last, openWeekly: 0, lastCreatedAt: '2026-11-30T05:45:00Z', now }).action).toBe('create')
+  })
+
   it('one review per week: 7 days after the newest weekly issue, a changed review may open', () => {
     const last = buildBody({ facts: FULL, fingerprint: fingerprintOf(FULL) })
     const changed = { ...FULL, telegramApi: '9.3' }

@@ -29,8 +29,9 @@ export const FINGERPRINT_MARK = /<!-- weekly-fingerprint:([0-9a-f]{64}) -->/
 export const TELEGRAM_API_PAGE = 'https://core.telegram.org/bots/api'
 export const NODE_INDEX = 'https://nodejs.org/dist/index.json'
 // The packages whose pins the check compares with the newest version on npm.
-// One weekly review per week (AGENTS.md): a new issue waits until 7 days after the newest one.
-export const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+// One weekly review per week (AGENTS.md). Scheduled runs start late, so a run may come up to a day after
+// its week ends. 6 days blocks a second run in the same week, and never skips a whole week because of cron delay.
+export const WEEK_MS = 6 * 24 * 60 * 60 * 1000
 export const PINNED_PACKAGES = ['@modelcontextprotocol/ext-apps', '@modelcontextprotocol/sdk', '@vercel/functions']
 
 // Canonical JSON: keys sorted at every level, so the same facts always give the same text.
