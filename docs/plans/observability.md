@@ -244,8 +244,8 @@ most 4 times a day (at most 5 minutes at 0.25 CU each, about 0.08 CU-hours a day
 
 ### The daily step (task O5)
 
-`POST /api/ops/metrics-daily`, called by a job in `.github/workflows/metrics-daily.yml` (M3 creates the file; central-metrics D4) with a
-GitHub Actions OIDC token (the same issuer and key check as `server/oidc-ci.js`). No new secret.
+`POST /api/ops/metrics-daily`, called by a job in `.github/workflows/metrics-daily.yml` (M3 creates the file;
+central-metrics D4) with a GitHub Actions OIDC token (the same issuer and key check as `server/oidc-ci.js`). No new secret.
 
 Security (the Opus review found that simply adding the workflow to `CI_WORKFLOW_PATHS` opens access in
 both directions: its token would be accepted as `ci-smoke` on every `ci: true` route, such as creating
@@ -343,7 +343,7 @@ without `group`.
   count, errors and p50 to p99.9 (`–` with "needs 10 000 samples" when `null`), and one line chart
   (requests and p95 per hour or day) drawn as inline SVG. No chart library.
 - Components and colours from the design system of #305 (U1, U2) where they exist.
-- A "Product" table from `metrics_product_daily` (last 30 days) (the "Delivery speed" link is dropped: central-metrics D5).
+- A "Product" table from `metrics_product_daily` (last 30 days). No "Delivery speed" link (central-metrics D5).
 
 ## 5. Privacy and safety
 
@@ -363,7 +363,8 @@ without `group`.
 ## 6. Alerts (three kinds, Telegram)
 
 Worked out by every run of the daily step (every 6 hours). Sent with `scripts/notify-telegram.mjs`, new kind
-`metrics` (in the Alert shape after #475; central-metrics D6; was headline "Metrics alert", text in `.claude/skills/reply-style/templates/telegram-message.md`), the existing secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+`metrics`, in the Alert shape of `.claude/skills/reply-style/templates/telegram-message.md` once #475 folds
+its section 5 (central-metrics D6), with the existing secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 The app itself still sends nothing (`docs/operations/telegram.md`).
 
 | Kind | Fires when | Why this one |

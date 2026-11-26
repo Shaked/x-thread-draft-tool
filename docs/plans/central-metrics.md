@@ -24,8 +24,8 @@ O7). This plan adds one small events table for CI, Git, deploys, speed stages an
 two admin tools that answer in plain English with the number, the limit and last week's value.
 
 Nothing outside this repo sends anything. This repo's own 6-hourly workflow (`metrics-daily.yml`, created by
-M3) reads CI, Git and deploy data from the GitHub API, for this repo and for every public repo listed in one file, and writes it in the
-same database wake. A new repo joins with one line in that list: no workflow, no token and no permission
+M3) reads CI, Git and deploy data from the GitHub API, for this repo and for every public repo listed in one
+file, and writes it in the same database wake. A new repo joins with one line in that list: no workflow, no token and no permission
 in that repo. Raw logs stay where they are (GitHub Actions); the table stores a link, never the log text.
 
 Cost: $0 a month. No sign-up, no secret, no money. Size is capped by drop rules, fixed keys, a 14-day
@@ -211,8 +211,8 @@ Telegram sender. Two parts of the request are left out on purpose: local dev (se
   in that repo. A private repo would need a token to be read: not now.
 - **Collect**: `scripts/ops-emit.mjs` runs in the 6-hourly workflow `metrics-daily.yml`, which M3 creates; O5
   adds its own job to the same file later (owner default Q2 of #331; D4 in section 9). For each listed repo it
-  reads the GitHub API (runs, merges, deployments, and the speed stages through the functions of `scripts/speed-metrics.mjs`) and posts one batch. It shares
-  O5's database wake, so it costs no extra compute, however many repos are listed.
+  reads the GitHub API (runs, merges, deployments, and the speed stages through the functions of
+  `scripts/speed-metrics.mjs`) and posts one batch. It shares O5's database wake, so it costs no extra compute, however many repos are listed.
 - **Cursor**: per repo, the route keeps the creation time of the oldest run that was still going at the
   last fetch, or else of the newest run it stored (`ops_cursor`), and returns it in every answer. The
   script's first call per repo is an empty batch, to read the cursor; it then lists runs created from one
@@ -534,11 +534,13 @@ disagree, this section wins. Each task issue names the decisions that change it.
   `x-thread-draft-tool-ops-events-<VERCEL_ENV>` (`opsEventsAudience`). It shares `verifySignature` with
   `verifyCiToken`; it is not `verifyCiToken`. On the row guard it answers 503 and logs; it stores no flag.
 - M7 (PR 467; #446 still open): the Alert shape (section 6 of `telegram-message.md`), kind `speed`, gate issue.
-- Not on `main`: `metrics-daily.yml`, `POST /api/ops/metrics-daily`, an `/ops` 404 gate (a GET on
+- Not on `main`: `POST /api/ops/metrics-daily`, an `/ops` 404 gate (a GET on
   `/api/ops/events` answers 405 today), and any delete of `ops_events` rows (`ingest.js` deletes only the
   `ops_daily` rows of the days it replaces).
-- In progress: M3 (#449, PR 472) creates `metrics-daily.yml` with the permissions `contents`, `actions`,
-  `deployments` and `pull-requests` read, and `id-token: write`.
+- M3 (#449, PR 472, merged in `252eefd` while this record was reviewed): `metrics-daily.yml` with the schedule,
+  `workflow_dispatch`, `concurrency: metrics-daily` and workflow-level permissions `contents`, `actions`,
+  `deployments` and `pull-requests` read, and `id-token: write`; `docs/operations/metrics-daily.md`. Its header
+  and that doc say events stay 14 days, which holds only once O5 ships the retention (D4).
 
 ### Decisions
 
@@ -578,7 +580,7 @@ row with `normalizeEvent` of `server/ops/events.js` (the `prod/error` rule), not
   depend on O5.
 - Token check: O5 reuses `verifyOpsToken`, with the audience as a third parameter:
   `verifyOpsToken(token, env = process.env, audience = opsEventsAudience)`, plus
-  `opsDailyAudience(env)` = `x-thread-draft-tool-ops-daily-<VERCEL_ENV>`. The existing calls keep working. No third
+  `opsDailyAudience(vercelEnv)` = `x-thread-draft-tool-ops-daily-<VERCEL_ENV>`. The existing calls keep working. No third
   verifier. `verifyCiToken` and `CI_WORKFLOW_PATHS` do not change, and the about 5 lines of environment checks
   that both functions repeat stay as they are, so the CI verifier is not touched.
 - Routes: two POST routes stay, because they do two jobs. `/api/ops/events` stores a batch;
