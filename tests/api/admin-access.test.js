@@ -35,7 +35,7 @@ const LEGACY = '2025-11-25'
 const REST_ROWS = {
   'GET /admin/status': { url: '/admin/status' },
   'GET /admin/users': { url: '/admin/users' },
-  'GET /admin/users/:id': { url: `/admin/users/${NIL}`, adminNot: 'Not found' },
+  'GET /admin/users/:id': { url: `/admin/users/${NIL}`, adminStatus: 404, adminNot: 'Not found' },
   'GET /admin/stats': { url: '/admin/stats' },
   'GET /admin/audit': { url: '/admin/audit' },
   'GET /admin/metrics': { url: '/admin/metrics' },
@@ -44,7 +44,7 @@ const REST_ROWS = {
   'POST /admin/flags': { url: '/admin/flags', body: {} },
   'POST /admin/users/:id/suspend': { url: `/admin/users/${NIL}/suspend`, body: {} },
   'POST /admin/users/:id/unsuspend': { url: `/admin/users/${NIL}/unsuspend`, body: {} },
-  'POST /admin/users/:id/delete': { url: `/admin/users/${NIL}/delete`, body: {} },
+  'POST /admin/users/:id/delete': { url: `/admin/users/${NIL}/delete`, body: {}, adminStatus: 404, adminNot: 'Not found' },
   'GET /changelog': { url: '/changelog' },
   'POST /ops/events': { url: '/ops/events', body: {}, adminSame: true },
   'POST /ops/metrics-daily': { url: '/ops/metrics-daily', body: {}, adminSame: true }
@@ -117,6 +117,14 @@ describe('the access table has a row for every admin route, tool and page', () =
     expect(Object.keys(REST_ROWS).sort()).toEqual(fromCode)
   })
 
+  it('every file that calls requireAdminUser is known, and its routes are marked adminOnly', () => {
+    const serverFiles = (dir) => readdirSync(join(ROOT, dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? serverFiles(`${dir}/${e.name}`) : e.name.endsWith('.js') ? [`${dir}/${e.name}`] : []))
+    const users = serverFiles('server').filter((f) => f !== 'server/admin/guard.js' && readSrc(f).includes('requireAdminUser('))
+    // A new file here must add its routes to REST_ROWS and mark them adminOnly (so openapi.json leaves them out), then be added to this list.
+    expect(users).toEqual(['server/changelog.js'])
+    expect(ROUTES.filter((r) => r.path === '/changelog').every((r) => r.adminOnly === true)).toBe(true)
+  })
+
   it('has a row for every admin MCP tool, and no normal tool is an admin tool', () => {
     expect(Object.keys(MCP_ROWS).sort()).toEqual(ADMIN_TOOLS.map((t) => t.name).sort())
     const normalNames = listTools(null, APP_URL).map((t) => t.name)
@@ -125,6 +133,12 @@ describe('the access table has a row for every admin route, tool and page', () =
 
   it('lists the admin pages from the source, and each is on the table below', () => {
     expect(pages).toEqual(['/admin', '/admin/audit', '/admin/changelog', '/admin/flags', '/admin/metrics', '/admin/users', '/admin/users/:id', '/changelog'])
+    // Every App.jsx route that names an admin address sits behind isAdmin(user), and none uses a computed path.
+    const app = readSrc('src/App.jsx')
+    expect(app).not.toMatch(/<Route[^>]*path=\{/)
+    for (const m of app.matchAll(/<Route\s+path="(\/admin[^"]*|\/changelog)"/g)) {
+      expect(app.slice(Math.max(0, m.index - 80), m.index), `${m[1]} in App.jsx`).toMatch(/isAdmin\(user\) && \(?\s*$/)
+    }
     // The jsdom test tests/unit/admin-access-pages.test.jsx renders every one of these as signed out, normal user and admin.
     for (const page of pages) note('page', page, 'as unknown path', 'as unknown path', 'real page (tests/unit/admin-access-pages.test.jsx)')
   })
@@ -156,8 +170,8 @@ describe('REST: signed out and normal user get the unknown-path answer, the admi
       } else if (row.adminNot) {
         expect(admin.text).not.toBe(expected.text)
       } else {
-        expect(admin.status, `${key} as admin: ${admin.text}`).toBeLessThan(500)
-        expect(admin.status === 404 && admin.text === expected.text, `${key} as admin looks like an unknown path`).toBe(false)
+        // The handler ran: a read answers 200, a write with an empty body is refused by the handler (400).
+        expect(admin.status, `${key} as admin: ${admin.text}`).toBe(row.adminStatus ?? (r.method === 'GET' ? 200 : 400))
       }
       note('rest', key, out.status, user.status, row.adminSame ? `${admin.status} (CI token only)` : admin.status)
     })

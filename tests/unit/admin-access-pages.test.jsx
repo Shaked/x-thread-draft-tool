@@ -40,7 +40,8 @@ afterEach(() => {
 })
 
 describe('the admin pages by caller', () => {
-  for (const page of adminPages()) {
+  // The last path is a made-up address under /admin: any new route there must also be closed to non-admins.
+  for (const page of [...adminPages(), '/admin/zz-not-a-page']) {
     const url = page.replace(':id', NIL)
     for (const name of ['signed out', 'normal user']) {
       it(`${page} as ${name} lands where an unknown path lands`, async () => {
@@ -51,6 +52,7 @@ describe('the admin pages by caller', () => {
         expect(document.body.textContent).not.toMatch(/Audit log|Feature flags|Statistics|Changelog/)
       })
     }
+    if (page === '/admin/zz-not-a-page') continue
     it(`${page} as admin opens the admin area`, async () => {
       const at = await visit(url, CALLERS.admin)
       expect(at).toBe(page === '/changelog' ? '/admin/changelog' : url)
