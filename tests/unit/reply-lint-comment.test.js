@@ -29,6 +29,12 @@ describe('agent comment lint (CI job)', () => {
     expect(lintComment(golden('owner-question/good-1.md').trimEnd() + FOOTER)).toEqual([])
   })
 
+  it('lints a Decision record by the word rules only: a short dated line passes, a bare label fails', () => {
+    expect(lintComment(`Decision 2026-11-26: keep drafts local-first (Shaked, [#154 queue rules for the dispatcher](https://x.test/154)).${FOOTER}`)).toEqual([])
+    expect(lintComment(`Decision 2026-11-26: keep drafts local-first (Shaked, #154).${FOOTER}`).map((f) => f.rule)).toEqual(['bare-label'])
+    expect(lintComment(`Decision 2026-11-26: keep it.\n\n**Done:** x${FOOTER}`).map((f) => f.rule)).toContain('loose-label')
+  })
+
   it('does not lint a comment that is not an agent comment', () => {
     expect(lintComment('**Done:** shipped.')).toEqual([])
   })

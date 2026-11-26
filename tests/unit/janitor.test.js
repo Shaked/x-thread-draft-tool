@@ -297,6 +297,13 @@ describe('reply-style check (#486)', () => {
     expect(out[0].what).toContain('/issues/900)')
   })
 
+  it('reports an open issue that carries the label reply-style-fail', () => {
+    const issue = { number: 901, title: 'A task with a failed comment', body: '', state: 'open', labels: ['task', 'reply-style-fail'], created_at: '2026-11-20T00:00:00Z', updated_at: '2026-11-25T00:00:00Z' }
+    const out = analyze({ ...snapshot, issues: [...snapshot.issues, issue] }, { today: TODAY }).filter((f) => f.kind === 'reply-style' && f.issues.includes(901))
+    expect(out).toHaveLength(1)
+    expect(out[0].what).toContain('`reply-style-fail`')
+  })
+
   it('looks only at the newest ten HANDOFF comments', () => {
     const many = Array.from({ length: 12 }, (_, k) => comment(bad, `2026-11-${String(10 + k).padStart(2, '0')}T10:00:00Z`))
     const snap = { ...snapshot, comments: { 902: many } }

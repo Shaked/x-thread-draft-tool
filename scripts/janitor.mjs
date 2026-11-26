@@ -358,6 +358,13 @@ function checkStale(c, i) {
   else c.add('held', [i.number], `${ref(i.number)} is labelled ${tags} and names no owner question.`, 'Say in the issue what it waits for.')
 }
 
+/** An open issue that carries `reply-style-fail` (set by the comment lint job, #486): its latest agent comment broke the rules. */
+function checkReplyStyleLabel(c) {
+  for (const i of c.open.filter((x) => has(x, 'reply-style-fail'))) {
+    c.add('reply-style', [i.number], `${ref(i.number)} is labelled \`reply-style-fail\`: an agent comment on it broke the reply-style rules.`, 'Run `npm run reply-lint -- --template` on its latest agent comment, post a corrected one, then remove the label.', 'dispatcher')
+  }
+}
+
 /** Lints the newest HANDOFF comments of every issue whose comments are loaded; reports each failure with its link. */
 function checkReplyStyle(c, repo) {
   const handoffs = []
@@ -415,6 +422,7 @@ export function analyze(snapshot, { today = new Date().toISOString(), staleDays 
     checkLabels(c, i)
   }
   checkReplyStyle(c, String(snapshot.repo || REPO))
+  checkReplyStyleLabel(c)
   for (const i of open.filter((x) => x.subIssues >= NEAR_LIMIT)) {
     c.add('limit', [i.number], `${ref(i.number)} has ${i.subIssues} of ${SUB_ISSUE_LIMIT} sub-issues.`, i.subIssues >= SUB_ISSUE_LIMIT ? 'New tasks go to the follow-up epic.' : 'Plan a follow-up epic.')
   }

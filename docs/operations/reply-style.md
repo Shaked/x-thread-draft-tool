@@ -34,9 +34,9 @@ so a reply makes sense without the agent's context. Owner request of 2026-11-21,
   does nothing until the owner or the dispatcher's environment sets it. In an opted-in session every turn end is linted, so a
   short turn that is not in the template ("Done.") is sent back once and costs one extra turn. Test: `tests/unit/reply-style-stop.test.js` (pass and fail, no model).
 - Agent comments on GitHub (#486): `.github/workflows/reply-lint-comments.yml` runs `scripts/reply-lint-comment.mjs` on each new
-  or edited comment that ends with the Claude Code footer and starts with `HANDOFF`, `Decision`, a question or the template heading `. A failure turns the
+  or edited comment that ends with the Claude Code footer and starts with `HANDOFF`, `Decision`, a question or the template heading `## TL;DR`. A `Decision` comment gets the word rules only (no headings required). A failure turns the
   run red and adds the label `reply-style-fail` to the issue or PR. Why a label: a check run attaches to a commit, so it cannot
-  show on a tracker issue; the label is visible there and the janitor reports it. The job lints only the comment that triggered it,
+  show on a tracker issue; the label is visible there and the janitor reports every open issue that carries it. The job lints only the comment that triggered it,
   so old comments do not turn it red.
 - Janitor (#486): `scripts/janitor.mjs report` lints the newest 10 HANDOFF comments in the `--comments` file and lists each
   failure with its link under "Reply style".

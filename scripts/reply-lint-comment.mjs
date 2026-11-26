@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Lints one GitHub comment written by an agent (#486). Used by .github/workflows/reply-lint-comments.yml.
 // A comment is an agent comment for the owner when it ends with the Claude Code footer and starts with HANDOFF,
-// "Decision", a question (the first line ends with "?") or the template heading "## TL;DR" (an owner question or
+// "Decision" (word rules only, no headings required), a question (the first line ends with "?") or the template heading "## TL;DR" (an owner question or
 // status report written with the template). Other comments are skipped (exit 0).
 // Usage: COMMENT_BODY=... node scripts/reply-lint-comment.mjs   (or the body on stdin)
 // Exits 1 and prints `line N: rule: message` when an agent comment breaks the reply-style rules.
@@ -25,7 +25,10 @@ export function agentCommentKind(body) {
 
 /** Findings for one comment ([] when it is not an agent comment or passes). */
 export function lintComment(body) {
-  return agentCommentKind(body) ? lint(String(body), { template: true }) : []
+  const kind = agentCommentKind(body)
+  if (!kind) return []
+  // A Decision record is a short dated line, not a report: the word rules apply, the headings only when it has any.
+  return lint(String(body), { template: kind !== 'decision' })
 }
 
 function main() {
