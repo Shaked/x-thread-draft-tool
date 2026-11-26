@@ -1,5 +1,6 @@
 ## TL;DR
-One question for you: should drafts save on every keystroke. You need to do 1 thing: answer it.
+One question for you: should drafts save on every keystroke.
+You need to do 1 thing: answer it.
 
 ## What you need to do
 1. Reply on [#486 reply template question](https://github.com/Shaked/x-thread-draft-tool/issues/486) with `save-each`.
