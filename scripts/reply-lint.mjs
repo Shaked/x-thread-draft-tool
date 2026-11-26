@@ -17,6 +17,7 @@
 //   loose-label     a bold or plain "Done:", "Blocked on you:" ... line used instead of its "## " heading (#486)
 //   empty-details   a "## Details" heading with nothing under it: leave the heading out (#486)
 //   tldr, steps     TL;DR is 2 to 3 lines and says if the owner must act; the step count matches
+//   session-link    a "Waiting for" item that names a session (the word or a session id) has no session link
 //   evidence        the Done section says "checked" or "not checked"
 //   --kind=changelog: a "# " title, then 1 to 5 lines; no label and no code span anywhere (shape, internal-label)
 //   --kind=telegram:  line 1 is the emoji, the app name in bold, " · " and the headline; at most 5 lines (shape).
@@ -26,6 +27,11 @@
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
+/** Every rule name the lint reports. A test fails when one has no failing fixture or is missing from the skill's "Before you send" list. */
+export const RULES = [
+  'bare-label', 'option-letters', 'unchanged', 'blocked', 'waiting-human', 'long-line', 'emoji', 'slop', 'headings', 'loose-label',
+  'empty-details', 'tldr', 'steps', 'session-link', 'evidence', 'internal-label', 'shape', 'app-name', 'empty-section'
+]
 export const HEADINGS = ['TL;DR', 'What you need to do', 'Waiting for', 'Blocked on you', 'Done']
 const MAX_LINE = 160
 const LABEL = /(?<![\w#/])(#\d+|[A-Z]\d+(?:\.\d+)?)(?!\w)/g
@@ -52,6 +58,9 @@ const ACT = /\b(Nothing needed from you|You need to do (\d+|one|two|three|four|f
 const NUMBERS = { one: 1, two: 2, three: 3, four: 4, five: 5 }
 // The one word of `Area:` in a changelog entry (plan #369, step 1). Changing it changes the page groups.
 export const AREAS = ['Drafts', 'Editor', 'AI apps', 'Admin', 'Design', 'Speed', 'Security', 'Docs']
+// A session link has the shape the commit attribution uses: https://claude.ai/code/session_<id>. Opening it is not checked.
+const SESSION_LINK = /\]\(https:\/\/claude\.ai\/code\/session_[\w-]+\)/
+const SESSION_WORD = /\bsessions?\b|\bsession_\w+/i
 const DETAILS_HEADING = /^## Technical details\s*$/
 
 /** Word count of a description, labels and punctuation left out. */
@@ -99,6 +108,22 @@ function checkDetails(all, fencedLines, add) {
   if (!fencedLines.some((n) => n > details.line && n < next)) add(details.line, 'empty-details', 'leave out the "Details" heading when it is empty')
 }
 
+/** Each "Waiting for" item (a "- " line and its continuation lines) that names a session carries a session link. */
+function checkWaitingSessions(waiting, add) {
+  if (!waiting) return
+  const items = []
+  waiting.body.forEach((t) => {
+    if (/^\s*[-*+]\s/.test(t) || !items.length) items.push([])
+    items[items.length - 1].push(t)
+  })
+  for (const item of items) {
+    const raw = item.join(' ')
+    if (SESSION_WORD.test(raw.replace(/\[([^\]]*)\]\([^)\s]*\)/g, '$1')) && !SESSION_LINK.test(raw)) {
+      add(waiting.line, 'session-link', `"${item[0].trim().slice(0, 50)}" names a session: add its session link next to the task link, [session](https://claude.ai/code/session_<id>)`)
+    }
+  }
+}
+
 function checkTemplate(lines, force, add, fencedLines = []) {
   const all = sections(lines)
   const find = (name) => all.findIndex((s) => s.name.toLowerCase() === name.toLowerCase())
@@ -124,6 +149,7 @@ function checkTemplate(lines, force, add, fencedLines = []) {
     }
   }
   checkDetails(all, fencedLines, add)
+  checkWaitingSessions(all[at[2]], add)
   const done = all[at[4]]
   if (done && !/\bchecked\b/i.test(done.body.join(' '))) add(done.line, 'evidence', 'say "checked" or "not checked"')
 }

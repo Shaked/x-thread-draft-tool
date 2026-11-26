@@ -9,7 +9,7 @@ Nothing.
 1. [<#n, 3 to 6 words>](<link>): `<what is asked>`. Reply `<exact words>` [there](<comment link>).
 
 ## Waiting for
-- [<#n, 3 to 6 words>](<link>), [session](<https://claude.ai/code/session_...>) `<state>`: <the session works on it, waits for CI or review, or waits for the dispatcher>. Expected: not known.
+- [<#n, 3 to 6 words>](<link>), [session](https://claude.ai/code/session_<id>) `<state>`: <the session works on it, waits for CI or review, or waits for the dispatcher>. Expected: not known.
 
 <Or "Nothing.">
 

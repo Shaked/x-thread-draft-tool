@@ -14,9 +14,15 @@ owner question uses one template below, follows the hard rules, and passes the l
 2. No loose bold or plain labels such as `**Done:**`, `Not done:` or `Blocked on you:`. Use the `##` heading.
 3. `What you need to do`, `Waiting for` and `Blocked on you` say "Nothing." when empty. `Done` always has content with "checked" or "not checked". Leave `Details` out when it is empty.
 4. Every label (`#279`, `Q1`) has a link and 3 to 6 words the first time. Never "unchanged" alone.
-5. Run `npm run reply-lint -- --template reply.md` and fix every finding before you send.
+5. A `Waiting for` item that is an agent session shows the task link and the Claude session link side by side:
+   `[#490 unit job over its time budget](issue url) · [session](https://claude.ai/code/session_<id>)` (rule `session-link`).
+   The link has the shape the commit attribution uses. Whether it opens in the Claude app is not checked.
+6. Run `npm run reply-lint -- --template reply.md` and fix every finding before you send.
    A session started with `REPLY_STYLE=owner` in its environment is also checked when the turn ends: the Stop hook
    returns the failing rules and you rewrite the reply (setup: `docs/operations/reply-style.md`).
+7. The lint rules, by name, so that each one is on this list: `bare-label`, `option-letters`, `unchanged`, `blocked`,
+   `waiting-human`, `long-line`, `emoji`, `slop`, `headings`, `loose-label`, `empty-details`, `tldr`, `steps`, `session-link`,
+   `evidence`, `internal-label`, `shape`, `app-name`, `empty-section`.
 
 ## Which template
 | You are writing | Template | Where it goes |
@@ -45,6 +51,18 @@ parts of the `owner-question` template as `###` subheadings.
 - **On GitHub:** end the comment with the Claude Code footer that `AGENTS.md` asks for, after
   `RELEASE` in a handoff.
 
+## Adding or changing a template
+A template or a lint rule is not done until it is tested. The pull request needs all three, and the tests fail when one is missing:
+
+1. **A lint rule** in `scripts/reply-lint.mjs` for what the template or change asks for, named in `RULES` there.
+2. **Golden fixtures** in `tests/unit/fixtures/reply-lint/golden/<template>/`: at least one `good-*.md` that passes and, for every
+   rule, a `bad-*.md` that fails for exactly that rule. Name each bad fixture and its rule in `WANT` in `tests/unit/reply-lint-golden.test.js`.
+3. **An entry in "Before you send"** above: the rule by name in item 7, and a plain-words line when the rule changes how a reply is written.
+
+The tests fail when a file in `templates/` has no fixture folder, when a rule has no failing fixture, and when a rule or template
+is missing from this skill. If the Stop hook should cover the change, add a case to `tests/unit/reply-style-stop.test.js`.
+Keep the new rule text generic: no product name, issue number or person's name, so the templates work in any project.
+
 ## Changelog entries and Telegram messages
 These two are read by people outside the work, so they have their own shape and no fixed headings.
 Apply `pstack-unslop` and `pstack-technical-writing` to both.
@@ -69,7 +87,7 @@ headings or `###` subheadings, but never rename, reorder or drop these:
 2. `What you need to do`: numbered steps (1, 2, 3), one action each, with a link or the exact words
    to type in a code span. Or "Nothing." The number of steps matches the TL;DR.
 3. `Waiting for`: agents, sessions, CI runs and systems. Each with a link, what it is doing, and the
-   expected time (or "not known"). Or "Nothing."
+   expected time (or "not known"). An agent session also has its session link, next to the task link. Or "Nothing."
 4. `Blocked on you`: only a decision or action that a human must do. Or "Nothing."
 5. `Done`: what shipped, with PR and issue links, and the evidence: "checked" (you read it) or
    "not checked".
