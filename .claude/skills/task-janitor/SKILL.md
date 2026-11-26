@@ -132,7 +132,7 @@ Owner needed is `yes` only by these rules, on an open issue (agent comments end 
 | `question` | An agent comment (Claude Code footer) whose first line ends with `?`, or whose TL;DR starts with "One question for you" | A later comment by Shaked's login without the footer (not a collaborator) |
 | `label` | The label `owner`, without `parked` (a parked owner task is Held: Shaked parked it) | The label is removed |
 | `handoff` | The last HANDOFF has a `## Blocked on you` that is not "Nothing" | A later comment by Shaked's login without the footer (not a collaborator) |
-| `needs-action` | A matched session, updated in the last 3 days and not completed or working, has a `needs_action` that asks: decide, choose, approve, your call, which option, pick one (not with "nothing for the owner") | The session moves on |
+| `needs-action` | A matched session, updated in the last 3 days and not completed or working, has a `needs_action` that asks: decide, choose, approve, your call, which option, pick one (not "nothing for the owner", not a reviewer approval such as "Opus approval") | The session moves on |
 
 The exact words are the first code span under the comment's `What you need to do`, or after "reply". Manual tests (`## N. title`
 in #430 and its agent comments, with no later comment by Shaked that names the title) are listed as optional: they never count
