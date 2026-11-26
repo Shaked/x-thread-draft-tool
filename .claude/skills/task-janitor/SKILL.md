@@ -115,9 +115,11 @@ The slash command [`/janitor`](../../commands/janitor.md) runs the steps below. 
 
 1. Pass 1 snapshot and comments (see "Run it"), and the pass 2 dump, `need`, `comments.json` and `pulls.json`
    (see "Pass 2"). Keep every file in your scratchpad; never commit them.
-2. `node scripts/janitor.mjs report snapshot.json --comments comments.json > pass1.txt`.
+2. `node scripts/janitor.mjs report snapshot.json --comments comments.json > pass1.txt` (default options, so the
+   summary counts the same pass 1 findings).
 3. `node scripts/session-janitor.mjs findings sessions.json snapshot.json --comments comments.json --pulls pulls.json`.
-4. Apply only the allowed fixes of both passes (see "Act on the report"). For a pass 2 `done-open` that is `allowed`,
+4. Apply only the allowed fixes of both passes (see "Act on the report"). For a duplicate pair, pass 2's
+   `duplicate-issue` finding wins over pass 1: when it says `dispatcher` (a session works on either issue), close nothing. For a pass 2 `done-open` that is `allowed`,
    read the last HANDOFF first: it says done, has RELEASE, and its PR is merged (check the PR yourself).
    Write each fix you applied and checked in `applied.json`: `[{ "issue": 101, "what": "closed as completed after
    reading its HANDOFF" }]`.

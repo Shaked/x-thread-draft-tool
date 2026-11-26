@@ -471,6 +471,17 @@ export function formatSummary(findings, { counts, today, repo = REPO, names = ne
   return lines.join('\n') + '\n'
 }
 
+/**
+ * The findings pass 1 printed (`janitor.mjs report` with its default options: the snapshot's time, 14 stale days), so
+ * its owner and dispatcher items are counted at the top. Duplicate pairs are left out: pass 2's `duplicate-issue`
+ * finding has the same pair, and its `act` wins (a session on either issue keeps it with the dispatcher).
+ */
+export function passOneFindings(snapshot, comments = {}) {
+  const today = snapshot.fetched_at || new Date().toISOString()
+  return passOne({ ...snapshot, comments: { ...(snapshot.comments || {}), ...comments } }, { today, knownTables: migrationTables() })
+    .filter((f) => f.kind !== 'duplicate')
+}
+
 function main() {
   const [cmd, sessionsFile, snapshotFile, ...rest] = process.argv.slice(2)
   const opt = (name) => { const k = rest.indexOf(name); return k === -1 ? null : rest[k + 1] }
@@ -525,8 +536,7 @@ function main() {
     names: describeSnapshot(snapshot),
     applied: opt('--applied') ? json(opt('--applied')) : [],
     pass1: opt('--pass1') ? readFileSync(opt('--pass1'), 'utf8') : '',
-    // The same findings pass 1 printed, so its owner and dispatcher items are counted at the top.
-    pass1Findings: opt('--pass1') ? passOne({ ...snapshot, comments: { ...(snapshot.comments || {}), ...comments } }, { today, knownTables: migrationTables() }) : []
+    pass1Findings: opt('--pass1') ? passOneFindings(snapshot, comments) : []
   })
   process.stdout.write(text)
   console.error(`summary: ${text.length} characters${text.length > COMMENT_MAX ? `, over ${COMMENT_MAX}: leave out --pass1 and post pass1.txt as a second comment` : ''}`)

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { lint, HEADINGS } from '../../scripts/reply-lint.mjs'
 import { spawnSync } from 'node:child_process'
-import { analyzeSessions, claimOf, describeSnapshot, formatSummary, inScope, KINDS, summaryCounts, needs, normalizeSession, quote, SESSION_FIELDS, titleIssue, validateSessions } from '../../scripts/session-janitor.mjs'
+import { analyzeSessions, claimOf, describeSnapshot, formatSummary, inScope, KINDS, passOneFindings, summaryCounts, needs, normalizeSession, quote, SESSION_FIELDS, titleIssue, validateSessions } from '../../scripts/session-janitor.mjs'
 
 const load = (name) => JSON.parse(readFileSync(new URL(`./fixtures/session-janitor/${name}`, import.meta.url), 'utf8'))
 const sessions = load('sessions.json')
@@ -269,6 +269,12 @@ describe('the templated summary', () => {
     expect(text).toContain('acts on the 1 `dispatcher` finding below')
     expect(text).toContain('| Pass 1 findings (issues, under Details) | 2 |')
     expect(text).toContain('0 findings and 2 from pass 1, 0 fixes applied (checked).')
+  })
+
+  it('leaves pass 1 duplicate pairs to the pass 2 finding, which keeps a pair with a session for the dispatcher', () => {
+    const one = passOneFindings(snapshot, comments)
+    expect(one.some((f) => f.kind === 'duplicate')).toBe(false)
+    expect(findings.find((f) => f.kind === 'duplicate-issue').act).toBe('dispatcher')
   })
 
   it('pads a short PR title with "pull request"', () => {
