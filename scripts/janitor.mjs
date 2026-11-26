@@ -463,9 +463,14 @@ export function wrap(line, max = 150) {
   let rest = line
   while (rest.length > max) {
     let cut = Math.max(rest.lastIndexOf(', ', max), rest.lastIndexOf('; ', max))
-    // No comma to break at: break at the last space, outside a code span.
+    // No comma to break at: break at the last space outside a code span and outside parentheses,
+    // so a label keeps its description on its own line.
     if (cut <= indent.length) {
-      cut = [...rest.slice(0, max).matchAll(/ /g)].map((m) => m.index).filter((k) => k > indent.length && (rest.slice(0, k).split('`').length % 2 === 1)).pop() ?? -1
+      const free = (k) => {
+        const head = rest.slice(0, k)
+        return head.split('`').length % 2 === 1 && (head.match(/\(/g) || []).length === (head.match(/\)/g) || []).length
+      }
+      cut = [...rest.slice(0, max).matchAll(/ /g)].map((m) => m.index).filter((k) => k > indent.length && free(k)).pop() ?? -1
       if (cut <= indent.length) break
       out.push(rest.slice(0, cut))
       rest = indent + rest.slice(cut + 1)
