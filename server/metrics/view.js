@@ -13,9 +13,9 @@ const CACHE_MS = 60 * 1000
 const CACHE_MAX = 200
 
 /** Window name -> number of UTC hours it covers. */
-export const WINDOWS = { '1h': 1, '24h': 24, '7d': 7 * 24, '30d': 30 * 24, '90d': 90 * 24, '400d': 400 * 24 }
+const WINDOWS = { '1h': 1, '24h': 24, '7d': 7 * 24, '30d': 30 * 24, '90d': 90 * 24, '400d': 400 * 24 }
 /** Series windows: hourly points up to 7 days, daily points after that. */
-export const SERIES_WINDOWS = ['24h', '7d', '30d', '90d', '400d']
+const SERIES_WINDOWS = ['24h', '7d', '30d', '90d', '400d']
 const HOURLY_SERIES_MAX_HOURS = 7 * 24
 
 /** Request series: a counter column of a group, or a percentile of its histogram. */
@@ -24,7 +24,7 @@ const PERCENTILE_SERIES = ['p50', 'p95', 'p99']
 const PRODUCT_SERIES = PRODUCT_COLUMNS
 const ROLLING = new Set(['active_users_24h', 'active_users_7d', 'suspended_users', 'db_bytes'])
 
-export const SERIES_NAMES = [...Object.keys(COUNT_SERIES), ...PERCENTILE_SERIES, ...PRODUCT_SERIES]
+const SERIES_NAMES = [...Object.keys(COUNT_SERIES), ...PERCENTILE_SERIES, ...PRODUCT_SERIES]
 
 const bad = (message) => new HttpError(400, message)
 const iso = (ms) => new Date(ms).toISOString()
@@ -36,7 +36,9 @@ const hourStart = (ms) => Math.floor(ms / HOUR) * HOUR
 /** The window that ends now: its name, its first UTC hour (ms) and the times as text. */
 function windowOf(name, now) {
   const hours = WINDOWS[name]
-  const fromHour = hourStart(now) - (hours - 1) * HOUR
+  let fromHour = hourStart(now) - (hours - 1) * HOUR
+  // Past the 14 days of hourly rows the window counts whole UTC days (the daily rows), so it starts at midnight.
+  if (hours > 14 * 24) fromHour = Math.floor(fromHour / DAY) * DAY
   return { name, hours, fromHour, from: iso(fromHour), to: iso(now) }
 }
 

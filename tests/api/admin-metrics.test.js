@@ -38,16 +38,15 @@ const hourOf = (ms) => Math.floor(ms / HOUR) * HOUR
 const samples = (ms, n) => oneHot(ms).map((v) => v * n)
 const literal = (counts) => `{${counts.join(',')}}`
 
+// The admin and one client are made once (the file runs in the API test budget); each test resets only the metric rows.
 beforeAll(async () => {
   db = await setupTestDb()
+  admin = await db.insertUser({ github_id: ADMIN_GITHUB_ID, login: 'shaked', name: 'Owner' })
+  await db.pg.query("insert into oauth_clients (client_id, kind, client_name, redirect_uris) values ($1, 'registered', 'Admin metrics test', '{}')", [CLIENT])
 })
 
 beforeEach(async () => {
-  await db.reset()
-  await db.pg.exec('delete from oauth_clients')
   await db.pg.exec('delete from metrics_hourly; delete from metrics_daily; delete from metrics_product_daily')
-  await db.pg.query("insert into oauth_clients (client_id, kind, client_name, redirect_uris) values ($1, 'registered', 'Admin metrics test', '{}')", [CLIENT])
-  admin = await db.insertUser({ github_id: ADMIN_GITHUB_ID, login: 'shaked', name: 'Owner' })
   resetMetricsCacheForTests()
   now = Date.now()
   await seedRows()
@@ -103,11 +102,15 @@ async function grantFor(user, { adminUntil = null } = {}) {
   return rows[0].id
 }
 
-/** The caller of an elevated admin grant, as resolveAccess builds it from a real access token. */
-async function elevatedCaller() {
-  const grantId = await grantFor(admin, { adminUntil: new Date(Date.now() + DAY) })
-  const pair = await issuePair(grantId)
-  return await resolveAccess(pair.access_token, MCP)
+/** The caller of an elevated admin grant, as resolveAccess builds it from a real access token. Made once per file. */
+let callerOnce = null
+function elevatedCaller() {
+  callerOnce ??= (async () => {
+    const grantId = await grantFor(admin, { adminUntil: new Date(Date.now() + DAY) })
+    const pair = await issuePair(grantId)
+    return await resolveAccess(pair.access_token, MCP)
+  })()
+  return callerOnce
 }
 
 /** A REST GET as `caller` running the named admin tool (the guard needs adminTool set). */
@@ -123,7 +126,7 @@ describe('GET /admin/metrics: grouped rows', () => {
     const caller = await elevatedCaller()
     const { status, body } = await getJson(caller, 'admin_metrics', '/admin/metrics?window=24h&by=route')
     expect(status).toBe(200)
-    expect(body.window).toEqual({ name: '24h', from: expect.any(String), to: body.as_of })
+    expect(body.window).toEqual({ name: '24h', from: iso(hourOf(now) - 23 * HOUR), to: body.as_of })
     expect(body.metrics.map((m) => m.group)).toEqual([
       { route: 'GET /drafts/:id', op: '-', caller: 'all' },
       { route: 'GET /drafts', op: '-', caller: 'all' }
@@ -289,9 +292,14 @@ describe('who may read it', () => {
     const names = ADMIN_TOOLS.map((tool) => tool.name)
     expect(names).toEqual(expect.arrayContaining(['admin_metrics', 'admin_metrics_series']))
     const caller = await elevatedCaller()
-    const rest = (method, path) => restAs(caller, 'admin_metrics', path)
+    const paths = []
+    const rest = (method, path) => {
+      paths.push(`${method} ${path}`)
+      return restAs(caller, 'admin_metrics', path)
+    }
     const metrics = await ADMIN_TOOLS.find((tool) => tool.name === 'admin_metrics').run({ window: '24h', by: 'route' }, { rest })
     expect(metrics.status).toBe(200)
+    expect(paths).toEqual(['GET /admin/metrics?window=24h&by=route'])
     const series = ADMIN_TOOLS.find((tool) => tool.name === 'admin_metrics_series')
     const seriesRun = await series.run({ name: 'requests', window: '24h' }, { rest: (method, path) => restAs(caller, 'admin_metrics_series', path) })
     expect(seriesRun.status).toBe(200)
