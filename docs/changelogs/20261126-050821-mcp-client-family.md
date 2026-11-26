@@ -1,0 +1,1 @@
+- O3 (#334): MCP calls are recorded under their client app family (mcp:claude, mcp:chatgpt, mcp:grok, mcp:cli, mcp:other) instead of mcp. The token check joins oauth_clients and returns only the family; the raw client_id is never stored.

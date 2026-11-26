@@ -5,8 +5,9 @@
 import { waitUntil } from '@vercel/functions'
 import { query } from '../db.js'
 import { merge, oneHot } from './histogram.js'
+import { MCP_FAMILIES } from './client-family.js'
 
-const CALLERS = new Set(['web', 'token', 'mcp', 'ci', 'anon'])
+const CALLERS = new Set(['web', 'token', 'ci', 'anon', ...MCP_FAMILIES])
 const COLUMNS = [
   'hour', 'route', 'op', 'caller', 'n', 'n_3xx', 'n_4xx', 'n_429', 'n_5xx', 'n_tool_error',
   'sum_ms', 'max_ms', 'sum_db_ms', 'sum_q', 'sum_conn', 'cold', 'buckets'
