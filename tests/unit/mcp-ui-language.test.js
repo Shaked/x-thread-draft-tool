@@ -226,6 +226,7 @@ describe('the served pages', () => {
     expect(compact('a = 1;\n  // note\n\n  b = "x = y";', true)).toBe('a=1;\nb="x = y";')
     expect(compact('f(\n  a,\n  b\n)', true)).toBe('f(a,b)')
     expect(compact('x = a ? b : c // why\ny = 1')).toBe('x = a ? b : c // why\ny = 1')
+    expect(() => compact('x = `a = ${b}`')).toThrow(/template literal/)
     expect(minifyCss('a  b { color : red; }\n/* c */ p { margin: 0 }')).toBe('a  b{color:red}p{margin:0}')
   })
 })

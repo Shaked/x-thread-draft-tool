@@ -6,11 +6,12 @@ import { escapeForScript } from './origin.js'
 
 /**
  * The text with each line's indentation, full-line // comments and blank lines removed, and a line break dropped where it
- * cannot change the parse: after a line ending in { ( [ or a comma, and before a line starting with } ) ] or a dot. A line
+ * cannot change the parse: after a line ending in { ( [ or a comma, and before a line starting with } ) ] or a dot. A template literal makes it throw. A line
  * with a // in it is never joined to the next. No function here holds a multi-line string. With tight, the spaces around
  * some operators are removed too (not for the starter, whose text tests read).
  */
 export function compact(source, tight = false) {
+  if (source.includes('`')) throw new Error('page script: a template literal is not allowed (the compacting would change it)')
   const out = []
   for (const line of source.split('\n').map((l) => l.trim())) {
     if (line === '' || line.startsWith('//')) continue
