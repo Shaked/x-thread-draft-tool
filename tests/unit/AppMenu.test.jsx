@@ -64,19 +64,24 @@ describe('AppMenu', () => {
     expect(screen.getByRole('link', { name: 'Connected apps' })).toHaveAttribute('href', '/settings/apps')
   })
 
-  it('lists the changelog under Settings, after API tokens, for the admin', async () => {
+  // The app menu has one admin entry, "Admin" to /admin; the changelog and the rest live inside /admin (#551).
+  it('gives the admin exactly one admin link, Admin to /admin, and no Changelog link', async () => {
     const user = userEvent.setup()
-    renderMenu({ login: 'owner', admin: true })
+    renderMenu({ login: 'owner', admin: true, role: 'admin' })
     await user.click(screen.getByRole('button', { name: 'Menu' }))
-    expect(screen.getByRole('link', { name: 'Changelog' })).toHaveAttribute('href', '/admin/changelog')
+    const links = screen.getAllByRole('link').map((link) => link.getAttribute('href'))
+    expect(links.filter((href) => href.startsWith('/admin'))).toEqual(['/admin'])
+    expect(screen.getByRole('link', { name: 'Admin' })).toHaveAttribute('href', '/admin')
+    expect(screen.queryByRole('link', { name: 'Changelog' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Admin' })).toBeNull()
   })
 
-  it('shows the Admin badge and the Admin section only for role admin (#282)', async () => {
+  it('shows the Admin badge and the Admin link only for role admin (#282)', async () => {
     const user = userEvent.setup()
     const { unmount } = renderMenu({ login: 'owner', admin: true, role: 'admin' })
     expect(screen.getByRole('status', { name: 'You are the admin' })).toHaveTextContent('Admin')
     await user.click(screen.getByRole('button', { name: 'Menu' }))
-    expect(screen.getByRole('heading', { name: 'Admin', level: 3 })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Admin' })).toHaveAttribute('href', '/admin')
     unmount()
 
     cleanup()
@@ -84,7 +89,8 @@ describe('AppMenu', () => {
     expect(screen.queryByText('Admin')).toBeNull()
     expect(screen.queryByRole('status', { name: 'You are the admin' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Menu' }))
-    expect(screen.queryByRole('heading', { name: 'Admin' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Admin' })).toBeNull()
+    expect(screen.getAllByRole('link').filter((link) => link.getAttribute('href').startsWith('/admin'))).toEqual([])
     expect(normal.container.textContent).not.toMatch(/\bAdmin\b/)
   })
 

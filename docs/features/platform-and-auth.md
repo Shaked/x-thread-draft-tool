@@ -4,7 +4,7 @@
 - Mobile-responsive UI.
 - GitHub OAuth sign-in (`/api/auth/login`, `/api/auth/callback`). Anyone with a GitHub account can sign in.
 - Session: signed HS256 cookie `xt_session` (HttpOnly, Secure, SameSite=Lax, 30 days). The GitHub token is not stored.
-- Role (#282): `GET /api/auth/me` returns `user.role` (`admin` or `user`) for a browser session, decided by `roleOf` in `server/admin/role.js`. API token callers get no role. The app shows an "Admin" badge next to the menu button and an Admin menu section only for `admin`.
+- Role (#282): `GET /api/auth/me` returns `user.role` (`admin` or `user`) for a browser session, decided by `roleOf` in `server/admin/role.js`. API token callers get no role. The app shows an "Admin" badge next to the menu button and, in the app menu, one "Admin" link to `/admin` only for `admin` (#551). Nothing else of the admin is in the app menu: the changelog, the flags and the metrics are reached from the admin menu inside `/admin`.
 - Owner-only writes are filtered by the session user id in every query; a non-owner gets 404.
 - Deployment metadata visibility.
 - API tokens page (`/settings/tokens`): create and revoke tokens.
