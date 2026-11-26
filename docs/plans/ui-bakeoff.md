@@ -50,7 +50,7 @@ plus one alias file that maps our tokens onto the kit's variables.
 | Dark and light | yes, `light-dark()` tokens | yes through the alias | yes through the alias (127 dark-scheme selectors read `dark-*`) | yes through the alias plus the custom `dark` variant |
 | Reduced motion | yes (dialog 0 s) | yes (dialog animation none) | no by default (`respectReducedMotion: false`); 1 line fixes it | no (dialog still 0.2 s); 1 rule fixes it |
 | First load, drafts page (gzip) | 68.9 kB without the Rare components; 117.1 kB with them | 132.9 kB | 98.1 kB | 95.8 kB |
-| Added over React 18 | 11.3 kB over React and router; Rare components add 48.2 kB more (`motion` 43.0 kB) | 87.9 kB (CSS 58.2 kB) | 53.1 kB (CSS 12.4 kB) | 50.8 kB (CSS 7.4 kB) |
+| Added over React 18 | 23.9 kB, router included (11.3 kB over React and router); the Rare components add 48.2 kB more (`motion` 43.0 kB) | 87.9 kB (CSS 58.2 kB) | 53.1 kB (CSS 12.4 kB) | 50.8 kB (CSS 7.4 kB) |
 | Lazy loading | Rare parts lazy, but the delete button is on the drafts list, so `motion` loads there | JS tree-shaken; all component CSS is one file | per-component CSS files and tree-shaken JS | Tailwind emits only used classes; JS per component |
 | axe (16 runs) | 0 violations | 0 violations | 0 after fixes; before: white text on the orange dark accent, 2 unnamed close buttons | 0 violations |
 | 44 px targets at 390 px | pass | 32 to 40 px by default; 5 override rules; the text input is 42 px inside its 44 px frame | 28 to 42 px by default; 3 override rules | 36 to 40 px by default; 4 height edits in the copied source |
