@@ -122,7 +122,7 @@ async function callback({ request, url }) {
 }
 
 // The page a sign-in pop-up lands on: it tells the page that opened it and closes itself. No script source but this inline one is needed.
-const POPUP_DONE_PAGE = `<!doctype html><meta charset="utf-8"><title>Signed in</title><p>Signed in. You can close this window.</p><script>try{window.opener&&window.opener.postMessage({type:'xt-signed-in'},location.origin)}catch(e){}window.close()</script>`
+const POPUP_DONE_PAGE = `<!doctype html><meta charset="utf-8"><title>Signed in</title><p>Signed in. You can close this window.</p><script>if(window.opener)window.opener.postMessage({type:'xt-signed-in'},location.origin);window.close()</script>`
 
 /** GET /api/auth/me: cookie session or bearer token. `user` is null when signed out. */
 async function me({ request }) {
