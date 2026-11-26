@@ -97,6 +97,8 @@ describe('parsers', () => {
     expect(dependencies('Depends on #12; done when #13 closes.').refs).toEqual([12])
     expect(dependencies('Depends on: #5. Blocked by #6.').refs).toEqual([5, 6])
     expect(dependencies('Depends on #3 and not blocked by #8.').refs).toEqual([3])
+    expect(dependencies('Depends on #2; goes before #3.')).toMatchObject({ refs: [2], before: [3] })
+    expect(dependencies('Depends on #2; before #3 resumes.')).toMatchObject({ refs: [2], before: [3] })
     expect(dependencies('Depends on: #359 merged. Server only: it does not wait for #327.').refs).toEqual([359])
     expect(dependencies('Depends on: none (#278 is merged). Goes before #279 resumes.')).toMatchObject({ refs: [278], before: [279] })
     expect(dependencies('This is no longer depends on #5. Not blocked by A2.')).toMatchObject({ refs: [], named: [] })
@@ -184,6 +186,11 @@ describe('fetchSnapshot', () => {
 describe('allowed fixes stay narrow', () => {
   const base = (issues, comments = {}) => ({ repo: 'example/repo', issues, pulls: [], open_pulls: [], markers: {}, comments })
   const issue = (number, title, extra = {}) => ({ number, title, state: 'open', labels: [{ name: 'task' }], body: '', updated_at: TODAY, ...extra })
+
+  it('orders "Depends on #2; goes before #3" as 2, 1, 3', () => {
+    const snap = base([issue(1, 'E9 task A1: one', { body: 'Depends on #2; goes before #3.' }), issue(2, 'E9 task A2: two'), issue(3, 'E9 task A3: three')])
+    expect(order(snap)).toEqual({ order: [2, 1, 3], left: [] })
+  })
 
   it('puts a task that says "Goes before #n" ahead of #n in the order', () => {
     const snap = base([issue(10, 'E9 task A1: ten'), issue(20, 'E9 task A2: twenty', { body: 'Goes before #10.' })])

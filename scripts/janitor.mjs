@@ -91,7 +91,7 @@ const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 // Code spans are not dependencies; a "PR #n" or "see #n" is not one either.
 function dependencyClause(rest, refs, named) {
   const [keyword] = /^\S+\s+\S+/.exec(rest)
-  const tail = rest.slice(keyword.length).split(/\b(?:Done when|PR (?:body )?lines?|Owner steps|depends on|blocked by|starts after)\b|\.\s+(?=[A-Z])/i)[0]
+  const tail = rest.slice(keyword.length).split(/\b(?:Done when|PR (?:body )?lines?|Owner steps|depends on|blocked by|starts after|goes before)\b|[.;,]\s*before\s+#|\.\s+(?=[A-Z])/i)[0]
   const text = (keyword + tail).replace(/`[^`]*`/g, ' ')
   for (const m of text.matchAll(/(PR\s+|see\s+)?#(\d+)/gi)) if (!m[1]) refs.add(Number(m[2]))
   // Task ids named without a number, outside parentheses: "Depends on: M5 (see #439)" names M5; "C2 (#418)" has its number.
@@ -339,10 +339,10 @@ export function analyze(snapshot, { today = new Date().toISOString(), staleDays 
     deps: new Map(open.map((i) => [i.number, dependencies(i.body)])),
     loaded: (i) => comments[i.number] || comments[String(i.number)],
     marked: (kind, i) => (markers[kind] || []).includes(i.number),
-    // Merged PRs whose title or body says "Closes", "Fixes", "Resolves" or "Implements #n".
     // Unknown (a snapshot without open_pulls) counts as having one. A comment that links a PR counts too.
     hasOpenPr: (i) => !Array.isArray(snapshot.open_pulls) || snapshot.open_pulls.some((p) => new RegExp(`#${i.number}\\b`).test(`${p.title}\n${p.body || ''}`))
       || (c.loaded(i) || []).some((x) => /\bPR #\d+|\/pull\/\d+/.test(x.body || '')),
+    // Merged PRs whose title or body says "Closes", "Fixes", "Resolves" or "Implements #n".
     prsNaming: (n) => [...(snapshot.pulls || [])].filter((p) => new RegExp(`\\b(closes|fixes|resolves|implements)\\s+#${n}\\b`, 'i').test(`${p.title}\n${p.body || ''}`)).map((p) => p.number).sort((a, b) => a - b),
     scope: (i) => i.parent ?? taskId(i)?.prefix ?? null,
     add: (kind, issues, what, fix, act = 'dispatcher') => out.push({ kind, issues, what, fix, act })
