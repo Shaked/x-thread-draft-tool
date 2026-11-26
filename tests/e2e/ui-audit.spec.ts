@@ -153,6 +153,15 @@ async function devToken(request: APIRequestContext, login: string, admin = false
 }
 
 type Seed = { title: string; posts: unknown[] }
+// Fixed audit rows for the audit page case: plain account data, no secrets.
+const ADMIN_AUDIT = {
+  events: Array.from({ length: 12 }, (_, i) => ({
+    id: `ui-audit-${i}`, created_at: `2026-11-25T10:${String(i).padStart(2, '0')}:00.000Z`, actor_login: 'shaked',
+    action: ['suspend_user', 'unsuspend_user', 'delete_user'][i % 3], outcome: 'done', target_github_id: '42', target_login: 'bob',
+    details: { reason: 'ui audit' }
+  }))
+}
+
 const ADMIN_STATS = {
   stats: {
     users: 12, users_suspended: 1, drafts: 40, published_drafts: 9, posts: 130, images: 7, api_tokens_active: 3, connected_apps: 2,
@@ -179,7 +188,7 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
       return route.fulfill({ json: HEBREW_CHANGELOG })
     }
     // The admin pages need the admin's browser session (a bearer token never passes): answer the two calls they make.
-    if (pagePath === '/admin') {
+    if (pagePath === '/admin' || pagePath === '/admin/audit') {
       const url = new URL(route.request().url())
       if (url.pathname === '/api/auth/me') {
         return route.fetch({ headers: { ...route.request().headers(), authorization: `Bearer ${token}` } }).then(async (res) => {
@@ -188,6 +197,7 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
         })
       }
       if (url.pathname === '/api/admin/stats') return route.fulfill({ json: ADMIN_STATS })
+      if (url.pathname === '/api/admin/audit') return route.fulfill({ json: ADMIN_AUDIT })
     }
     return route.continue({ headers: { ...route.request().headers(), authorization: `Bearer ${token}` } })
   })
