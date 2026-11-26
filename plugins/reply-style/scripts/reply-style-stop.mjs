@@ -41,7 +41,7 @@ export function main() {
     config = loadConfig({ env: process.env })
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error
-    process.stderr.write(`reply-style: config ignored: ${error.message}\n`)
+    process.stderr.write(`reply-style: check skipped, config broken: ${error.message}\n`)
     return
   }
   const result = decide(input, process.env, config)

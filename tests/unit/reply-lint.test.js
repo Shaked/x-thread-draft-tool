@@ -1,5 +1,8 @@
 // @vitest-environment node
 import { spawnSync } from 'node:child_process'
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { readFileSync, readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { HEADINGS, lint } from '../../scripts/reply-lint.mjs'
@@ -155,5 +158,41 @@ describe('scripts/reply-lint.mjs wrapper (the plugin lint with this repo config)
   it('lets --config override the repo file (a missing one exits 2)', () => {
     const run = spawnSync('node', [SCRIPT, '--config', '/nonexistent/agent-kit.json', GOOD], { encoding: 'utf8' })
     expect(run.status).toBe(2)
+  })
+})
+
+describe('wrapper edge cases (Opus review of PR 530)', () => {
+  it('works from a checkout path with a space', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'repo copy '))
+    cpSync(new URL('../../scripts', import.meta.url), join(dir, 'scripts'), { recursive: true })
+    cpSync(new URL('../../plugins', import.meta.url), join(dir, 'plugins'), { recursive: true })
+    cpSync(new URL('../../.claude/agent-kit.json', import.meta.url), join(dir, '.claude', 'agent-kit.json'))
+    const run = spawnSync('node', [join(dir, 'scripts', 'reply-lint.mjs')], { input: 'Blocked on Shaked\n', encoding: 'utf8' })
+    expect(run.status).toBe(0)
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('a broken settings file exits 2 with a message, not a stack trace', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'repo-'))
+    cpSync(new URL('../../scripts', import.meta.url), join(dir, 'scripts'), { recursive: true })
+    cpSync(new URL('../../plugins', import.meta.url), join(dir, 'plugins'), { recursive: true })
+    mkdirSync(join(dir, '.claude'))
+    writeFileSync(join(dir, '.claude', 'agent-kit.json'), '{bad')
+    const run = spawnSync('node', [join(dir, 'scripts', 'reply-lint.mjs')], { input: 'x\n', encoding: 'utf8' })
+    expect(run.status).toBe(2)
+    expect(run.stderr).not.toMatch(/^\s+at /m)
+    const hook = spawnSync('node', [join(dir, 'scripts', 'reply-style-stop.mjs')], { input: JSON.stringify({ last_assistant_message: 'x' }), env: { PATH: process.env.PATH, REPLY_STYLE: 'owner' }, encoding: 'utf8' })
+    expect(hook.status).toBe(0)
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('an allowed Implements line still gets the option-letters and long-line checks', () => {
+    const line = `Implements #273 Task R0 ${'word '.repeat(40)} A or B`
+    expect(rules(line)).toEqual(expect.arrayContaining(['option-letters', 'long-line']))
+  })
+
+  it('--config with no path exits 2', () => {
+    const SCRIPT = new URL('../../scripts/reply-lint.mjs', import.meta.url).pathname
+    expect(spawnSync('node', [SCRIPT, '--config'], { input: 'x', encoding: 'utf8' }).status).toBe(2)
   })
 })

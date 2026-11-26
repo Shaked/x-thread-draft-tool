@@ -251,9 +251,9 @@ export function lint(text, { template = false, kind = 'reply', app = '' } = {}, 
     if (fenced) { fencedLines.push(n); return }
     prose.push({ text: raw, n })
     if (!headlineAt && raw.trim()) headlineAt = n
-    // A line the config allows (reply-style.allowLines, such as a required PR body line) is not checked.
-    if (rules.allowLines.some((re) => re.test(raw))) return
-    const line = visible(raw)
+    // A line the config allows (reply-style.allowLines, such as a required PR body line) skips the label and word
+    // checks on its visible text; the checks on the raw line (option letters, length, emoji, filler) still run.
+    const line = rules.allowLines.some((re) => re.test(raw)) ? '' : visible(raw)
     if (kind === 'changelog' && (LABEL.test(line) || /`/.test(raw))) add(n, 'internal-label', 'plain words only: no issue numbers, task ids or code')
     LABEL.lastIndex = 0
     for (const m of line.matchAll(LABEL)) {
@@ -277,6 +277,11 @@ export function main(argv = process.argv.slice(2)) {
   const app = argv.find((a) => a.startsWith('--app='))?.slice(6) || ''
   const configAt = argv.indexOf('--config')
   const configFile = configAt === -1 ? undefined : argv[configAt + 1]
+  if (configAt !== -1 && !configFile) {
+    console.error('--config needs a file path')
+    process.exitCode = 2
+    return 2
+  }
   const file = argv.find((a, i) => !a.startsWith('--') && (configAt === -1 || i !== configAt + 1))
   let config
   try {

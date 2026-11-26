@@ -41,6 +41,10 @@ export function main(argv = process.argv) {
     return
   }
   const configAt = argv.indexOf('--config')
+  if (configAt !== -1 && !argv[configAt + 1]) {
+    console.error('--config needs a file path')
+    process.exit(2)
+  }
   let config
   try {
     config = loadConfig({ file: configAt === -1 ? undefined : argv[configAt + 1] })

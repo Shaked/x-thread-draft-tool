@@ -24,7 +24,7 @@ so a reply makes sense without the agent's context. Owner request of 2026-11-21,
   `tests/unit/fixtures/reply-lint/golden/<kind>/`. Each kind has `good-*.md` files that pass and
   `bad-*.md` files that fail for exactly the rules the test names (`WANT` in the test maps each file name to its rules). A kind without fixtures fails the test.
   The rules `loose-label` (a `**Done:**` line instead of the heading) and `empty-details` came from that issue.
-- Stop hook (#486): `.claude/settings.json` runs `scripts/reply-style-stop.mjs` when a turn ends. It lints
+- Stop hook (#486): `.claude/settings.json` runs `plugins/reply-style/scripts/reply-style-stop.mjs` (`scripts/reply-style-stop.mjs` wraps it for tests) when a turn ends. It lints
   `last_assistant_message` with the template checks and, on a failure, returns `{"decision":"block","reason":...}`
   with the failing rules, so the agent rewrites the reply. A second pass (`stop_hook_active`) is never blocked.
   **How a session opts in:** the variable `REPLY_STYLE=owner` is in the session's environment when it starts. A local
