@@ -35,7 +35,7 @@ function response(body, remaining) {
  * A fake GitHub: answers each REST path from the fixture (`overrides` replaces parts of it). Every URL is recorded.
  * `remaining` is the rate-limit header; `dropAfterCalls` makes it 99 from that call on.
  */
-function fakeGitHub({ remaining, dropAfterCalls, totalExtra = 0, overrides = {} } = {}) {
+function fakeGitHub({ remaining, dropAfterCalls, totalExtra = 0, totalExtraDay = null, overrides = {} } = {}) {
   const asked = []
   const data = { ...API, ...overrides }
   const fetchImpl = async (url) => {
@@ -55,7 +55,8 @@ function fakeGitHub({ remaining, dropAfterCalls, totalExtra = 0, overrides = {} 
       const page = Number(q.get('page') ?? 1)
       const per = Number(q.get('per_page') ?? 100)
       const slice = matching.slice((page - 1) * per, page * per)
-      return response({ total_count: distinct + totalExtra, workflow_runs: slice }, left)
+      const extra = totalExtraDay === null || totalExtraDay === from ? totalExtra : 0
+      return response({ total_count: distinct + extra, workflow_runs: slice }, left)
     }
     const jobs = path.match(/^\/actions\/runs\/(\d+)\/jobs$/)
     if (jobs) return response({ jobs: data.jobs[jobs[1]] ?? [] }, left)
@@ -288,21 +289,18 @@ describe('ops-emit: review fixes on #472', () => {
     expect(checked.events).toHaveLength(body.events.length)
   })
 
-  it('a duplicate on one page cannot make a listing with a missing run look complete', async () => {
-    // Total is 4 distinct runs on day 24 (102, 104 and two more), but the answer lists 104 twice and leaves one out.
-    const day24 = API.runs.filter((r) => r.created_at.slice(0, 10) === '2026-11-24')
-    const extra = { ...day24[0], id: 9001, created_at: '2026-11-24T07:00:00Z', name: 'Tests', conclusion: 'success', status: 'completed' }
-    const runs = [...API.runs, extra]
-    const { fetchImpl } = fakeGitHub({ overrides: { runs } })
-    const listed = await fetchImpl(`https://api.github.com/repos/${FULL}/actions/runs?created=2026-11-24..2026-11-24&per_page=100&page=1`)
-    const body = await listed.json()
-    expect(body.total_count).toBe(3)
-    // Now make the answer hold a duplicate in place of a run: distinct 2 against total 3 must be incomplete.
-    const dup = [day24[0], day24[0]]
-    const fake2 = fakeGitHub({ overrides: { runs: dup }, totalExtra: 1 })
-    const result = await collectRepo(REPO, { ...clients(fake2.fetchImpl), now: NOW })
+  it('a duplicate on one page cannot make a day with a missing run look complete', async () => {
+    // Day 2026-11-24 holds two distinct runs (102 and 104) but its total_count says three: one run is missing from the
+    // answer, and 104 is listed twice in its place. Raw counting would call the day complete; distinct counting must not.
+    const { fetchImpl } = fakeGitHub({
+      overrides: { runs: [...API.runs, API.runs.find((r) => r.id === 104)] },
+      totalExtra: 1,
+      totalExtraDay: '2026-11-24'
+    })
+    const result = await collectRepo(REPO, { ...clients(fetchImpl), now: NOW })
     expect(result.countable).toBe(false)
     expect(result.counters).toEqual([])
+    expect(result.cursor).toBeNull()
   })
 
   it('takes the newest success or failure of a deployment that is now inactive, so it is not dropped', async () => {
