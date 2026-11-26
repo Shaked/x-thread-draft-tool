@@ -468,7 +468,10 @@ export function wrap(line, max = 150) {
     if (cut <= indent.length) {
       const free = (k) => {
         const head = rest.slice(0, k)
-        return head.split('`').length % 2 === 1 && (head.match(/\(/g) || []).length === (head.match(/\)/g) || []).length
+        const balanced = (head.match(/\(/g) || []).length === (head.match(/\)/g) || []).length
+        // Not between a label ("#101", "M5") and its "(description)".
+        const label = rest[k + 1] === '(' || /(?:#\d+|\b[A-Z]\d+)$/.test(head)
+        return head.split('`').length % 2 === 1 && balanced && !label
       }
       cut = [...rest.slice(0, max).matchAll(/ /g)].map((m) => m.index).filter((k) => k > indent.length && free(k)).pop() ?? -1
       if (cut <= indent.length) break

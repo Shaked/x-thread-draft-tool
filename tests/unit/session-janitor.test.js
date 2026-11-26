@@ -201,6 +201,10 @@ describe('edge cases from the review', () => {
   it('does not propose to archive a completed session that another finding names', () => {
     const old = edit('session_nohand', { updated_at: '2026-11-10T00:00:00Z' })
     expect(run(old).find((f) => f.kind === 'stale' && f.sessions[0] === 'session_nohand').action).toContain('Not yet')
+    // The session a duplicate finding keeps is never "can be archived" in the same report.
+    const keep = edit('session_dupa', { status_bucket: 'completed', updated_at: '2026-11-10T00:00:00Z' })
+    const kept = run(keep, { 108: [...comments[108], owner('2026-11-26T09:30:00Z', 'HANDOFF A8 - partial\nRELEASE'), owner('2026-11-26T09:40:00Z', 'CLAIM session session_dupa | branch b')] })
+    expect(kept.find((f) => f.kind === 'stale' && f.sessions[0] === 'session_dupa').action).toContain('Not yet')
     const dup = edit('session_dupb', { status_bucket: 'completed', updated_at: '2026-11-10T00:00:00Z' })
     // session_dupb also has a no-handoff finding on #108, so it is held back; the duplicate-session finding alone would not.
     expect(run(dup).find((f) => f.kind === 'stale' && f.sessions[0] === 'session_dupb').action).toContain('Not yet')
@@ -252,6 +256,19 @@ describe('the templated summary', () => {
     expect(lint(text, { template: true })).toEqual([])
     expect(text).toContain('#999 (not in the issue list)')
     expect(text.split('\n').filter((l) => l.startsWith('| ') && l.includes('`session_')).every((l) => l.split(' | ').length === 5)).toBe(true)
+  })
+
+  it('counts pass 1 owner and dispatcher findings in the combined summary', () => {
+    const pass1Findings = [
+      { kind: 'labels', issues: [105], what: '{#105}: the body says `held` and names an owner question.', fix: 'Ask the owner on {#105}.', act: 'owner' },
+      { kind: 'stale', issues: [104], what: '{#104}: no activity for 20 days.', fix: 'Check it is still wanted.', act: 'dispatcher' }
+    ]
+    const text = formatSummary([], { ...options, applied: [], pass1Findings })
+    expect(lint(text, { template: true })).toEqual([])
+    expect(text).toContain('You need to do 1 thing (below).')
+    expect(text).toContain('acts on the 1 `dispatcher` finding below')
+    expect(text).toContain('| Pass 1 findings (issues, under Details) | 2 |')
+    expect(text).toContain('0 findings and 2 from pass 1, 0 fixes applied (checked).')
   })
 
   it('pads a short PR title with "pull request"', () => {

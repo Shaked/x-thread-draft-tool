@@ -163,9 +163,11 @@ describe('report text', () => {
     expect(lines.length).toBeGreaterThan(1)
     expect(lines.every((l) => l.length <= 60 && l.split('`').length % 2 === 1)).toBe(true)
     expect(shortName({ title: 'E407 task M9: what #354 still misses: merge' })).toBe('what still misses: merge')
-    const label = wrap(`- ${'word '.repeat(22)}then #101 (export button for drafts) is next ${'more '.repeat(8)}end`, 120)
-    expect(label.length).toBeGreaterThan(1)
-    expect(lint(label.join('\n'))).toEqual([])
+    for (const pad of [21, 22, 23, 24]) {
+      const label = wrap(`- ${'word '.repeat(pad)}then #101 (export button for drafts) is next ${'more '.repeat(8)}end`, 120)
+      expect(label.length).toBeGreaterThan(1)
+      expect(lint(label.join('\n')), `pad ${pad}`).toEqual([])
+    }
   })
 
   it('wraps a long line at a comma', () => {

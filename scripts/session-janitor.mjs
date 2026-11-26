@@ -18,7 +18,7 @@
 
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { analyze as passOne, commentFacts, describeAll, expand, normalize, REPO, shortName, TRUSTED } from './janitor.mjs'
+import { analyze as passOne, commentFacts, describeAll, expand, migrationTables, normalize, REPO, shortName, TRUSTED } from './janitor.mjs'
 
 export const REVIEW_HOURS = 2
 export const STALE_DAYS = 3
@@ -329,7 +329,9 @@ export function analyzeSessions(sessionsDoc, snapshot, { today, comments = {}, p
   for (const s of c.workers.filter((x) => !c.stuck.has(x.id))) {
     const first = [...c.matches.get(s.id).keys()].sort((a, b) => a - b)[0] ?? null
     // A duplicate-session finding already says to archive the completed ones, so it does not hold a session back.
-    checkStale(c, s, first, out.some((f) => f.kind !== 'duplicate-session' && f.sessions.includes(s.id)))
+    // except for the session it keeps.
+    const holds = (f) => f.sessions.includes(s.id) && (f.kind !== 'duplicate-session' || f.action.includes(code(s.id)))
+    checkStale(c, s, first, out.some(holds))
   }
   const rank = new Map(KINDS.map(([k], i) => [k, i]))
   return out.sort((a, b) => rank.get(a.kind) - rank.get(b.kind) || (a.issue ?? 0) - (b.issue ?? 0) || String(a.sessions[0]).localeCompare(String(b.sessions[0])))
@@ -407,31 +409,40 @@ export function describeSnapshot(snapshot) {
   return names
 }
 
-/**
- * The summary text (template: .claude/skills/reply-style/templates/janitor-summary.md). Pure: the golden test pins it.
- * counts: { sessions, pages, issues }; applied: [{ issue, what }]; pass1: the pass 1 report text, or ''.
- */
-export function formatSummary(findings, { counts, today, repo = REPO, names = new Map(), applied = [], pass1 = '' }) {
-  const seen = new Set([154])
-  const x = (text) => expand(text, names, seen)
-  const dispatcher = findings.filter((f) => f.act === 'dispatcher').length
-  const owner = findings.filter((f) => f.act === 'owner')
-  const lines = [
+/** The counts at the top and the TL;DR, up to the "What you need to do" heading. */
+function summaryTop(findings, { counts, today, applied, pass1Findings, dispatcher, owner }) {
+  return [
     `Janitor report, ${String(today).slice(0, 10)}: ${plural(counts.sessions, 'session')} read in ${plural(counts.pages, 'page')}, ${counts.inScope} in scope,`,
     `${plural(counts.issues, 'issue')} read, ${plural(findings.length, 'finding')} (counts checked).`,
     '',
     '| Finding kind | Count |',
     '|---|---|',
     ...KINDS.map(([k, label]) => `| ${label} (\`${k}\`) | ${findings.filter((f) => f.kind === k).length} |`),
+    ...(pass1Findings.length ? [`| Pass 1 findings (issues, under Details) | ${pass1Findings.length} |`] : []),
     '',
     '## TL;DR',
-    `The janitor matched ${plural(counts.inScope, 'session')} in scope with their issues: ${plural(findings.length, 'finding')}, ${plural(applied.length, 'fix', 'fixes')} applied (checked).`,
+    `The janitor matched ${plural(counts.inScope, 'session')} in scope with their issues: ${plural(findings.length, 'finding')}`
+      + `${pass1Findings.length ? ` and ${pass1Findings.length} from pass 1` : ''}, ${plural(applied.length, 'fix', 'fixes')} applied (checked).`,
     dispatcher ? `${plural(dispatcher, 'finding is', 'findings are')} for the dispatcher, in the table below.` : 'No finding is for the dispatcher.',
-    owner.length ? `You need to do ${owner.length} ${owner.length === 1 ? 'thing' : 'things'} (below).` : 'Nothing needed from you.',
+    owner ? `You need to do ${owner} ${owner === 1 ? 'thing' : 'things'} (below).` : 'Nothing needed from you.',
     '',
     '## What you need to do'
   ]
-  if (owner.length) owner.forEach((f, k) => lines.push(`${k + 1}. ${x(f.action)} Where: ${f.issue ? x(ref(f.issue)) : 'the session below'}.`))
+}
+
+/**
+ * The summary text (template: .claude/skills/reply-style/templates/janitor-summary.md). Pure: the golden test pins it.
+ * counts: { sessions, pages, issues }; applied: [{ issue, what }]; pass1: the pass 1 report text, or ''.
+ */
+export function formatSummary(findings, { counts, today, repo = REPO, names = new Map(), applied = [], pass1 = '', pass1Findings = [] }) {
+  const seen = new Set([154])
+  const x = (text) => expand(text, names, seen)
+  // Pass 1 findings count too: their owner items go to the owner, the rest to the dispatcher. Their text is under Details.
+  const one = pass1Findings.map((f) => ({ issue: f.issues?.[0] ?? null, evidence: f.what, action: f.fix, act: f.act }))
+  const dispatcher = [...findings, ...one].filter((f) => f.act === 'dispatcher').length
+  const owner = [...findings, ...one].filter((f) => f.act === 'owner')
+  const lines = summaryTop(findings, { counts, today, applied, pass1Findings, dispatcher, owner: owner.length })
+  if (owner.length) owner.forEach((f, k) => lines.push(`${k + 1}. ${x(f.action)} Where: ${f.issue ? x(ref(f.issue)) : 'the finding below'}.`))
   else lines.push('Nothing.')
   lines.push('', '## Waiting for')
   if (dispatcher) {
@@ -513,7 +524,9 @@ function main() {
     repo: snapshot.repo || REPO,
     names: describeSnapshot(snapshot),
     applied: opt('--applied') ? json(opt('--applied')) : [],
-    pass1: opt('--pass1') ? readFileSync(opt('--pass1'), 'utf8') : ''
+    pass1: opt('--pass1') ? readFileSync(opt('--pass1'), 'utf8') : '',
+    // The same findings pass 1 printed, so its owner and dispatcher items are counted at the top.
+    pass1Findings: opt('--pass1') ? passOne({ ...snapshot, comments: { ...(snapshot.comments || {}), ...comments } }, { today, knownTables: migrationTables() }) : []
   })
   process.stdout.write(text)
   console.error(`summary: ${text.length} characters${text.length > COMMENT_MAX ? `, over ${COMMENT_MAX}: leave out --pass1 and post pass1.txt as a second comment` : ''}`)
