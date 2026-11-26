@@ -1,14 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, render, waitFor } from '@testing-library/react'
 import Count from '../../src/ui/Count.jsx'
-import { KIT_KEY } from '../../src/utils/skin.js'
+import { allowFlags, KIT_KEY } from '../../src/utils/skin.js'
 
 // The 280-character counter behind the "Components" feature flag (#406, Rare UI animated counter), through src/ui/Count.jsx.
 // The counter's own chunk loads after the first render, so the flag-on tests wait for the rolling digits.
 const rareCounter = (container) => container.querySelector('.ui-rare-counter')
 
 describe('Count (Rare UI animated counter, feature flag)', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => {
+    localStorage.clear()
+    allowFlags(true)
+  })
   afterEach(() => {
     cleanup()
     localStorage.clear()
