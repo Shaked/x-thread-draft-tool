@@ -33,7 +33,7 @@ const POSTS = {
 const MAX_IMAGES = 4
 const PUBLISHED_ERROR = 'This draft is published. Duplicate it to edit.'
 const IMAGE_NOT_FOUND = 'Image not found in this draft. Its posts and image urls are in get_draft_outline.'
-const VERSION = { type: 'integer', minimum: 1, description: 'The draft version from get_draft. The change is refused if the draft changed since.' }
+const VERSION = { type: 'integer', minimum: 1, maximum: 2147483647, description: 'The draft version from get_draft. The change is refused if the draft changed since.' }
 const ID_ONLY = { type: 'object', properties: { id: UUID }, required: ['id'] }
 const FORMATS = { type: 'string', enum: ['json', 'text', 'formatted'], default: 'json' }
 
