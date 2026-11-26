@@ -4,6 +4,7 @@
 - It names the likely cause for CI checks, and links one gate issue that holds the diagnosis.
 
 Area: Speed
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/467
 
 ## Technical details
 
