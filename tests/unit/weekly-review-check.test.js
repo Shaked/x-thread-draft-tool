@@ -230,6 +230,7 @@ describe('the weekly-started Telegram line', () => {
     const msg = buildMessage('weekly-started', { title: 'Weekly review 2026-11-30', url: 'https://github.com/Shaked/x-thread-draft-tool/issues/1' })
     expect(msg.plain).toContain('Weekly review started')
     expect(msg.plain).toContain('Weekly review 2026-11-30')
-    expect(msg.plain).toContain('Nothing needed.')
+    expect(msg.plain).toContain('opens up to three PRs')
+    expect(msg.plain).not.toMatch(/nothing needed/i)
   })
 })

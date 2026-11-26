@@ -379,9 +379,13 @@ for (const size of SIZES) {
 
         // Show older: the next entries are added, focus moves to the first new one, the page does not overflow.
         const before = await entries.count()
+        // The page groups a day's entries by Area, so the first new entry is not always at DOM index `before`:
+        // read its id from the answer and check that exact entry has focus.
+        const olderAnswer = page.waitForResponse((res) => res.url().includes('/changelog?') && res.url().includes('before='))
         await page.getByRole('button', { name: 'Show older' }).click()
+        const firstNew = (await (await olderAnswer).json()).entries[0].id
         await expect.poll(() => entries.count()).toBeGreaterThan(before)
-        await expect(entries.nth(before)).toBeFocused()
+        await expect(page.locator(`#changelog-${firstNew}`)).toBeFocused()
         expect(await overflows(page)).toBe(false)
 
         // The last entry is not covered by the bottom bar once the page is scrolled to its end.

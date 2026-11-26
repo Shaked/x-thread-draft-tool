@@ -1,0 +1,47 @@
+name: Metrics daily
+
+# Central metrics plan (#439), task M3 (#449); epic #407. Every 6 hours scripts/ops-emit.mjs reads CI runs,
+# merges, deployments and speed stages from the GitHub API and posts them to POST /api/ops/events (M2).
+# The route accepts only this file's OIDC token on main (server/oidc-ci.js). O5 (#336) adds its own step later.
+# Retention: 14 days for events, 400 days for counters. Re-runs started more than 3 days after the run are not collected.
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  deployments: read
+  pull-requests: read
+  id-token: write
+
+# One run at a time: two collections must not write the same day's counters together.
+concurrency:
+  group: metrics-daily
+  cancel-in-progress: false
+
+jobs:
+  emit:
+    name: Ops events
+    # A hand-started run on another branch would read everything and then be refused at the POST: main only.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      # No `npm ci`: scripts/ops-emit.mjs imports only node: modules, scripts/speed-metrics.mjs and server/ops/sources.js.
+      - name: Collect and post the ops events
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ops-emit.mjs

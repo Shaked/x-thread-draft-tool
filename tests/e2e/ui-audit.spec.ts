@@ -15,7 +15,7 @@ const OUT = path.join('test-results', 'ui-audit')
 
 // Pages under audit. A page joins when its migration PR lands (plan section 5, rules for every migration PR).
 // `drafts` are seeded for that page's user (the draft list with rows, one Hebrew title for the RTL pass).
-const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare' }[] = [
+const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare'; kit?: 'rare' }[] = [
   { name: 'about', path: '/about' },
   { name: 'flags', path: '/settings/flags' },
   { name: 'changelog', path: '/changelog' },
@@ -69,6 +69,10 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
       }
     ]
   },
+  // The real Rare UI components (feature flag "Components", #406): the theme selector in the open menu, with the
+  // purple look and with the Rare UI look.
+  { name: 'drafts-menu-kit', path: '/', menu: true, kit: 'rare', drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }] },
+  { name: 'drafts-menu-kit-rare', path: '/', menu: true, kit: 'rare', skin: 'rare', drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }] },
   // The same page with the menu drawer open.
   {
     name: 'drafts-menu',
@@ -131,7 +135,7 @@ async function devToken(request: APIRequestContext, login: string, admin = false
 }
 
 type Seed = { title: string; posts: unknown[] }
-async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare' } = {}) {
+async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare'; kit?: 'rare' } = {}) {
   const phone = c.width < 800
   const context: BrowserContext = await browser.newContext({
     viewport: { width: c.width, height: phone ? 844 : 800 },
@@ -160,6 +164,7 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   const page = await context.newPage()
   await page.addInitScript((value) => localStorage.setItem('xt-theme', value), c.theme)
   if (extra.skin) await page.addInitScript((value) => localStorage.setItem('xt-skin', value), extra.skin)
+  if (extra.kit) await page.addInitScript((value) => localStorage.setItem('xt-kit', value), extra.kit)
   await page.goto(`${BASE}${pagePath.replace(':first', firstDraftId)}`, { waitUntil: 'networkidle' })
   await expect(extra.heading ? page.getByRole('heading', { name: extra.heading, level: 1 }) : page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(page.getByText('Loading…')).toHaveCount(0)
@@ -170,6 +175,8 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
     await expect(page.locator('#app-menu')).toBeVisible()
     await page.waitForTimeout(300)
   }
+  // A Rare UI component loads in its own chunk: wait until it has replaced the current one.
+  if (extra.kit) await expect(page.locator('[class*="ui-rare-"]').first()).toBeVisible()
   return { context, page }
 }
 
@@ -246,7 +253,7 @@ test.describe('UI audit', () => {
   for (const pageInfo of MIGRATED) {
     for (const c of CASES) {
       test(`${pageInfo.name} at ${c.name}`, async ({ browser, request }) => {
-        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts, menu: pageInfo.menu, skin: pageInfo.skin })
+        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts, menu: pageInfo.menu, skin: pageInfo.skin, kit: pageInfo.kit })
         try {
           // No horizontal scroll (plan: scrollWidth <= innerWidth).
           const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }))

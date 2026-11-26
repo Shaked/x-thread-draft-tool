@@ -119,6 +119,12 @@ export const OPENAPI = {
   },
   paths: {
     '/health': { get: { summary: 'Health check', responses: json({ type: 'object', properties: { ok: { type: 'boolean' } } }) } },
+    '/ops/events': {
+      post: {
+        summary: 'Metrics ingest: one batch from the metrics-daily workflow (its GitHub OIDC token only)',
+        responses: json({ type: 'object', properties: { accepted: { type: 'integer' }, duplicates: { type: 'integer' }, refused: { type: 'integer' }, cursor: { type: 'string', nullable: true } } })
+      }
+    },
     '/version': {
       get: {
         summary: 'The running version: commit, deploy time and database schema (public)',
