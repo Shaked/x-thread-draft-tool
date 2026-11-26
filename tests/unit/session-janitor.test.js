@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { lint, HEADINGS } from '../../scripts/reply-lint.mjs'
 import { spawnSync } from 'node:child_process'
-import { analyzeSessions, claimOf, inScope, KINDS, needs, normalizeSession, quote, SESSION_FIELDS, titleIssue, validateSessions } from '../../scripts/session-janitor.mjs'
+import { analyzeSessions, claimOf, describeSnapshot, formatSummary, inScope, KINDS, summaryCounts, needs, normalizeSession, quote, SESSION_FIELDS, titleIssue, validateSessions } from '../../scripts/session-janitor.mjs'
 
 const load = (name) => JSON.parse(readFileSync(new URL(`./fixtures/session-janitor/${name}`, import.meta.url), 'utf8'))
 const sessions = load('sessions.json')
@@ -219,5 +220,37 @@ describe('edge cases from the review', () => {
     const ok = cli('findings', `${dir}/sessions.json`, `${dir}/snapshot.json`, '--comments', `${dir}/comments.json`, '--pulls', `${dir}/pulls.json`)
     expect(JSON.parse(ok.stdout)).toEqual(findings)
     expect(cli('need', `${dir}/sessions-more.json`, `${dir}/snapshot.json`).status).toBe(1)
+  })
+})
+
+describe('the templated summary', () => {
+  const counts = summaryCounts(sessions, snapshot)
+  const options = { counts, today: sessions.read_at, repo: snapshot.repo, names: describeSnapshot(snapshot), applied: load('applied.json') }
+  const text = formatSummary(findings, options)
+
+  it('matches the golden file exactly', () => {
+    expect(text).toBe(readFileSync(new URL('./fixtures/session-janitor/summary.golden.md', import.meta.url), 'utf8'))
+  })
+
+  it('passes the reply-style lint, with findings, with none, and with an owner finding', () => {
+    expect(lint(text, { template: true })).toEqual([])
+    expect(lint(formatSummary([], { ...options, applied: [] }), { template: true })).toEqual([])
+    const owner = [{ kind: 'stuck', sessions: ['session_x'], issue: 105, evidence: 'session `blocked`, it asks a money question.', action: 'Answer the question on {#105}.', act: 'owner' }]
+    const withOwner = formatSummary(owner, options)
+    expect(lint(withOwner, { template: true })).toEqual([])
+    expect(withOwner).toContain('You need to do 1 thing (below).')
+  })
+
+  it('puts the counts first, with every kind', () => {
+    const top = text.split('## TL;DR')[0]
+    expect(top).toContain('14 sessions read in 1 page, 13 in scope,')
+    for (const [kind] of KINDS) expect(top).toContain(`\`${kind}\``)
+  })
+
+  it('follows the template headings in order', () => {
+    const template = readFileSync(new URL('../../.claude/skills/reply-style/templates/janitor-summary.md', import.meta.url), 'utf8')
+    const order = (t) => [...t.matchAll(/^## (.+)$/gm)].map((m) => m[1])
+    expect(order(template)).toEqual([...HEADINGS, 'Details'])
+    expect(order(text)).toEqual(order(template))
   })
 })

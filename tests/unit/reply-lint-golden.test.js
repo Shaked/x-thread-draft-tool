@@ -20,7 +20,8 @@ const WANT = {
   'owner-action': { 'bad-loose-label': ['loose-label', 'headings'], 'bad-steps-count': 'steps', 'bad-slop': 'slop' },
   incident: { 'bad-loose-label': ['loose-label', 'headings'], 'bad-emoji': 'emoji', 'bad-missing-heading': 'headings' },
   telegram: { 'bad-no-emoji-headline': 'shape', 'bad-empty-section': 'empty-section', 'bad-too-long': 'shape' },
-  changelog: { 'bad-label': 'internal-label', 'bad-area': 'shape', 'bad-no-title': 'shape' }
+  changelog: { 'bad-label': 'internal-label', 'bad-area': 'shape', 'bad-no-title': 'shape' },
+  'janitor-summary': { 'bad-missing-heading': 'headings', 'bad-bare-label': 'bare-label' }
 }
 const kinds = readdirSync(TEMPLATES).filter((f) => f.endsWith('.md')).map((f) => {
   const name = f.replace(/\.md$/, '')
@@ -30,8 +31,8 @@ const files = (kind) => readdirSync(new URL(`${kind}/`, GOLDEN)).filter((f) => f
 const text = (kind, file) => readFileSync(new URL(`${kind}/${file}`, GOLDEN), 'utf8')
 
 describe('reply-lint golden fixtures', () => {
-  it('has seven kinds, and every template kind has a good and a bad fixture', () => {
-    expect(kinds.sort()).toEqual(['changelog', 'handoff', 'incident', 'owner-action', 'owner-question', 'status-report', 'telegram'])
+  it('has eight kinds, and every template kind has a good and a bad fixture', () => {
+    expect(kinds.sort()).toEqual(['changelog', 'handoff', 'incident', 'janitor-summary', 'owner-action', 'owner-question', 'status-report', 'telegram'])
     for (const kind of kinds) {
       const names = files(kind)
       expect(names.some((f) => f.startsWith('good-')), `${kind} has no good fixture`).toBe(true)

@@ -9,12 +9,16 @@
 //   node scripts/session-janitor.mjs findings sessions.json snapshot.json [--comments f] [--pulls f] [--today ISO]
 //       [--review-hours N] [--stale-days N]
 //       Prints the findings as JSON, one object per finding.
+//   node scripts/session-janitor.mjs report sessions.json snapshot.json [same options] [--applied applied.json]
+//       [--pass1 pass1.txt]
+//       Prints the summary in the template .claude/skills/reply-style/templates/janitor-summary.md.
+//       applied.json lists the fixes the agent applied and checked: [{ "issue": n, "what": "closed as completed ..." }].
 //
 // analyzeSessions() is pure: the tests run it on fixtures.
 
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { analyze as passOne, commentFacts, normalize, REPO, TRUSTED } from './janitor.mjs'
+import { analyze as passOne, commentFacts, describeAll, expand, normalize, REPO, shortName, TRUSTED } from './janitor.mjs'
 
 export const REVIEW_HOURS = 2
 export const STALE_DAYS = 3
@@ -349,6 +353,12 @@ function context(sessionsDoc, snapshot, comments) {
   return c
 }
 
+/** The counts at the top of the summary: every session read, the ones in scope, pages and issues. */
+export function summaryCounts(doc, snapshot) {
+  const sessions = (doc.sessions || []).map(normalizeSession)
+  return { sessions: doc.read_total ?? sessions.length, inScope: scoped(sessions).length, pages: doc.pages, issues: (snapshot.issues || []).length }
+}
+
 /** Issues whose comments the report still needs, and open PRs whose checks it needs (for the `need` command). */
 export function needs(sessionsDoc, snapshot, comments = {}) {
   const c = context(sessionsDoc, snapshot, comments)
@@ -361,12 +371,75 @@ export function needs(sessionsDoc, snapshot, comments = {}) {
   return { issues, prs }
 }
 
+const LABELS = new Map(KINDS)
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+/** 3 to 6 words for every issue and pull request in the snapshot (open PRs too), keyed by number. */
+export function describeSnapshot(snapshot) {
+  const names = describeAll(snapshot)
+  for (const p of snapshot.open_pulls || []) if (!names.has(p.number)) names.set(p.number, shortName({ title: p.title || '' }))
+  return names
+}
+
+/**
+ * The summary text (template: .claude/skills/reply-style/templates/janitor-summary.md). Pure: the golden test pins it.
+ * counts: { sessions, pages, issues }; applied: [{ issue, what }]; pass1: the pass 1 report text, or ''.
+ */
+export function formatSummary(findings, { counts, today, repo = REPO, names = new Map(), applied = [], pass1 = '' }) {
+  const seen = new Set([154])
+  const x = (text) => expand(text, names, seen)
+  const dispatcher = findings.filter((f) => f.act === 'dispatcher').length
+  const owner = findings.filter((f) => f.act === 'owner')
+  const lines = [
+    `Janitor report, ${String(today).slice(0, 10)}: ${plural(counts.sessions, 'session')} read in ${plural(counts.pages, 'page')}, ${counts.inScope} in scope,`,
+    `${plural(counts.issues, 'issue')} read, ${plural(findings.length, 'finding')} (counts checked).`,
+    '',
+    '| Finding kind | Count |',
+    '|---|---|',
+    ...KINDS.map(([k, label]) => `| ${label} (\`${k}\`) | ${findings.filter((f) => f.kind === k).length} |`),
+    '',
+    '## TL;DR',
+    `The janitor matched ${plural(counts.inScope, 'session')} in scope with their issues: ${plural(findings.length, 'finding')}, ${plural(applied.length, 'fix', 'fixes')} applied (checked).`,
+    dispatcher ? `${plural(dispatcher, 'finding is', 'findings are')} for the dispatcher, in the table below.` : 'No finding is for the dispatcher.',
+    owner.length ? `You need to do ${owner.length} ${owner.length === 1 ? 'thing' : 'things'} (below).` : 'Nothing needed from you.',
+    '',
+    '## What you need to do'
+  ]
+  if (owner.length) owner.forEach((f, k) => lines.push(`${k + 1}. ${x(f.action)} Where: ${f.issue ? x(ref(f.issue)) : 'the session below'}.`))
+  else lines.push('Nothing.')
+  lines.push('', '## Waiting for')
+  if (dispatcher) {
+    lines.push(`- [#154 dispatcher queue issue](https://github.com/${repo}/issues/154): acts on the ${plural(dispatcher, '`dispatcher` finding')} below.`,
+      '  Expected: its next pass, time not known.')
+  } else lines.push('Nothing.')
+  lines.push('', '## Blocked on you')
+  if (owner.length) owner.forEach((f) => lines.push(`- ${x(f.evidence)}`))
+  else lines.push('Nothing.')
+  lines.push('', '## Done', `- Read ${plural(counts.sessions, 'session')} in ${plural(counts.pages, 'page')} (\`has_more\` false) and ${plural(counts.issues, 'issue')}, checked.`,
+    `- Checked the ${counts.inScope} sessions tagged \`pipeline\` or \`epic-<n>\` and their dispatcher; the others belong to other projects.`)
+  for (const a of applied) lines.push(`- ${x(ref(a.issue))}: ${a.what}, checked.`)
+  if (!applied.length) lines.push('- No fix applied in this run.')
+  lines.push('', '## Details', '### Findings')
+  if (!findings.length) lines.push('No findings.')
+  else {
+    lines.push('| Kind | Session | Issue | Evidence | Proposed action |', '|---|---|---|---|---|')
+    for (const f of findings) {
+      const sessions = f.sessions.length ? f.sessions.map(code).join(', ') : 'none'
+      const issue = f.issue ? x(ref(f.issue)) : 'none'
+      lines.push(`| ${LABELS.get(f.kind)} | ${sessions} | ${issue} | ${x(f.evidence)} | ${x(f.action)} \`${f.act}\` |`)
+    }
+  }
+  if (pass1.trim()) lines.push('', '### Pass 1 report (task janitor)', pass1.trim())
+  return lines.join('\n') + '\n'
+}
+
 function main() {
   const [cmd, sessionsFile, snapshotFile, ...rest] = process.argv.slice(2)
   const opt = (name) => { const k = rest.indexOf(name); return k === -1 ? null : rest[k + 1] }
   const json = (f) => (f ? JSON.parse(readFileSync(f, 'utf8')) : {})
-  if (!['need', 'findings'].includes(cmd) || !sessionsFile || !snapshotFile) {
-    console.error('usage: session-janitor.mjs need|findings sessions.json snapshot.json [--comments f] [--pulls f] [--today ISO] [--review-hours N] [--stale-days N]')
+  if (!['need', 'findings', 'report'].includes(cmd) || !sessionsFile || !snapshotFile) {
+    console.error('usage: session-janitor.mjs need|findings|report sessions.json snapshot.json [--comments f] [--pulls f] [--today ISO]'
+      + ' [--review-hours N] [--stale-days N] [--applied f] [--pass1 f]')
     process.exit(2)
   }
   const doc = json(sessionsFile)
@@ -403,7 +476,18 @@ function main() {
     reviewHours: number('--review-hours', REVIEW_HOURS),
     staleDays: number('--stale-days', STALE_DAYS)
   })
-  process.stdout.write(JSON.stringify(findings, null, 1) + '\n')
+  if (cmd === 'findings') {
+    process.stdout.write(JSON.stringify(findings, null, 1) + '\n')
+    return
+  }
+  process.stdout.write(formatSummary(findings, {
+    counts: summaryCounts(doc, snapshot),
+    today,
+    repo: snapshot.repo || REPO,
+    names: describeSnapshot(snapshot),
+    applied: opt('--applied') ? json(opt('--applied')) : [],
+    pass1: opt('--pass1') ? readFileSync(opt('--pass1'), 'utf8') : ''
+  }))
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
