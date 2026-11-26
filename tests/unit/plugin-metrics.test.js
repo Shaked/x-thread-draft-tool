@@ -83,6 +83,22 @@ describe('config', () => {
   })
 })
 
+describe('config edge cases', () => {
+  it('a top-level repo of the wrong type or shape is refused and the error names that key', () => {
+    expect(() => load(JSON.stringify({ repo: 7 }))).toThrow(/"repo" in .* must be a string/)
+    expect(() => load(JSON.stringify({ repo: 'sample-app' }))).toThrow(/"repo" in .* owner\/name/)
+  })
+  it('the command line refuses an unknown option, a missing file and an extra argument', () => {
+    const script = join(PLUGIN, 'scripts', 'metrics-config.mjs')
+    const file = join(FIXTURES, 'good-1.json')
+    const run = (...args) => spawnSync('node', [script, ...args], { encoding: 'utf8' })
+    expect(run('--nope').status).toBe(2)
+    expect(run('--config').status).toBe(2)
+    expect(run('--config', file, 'extra').status).toBe(2)
+    expect(run('--config', file).status).toBe(0)
+  })
+})
+
 describe('skills', () => {
   const names = readdirSync(SKILLS)
 

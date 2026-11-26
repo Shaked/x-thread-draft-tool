@@ -51,13 +51,16 @@ sent twice is stored once.
 | `git` / `merge` | merge commit | the base branch | `merged` | PR open to merge | `pr`, `files`, `docs_only` |
 | `speed` / `merge` | merge commit and stage | `ci`, `merge_wait`, `vercel`, `smoke`, `total` | `ok`, `over` | stage time | `limit_ms`, `pr` |
 | `deploy` / `deploy` | deployment id | `Production` or `Preview` | `success`, `failure` | created to success | `sha` |
-| `prod` / `error` | instance and sequence | route template, or `unmatched` | HTTP status, 4xx or 5xx | request time | `error`, `code`, `region`, `tool` |
+| `prod` / `error` | a random id | route template, or `unmatched` | HTTP status, 4xx or 5xx | request time | `error`, `code`, `region`, `tool` |
 
 Caps, as the service enforces them (its ingest code is the truth):
 - `at` is an ISO time between 14 days ago and 10 minutes from now. `ms` is a whole number from 0 to 2147483647, or left out.
-- Every string is cut to 120 characters. `attrs` keeps only the keys in the table, and at most 1 KB.
-- `link` is kept only when it starts with `https://github.com/<owner>/<name>/` of the same repository.
-- A name the repository does not list is stored as `other`.
+- `id` is at most 120 characters, else the event is refused. A wrong type for `ms` or `status`, or a `status` outside the table, also refuses it.
+- `attrs` keeps only the keys in the table, cuts each string to 120 characters, and must fit in 1 KB, else the event is refused.
+- `link` is kept only when it starts with `https://github.com/<owner>/<name>/` of the same repository, is at most 120
+  characters and has no `..`, `%2e` or `\`. Otherwise it is dropped and the event is stored without it.
+- A `name` over 120 characters, or one the service does not list, is stored as `other`. For `ci` the list is the repository's
+  workflows; for the other kinds it is fixed: the base branch, the stage names, `Production` and `Preview`.
 - A batch holds at most 500 events (413). A repository gets at most 5000 events and 200 counter rows per UTC day (429).
   Over 100000 stored rows, new events are refused (503).
 - The ingest route accepts only the identity token of the service's own scheduled workflow, from its default
@@ -79,8 +82,9 @@ The service does not take request numbers from other apps. An app that wants the
 
 ## Check it: dry run
 1. The service's collector has a flag, `--dry-run --repo <owner/name>`, that prints the batches it would send and
-   sends nothing. It needs `GITHUB_TOKEN` with read access in the environment. Run it for `repo` from the config.
+   sends nothing. It needs `GITHUB_TOKEN` with read access in the environment. Run it for `repo` from the config, on the
+   branch of your pull request: before the new source entry exists it stops with "no listed repo matches".
 2. Read the output: `repo_id` is the listed id; each event is in the table above; names are the listed workflows; no
    link leaves the repository; the counts are under the caps; no event holds log text or a person's data.
 3. After the pull request merges, the next scheduled run stores the events (every 6 hours when this was written), or run the collector
-   workflow by hand. Then use the `metrics-read-act` skill, if it is installed, to confirm the repository shows up.
+   workflow by hand. Then read the service's summary for that repository through its admin tools to confirm it shows up.
