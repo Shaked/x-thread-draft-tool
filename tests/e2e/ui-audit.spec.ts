@@ -19,6 +19,7 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
   { name: 'about', path: '/about' },
   { name: 'flags', path: '/settings/flags' },
   { name: 'changelog', path: '/changelog' },
+  { name: 'admin-stats', path: '/admin' },
   { name: 'tokens', path: '/settings/tokens' },
   { name: 'apps', path: '/settings/apps' },
   { name: 'drafts-empty', path: '/' },
@@ -151,6 +152,14 @@ async function devToken(request: APIRequestContext, login: string, admin = false
 }
 
 type Seed = { title: string; posts: unknown[] }
+const ADMIN_STATS = {
+  stats: {
+    users: 12, users_suspended: 1, drafts: 40, published_drafts: 9, posts: 130, images: 7, api_tokens_active: 3, connected_apps: 2,
+    share_links_active: 4, mcp_calls_24h: 210, mcp_calls_7d: 1500, active_users_24h: 5, active_users_7d: 9,
+    signups_by_day: Array.from({ length: 30 }, (_, i) => ({ day: `2026-11-${String(i + 1).padStart(2, '0')}`, signups: i % 3 }))
+  }
+}
+
 async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare'; kit?: 'rare' } = {}) {
   const phone = c.width < 800
   const context: BrowserContext = await browser.newContext({
@@ -167,6 +176,17 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   await context.route(`${ORIGIN}/api/**`, (route) => {
     if (hebrew && new URL(route.request().url()).pathname === '/api/changelog') {
       return route.fulfill({ json: HEBREW_CHANGELOG })
+    }
+    // The admin pages need the admin's browser session (a bearer token never passes): answer the two calls they make.
+    if (pagePath === '/admin') {
+      const url = new URL(route.request().url())
+      if (url.pathname === '/api/auth/me') {
+        return route.fetch({ headers: { ...route.request().headers(), authorization: `Bearer ${token}` } }).then(async (res) => {
+          const body = await res.json()
+          return route.fulfill({ response: res, json: { ...body, user: { ...body.user, role: 'admin' } } })
+        })
+      }
+      if (url.pathname === '/api/admin/stats') return route.fulfill({ json: ADMIN_STATS })
     }
     return route.continue({ headers: { ...route.request().headers(), authorization: `Bearer ${token}` } })
   })

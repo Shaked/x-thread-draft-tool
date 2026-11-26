@@ -7,7 +7,7 @@ import Dialog from '../ui/Dialog'
 import IconButton from '../ui/IconButton'
 import Section from '../ui/Section'
 import Stack from '../ui/Stack'
-import { useCurrentUser } from '../utils/currentUser'
+import { isAdmin as isAdminUser, useCurrentUser } from '../utils/currentUser'
 import { signOut } from './LogoutButton'
 import ThemeSetting from './ThemeSetting'
 import './AppMenu.css'
@@ -25,7 +25,7 @@ export default function AppMenu() {
   const close = () => setOpen(false)
   const menuButton = useRef(null)
   const user = useCurrentUser()
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = isAdminUser(user)
   const build = localBuildInfo()
   const version = formatVersion(build, new Date())
 
@@ -68,8 +68,14 @@ export default function AppMenu() {
               )}
             </Stack>
           </Section>
-          {/* The admin area (#482) fills this section in later tasks; it stays empty until then. Shown only to the admin. */}
-          {isAdmin && <Section title="Admin" headingLevel={3} />}
+          {/* Shown only to the admin (#482). The pages are a lazy chunk (#285). */}
+          {isAdmin && (
+            <Section title="Admin" headingLevel={3}>
+              <Button variant="ghost" fullWidth to="/admin" onClick={close}>
+                Admin area
+              </Button>
+            </Section>
+          )}
           <div className="app-menu-foot">
             <Button variant="ghost" fullWidth onClick={signOut}>
               Sign out

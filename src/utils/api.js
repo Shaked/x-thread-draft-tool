@@ -35,6 +35,13 @@ async function request(path, { method = 'GET', body, headers = {}, keepalive = f
   return data
 }
 
+// The admin routes (#283) answer only the admin's browser session that sends this header; the server decides.
+export const adminApi = {
+  stats() {
+    return request('/admin/stats', { headers: { 'x-xt-admin': '1' } }).then((data) => data.stats)
+  }
+}
+
 export const authApi = {
   me() {
     return request('/auth/me')
