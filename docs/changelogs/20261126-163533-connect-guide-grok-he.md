@@ -1,4 +1,11 @@
-# Connect guide: Grok steps (not checked) and a Hebrew version
-- `docs/agents/mcp.md` has a Grok recipe marked "not checked" (xAI docs could not be read on 2026-11-26), and links the Hebrew guide.
-- New `docs/agents/mcp.he.md`: connector summary, Setup for every client, Disconnect, Troubleshooting.
-- `tests/unit/connect-guide.test.js` checks both Setup sections list the same clients and steps. Matrix: Connect guide rows updated (#372).
+# The connect guide has Grok steps and a Hebrew version
+
+- The connect guide now has steps for Grok. They are marked as not checked, because the vendor's page could not be read yet.
+- The connect guide has a Hebrew version, with the same steps for every AI app.
+
+Area: Docs
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/547
+
+## Technical details
+
+Implements #273 Task C3 (#372). New Hebrew guide `docs/agents/mcp.he.md`; `tests/unit/connect-guide.test.js` checks that both Setup sections list the same clients and steps.
