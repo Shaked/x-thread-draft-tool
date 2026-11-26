@@ -4,4 +4,4 @@
 - The task cleanup report lists recent handoffs that break the templates, with links.
 
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/498
