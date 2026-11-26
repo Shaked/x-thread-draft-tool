@@ -53,13 +53,18 @@ export function parseArgs(argv) {
   return opts
 }
 
+/** Thrown before a request that would go below the rate floor. collectRepo keeps the events it has and stops. */
+export class RateFloor extends Error {}
+
 /**
  * Wraps fetch and keeps the rate-limit header of the last answer. budget.low() is true when fewer than
- * RATE_FLOOR calls remain. Before the first answer the remaining count is unknown, so not low.
+ * RATE_FLOOR calls remain. Before the first answer the remaining count is unknown, so not low. Every
+ * request checks it, so no merge can spend the reserve between two checks.
  */
 export function countedFetch(fetchImpl) {
   const budget = { calls: 0, remaining: null, low: () => budget.remaining !== null && budget.remaining < RATE_FLOOR }
   const fetchCounted = async (url, init) => {
+    if (budget.low()) throw new RateFloor('rate floor reached')
     budget.calls += 1
     const res = await fetchImpl(url, init)
     const left = res?.headers?.get?.('x-ratelimit-remaining')
@@ -180,12 +185,11 @@ async function listWindowRuns(get, budget, since) {
   return { runs, complete: false }
 }
 
-/** One event per stored run. A failed run costs one jobs call, for its failed job and step. */
-async function ciEvents(api, budget, repo, runs) {
-  const events = []
+/** One event per stored run. A failed run costs one jobs call, for its failed job and step. Pushes into `events`. */
+async function ciEvents(api, budget, repo, runs, events) {
   for (const run of runs) {
     if (!isStored(run, repo)) continue
-    if (budget.low()) return { events, complete: false }
+    if (budget.low()) return false
     let failed = null
     if (run.conclusion === 'failure') {
       const job = (await api.jobsForRun(run.id)).find((j) => j.conclusion === 'failure')
@@ -193,7 +197,7 @@ async function ciEvents(api, budget, repo, runs) {
     }
     events.push(ciEvent(run, repo, failed))
   }
-  return { events, complete: true }
+  return true
 }
 
 /** The git merge event of a merged pull request. */
@@ -233,17 +237,30 @@ async function deployEvents(api, pr, full) {
   return events
 }
 
-/** Git, deploy and (speed repos) speed events of the merges since the window start. */
-async function mergeEvents(api, budget, repo, now) {
+/**
+ * Speed rows are written only once the merge's runs have finished: while a run on the head or merge commit is
+ * still going, its stage times are partial, and ingest never updates a stored row. The smoke run must exist
+ * for a code merge (the stage waits for it). Measured runs are the ones finished when listed.
+ */
+async function speedRowsFor(api, repo, pr, runs, full) {
+  const open = new Set(runs.filter((r) => r.status !== 'completed').map((r) => r.head_sha))
+  if (open.has(pr.head.sha) || open.has(pr.merge_commit_sha)) return []
+  const record = await measurePull(pr, api)
+  if (record.kind !== 'docs' && !record.stages.smoke) return []
+  return speedEvents(record, `https://github.com/${full}/pull/${pr.number}`)
+}
+
+/** Git, deploy and (speed repos) speed events of the merges since the window start. Pushes into `events`. */
+async function mergeEvents(api, budget, repo, now, runs, events) {
   const full = fullName(repo)
   const pulls = (await api.recentMergedPulls({ sinceMs: utcDayStart(now - WINDOW_DAYS * DAY_MS) })).filter((pr) => pr.base?.ref === 'main')
-  const events = []
   for (const pr of pulls) {
-    if (budget.low()) return { events, complete: false }
-    events.push(gitEvent(pr, full), ...(await deployEvents(api, pr, full)))
-    if (repo.speed) events.push(...speedEvents(await measurePull(pr, api), `https://github.com/${full}/pull/${pr.number}`))
+    if (budget.low()) return false
+    events.push(gitEvent(pr, full))
+    events.push(...(await deployEvents(api, pr, full)))
+    if (repo.speed) events.push(...(await speedRowsFor(api, repo, pr, runs, full)))
   }
-  return { events, complete: true }
+  return true
 }
 
 /** Drops a second row with the same key, and sorts the rest by key, so the same answers give the same batch. */
@@ -259,23 +276,50 @@ function uniqueSorted(events) {
     .sort((a, b) => `${a.source}/${a.kind}/${a.id}`.localeCompare(`${b.source}/${b.kind}/${b.id}`))
 }
 
-/** The events and counters of one listed repo. `api` is githubApi(), `get` is restGet(), `budget` is countedFetch's. */
+/**
+ * Every finished day of the window gets a counter row, a zero one when it has none. Ingest replaces a day's
+ * rows only when the day is in the batch, so an empty day must be sent to clear the counts it had before.
+ */
+export function withEmptyDays(counters, since, now) {
+  const today = utcDay(now)
+  const have = new Set(counters.map((c) => c.day))
+  const out = [...counters]
+  for (let ms = Date.parse(`${since}T00:00:00Z`); utcDay(ms) < today; ms += DAY_MS) {
+    const day = utcDay(ms)
+    if (!have.has(day)) out.push({ day, source: 'ci', kind: 'run', name: 'none', status: 'none', count: 0 })
+  }
+  return out
+}
+
+/**
+ * The events and counters of one listed repo. `api` is githubApi(), `get` is restGet(), `budget` is countedFetch's.
+ * A RateFloor thrown by any request stops the collection; the events gathered so far are kept, and no counter
+ * or cursor is sent (complete is false).
+ */
 export async function collectRepo(repo, { api, get, budget, now }) {
   const since = new Date(utcDayStart(now - WINDOW_DAYS * DAY_MS)).toISOString().slice(0, 10)
-  const listed = await listWindowRuns(get, budget, since)
-  const ci = listed.complete ? await ciEvents(api, budget, repo, listed.runs) : { events: [], complete: false }
-  const merges = ci.complete ? await mergeEvents(api, budget, repo, now) : { events: [], complete: false }
-  const complete = listed.complete && ci.complete && merges.complete
+  const events = []
+  let runs = []
+  let complete = true
+  try {
+    const listed = await listWindowRuns(get, budget, since)
+    runs = listed.runs
+    complete = listed.complete
+    if (complete) complete = await ciEvents(api, budget, repo, runs, events)
+    if (complete) complete = await mergeEvents(api, budget, repo, now, runs, events)
+  } catch (err) {
+    if (!(err instanceof RateFloor)) throw err
+    complete = false
+  }
   return {
-    events: uniqueSorted([...ci.events, ...merges.events]),
+    events: uniqueSorted(events),
     complete,
-    counters: complete ? counterRows(listed.runs, repo, now) : [],
-    cursor: complete ? cursorFor(listed.runs, repo) : null,
+    counters: complete ? withEmptyDays(counterRows(runs, repo, now), since, now) : [],
+    cursor: complete ? cursorFor(runs, repo) : null,
     calls: budget.calls,
     remaining: budget.remaining
   }
 }
-
 
 /** The request bodies for one repo: events in chunks of BATCH_MAX; counters and cursor only on the last, and only when complete. */
 export function batchesFor(repoId, result) {
@@ -302,7 +346,12 @@ async function oidcToken(env, fetchImpl) {
   return value
 }
 
-async function post(url, body, token, fetchImpl) {
+/**
+ * One POST with a token requested just before it: the route accepts a token up to 5 minutes old, and a
+ * collection can run longer than that, so no token is reused across requests.
+ */
+async function post(url, body, env, fetchImpl) {
+  const token = await oidcToken(env, fetchImpl)
   const res = await fetchImpl(url, {
     method: 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
@@ -322,7 +371,6 @@ export async function run(argv, env = {}, deps = {}) {
   if (repos.length === 0) throw new Error('ops-emit: no listed repo matches --repo')
   const token = env.GITHUB_TOKEN || ''
   const base = (env.OPS_BASE_URL || OPS_BASE_URL_DEFAULT).replace(/\/$/, '')
-  const oidc = opts.dryRun ? null : await oidcToken(env, fetchImpl)
 
   for (const repo of repos) {
     const counted = countedFetch(fetchImpl)
@@ -335,11 +383,11 @@ export async function run(argv, env = {}, deps = {}) {
       continue
     }
     // The first call reads the stored cursor (an empty batch answers it).
-    const before = await post(`${base}/api/ops/events`, { v: 1, repo_id: repo.repository_id, events: [] }, oidc, fetchImpl)
+    const before = await post(`${base}/api/ops/events`, { v: 1, repo_id: repo.repository_id, events: [] }, env, fetchImpl)
     let accepted = 0
     let refused = 0
     for (const body of bodies) {
-      const answer = await post(`${base}/api/ops/events`, body, oidc, fetchImpl)
+      const answer = await post(`${base}/api/ops/events`, body, env, fetchImpl)
       accepted += answer.accepted
       refused += answer.refused
     }

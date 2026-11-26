@@ -30,26 +30,31 @@ function response(body, remaining) {
   }
 }
 
-/** A fake GitHub: answers each REST path from the fixture. Every URL it is asked for is recorded. */
-function fakeGitHub({ remaining } = {}) {
+/**
+ * A fake GitHub: answers each REST path from the fixture (`overrides` replaces parts of it). Every URL is recorded.
+ * `remaining` is the rate-limit header; `dropAfterCalls` makes it 99 from that call on.
+ */
+function fakeGitHub({ remaining, dropAfterCalls, overrides = {} } = {}) {
   const asked = []
+  const data = { ...API, ...overrides }
   const fetchImpl = async (url) => {
     asked.push(url)
+    const left = dropAfterCalls !== undefined && asked.length >= dropAfterCalls ? 99 : remaining
     const u = new URL(url)
     const path = u.pathname.replace(`/repos/${FULL}`, '')
     const q = u.searchParams
     if (path === '/actions/runs') {
       const sha = q.get('head_sha')
-      return response({ workflow_runs: sha ? API.runs_by_sha[sha] ?? [] : API.runs }, remaining)
+      return response({ workflow_runs: sha ? data.runs_by_sha[sha] ?? [] : data.runs }, left)
     }
     const jobs = path.match(/^\/actions\/runs\/(\d+)\/jobs$/)
-    if (jobs) return response({ jobs: API.jobs[jobs[1]] ?? [] }, remaining)
-    if (path === '/pulls') return response(API.pulls, remaining)
-    if (path === '/deployments') return response(API.deployments[q.get('sha')] ?? [], remaining)
+    if (jobs) return response({ jobs: data.jobs[jobs[1]] ?? [] }, left)
+    if (path === '/pulls') return response(data.pulls, left)
+    if (path === '/deployments') return response(data.deployments[q.get('sha')] ?? [], left)
     const statuses = path.match(/^\/deployments\/(\d+)\/statuses$/)
-    if (statuses) return response(API.statuses[statuses[1]] ?? [], remaining)
+    if (statuses) return response(data.statuses[statuses[1]] ?? [], left)
     const commit = path.match(/^\/commits\/([^/]+)$/)
-    if (commit) return response({ files: API.files[commit[1]] ?? [] }, remaining)
+    if (commit) return response({ files: data.files[commit[1]] ?? [] }, left)
     return { ok: false, status: 404, headers: { get: () => null }, json: async () => ({}) }
   }
   return { fetchImpl, asked }
@@ -145,6 +150,8 @@ describe('ops-emit: counters, cursor and the overlap', () => {
       { day: '2026-11-23', source: 'ci', kind: 'run', name: 'Tests', status: 'stuck', count: 1 },
       { day: '2026-11-24', source: 'ci', kind: 'run', name: 'Tests', status: 'cancelled', count: 1 },
       { day: '2026-11-24', source: 'ci', kind: 'run', name: 'other', status: 'skipped', count: 1 },
+      // 2026-11-25 has no counted run: its zero row clears the day's earlier counts at ingest.
+      { day: '2026-11-25', source: 'ci', kind: 'run', name: 'none', status: 'none', count: 0 },
     ])
   })
 
@@ -189,7 +196,7 @@ describe('ops-emit: rate limit', () => {
     const result = await collectRepo(REPO, { ...clients(fetchImpl), now: NOW })
     const bodies = batchesFor(REPO.repository_id, result)
     expect(bodies).toHaveLength(1)
-    expect(bodies[0].counters).toHaveLength(3)
+    expect(bodies[0].counters).toHaveLength(4)
     expect(bodies[0].cursor).toBe('2026-11-24T11:00:00.000Z')
   })
 })
@@ -214,5 +221,54 @@ describe('ops-emit: dry run', () => {
   it('needs --repo for a dry run, and refuses an unknown option', async () => {
     await expect(run(['--dry-run'], {}, {})).rejects.toThrow('--repo')
     await expect(run(['--bogus'], {}, {})).rejects.toThrow('unknown option')
+  })
+})
+
+describe('ops-emit: review fixes on #472', () => {
+  it('writes no speed rows for a merge while a run on its head or merge commit is still going', async () => {
+    const running = {
+      id: 107, run_attempt: 1, name: 'Smoke test (deployed)', event: 'deployment_status', status: 'in_progress', conclusion: null,
+      head_sha: 'sha-m1', created_at: '2026-11-25T10:12:00Z', run_started_at: '2026-11-25T10:12:05Z', updated_at: '2026-11-25T10:13:00Z',
+      html_url: 'https://github.com/Shaked/x-thread-draft-tool/actions/runs/107', pull_requests: []
+    }
+    const { fetchImpl } = fakeGitHub({ overrides: { runs: [...API.runs, running] } })
+    const events = (await collectRepo(REPO, { ...clients(fetchImpl), now: NOW })).events
+    expect(events.filter((e) => e.source === 'speed' && e.id.startsWith('sha-m1:'))).toEqual([])
+    // The other merge has no running run, so its rows are still written.
+    expect(events.some((e) => e.source === 'speed' && e.id.startsWith('sha-m2:'))).toBe(true)
+  })
+
+  it('a rate floor reached inside a merge keeps the events gathered so far and sends no counters or cursor', async () => {
+    // Call 5 (the first deployment status) answers with 99 left: the next request, inside the same merge, must not go out.
+    const { fetchImpl } = fakeGitHub({ remaining: 5000, dropAfterCalls: 5 })
+    const result = await collectRepo(REPO, { ...clients(fetchImpl), now: NOW })
+    const keys = result.events.map((e) => `${e.source}/${e.kind}/${e.id}`)
+    expect(result.complete).toBe(false)
+    expect(keys).toEqual(expect.arrayContaining(['ci/run/100.1', 'git/merge/sha-m1', 'deploy/deploy/501']))
+    expect(keys.some((k) => k.startsWith('speed/'))).toBe(false)
+    expect(result.counters).toEqual([])
+    expect(result.cursor).toBeNull()
+  })
+
+  it('requests a fresh OIDC token before every POST, never reusing one older than the route allows', async () => {
+    const calls = { oidc: 0, post: [] }
+    const github = fakeGitHub().fetchImpl
+    const fetchImpl = async (url, init) => {
+      if (url.startsWith('https://oidc.example.test/')) {
+        calls.oidc += 1
+        return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ value: `token-${calls.oidc}` }) }
+      }
+      if (url.startsWith('https://ops.example.test/')) {
+        calls.post.push(init.headers.authorization)
+        return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ accepted: 0, refused: 0, cursor: null }) }
+      }
+      return github(url, init)
+    }
+    const logs = []
+    await run(['--repo', FULL], { GITHUB_TOKEN: 'read-token', ACTIONS_ID_TOKEN_REQUEST_URL: 'https://oidc.example.test/token?api-version=2.0', ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'request-token', OPS_BASE_URL: 'https://ops.example.test' }, { now: NOW, fetchImpl, log: (l) => logs.push(l) })
+    // One POST for the cursor read, one for the batch: each with its own token.
+    expect(calls.post).toEqual(['Bearer token-1', 'Bearer token-2'])
+    expect(calls.oidc).toBe(2)
+    expect(logs.join('\n')).not.toContain('token-')
   })
 })
