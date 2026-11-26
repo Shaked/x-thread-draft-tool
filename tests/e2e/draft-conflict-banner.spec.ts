@@ -73,6 +73,9 @@ test('the AI app and the user change the same post: the banner shows, the AI tex
   })
   expect(aiSaved.ok()).toBeTruthy()
 
+  // The editor has not picked the AI change up: its copy of post 2 is still the old one.
+  await expect(second).toHaveValue('Post two')
+
   // The user types in the same post before the editor has seen the AI change. The next autosave gets 412.
   await second.click()
   userHasTyped = true
