@@ -58,20 +58,14 @@ export default function AppMenu() {
               <Button variant="ghost" fullWidth to="/settings/apps" onClick={close}>
                 Connected apps
               </Button>
-              {user?.admin === true && (
-                <Button variant="ghost" fullWidth to="/admin/changelog" onClick={close}>
-                  Changelog
-                </Button>
-              )}
             </Stack>
           </Section>
-          {/* Shown only to the admin (#482). The pages are a lazy chunk (#285). */}
+          {/* The one admin entry, shown only to the admin (#551): everything else of the admin (the changelog, the flags,
+              the metrics) lives inside /admin. The pages are a lazy chunk (#285). */}
           {isAdmin && (
-            <Section title="Admin" headingLevel={3}>
-              <Button variant="ghost" fullWidth to="/admin" onClick={close}>
-                Admin area
-              </Button>
-            </Section>
+            <Button variant="ghost" fullWidth to="/admin" onClick={close}>
+              Admin
+            </Button>
           )}
           <div className="app-menu-foot">
             <Button variant="ghost" fullWidth onClick={signOut}>
