@@ -135,7 +135,7 @@ Some components have a second implementation behind the Components feature flag 
 | `haspopup` | `menu` | | The button opens a menu: sets `aria-haspopup`. Used by `Menu`. |
 | `expanded` | boolean | | Whether that menu is open: sets `aria-expanded`. |
 | `controls` | string | | The `id` of the menu it opens: sets `aria-controls`. |
-| `ariaCurrent` | `page` | | Marks the link of the open page: sets `aria-current`. |
+| `ariaCurrent` | `page` | | Marks the link of the open page: sets `aria-current`; a ghost button gets the soft accent background (#551). |
 | `onClick` | function | | |
 
 - States: default, hover (only where hover exists), pressed (scale 0.98), focus-visible (the base focus ring), disabled (half opacity), loading, disabled with reason.
@@ -231,7 +231,7 @@ Some components have a second implementation behind the Components feature flag 
 | `error` | string | | Danger text under the control; the control gets `aria-invalid`. |
 | `children` | one control | required | An `Input` or a `Select`. They read the id and state from the Field. |
 
-- States: label above the control; from 600 px a Field takes its share of a row, under 600 px it takes the full width.
+- States: label above the control; in a row (`Inline`) from 600 px a Field takes its share of the row, under 600 px it takes the full width. In a column it is as tall as its content (#551).
 - Example: `<Field label="Token name"><Input value={name} onChange={setName} /></Field>`
 
 ## Input
@@ -468,4 +468,6 @@ Some components have a second implementation behind the Components feature flag 
 | `children` | node | | The page content. |
 
 - States: stacked under 768 px; a 14 rem side column from 768 px (`--flex-min`).
+- A `nav` of Buttons as `side` is a menu (#551): rows start-aligned, two columns under 768 px, one column at the side from 768 px.
+  Mark the open page with `ariaCurrent="page"` on its Button.
 - Example: `<SideLayout side={<nav>…</nav>}><Section title="Statistics" /></SideLayout>`

@@ -1,14 +1,18 @@
-/* Field: label above its control, 8 px apart; help and error text 4 px under the control. One row from 600 px. */
+/* Field: label above its control, 8 px apart; help and error text 4 px under the control. Fields in a row (Inline)
+   share it from 600 px. In a column the field is as tall as its content: the row basis would be a height there (#551). */
 .ui-field {
   display: flex;
-  flex: 1 1 var(--flex-min);
   flex-direction: column;
   gap: var(--space-1);
   min-inline-size: 0;
 }
 
+.ui-inline > .ui-field {
+  flex: 1 1 var(--flex-min);
+}
+
 @media (width < 600px) {
-  .ui-field {
+  .ui-inline > .ui-field {
     flex-basis: 100%;
   }
 }

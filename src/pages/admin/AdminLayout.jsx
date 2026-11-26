@@ -4,7 +4,6 @@ import EmptyState from '../../ui/EmptyState'
 import Page from '../../ui/Page'
 import PageHeader from '../../ui/PageHeader'
 import SideLayout from '../../ui/SideLayout'
-import Stack from '../../ui/Stack'
 import SignInAgain from '../../components/admin/SignInAgain'
 import AdminAuditPage from './AdminAuditPage'
 import AdminMetricsPage from './AdminMetricsPage'
@@ -24,9 +23,12 @@ const ENTRIES = [
   { path: 'audit', label: 'Audit log', page: <AdminAuditPage /> }
 ]
 
-// The admin shell: a menu (the side column from 768 px, a list above the page on phones) and the open page.
+// The entry of the open page: its own path, or a page under it (a user's page is under Users). Statistics only on /admin.
+const isCurrent = (pathname, to) => pathname === to || (to !== '/admin' && pathname.startsWith(`${to}/`))
+
+// The admin shell: a menu (the side column from 768 px, two columns above the page on phones) and the open page.
 export default function AdminLayout() {
-  const { pathname } = useLocation()
+  const pathname = useLocation().pathname.replace(/\/$/, '')
   return (
     <SignInAgain>
     <Page width="wide">
@@ -34,16 +36,14 @@ export default function AdminLayout() {
       <SideLayout
         side={
           <nav aria-label="Admin pages">
-            <Stack gap={2}>
-              {ENTRIES.map((entry) => {
-                const to = entry.path ? `/admin/${entry.path}` : '/admin'
-                return (
-                  <Button key={to} variant="ghost" fullWidth to={to} ariaCurrent={pathname.replace(/\/$/, '') === to ? 'page' : undefined}>
-                    {entry.label}
-                  </Button>
-                )
-              })}
-            </Stack>
+            {ENTRIES.map((entry) => {
+              const to = entry.path ? `/admin/${entry.path}` : '/admin'
+              return (
+                <Button key={to} variant="ghost" fullWidth to={to} ariaCurrent={isCurrent(pathname, to) ? 'page' : undefined}>
+                  {entry.label}
+                </Button>
+              )
+            })}
           </nav>
         }
       >

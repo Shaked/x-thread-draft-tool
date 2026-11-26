@@ -38,6 +38,11 @@
     display: block;
   }
 
+  /* The table is a block on phones; the caption takes the full width, not one word per line (#551). */
+  .ui-table__caption {
+    display: block;
+  }
+
   /* Visually hidden, still read: the labels come from data-label on each cell. */
   .ui-table__head {
     position: absolute;
