@@ -108,6 +108,28 @@ export default function AboutPage() {
           )}
         </Section>
 
+        {/* Attribution required by the Rare UI licence (THIRD_PARTY_LICENSES/rare-ui.md): a visible link to rareui.com. */}
+        <Section title="Credits">
+          <Stack gap={3}>
+            <p lang="en" dir="ltr">
+              The look and some components come from{' '}
+              <a href="https://rareui.com" target="_blank" rel="noreferrer">
+                Rare UI (rareui.com)
+              </a>
+              , used under its licence:{' '}
+              <span dir="ltr">MIT + Commons Clause License Condition v1.0 + Attribution, Copyright (c) 2026 Swami Malode</span>.
+            </p>
+            <p lang="he" dir="rtl">
+              המראה וחלק מהרכיבים לקוחים מ-
+              <a href="https://rareui.com" target="_blank" rel="noreferrer">
+                Rare UI (rareui.com)
+              </a>
+              , לפי הרישיון שלו:{' '}
+              <span dir="ltr">MIT + Commons Clause License Condition v1.0 + Attribution, Copyright (c) 2026 Swami Malode</span>.
+            </p>
+          </Stack>
+        </Section>
+
         {user?.admin === true && (
           <Inline>
             <Button variant="secondary" to="/admin/changelog">
