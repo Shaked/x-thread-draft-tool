@@ -9,7 +9,7 @@ Source: https://github.com/swamimalode07/rare-ui/tree/0e9f0ef86bd690b16175fb8195
 | `src/ui/rare/cn.js` | `lib/utils.ts` (`cn`, rewritten without clsx and tailwind-merge) | #406 Task K1 |
 
 Changes: listed in the header comment of each file (TypeScript removed, values from `src/styles/tokens.css`,
-logical properties, 44 px targets, accessible names). Each header keeps the copyright notice.
+logical properties, full-width cards, accessible names). Each header keeps the copyright notice.
 
 Credit: the Feature flags page (`/settings/flags`) links to https://rareui.com, as the licence asks, and
 README.md names Rare UI under Credits.
