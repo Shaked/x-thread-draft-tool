@@ -9,11 +9,12 @@ Code:
 - `.github/workflows/smoke-deployed.yml`: the two production kinds, after the deployed smoke test.
 - `.github/workflows/notify-labels.yml`: the three label kinds.
 - `.github/workflows/cleanup-review-daily.yml`: starts the cleanup message (see `docs/operations/cleanup-review.md`).
+- `.github/workflows/metrics-daily.yml`: the metrics kind (job `alerts`, task #338).
 - `.github/workflows/speed-metrics.yml`: the speed kind, from a manual run of the speed metrics (epic #273, task #310) and from the per-merge run after a production smoke test (task M7 of plan #439).
 
-## The eight kinds
+## The nine kinds
 
-The script sends the forms in `.claude/reply-style-templates/telegram-message.md` (task #369, step 7). Line 1 of every message is the emoji, the app name in bold and the headline (issue #504). Each message starts with one emoji (✅ live, 🚨 failed, 👀 preview, 🙋 needs you, 🧹 cleanup, 🐢 speed) and no section says "nothing". Each kind has a golden test in `tests/unit/notify-telegram-golden.test.js`. "The messages" below shows each one.
+The script sends the forms in `.claude/reply-style-templates/telegram-message.md` (task #369, step 7). Line 1 of every message is the emoji, the app name in bold and the headline (issue #504). Each message starts with one emoji (✅ live, 🚨 failed or metrics alert, 👀 preview, 🙋 needs you, 🧹 cleanup, 🐢 speed) and no section says "nothing". Each kind has a golden test in `tests/unit/notify-telegram-golden.test.js`. "The messages" below shows each one.
 
 
 | Kind | Headline (it is the link) | When it is sent | Other links |
@@ -52,7 +53,7 @@ Bold is the app name, and the headline after it is the link. English only: the o
 | Cleanup review ready | 🧹 **Thread Draft** · Cleanup review ready<br>Remove duplicate tests<br>What it removes: two parser tests that check the same thing.<br>Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR. |
 | Cleanup review started | 🧹 **Thread Draft** · Cleanup review started<br>Cleanup review 2026-11-25<br>An agent reviews the commits since the last review and opens up to three PRs. |
 | Weekly review started | 🗓 **Thread Draft** · Weekly review started<br>Weekly review 2026-11-30<br>An agent checks the signals and opens up to three PRs; owner items get the label owner. |
-| Metrics alert | 🚨 **Thread Draft** · Metrics alert: slow answers<br>Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms (38 % over), since 2026-11-25 09:00 UTC.<br>Likely cause: not known yet. |
+| Metrics alert | 🚨 **Thread Draft** · Metrics alert: slow answers<br>Slow: the slowest 5 % of 4200 API requests took 1380 ms or more in 24 hours. The limit is 1000 ms (38 % over), usual 90 ms, since 2026-11-26 09:17 UTC.<br>Likely cause: GET /drafts used the most request time (3100 s).<br>Next: no new message for this alert until it has been clear for 24 hours. |
 
 Notes:
 - The needs-you headline says "A PR needs you" or "An issue needs you". The script decides from the link: a pull request address says PR.
@@ -60,7 +61,7 @@ Notes:
 - The "What changed" line (try-preview) never shows: the preview label does not pass the body, and `messageFromEnv` does not read it. This was already true before task #369.
 - The production passed message links the site, the commit and the run. `smoke-deployed.yml` passes `NOTIFY_RUN_URL` for both production kinds. A commit id that is not 7 to 40 hex characters shows only the title, with no commit link.
 - The speed kind uses the Alert shape (template section 6): an emoji, and no action line. The per-merge run also opens or updates one gate issue, labelled `task`, titled "Speed gate: delivery is over its limit"; its body holds the state the next run reads back.
-- No workflow sends a metrics alert yet. Task O7 of `docs/plans/observability.md` adds the kind `metrics` and uses its form in the template.
+- The metrics kind (🚨, task O7 #338) is sent by the `alerts` job of `metrics-daily.yml`: one message per alert that the daily step (`POST /api/ops/metrics-daily`, every 6 hours) returns as new. Errors: 5xx at least 2 % and at least 10 in 6 hours. Slow: p95 over 1 000 ms with 200 samples in 24 hours. Capacity: database over 700 MB, over 100 rate-limited requests in 24 hours, or over 100 000 `ops_events` rows. Limits are in `server/metrics/alerts.js`. The headline links `/admin/metrics` of the app; an alert is sent again only after 24 hours clear (`metrics_alert_state`).
 
 ## The app name (issue #504)
 

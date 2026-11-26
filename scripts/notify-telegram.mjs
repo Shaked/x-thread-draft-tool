@@ -12,9 +12,12 @@
 //   cleanup-started  the daily workflow opened a cleanup review issue
 //   weekly-started   the weekly workflow opened a weekly review issue (epic #273, task #295)
 //   speed            a stage is over its limit: the Alert shape (speed-metrics.mjs, tasks #310 and #446)
+//   metrics          a metrics alert (errors, slow or capacity): the Alert shape, linked to /admin/metrics, task #338
 //
 // CLI (the workflows pass every value through environment variables, never inside the shell text):
 //   NOTIFY_KIND, NOTIFY_SHA, NOTIFY_TITLE, NOTIFY_URL, NOTIFY_RUN_URL, NOTIFY_PREVIEW_URL,
+//   NOTIFY_FAIL_ON_ERROR=1 (exit 1 when the send failed; default exit 0)
+//   NOTIFY_HEADLINE, NOTIFY_NUMBER_LINE, NOTIFY_CAUSE_LINE, NOTIFY_ACTION_LINE (kind metrics),
 //   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 // The app identity (issue #504) is read from the environment too, with defaults from DEFAULT_APP:
 //   TELEGRAM_APP_NAME, TELEGRAM_APP_REPO_URL, TELEGRAM_APP_SITE_URL, TELEGRAM_APP_PREVIEW_URL
@@ -54,6 +57,7 @@ export const EMOJI = {
   'cleanup-started': '🧹',
   'weekly-started': '🗓',
   speed: '🐢',
+  metrics: '🚨',
 }
 
 // Escapes the three characters Telegram HTML needs, plus the double quote for attribute values.
@@ -127,10 +131,12 @@ function message(kind, app, [label, url], body, links = []) {
 
 // Alert shape (task M7, plan #439 section 6): the headline (what is over, in plain words) links to the gate
 // issue or the run, then the number, the likely cause, and what is needed when someone must act. At most two links.
-function alertMessage(data, app) {
-  const headline = clip(data.headline || 'Delivery is slower than its limit')
-  const body = [data.numberLine, data.causeLine, data.actionLine].filter(Boolean).map(text)
-  return message('speed', app, [headline, data.url], body, (data.links || []).slice(0, 2))
+function alertMessage(data, app, kind = 'speed') {
+  // The metrics kind links the app's own metrics page; the speed kind links its gate issue or run.
+  const headline = clip(data.headline || (kind === 'metrics' ? 'Metrics alert' : 'Delivery is slower than its limit'))
+  const url = kind === 'metrics' ? `${app.siteUrl}/admin/metrics` : data.url
+  const body = [data.numberLine, data.causeLine, data.actionLine].filter(Boolean).map((line) => text(clip(line, 300)))
+  return message(kind, app, [headline, url], body, (data.links || []).slice(0, 2))
 }
 
 // Production passed: the headline and "Open production" both link the site; the commit has its own link.
@@ -214,7 +220,8 @@ export function buildMessage(kind, data = {}, app = appFromEnv()) {
         [text(title), text('An agent reviews the commits since the last review and opens up to three PRs.')],
       )
     case 'speed':
-      return alertMessage(data, app)
+    case 'metrics':
+      return alertMessage(data, app, kind)
     default:
       return null
   }
@@ -228,6 +235,10 @@ export function messageFromEnv(env = {}) {
     url: env.NOTIFY_URL,
     runUrl: env.NOTIFY_RUN_URL,
     previewUrl: env.NOTIFY_PREVIEW_URL,
+    headline: env.NOTIFY_HEADLINE,
+    numberLine: env.NOTIFY_NUMBER_LINE,
+    causeLine: env.NOTIFY_CAUSE_LINE,
+    actionLine: env.NOTIFY_ACTION_LINE,
   }, appFromEnv(env))
 }
 
@@ -287,7 +298,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         ...message,
       })
     : Promise.resolve(console.log('notify skipped: unknown kind'))
+  // Default: always exit 0, so a notice can never fail a workflow. NOTIFY_FAIL_ON_ERROR=1 (the metrics alerts job)
+  // exits 1 when the send failed, so a lost alert makes the run red.
+  let code = 0
   sending
+    .then((result) => {
+      if (process.env.NOTIFY_FAIL_ON_ERROR === '1' && result === 'failed') code = 1
+    })
     .catch((err) => console.log(`notify failed: ${err?.name || 'error'}`))
-    .finally(() => process.exit(0))
+    .finally(() => process.exit(code))
 }

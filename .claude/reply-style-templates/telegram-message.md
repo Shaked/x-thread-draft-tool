@@ -127,31 +127,32 @@ An agent reviews the commits since the last review and opens up to three PRs.
 ```
 
 ## 5. Metrics alert
-No workflow sends this kind yet. Task O7 of the observability plan (#338) adds it as the kind `metrics`, in the Alert
-shape of section 6: one message per alert that fired (errors, slow or capacity). The headline links to the metrics page.
-The number line gives the value in plain words, the window, the limit, how much over and since when (UTC). The likely
-cause line is always there. Only the capacity alert on the Neon free plan adds a `Needs you:` line, and it names the
-plan limit that is near and the step to take. Order: headline, number line, likely cause line, then `Needs you:`.
+Sent by the `alerts` job of `metrics-daily.yml` (task O7 of the observability plan, #338) as the kind `metrics`, in the Alert
+shape of section 6: one message per alert that is new (errors, slow or capacity), and again only after 24 hours clear. The headline links to the metrics page.
+The number line gives the value in plain words, the window, the limit, how much over, the usual value and since when (UTC). The
+likely cause line is always there. The last line says what happens next: `Needs you:` for the capacity alert, and for errors and
+slow `Next: no new message for this alert until it has been clear for 24 hours.` Order: headline, number line, likely cause line, last line.
 
 ```text
 🚨 **<app name>** · [Metrics alert: <the alert that fired, in words>](<production url>/admin/metrics)
-<Alert>: <the value, in plain words>, in the last <window>. The limit is <limit> (<n> % over), since <UTC date and time>.
+<Alert>: <the value, in plain words>, in the last <window>. The limit is <limit> (<n> % over), usual <usual>, since <UTC date and time>.
 Likely cause: <one cause and its evidence>.   [or: "Likely cause: not known yet."]
-Needs you: <the plan limit that is near, and the step to take>.   [only for the capacity alert on the Neon free plan]
+Needs you: <the plan limit that is near, and the step to take>.   [capacity alert; errors and slow say "Next: no new message ... clear for 24 hours."]
 ```
 
 Example:
 ```text
 🚨 **Thread Draft** · [Metrics alert: slow answers](https://x-thread-draft-tool.vercel.app/admin/metrics)
-Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms (38 % over), since 2026-11-25 09:00 UTC.
-Likely cause: not known yet.
+Slow: the slowest 5 % of 4200 API requests took 1380 ms or more in 24 hours. The limit is 1000 ms (38 % over), usual 90 ms, since 2026-11-26 09:17 UTC.
+Likely cause: GET /drafts used the most request time (3100 s).
+Next: no new message for this alert until it has been clear for 24 hours.
 ```
 
 ## 6. Alert shape (kinds `speed` and `metrics`)
 Sent by the speed check (`scripts/speed-metrics.mjs`, task M7 of plan #439) as kind `speed`. The per-merge run sends it once when a
 streak of production merges over a limit starts, and again only after the stages have been within their limits for
 24 hours. The headline links to the gate issue, or to the run. Four lines at most: the headline, the number, the likely
-cause, and at most two links. The one other line is `Needs you:`, and only when the owner must act: `speed` never has one,
+cause, and at most two links. The one other line says what happens next: `Needs you:` when the owner must act, and for the `metrics` errors and slow alerts `Next: ...`. `speed` never has one,
 so its message has no action line. The `metrics` kind (section 5) uses this same shape; its capacity alert adds `Needs you:`,
 which makes five lines.
 

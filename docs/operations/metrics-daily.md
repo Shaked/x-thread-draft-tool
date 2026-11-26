@@ -34,3 +34,7 @@ It deletes metric rows only; no user table changes. The answer is counts only: `
 
 Active users count a draft saved, an API token used or a connected app used in the window. The definition is this job's; not checked against the admin metrics page (O4, not merged).
 
+## Alerts (O7, #338)
+
+Every run also works out three alerts in `server/metrics/alerts.js` (limits in `LIMITS`): errors, slow and capacity. `metrics_alert_state` keeps one row per kind, so an alert is returned as `new` when it starts and again only after it did not fire for 24 hours. The route answers with `alerts` (the new ones only); the `alerts` job of the workflow sends one Telegram message each (`docs/operations/telegram.md`).
+The alert state is saved before Telegram is called. If the send fails, the `alerts` job turns red and that alert is not sent again until it has been clear for 24 hours.

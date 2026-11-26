@@ -148,6 +148,27 @@ return {
       `Speed table: ${RUN}`,
     ],
   },
+  // Kind metrics (#338): three alerts in the Alert shape. The headline links /admin/metrics on the app's own site.
+  metrics: {
+    data: {
+      headline: 'Metrics alert: slow answers',
+      numberLine: 'Slow: the slowest 5 % of 4200 API requests took 1380 ms or more in 24 hours. The limit is 1000 ms (38 % over), usual 90 ms, since 2026-11-26 09:17 UTC.',
+      causeLine: 'Likely cause: GET /drafts used the most request time (3100 s).',
+      actionLine: 'Next: no new message for this alert until it has been clear for 24 hours.',
+    },
+    html: [
+      `🚨 <b>${NAME}</b> · <a href="${PROD_URL}/admin/metrics">Metrics alert: slow answers</a>`,
+      'Slow: the slowest 5 % of 4200 API requests took 1380 ms or more in 24 hours. The limit is 1000 ms (38 % over), usual 90 ms, since 2026-11-26 09:17 UTC.',
+      'Likely cause: GET /drafts used the most request time (3100 s).',
+      'Next: no new message for this alert until it has been clear for 24 hours.',
+    ],
+    plain: [
+      `🚨 ${app.name} · Metrics alert: slow answers: ${PROD_URL}/admin/metrics`,
+      'Slow: the slowest 5 % of 4200 API requests took 1380 ms or more in 24 hours. The limit is 1000 ms (38 % over), usual 90 ms, since 2026-11-26 09:17 UTC.',
+      'Likely cause: GET /drafts used the most request time (3100 s).',
+      'Next: no new message for this alert until it has been clear for 24 hours.',
+    ],
+  },
 }
 }
 
@@ -162,7 +183,7 @@ describe('Telegram golden messages (#463, #504)', () => {
     expect(KINDS.slice().sort()).toEqual(SENDER_KINDS.slice().sort())
     for (const kind of SENDER_KINDS) expect(buildMessage(kind, { title: 'T', url: `${DEFAULT_APP.repoUrl}/pull/12` }), kind).not.toBeNull()
     // Every kind a workflow or script sends is one the sender builds.
-    const callers = ['.github/workflows/smoke-deployed.yml', '.github/workflows/notify-labels.yml', 'scripts/notify-label.mjs', 'scripts/cleanup-review-check.mjs', 'scripts/weekly-review-check.mjs', 'scripts/speed-metrics.mjs']
+    const callers = ['.github/workflows/smoke-deployed.yml', '.github/workflows/notify-labels.yml', 'scripts/notify-label.mjs', 'scripts/cleanup-review-check.mjs', 'scripts/weekly-review-check.mjs', 'scripts/speed-metrics.mjs', '.github/workflows/metrics-daily.yml']
     let seen = 0
     for (const file of callers) {
       const text = readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8')

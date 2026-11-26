@@ -198,7 +198,7 @@ describe('POST /api/ops/metrics-daily: who may run the daily step', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(Object.keys(body).sort()).toEqual(
-      ['daily_deleted', 'hourly_moved', 'ops_daily_deleted', 'ops_events_deleted', 'product_day_written'].sort()
+      ['alerts', 'daily_deleted', 'hourly_moved', 'ops_daily_deleted', 'ops_events_deleted', 'product_day_written'].sort()
     )
   })
 
