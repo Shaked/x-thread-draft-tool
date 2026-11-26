@@ -152,7 +152,8 @@ export default function DraftEditor({ user }) {
   const mergeAfter412 = err => {
     const version = err.version ?? err.draft?.version
     const mine = draftRef.current
-    if (mergedPendingRef.current || !mine || !err.draft || !Number.isInteger(version) || !(version > versionRef.current)) return false
+    // An upload in flight writes its result from the draft it started with: a merge now would be undone by it (the banner shows).
+    if (uploadsPending() || mergedPendingRef.current || !mine || !err.draft || !Number.isInteger(version) || !(version > versionRef.current)) return false
     const base = JSON.parse(lastSavedRef.current)
     const theirs = normalizeDraft(err.draft)
     const merged = mergeDraftEdits(base, mine, theirs)

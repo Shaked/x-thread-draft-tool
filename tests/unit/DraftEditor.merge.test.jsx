@@ -8,6 +8,7 @@ import { draftsApi } from '../../src/utils/api'
 import { clear as idbClear, get as idbGet } from 'idb-keyval'
 import { ToastProvider } from '../../src/ui/Toast.jsx'
 import { ConfirmProvider } from '../../src/ui/Dialog.jsx'
+import { beginUpload, endUpload } from '../../src/utils/pendingUploads'
 
 vi.mock('../../src/utils/api', () => ({
   draftsApi: { get: vi.fn(), update: vi.fn() },
@@ -128,7 +129,7 @@ describe('DraftEditor merge after a 412 (#474)', () => {
 
     const last = draftsApi.update.mock.calls.at(-1)
     expect(last[1].posts.map(p => p.text)).toEqual(['one!', 'two?', 'AI three'])
-    expect(last[2]).toBeGreaterThanOrEqual(5)
+    expect(last[2]).toBe(5)
   })
 
   it('the same post: the banner, nothing saved, my text kept', async () => {
@@ -192,6 +193,21 @@ describe('DraftEditor merge after a 412 (#474)', () => {
     // My edit is still in the editor and kept in this browser.
     expect(screen.getByLabelText('Post p1')).toHaveValue('one!')
     expect(await idbGet('draft-d1-mine')).toContain('one!')
+  })
+
+  it('an image upload in flight: the banner, not a merge (its result would undo the merge)', async () => {
+    draftsApi.update.mockRejectedValue(stale(theirsWith(withText('p3', 'AI three'))))
+    beginUpload()
+    try {
+      renderEditor()
+      await typeIn('Post p1', '!')
+      expect(await screen.findByRole('alert')).toBeInTheDocument()
+      expect(draftsApi.update).toHaveBeenCalledTimes(1)
+      expect(screen.queryByText('Changes from another app were added. Your edits are kept.')).not.toBeInTheDocument()
+      expect(screen.getByLabelText('Post p1')).toHaveValue('one!')
+    } finally {
+      endUpload()
+    }
   })
 
   it('a 412 without the other draft is the banner', async () => {

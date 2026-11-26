@@ -42,7 +42,8 @@ The tools do not retry for the caller, with one exception: `add_image_from_url` 
   `src/utils/draftMerge.js` decides. It merges, and saves once with `If-Match` of their version, only when all of these hold:
   - the two sides changed different posts (a removal counts as a change of that post; the same change on the same post still counts);
   - at most one side changed the title;
-  - at most one side added, removed or moved posts (that side's order is used).
+  - at most one side added, removed or moved posts (that side's order is used);
+  - no image upload is in flight (its result is written from the draft it started with and would undo the merge).
   After a merge it shows for 6 s: "Changes from another app were added. Your edits are kept." The posts that came from the other app are highlighted.
   The user's text is also kept in this browser until the merged save works, so closing the page during the merge loses nothing.
 - Any other `412` stops saving and shows the banner: "This draft changed in another app while you were editing."
