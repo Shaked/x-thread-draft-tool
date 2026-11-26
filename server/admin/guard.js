@@ -29,7 +29,7 @@ const GUARDED = new WeakSet()
 
 // Owner decision O6 (default, #284): a web admin change (any method but GET) needs a browser sign-in from this window.
 // Reads are not limited, and MCP has no such rule (Shaked, 2026-11-20). `iat` is the sign-in time: sessions are issued only at sign-in.
-export const WEB_WRITE_MAX_AGE_SECONDS = 12 * 60 * 60
+const WEB_WRITE_MAX_AGE_SECONDS = 12 * 60 * 60
 
 function signedInRecently(admin) {
   return typeof admin.iat === 'number' && Date.now() / 1000 - admin.iat <= WEB_WRITE_MAX_AGE_SECONDS
