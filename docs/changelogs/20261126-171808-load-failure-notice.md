@@ -3,7 +3,7 @@
 - After a new version is out, a page or part that cannot load shows a Reload button instead of an empty screen.
 
 Area: Admin
-Link: https://github.com/Shaked/x-thread-draft-tool/pulls
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/555
 
 ## Technical details
 
