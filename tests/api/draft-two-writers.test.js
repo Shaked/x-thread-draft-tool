@@ -121,19 +121,10 @@ describe('MCP tools follow the same revision rule', () => {
     expect(texts(await stored(draft.id))).toEqual(['post A', 'post B'])
   })
 
-  it('remove_image sends the version it read: an editor save between its read and write is kept', async () => {
+  it('remove_image with the version it was given: an editor save after that read is kept, nothing is removed', async () => {
     const draft = await db.insertDraft(alice.id, { posts: POSTS() })
-    const realRoute = router.route
-    const spy = vi.spyOn(router, 'route').mockImplementation(async (req) => {
-      const res = await realRoute(req)
-      // The editor saves right after the tool's GET.
-      if (req.method === 'GET' && req.url.endsWith(`/drafts/${draft.id}`)) {
-        await realRoute(apiRequest(`/api/drafts/${draft.id}`, { method: 'PATCH', body: { title: 'by the user' }, cookie }))
-      }
-      return res
-    })
-    const result = await ai('remove_image', { draftId: draft.id, url: 'https://blob.test/a.png' })
-    spy.mockRestore()
+    await editorSaves(draft.id, { title: 'by the user', posts: POSTS() }) // version 2
+    const result = await ai('remove_image', { draftId: draft.id, url: 'https://blob.test/a.png', version: 1 })
     expect(result.isError).toBe(true)
     expect(result.structuredContent.version).toBe(2)
     expect(await stored(draft.id)).toMatchObject({ title: 'by the user', version: 2, posts: [{ images: [{ url: 'https://blob.test/a.png' }] }, {}] })

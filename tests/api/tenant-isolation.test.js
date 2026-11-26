@@ -9,6 +9,8 @@ vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn
 import { ROUTES, route } from '../../server/router.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
 
+const POST_ID = 'p1'
+
 // Requests for each draft route, keyed as "METHOD /path" (as in ROUTES). A route not listed here
 // fails the test below, so a new draft route cannot ship without an isolation case.
 const CASES = {
@@ -22,10 +24,14 @@ const CASES = {
   'POST /drafts/:id/share-tokens': {},
   'DELETE /drafts/:id/share-tokens': {},
   'DELETE /drafts/:id/share-tokens/:token': {},
-  'PATCH /drafts/:id/posts/:postId': { body: { text: 'hacked' } }
+  'PATCH /drafts/:id/posts/:postId': { body: { text: 'hacked' } },
+  'POST /drafts/:id/posts': { body: { text: 'hacked' } },
+  'DELETE /drafts/:id/posts/:postId': {},
+  'POST /drafts/:id/posts/:postId/move': { body: { position: 1 } },
+  'POST /drafts/:id/images': { body: { url: 'https://example.com/a.png', post_id: POST_ID } },
+  'DELETE /drafts/:id/images': { body: { post_id: POST_ID } }
 }
 
-const POST_ID = 'p1'
 const draftRoutes = ROUTES.filter((entry) => entry.path.startsWith('/drafts/:id'))
 const keyOf = (entry) => `${entry.method} ${entry.path}`
 
