@@ -5,7 +5,7 @@ import { HttpError, json } from '../http.js'
 import { query, transaction } from '../db.js'
 import { listBlobPrefix, removeBlobPrefix } from '../blob.js'
 import { recordAdminAction } from './audit.js'
-import { sealAdminConfirm, openAdminConfirm } from './confirm.js'
+import { bindOf, sealAdminConfirm, openAdminConfirm } from './confirm.js'
 import { isProtectedGithubId, protectedGithubIds } from './identity.js'
 import { ADMIN_LIMITS, withinAdminLimit } from './limits.js'
 
@@ -50,7 +50,7 @@ async function checkTarget(actor, id) {
     await recordAdminAction(query, { actor, action: 'delete_user', outcome: 'refused', target })
     throw new HttpError(403, 'This account cannot be suspended or deleted.')
   }
-  if (user.suspended_at === null) throw new HttpError(409, 'Suspend the user first with admin_suspend_user.')
+  if (user.suspended_at === null) throw new HttpError(409, 'Suspend the user first (admin_suspend_user, or Suspend on the admin page).')
   if (!user.waited) {
     throw new HttpError(409, `Wait until ${new Date(user.ready_at).toISOString()}: a user must be suspended for ${DELETE_WAIT_MINUTES} minutes before deletion.`)
   }
@@ -73,8 +73,17 @@ async function refuseAfterFiles(actor, target, outcome) {
   throw outcome === 'gone' ? new HttpError(404, 'User not found') : new HttpError(409, 'The user changed. Run the dry run again.')
 }
 
+/**
+ * True when the token was made for this delete, by this admin, on this surface, for this binding (the MCP grant, or the
+ * browser session's jti). A token from the other surface or another session is refused (#284).
+ */
+function tokenOpens(sealed, admin, id) {
+  return Boolean(sealed) && sealed.act === 'delete_user' && sealed.target === id && sealed.admin === admin.uid
+    && sealed.surface === admin.surface && typeof sealed.bind === 'string' && sealed.bind.length > 0 && sealed.bind === bindOf(admin)
+}
+
 export async function deleteUser(admin, id, body) {
-  const actor = { uid: admin.uid, gh: admin.gh, login: admin.login }
+  const actor = { uid: admin.uid, gh: admin.gh, login: admin.login, surface: admin.surface }
   const { user, target } = await checkTarget(actor, id)
   const dryRun = body?.dry_run !== false
 
@@ -87,12 +96,12 @@ export async function deleteUser(admin, id, body) {
   }
 
   if (dryRun) {
-    const confirm_token = await sealAdminConfirm({ act: 'delete_user', target: id, gh: String(user.github_id), login: user.login, counts, admin: admin.uid, grant: admin.grantId })
+    const confirm_token = await sealAdminConfirm({ act: 'delete_user', target: id, gh: String(user.github_id), login: user.login, counts, admin: admin.uid, surface: admin.surface, bind: bindOf(admin) })
     return json({ dry_run: true, user: target, will_delete: counts, confirm_token, expires_in: CONFIRM_SECONDS })
   }
 
   const sealed = await openAdminConfirm(body.confirm_token)
-  if (!sealed || sealed.act !== 'delete_user' || sealed.target !== id || sealed.admin !== admin.uid || sealed.grant !== admin.grantId) {
+  if (!tokenOpens(sealed, admin, id)) {
     throw bad('confirm_token is not valid for this call. Run the dry run again.')
   }
   if (typeof body.confirm_login !== 'string' || body.confirm_login !== sealed.login || body.confirm_login !== user.login) {
@@ -107,7 +116,7 @@ export async function deleteUser(admin, id, body) {
     // user cannot be restored once the files start to go.
     const { rows: still } = await q('select suspended_at from users where id = $1 for update', [id])
     if (still.length === 0) return 'gone'
-    if (still[0].suspended_at === null) throw new HttpError(409, 'Suspend the user first with admin_suspend_user.')
+    if (still[0].suspended_at === null) throw new HttpError(409, 'Suspend the user first (admin_suspend_user, or Suspend on the admin page).')
     if (!(await withinAdminLimit(q, admin.uid, ADMIN_LIMITS.delete.actions, ADMIN_LIMITS.delete.perHour, ADMIN_LIMITS.delete.outcomes))) {
       throw new HttpError(429, `Admin limit reached: at most ${ADMIN_LIMITS.delete.perHour} of these actions per hour.`)
     }

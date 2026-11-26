@@ -65,7 +65,9 @@ The `/api/admin/*` routes also answer the owner's browser session. All of these 
 5. `roleOf` in `role.js` says admin for the GitHub id in the session. `ADMIN_DISABLED=1` turns this off too.
 6. Then the one statement that checks revoked, suspended and exists.
 
-The check is `realSession` in `server/session.js`, used only by `server/admin/guard.js`. It ignores view-as. Each web call adds 1 to the per-minute MCP count (120 a minute); past that the answer is 429. The router gate (`adminPathOpen`) is async and never counts. The per-tool route binding applies to MCP only. The confirm-token binding for the web surface is #284.
+The check is `realSession` in `server/session.js`, used only by `server/admin/guard.js`. It ignores view-as. Each web call adds 1 to the per-minute MCP count (120 a minute); past that the answer is 429. The router gate (`adminPathOpen`) is async and never counts. The per-tool route binding applies to MCP only. Web admin changes (any method but GET) need a browser sign-in from the last 12 hours (`WEB_WRITE_MAX_AGE_SECONDS` in `server/admin/guard.js`; a refusal is 403 "Sign in again: ..."). Reads are not limited. This is owner decision O6, and 12 hours is its default. MCP has no such rule.
+
+A delete confirm token is bound to its surface and its binding: the MCP grant on MCP, the browser session's `jti` on web (`bindOf` in `server/admin/confirm.js`). A token opens only on the surface that made it, and only in the session that made it. Another session's token, or a token from the other surface, answers 400 "confirm_token is not valid for this call. Run the dry run again."
 
 ## What a suspended user sees
 
@@ -93,7 +95,7 @@ What the server does, in order:
 
 - Table `admin_audit` (migration `009_admin.sql`). It has no foreign keys on purpose, so a row outlives the user it is about.
 - Each row keeps the admin's id and login, the action, the outcome (`started`, `done`, `failed`, `refused`), and the target's id, GitHub id and login.
-- The `details` field never holds a secret.
+- Every row has `details.surface`: `mcp` or `web`. The `details` field never holds a secret.
 - Read it with `admin_audit_log`, newest first.
 
 ## Scale note

@@ -7,6 +7,14 @@ import { secretKey } from '../session.js'
 const AUDIENCE = 'admin-confirm'
 const MAX_TOKEN = 4096
 
+/**
+ * What a confirm token is bound to, per surface (#284): the MCP grant id, or the browser session's jti on web.
+ * A token opens only on the same surface and only for the same binding value (checked by the caller).
+ */
+export function bindOf(admin) {
+  return admin.surface === 'web' ? admin.jti : admin.grantId
+}
+
 export function sealAdminConfirm(payload) {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })

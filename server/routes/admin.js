@@ -130,7 +130,7 @@ async function changeSuspension(admin, id, body, suspend) {
   if (typeof body?.confirm_login !== 'string') throw bad('Type confirm_login: the login of this user, exactly.')
   const reason = suspend ? suspendReason(body.reason) : null
   const action = suspend ? 'suspend_user' : 'unsuspend_user'
-  const actor = { uid: admin.uid, gh: admin.gh, login: admin.login }
+  const actor = { uid: admin.uid, gh: admin.gh, login: admin.login, surface: admin.surface }
   const outcome = await transaction(async (q) => {
     await q('select id from users where id = $1 for update', [admin.uid])
     if (!(await withinAdminLimit(q, admin.uid, ADMIN_LIMITS.suspend.actions, ADMIN_LIMITS.suspend.perHour))) {
