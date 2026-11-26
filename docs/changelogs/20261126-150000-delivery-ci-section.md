@@ -1,7 +1,9 @@
 # The admin metrics page shows delivery and CI
 
-- The admin metrics page has a "Delivery and CI" section: CI time (median and p90), push to production, deploy time, CI failures and flaky retries, each with last week's value.
-- It lists the newest delivery events with a link to each, has a 24 hours and 7 days switch, and links to older history.
+- The admin metrics page has a "Delivery and CI" section.
+- It shows CI time (median and p90), push to production, deploy time, CI failures and flaky retries.
+- Each number has last week's value next to it.
+- It lists the newest delivery events with a link each, and has a 24 hours and 7 days switch.
 
 Area: Admin
 Link: https://github.com/Shaked/x-thread-draft-tool/issues/452
