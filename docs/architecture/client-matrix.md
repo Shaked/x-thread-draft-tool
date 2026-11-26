@@ -55,7 +55,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Edit results | results | none | 2026-11-25 |
 | Thread view after an edit | view:thread | renders_ui_views | 2026-11-25 |
 | Image operations | tools | none | 2026-11-25 |
-| Connect guide | docs/agents/mcp.md | none | 2026-11-21 |
+| Connect guide | docs/agents/mcp.md | none | 2026-11-26 |
 
 ## Language: en
 
@@ -78,7 +78,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Edit results | built: tests/api/mcp-edit-result.test.js, tests/api/mcp-discovery.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js |
 | Thread view after an edit | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | not checked | built: tests/api/mcp-edit-result.test.js | not checked | not checked | not checked | not checked |
 | Image operations | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js |
-| Connect guide | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | no: the guide has no Grok steps (#372) | built: docs/agents/mcp.md | built: docs/agents/mcp.md | no: no steps for other MCP clients (#372) |
+| Connect guide | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | not checked | built: docs/agents/mcp.md | built: docs/agents/mcp.md | no: no steps for other MCP clients (#372) |
 
 ## Language: he
 
@@ -101,13 +101,13 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Edit results | built: tests/api/mcp-discovery.test.js | built: tests/api/mcp-discovery.test.js | built: tests/api/mcp-discovery.test.js | built: tests/api/mcp-discovery.test.js | built: tests/api/mcp-discovery.test.js | built: tests/api/mcp-discovery.test.js | built: tests/api/mcp-discovery.test.js | built: tests/api/mcp-discovery.test.js |
 | Thread view after an edit | built: tests/api/mcp-edit-result.test.js, tests/unit/mcp-ui-thread.test.js | built: tests/unit/mcp-ui-thread.test.js | not checked | built: tests/unit/mcp-ui-thread.test.js | not checked | not checked | not checked | not checked |
 | Image operations | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) |
-| Connect guide | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) |
+| Connect guide | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | not checked | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | no: no steps for other MCP clients (#372) |
 
 The thread tools add the thread as markdown after the JSON (#356): its labels are English and read by the assistant; the Hebrew post text in it stays unchanged. In Hebrew, "built" for a view means Hebrew post text shows unchanged and right to left (`dir="auto"`); the labels around it are the separate View labels row. Tool titles: MCP gives each tool one title and no language field, so Hebrew trigger words go in the description instead.
 
 ## What the cells rest on
 
 - Claude web renders views: its help page, in `clients.json`. ChatGPT renders the thread view: Shaked's screenshot of a Hebrew draft on #357. The ChatGPT drafts view and share card cells rest on the same fact (the same view mechanism); nobody has seen those two views in ChatGPT.
-- Grok: tool calls only when the connector is named (#279), no slash commands seen (#273). Each was seen by Shaked; why is not checked. The thread view was an empty grey box (#352); the fix (#356, the view reads the markdown part) is not checked in Grok, so the cell is `not checked`.
+- Grok: tool calls only when the connector is named (#279), no slash commands seen (#273). The Grok connect steps in the guide come from search results, because docs.x.ai could not be read on 2026-11-26, so the Grok connect cells are `not checked` (manual test: #430 item 5). Each was seen by Shaked; why is not checked. The thread view was an empty grey box (#352); the fix (#356, the view reads the markdown part) is not checked in Grok, so the cell is `not checked`.
 - Edit results: the edit tools (#405) show the thread view from the draft as saved, with only the changed posts. The text adds one English line (the "after the edit" sentence, the version and the count) and quotes the changed posts as they are now. In Hebrew, the format eval checks that the changed post comes back exactly as written and that no unchanged post is quoted.
 - Every other client fact is `not checked` in `clients.json` (#278 could not load the vendors' pages). #373 checks them.
