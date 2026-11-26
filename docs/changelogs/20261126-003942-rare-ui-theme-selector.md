@@ -5,7 +5,7 @@
 - The switch stays on this device only.
 
 Area: Design
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/468
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/471
 
 ## Technical details
 
