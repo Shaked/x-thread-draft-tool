@@ -5,9 +5,9 @@
  * the full licence text is in THIRD_PARTY_LICENSES/rare-ui.md. Keep this notice.
  * Changes for this app: TypeScript removed; integer values only (no decimals, prefix, suffix, negative numbers,
  * separators or Indian grouping: the counter shows the same digits as the plain text); no React 19 ref prop: the
- * digit columns forward their ref (forwardRef), which AnimatePresence needs to measure a leaving column; no style=
- * props: the digit height and the edge fade are tokens (--counter-line, --mask-counter-fade in src/styles/tokens.css),
- * the wheel offset is a motion value passed as y; the digits are set left to right by the caller's dir="ltr" box;
+ * digit columns forward their ref (forwardRef), which AnimatePresence needs to measure a leaving column; no inline
+ * styles: the digit height and the edge fade are tokens (--counter-line, --mask-counter-fade in src/styles/tokens.css),
+ * the wheel offset is a motion value bound through the motion element's style prop (the one style prop in this file, allowed in tests/unit/design-tokens.test.js); the digits are set left to right by the caller's dir="ltr" box;
  * the number is read once (sr-only), the rolling digits are aria-hidden, and nothing here is a live region, so
  * the screen reader does not announce each keystroke; the ui-rare-counter class for the UI audit. Motion timings
  * are upstream's; reduced motion makes them instant.
@@ -92,6 +92,7 @@ const fades = (reduced) => ({
 const Digit = memo(
   forwardRef(function Digit({ digit, from, dir, duration, reduced, dep, shift }, ref) {
     const y = useWheel(from, digit, dir, duration, reduced)
+    const style = { y }
 
     return (
       <motion.span
@@ -102,7 +103,7 @@ const Digit = memo(
         className="relative inline-grid h-(--counter-line) overflow-hidden [mask-image:var(--mask-counter-fade)] [-webkit-mask-image:var(--mask-counter-fade)]"
       >
         {SIZER}
-        <motion.span y={y} className="absolute inset-x-(--space-0) top-(--space-0)">
+        <motion.span style={style} className="absolute inset-x-(--space-0) top-(--space-0)">
           {STACK}
         </motion.span>
       </motion.span>

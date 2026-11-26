@@ -30,6 +30,15 @@ describe('Count (Rare UI animated counter, feature flag)', () => {
     expect(container.querySelector('.sr-only').textContent).toBe('121')
   })
 
+  it('moves the digit wheel with a transform, so the shown digits are not stuck at zero', async () => {
+    localStorage.setItem(KIT_KEY, 'rare')
+    const { container } = render(<Count value={157} max={280} />)
+    await waitFor(() => expect(rareCounter(container)).not.toBeNull())
+    const wheels = [...container.querySelectorAll('[data-slot="animated-counter-digit"] > span:last-child')]
+    expect(wheels).toHaveLength(3)
+    expect(wheels.every((w) => /translateY\(-?[1-9]/.test(w.style.transform))).toBe(true)
+  })
+
   it('is not a live region: nothing announces each keystroke', async () => {
     localStorage.setItem(KIT_KEY, 'rare')
     const { container } = render(<Count value={7} max={280} />)
