@@ -43,9 +43,9 @@ How to read it:
   with `/` is relative to `siteUrl`: write it in full before it goes into an issue.
 
 If line 1 says the events are old or none: start the workflow its link names, once, with `actions_run_trigger`
-(`method: run_workflow`, `owner` and `repo` from `repo`, `workflow_id` the file name in
-the link, `ref` the default branch). End your turn and read again when it has finished. Do not loop
-or sleep. Events carry the time of the run, merge or deploy they describe, not the time of collection. So a quiet
+(`method: run_workflow`, `owner`, `repo` and `workflow_id` taken from the link, `ref` the default branch).
+End your turn and read again when it has finished. Do not loop or sleep.
+Events carry the time of the run, merge or deploy they describe, not the time of collection. So a quiet
 repository can keep line 1 after a good run. Read the finished run: if it failed, that is the problem, so open an issue
 with the run link. If it succeeded, list the repository's recent runs, merges and deploys with the GitHub tools. Only when
 there are newer ones than the last event, the collector stores nothing: open an issue with the run link. Otherwise
