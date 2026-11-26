@@ -86,7 +86,7 @@ const ADMIN_TOOLS = [
       type: 'object',
       properties: {
         window: { type: 'string', enum: ['1h', '24h', '7d', '30d', '90d', '400d'], default: '24h', description: '1h is the current UTC hour so far; the others end now.' },
-        by: { type: 'string', enum: ['route', 'op', 'caller', 'all'], default: 'route', description: 'How to group the rows.' },
+        by: { type: 'string', enum: ['route', 'op', 'caller', 'all', 'total'], default: 'route', description: 'How to group the rows.' },
         route: { type: 'string', maxLength: 120, description: 'Only this route, as the result names it (for example GET /drafts/:id), or unmatched.' }
       }
     },
@@ -115,6 +115,29 @@ const ADMIN_TOOLS = [
       required: ['name']
     },
     run: (args, { rest }) => rest('GET', `/admin/metrics/series${queryOf(args, ['name', 'window', 'route'])}`)
+  },
+  {
+    name: 'admin_list_flags',
+    description: 'The feature flags of the admin (the Rare UI look and components): each with its value, allowed values, default and meaning.',
+    inputSchema: { type: 'object', properties: {} },
+    run: (args, { rest }) => rest('GET', '/admin/flags')
+  },
+  {
+    name: 'admin_set_flag',
+    description:
+      'Set one feature flag, look or components, to default or rare. Affects only the view of this admin; no confirm token; audited.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        flag: { type: 'string', enum: ['look', 'components'], description: 'Which flag.' },
+        value: { type: 'string', enum: ['default', 'rare'], description: 'default or rare.' }
+      },
+      required: ['flag', 'value']
+    },
+    run: (args, { rest }) =>
+      typeof args.flag === 'string' && typeof args.value === 'string'
+        ? rest('POST', '/admin/flags', { name: args.flag, value: args.value })
+        : json({ error: 'Give flag (look or components) and value (default or rare).' }, 400)
   },
   {
     name: 'admin_suspend_user',
@@ -195,6 +218,8 @@ const ADMIN_META = {
   admin_audit_log: ['Admin audit log', true, false, true, false],
   admin_metrics: ['Request metrics', true, false, true, false],
   admin_metrics_series: ['Request metrics over time', true, false, true, false],
+  admin_list_flags: ['List feature flags', true, false, true, false],
+  admin_set_flag: ['Set feature flag', false, false, true, false],
   admin_suspend_user: ['Suspend user', false, true, true, false],
   admin_unsuspend_user: ['Unsuspend user', false, false, true, false],
   admin_delete_user: ['Delete user', false, true, false, false]
@@ -211,6 +236,8 @@ const ADMIN_REST_ROUTES = {
   admin_audit_log: ['GET /admin/audit'],
   admin_metrics: ['GET /admin/metrics'],
   admin_metrics_series: ['GET /admin/metrics/series'],
+  admin_list_flags: ['GET /admin/flags'],
+  admin_set_flag: ['POST /admin/flags'],
   admin_suspend_user: [`POST /admin/users/${NIL_ID}/suspend`],
   admin_unsuspend_user: [`POST /admin/users/${NIL_ID}/unsuspend`],
   admin_delete_user: [`POST /admin/users/${NIL_ID}/delete`]
@@ -225,6 +252,8 @@ const ADMIN_TRIGGERS = {
   admin_audit_log: ['history of admin actions', 'יומן פעולות ניהול'],
   admin_metrics: ['request metrics, errors, slow routes, latency percentiles', 'מדדי בקשות, שגיאות, נתיבים איטיים, זמני תגובה'],
   admin_metrics_series: ['one metric over time, a chart of requests or errors', 'מדד לאורך זמן, גרף בקשות או שגיאות'],
+  admin_list_flags: ['feature flags, the Rare UI look switches', 'דגלי תכונות, מתגי המראה'],
+  admin_set_flag: ['turn the Rare UI look or components on or off', 'דגל תכונה, מראה ניסיוני'],
   admin_suspend_user: ['block or freeze a user', 'להשעות משתמש, לחסום משתמש'],
   admin_unsuspend_user: ['restore a suspended user', 'לבטל השעיה, להחזיר משתמש'],
   admin_delete_user: ['remove a user and all their content', 'למחוק משתמש וכל התוכן שלו']

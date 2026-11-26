@@ -68,7 +68,7 @@ describe('AppMenu', () => {
     const user = userEvent.setup()
     renderMenu({ login: 'owner', admin: true })
     await user.click(screen.getByRole('button', { name: 'Menu' }))
-    expect(screen.getByRole('link', { name: 'Changelog' })).toHaveAttribute('href', '/changelog')
+    expect(screen.getByRole('link', { name: 'Changelog' })).toHaveAttribute('href', '/admin/changelog')
   })
 
   it('shows the Admin badge and the Admin section only for role admin (#282)', async () => {

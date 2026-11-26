@@ -1,0 +1,64 @@
+.line-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.line-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  color: var(--color-text-soft);
+  font-size: var(--font-size-sm);
+}
+
+.line-chart__key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.line-chart__svg {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+}
+
+.line-chart__axis {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.line-chart__line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.line-chart__line--0,
+.line-chart__series--0 .line-chart__dot {
+  stroke: var(--color-accent);
+  fill: none;
+}
+
+.line-chart__series--0 .line-chart__dot {
+  fill: var(--color-accent);
+  stroke: none;
+}
+
+.line-chart__line--1 {
+  stroke: var(--color-warning);
+  stroke-dasharray: 6 4;
+}
+
+.line-chart__series--1 .line-chart__dot {
+  fill: var(--color-warning);
+}
+
+.line-chart__ends {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-soft);
+  font-size: var(--font-size-xs);
+}

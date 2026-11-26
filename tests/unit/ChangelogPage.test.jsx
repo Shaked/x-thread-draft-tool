@@ -42,11 +42,12 @@ describe('ChangelogPage', () => {
   it('groups entries by UTC day, newest first, under the running version', async () => {
     changelogApi.list.mockResolvedValue(FIRST)
     renderPage()
-    expect(screen.getByRole('heading', { name: 'Changelog', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Changelog', level: 2 })).toBeInTheDocument()
     expect(screen.getByText(/^Version /)).toBeInTheDocument()
     await screen.findByText('Newest change')
 
-    const days = screen.getAllByRole('region')
+    // The first region is the Changelog section itself; the rest are the days.
+    const days = screen.getAllByRole('region').slice(1)
     expect(days).toHaveLength(2)
     expect(within(days[0]).getByText('Newest change')).toBeInTheDocument()
     expect(within(days[0]).getByText('Same day, no title.')).toBeInTheDocument()

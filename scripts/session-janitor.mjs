@@ -11,7 +11,7 @@
 //       Prints the findings as JSON, one object per finding.
 //   node scripts/session-janitor.mjs report sessions.json snapshot.json [same options] [--applied applied.json]
 //       [--pass1 pass1.txt]
-//       Prints the summary in the template .claude/skills/reply-style/templates/janitor-summary.md.
+//       Prints the summary in the template .claude/reply-style-templates/janitor-summary.md.
 //       applied.json lists the fixes the agent applied and checked: [{ "issue": n, "what": "closed as completed ..." }].
 //
 // analyzeSessions() is pure: the tests run it on fixtures.
@@ -471,7 +471,7 @@ function summaryTop(findings, { counts, today, applied, pass1Findings, dispatche
 }
 
 /**
- * The summary text (template: .claude/skills/reply-style/templates/janitor-summary.md). Pure: the golden test pins it.
+ * The summary text (template: .claude/reply-style-templates/janitor-summary.md). Pure: the golden test pins it.
  * counts: { sessions, pages, issues }; applied: [{ issue, what }]; pass1: the pass 1 report text, or ''.
  */
 export function formatSummary(findings, { counts, today, repo = REPO, names = new Map(), applied = [], pass1 = '', pass1Findings = [], shown = findings.length }) {

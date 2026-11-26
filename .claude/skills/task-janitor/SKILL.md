@@ -112,7 +112,7 @@ A session that is the parent of another session in scope is the dispatcher: it i
 
 ## Run both passes (`/janitor`)
 The slash command [`/janitor`](../../commands/janitor.md) runs the steps below. The summary is a template:
-[`janitor-summary`](../reply-style/templates/janitor-summary.md) of `reply-style`, and a golden test pins it.
+[`janitor-summary`](../../reply-style-templates/janitor-summary.md) of `reply-style`, and a golden test pins it.
 
 1. Pass 1 snapshot and comments (see "Run it"), and the pass 2 dump, `need`, `comments.json` and `pulls.json`
    (see "Pass 2"). Keep every file in your scratchpad; never commit them.
@@ -139,7 +139,7 @@ failed session, answering a blocked one, nudging a merge and archiving a complet
 
 ## Status board
 `/status` (`.claude/commands/status.md`, #499 (status board template command)) prints every work item on one page in the
-[`status-board`](../reply-style/templates/status-board.md) template: ticket, PR and checks, Claude session and state, whether
+[`status-board`](../../reply-style-templates/status-board.md) template: ticket, PR and checks, Claude session and state, whether
 Shaked is needed, the next step and who does it. `scripts/status-board.mjs` is read-only, offline, deterministic and has no model;
 it reuses the pass 2 matching (`context()` in `scripts/session-janitor.mjs`) and its findings for the next step.
 

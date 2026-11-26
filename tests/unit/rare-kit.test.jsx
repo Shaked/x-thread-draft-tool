@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import DeleteButton from '../../src/ui/DeleteButton.jsx'
 import { ConfirmProvider } from '../../src/ui/Dialog.jsx'
 import ThemePicker from '../../src/ui/ThemePicker.jsx'
-import { KIT_KEY } from '../../src/utils/skin.js'
+import { allowFlags, KIT_KEY } from '../../src/utils/skin.js'
 
 // The Rare UI components behind the "Components" feature flag (#406), through their src/ui wrappers.
 const THEMES = [
@@ -44,7 +44,10 @@ function renderDelete(onConfirm) {
 }
 
 describe('Rare UI components (feature flag)', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => {
+    localStorage.clear()
+    allowFlags(true)
+  })
   afterEach(() => {
     cleanup()
     localStorage.clear()
