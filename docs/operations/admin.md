@@ -75,6 +75,15 @@ A delete confirm token is bound to its surface and its binding: the MCP grant on
 
 The browser pages are under `/admin` (#285): `src/pages/admin/` is one lazy chunk that is never precached (`tests/unit/admin-bundle.test.js` checks it). `isAdmin` in `src/utils/currentUser.js` is the one place the browser reads the role; the server still decides.
 
+## Suspend, unsuspend and delete in the browser (#287)
+
+On `/admin/users/:id` the admin sees an Actions section (not for the protected accounts, the admin and CI, which show no buttons). It calls the same routes as the MCP tools, so the same rules hold: the typed login, the 10-minute wait, the confirm token, the 12-hour sign-in rule and one audit row with `details.surface` `web`.
+
+- **Suspend**: a dialog names the user id and what stops working. Type the login exactly to enable the button. The reason is optional (200 characters).
+- **Unsuspend**: a dialog with the same typed login.
+- **Delete user**: its button waits until 10 minutes after the suspension. Step 1 is the dry run (nothing is deleted): a dialog shows the counts, the user id and when the confirm token expires. Step 2: type the login, and the real call goes out with `confirm_token` and `confirm_login`. The token lives in page state only, never in storage.
+- Every server refusal (403 protected, 403 sign in again, 409 wait or content changed, 429 limit) is shown with the server's own message.
+
 ## What a suspended user sees
 
 - Every sign-in is refused. On the login page the user sees "This account is suspended." (`server/suspension.js`, `src/components/LoginPage.jsx`). The sign-in callback sends them to `/?suspended=1`, and they get no session cookie.

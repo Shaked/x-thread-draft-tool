@@ -53,6 +53,19 @@ export const adminApi = {
   user(id) {
     return request(`/admin/users/${encodeURIComponent(id)}`, { headers: { 'x-xt-admin': '1' } }).then((data) => data.user)
   },
+  // Suspend, unsuspend and delete (#287). Each needs the typed login; delete is a dry run, then the real call with the token.
+  suspend(id, confirmLogin, reason) {
+    return request(`/admin/users/${encodeURIComponent(id)}/suspend`, { method: 'POST', body: { confirm_login: confirmLogin, ...(reason ? { reason } : {}) }, headers: { 'x-xt-admin': '1' } })
+  },
+  unsuspend(id, confirmLogin) {
+    return request(`/admin/users/${encodeURIComponent(id)}/unsuspend`, { method: 'POST', body: { confirm_login: confirmLogin }, headers: { 'x-xt-admin': '1' } })
+  },
+  deleteDryRun(id) {
+    return request(`/admin/users/${encodeURIComponent(id)}/delete`, { method: 'POST', body: { dry_run: true }, headers: { 'x-xt-admin': '1' } })
+  },
+  deleteUser(id, confirmToken, confirmLogin) {
+    return request(`/admin/users/${encodeURIComponent(id)}/delete`, { method: 'POST', body: { dry_run: false, confirm_token: confirmToken, confirm_login: confirmLogin }, headers: { 'x-xt-admin': '1' } })
+  },
   audit(before) {
     const query = before ? `&before=${encodeURIComponent(before)}` : ''
     return request(`/admin/audit?limit=${PAGE_SIZE}${query}`, { headers: { 'x-xt-admin': '1' } }).then((data) => data.events)

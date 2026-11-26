@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import AdminLayout from '../../src/pages/admin/AdminLayout.jsx'
+import { ToastProvider } from '../../src/ui/Toast'
 
 const ID = '11111111-1111-4111-8111-111111111111'
 const USER = {
@@ -21,11 +22,13 @@ afterEach(() => {
 function mount(status, body) {
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: status === 200, status, json: async () => body })))
   render(
-    <MemoryRouter initialEntries={[`/admin/users/${ID}`]}>
-      <Routes>
-        <Route path="/admin/*" element={<AdminLayout />} />
-      </Routes>
-    </MemoryRouter>
+    <ToastProvider>
+      <MemoryRouter initialEntries={[`/admin/users/${ID}`]}>
+        <Routes>
+          <Route path="/admin/*" element={<AdminLayout />} />
+        </Routes>
+      </MemoryRouter>
+    </ToastProvider>
   )
 }
 

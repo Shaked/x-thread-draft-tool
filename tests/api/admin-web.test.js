@@ -7,12 +7,14 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 vi.mock('../../server/blob.js', () => ({
   putBlob: vi.fn(),
   deleteBlobUrls: vi.fn(async () => {}),
-  listBlobPrefix: vi.fn(async () => ({ files: [], truncated: false }))
+  listBlobPrefix: vi.fn(async () => ({ files: [], truncated: false })),
+  removeBlobPrefix: vi.fn(async () => ({ deleted: 0, remaining: 0, bytes: 0 }))
 }))
 
 import { ROUTES, route } from '../../server/router.js'
 import { adminPathOpen } from '../../server/admin/guard.js'
 import { ciAudience, OIDC_ISSUER, setJwksForTests } from '../../server/oidc-ci.js'
+import { secretKey } from '../../server/session.js'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { createApiToken } from '../../server/tokens.js'
 import { apiRequest, setupTestDb, APP_URL } from './helpers/db.js'
@@ -211,5 +213,121 @@ describe('the rate count', () => {
     )
     expect((await call('GET', '/admin/status', { cookie: adminCookie, headers: HEADER })).status).toBe(429)
     await db.pg.query('delete from mcp_rate_limits where user_id = $1', [admin.id])
+  })
+})
+
+// #287: suspend, unsuspend and delete from the browser session, against the routes the MCP tools use.
+describe('suspend, unsuspend and delete from the browser (#287)', () => {
+  const users = (id, action, body, cookie = adminCookie) => call('POST', `/admin/users/${id}/${action}`, { body, cookie, headers: HEADER })
+  const audit = async (action) => (await db.pg.query('select action, outcome, details from admin_audit where action = $1 order by outcome', [action])).rows
+  const exists = async (u) => (await db.pg.query('select 1 from users where id = $1', [u.id])).rowCount === 1
+  const suspendedFor = (u, minutes) => db.pg.query(`update users set suspended_at = now() - make_interval(mins => $2) where id = $1`, [u.id, minutes])
+  const staleCookie = async () => {
+    const token = await new SignJWT({ uid: admin.id, gh: '960015', login: 'shaked', jti: `stale-${Math.random()}` })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt(Math.floor(Date.now() / 1000) - 13 * 3600)
+      .setExpirationTime('30d')
+      .sign(secretKey())
+    return `xt_session=${token}`
+  }
+
+  it('runs the whole flow: suspend, wait, dry run, delete, with one audit row per step marked web', async () => {
+    await db.pg.query('delete from admin_audit')
+    const bob = await db.insertUser({ github_id: 7001, login: 'bob' })
+    const suspended = await users(bob.id, 'suspend', { confirm_login: 'bob', reason: 'spam' })
+    expect(suspended.status).toBe(200)
+    expect((await suspended.json()).user.suspended_at).not.toBeNull()
+    // The 10-minute rule uses SQL now(), so the test moves suspended_at back.
+    const early = await users(bob.id, 'delete', { dry_run: true })
+    expect(early.status).toBe(409)
+    await suspendedFor(bob, 11)
+    const dry = await (await users(bob.id, 'delete', { dry_run: true })).json()
+    expect(dry).toMatchObject({ dry_run: true, user: { id: bob.id, login: 'bob' }, expires_in: 600 })
+    expect(await exists(bob)).toBe(true)
+    const done = await users(bob.id, 'delete', { dry_run: false, confirm_token: dry.confirm_token, confirm_login: 'bob' })
+    expect(done.status).toBe(200)
+    expect(await done.json()).toMatchObject({ deleted: true, user: { id: bob.id, login: 'bob' } })
+    expect(await exists(bob)).toBe(false)
+    expect((await audit('suspend_user')).map((r) => [r.outcome, r.details.surface])).toEqual([['done', 'web']])
+    expect((await audit('delete_user')).map((r) => [r.outcome, r.details.surface])).toEqual([['done', 'web'], ['started', 'web']])
+  })
+
+  it('unsuspend restores the user and writes one web audit row', async () => {
+    await db.pg.query('delete from admin_audit')
+    const carol = await db.insertUser({ github_id: 7002, login: 'carol' })
+    expect((await users(carol.id, 'suspend', { confirm_login: 'carol' })).status).toBe(200)
+    expect((await users(carol.id, 'unsuspend', { confirm_login: 'carol' })).status).toBe(200)
+    expect((await db.pg.query('select suspended_at from users where id = $1', [carol.id])).rows[0].suspended_at).toBeNull()
+    expect((await audit('unsuspend_user')).map((r) => [r.outcome, r.details.surface])).toEqual([['done', 'web']])
+  })
+
+  it('deletes nothing without the confirmation: no token, a dry run, a wrong login, a wrong token', async () => {
+    const dave = await db.insertUser({ github_id: 7003, login: 'dave' })
+    await users(dave.id, 'suspend', { confirm_login: 'dave' })
+    await suspendedFor(dave, 11)
+    const dry = await (await users(dave.id, 'delete', { dry_run: true })).json()
+    for (const body of [
+      {},
+      { dry_run: true },
+      { dry_run: false },
+      { dry_run: false, confirm_login: 'dave' },
+      { dry_run: false, confirm_token: dry.confirm_token },
+      { dry_run: false, confirm_token: dry.confirm_token, confirm_login: 'Dave' },
+      { dry_run: false, confirm_token: dry.confirm_token, confirm_login: 'alice' },
+      { dry_run: false, confirm_token: `${dry.confirm_token}x`, confirm_login: 'dave' },
+      { dry_run: false, confirm_token: 'nope', confirm_login: 'dave' }
+    ]) {
+      const res = await users(dave.id, 'delete', body)
+      const isDry = body.dry_run !== false
+      expect({ body, ok: isDry ? res.status === 200 : res.status >= 400 }).toEqual({ body, ok: true })
+      expect(await exists(dave)).toBe(true)
+    }
+    expect(await audit('delete_user')).toEqual([])
+  })
+
+  it('refuses a wrong typed login for suspend and unsuspend, and changes nothing', async () => {
+    const erin = await db.insertUser({ github_id: 7004, login: 'erin' })
+    for (const body of [{}, { confirm_login: 'Erin' }, { confirm_login: 'erin ' }, { confirm_login: 'bob' }]) {
+      expect((await users(erin.id, 'suspend', body)).status).toBe(400)
+    }
+    expect((await db.pg.query('select suspended_at from users where id = $1', [erin.id])).rows[0].suspended_at).toBeNull()
+    await users(erin.id, 'suspend', { confirm_login: 'erin' })
+    expect((await users(erin.id, 'unsuspend', { confirm_login: 'ERIN' })).status).toBe(400)
+    expect((await db.pg.query('select suspended_at from users where id = $1', [erin.id])).rows[0].suspended_at).not.toBeNull()
+  })
+
+  it('refuses the admin themself (the last admin) and the CI identity: 403, nothing changes, a refused audit row', async () => {
+    await db.pg.query('delete from admin_audit')
+    const ci = await db.insertUser({ github_id: -1, login: 'ci-smoke' })
+    for (const who of [admin, ci]) {
+      for (const [action, body] of [['suspend', { confirm_login: who.login }], ['unsuspend', { confirm_login: who.login }]]) {
+        const res = await users(who.id, action, body)
+        expect({ who: who.login, action, status: res.status }).toEqual({ who: who.login, action, status: 403 })
+      }
+      // The admin is never suspended in the database (the session would stop); the guard answers before the suspended check.
+      if (who !== admin) await db.pg.query('update users set suspended_at = now() - interval \'1 hour\' where id = $1', [who.id])
+      expect((await users(who.id, 'delete', { dry_run: true })).status).toBe(403)
+      expect((await users(who.id, 'delete', { dry_run: false, confirm_token: 'x', confirm_login: who.login })).status).toBe(403)
+      expect(await exists(who)).toBe(true)
+    }
+    expect((await audit('suspend_user')).every((r) => r.outcome === 'refused')).toBe(true)
+  })
+
+  it('a sign-in older than 12 hours cannot suspend, unsuspend or delete', async () => {
+    const frank = await db.insertUser({ github_id: 7005, login: 'frank' })
+    await users(frank.id, 'suspend', { confirm_login: 'frank' })
+    await suspendedFor(frank, 11)
+    const dry = await (await users(frank.id, 'delete', { dry_run: true })).json()
+    const stale = await staleCookie()
+    for (const [action, body] of [
+      ['unsuspend', { confirm_login: 'frank' }],
+      ['delete', { dry_run: true }],
+      ['delete', { dry_run: false, confirm_token: dry.confirm_token, confirm_login: 'frank' }]
+    ]) {
+      const res = await users(frank.id, action, body, stale)
+      expect({ action, status: res.status, error: (await res.json()).error }).toEqual({ action, status: 403, error: 'Sign in again: admin changes on the web need a sign-in from the last 12 hours.' })
+    }
+    expect((await users(frank.id, 'suspend', { confirm_login: 'frank' }, stale)).status).toBe(403)
+    expect(await exists(frank)).toBe(true)
   })
 })
