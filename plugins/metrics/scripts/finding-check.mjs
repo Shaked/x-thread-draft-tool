@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Checks the body of a finding issue against templates/finding-issue.md. Node 20, no dependencies.
+// Checks the body of a finding issue against templates/finding-issue.md, bare or under "## Details" of a reply template. Node 20, no dependencies.
 // Usage: node finding-check.mjs <file>   Exit 0 when it passes, 1 with one finding per line, 2 for wrong usage or an unreadable file.
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
@@ -9,7 +9,10 @@ export const CAUSES = ['slow setup step', 'flaky test', 'real failure', 'slow ex
 const NUMBER_LABELS = ['Now', 'Limit', 'Last week', 'Over since']
 
 /** Findings as { rule, message }. Rules: headings, numbers, cause, limit, links. */
-export function check(text) {
+export function check(raw) {
+  // A project that requires reply templates puts the five sections under "## Details" as "### " headings.
+  const details = raw.match(/^## Details\s*$/m)
+  const text = details ? raw.slice(details.index + details[0].length).replace(/^### /gm, '## ') : raw
   const findings = []
   const add = (rule, message) => findings.push({ rule, message })
   const found = [...text.matchAll(/^## (.+?)\s*$/gm)].map((m) => m[1])

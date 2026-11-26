@@ -95,6 +95,12 @@ describe('finding issue template, golden fixtures', () => {
       expect(rules).toEqual(f.startsWith('good-') ? [] : [...WANT_FINDING[f]].sort())
     })
   }
+  it('good-3 (the sections under "## Details" of a reply template) also passes the reply lint with this repo settings', async () => {
+    const { lint } = await import('../../plugins/reply-style/scripts/reply-lint.mjs')
+    const { loadConfig } = await import('../../plugins/reply-style/scripts/config.mjs')
+    const cfg = loadConfig({ cwd: join(PLUGIN, '..', '..'), env: {} })
+    expect(lint(readFileSync(join(FINDINGS, 'good-3.md'), 'utf8'), { template: true }, cfg)).toEqual([])
+  })
   it('the skill lists every cause the check accepts, and the template names them', () => {
     const skill = readFileSync(join(SKILLS, 'metrics-read-act', 'SKILL.md'), 'utf8')
     const template = readFileSync(join(SKILLS, 'metrics-read-act', 'templates', 'finding-issue.md'), 'utf8')

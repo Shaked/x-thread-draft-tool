@@ -99,7 +99,9 @@ Name exactly one cause, with its evidence, from this list:
 - Look through the open issues (`list_issues`) for the same area first.
   If one is open, add a comment (`add_issue_comment`) with today's numbers. Do not open a second.
 - Otherwise open one issue with `issue_write` (`method: create`), written from `templates/finding-issue.md` and checked with
-  `node "${CLAUDE_PLUGIN_ROOT}/scripts/finding-check.mjs" <file>`. One issue per area.
+  `node "${CLAUDE_PLUGIN_ROOT}/scripts/finding-check.mjs" <file>`.
+  If the project's rules require its reply templates for issues the owner reads, use the status report and put the five
+  sections under its `## Details` as `###` headings. The check accepts both shapes. One issue per area.
 - Never change a limit, a margin or what is measured, and never skip, disable or quarantine a test, to make a number pass.
 - Follow the project's own agent rules (for example `AGENTS.md`) for who diagnoses and who fixes. Without such rules,
   stop at the issue: a fix is a separate task.
