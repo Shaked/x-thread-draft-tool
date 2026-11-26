@@ -323,8 +323,8 @@ export function analyzeSessions(sessionsDoc, snapshot, { today, comments = {}, p
   return out.sort((a, b) => rank.get(a.kind) - rank.get(b.kind) || (a.issue ?? 0) - (b.issue ?? 0) || String(a.sessions[0]).localeCompare(String(b.sessions[0])))
 }
 
-/** Sessions, issues, comment facts and matches, shared by the report and the `need` command. */
-function context(sessionsDoc, snapshot, comments) {
+/** Sessions, issues, comment facts and matches, shared by the report, the `need` command and the status board (#499). */
+export function context(sessionsDoc, snapshot, comments) {
   const allComments = { ...(snapshot.comments || {}), ...comments }
   const issues = (snapshot.issues || []).map(normalize)
   const naming = (list, re) => (list || []).filter((p) => re.test(`${p.title}\n${p.body || ''}`)).map((p) => p.number).sort((a, b) => a - b)

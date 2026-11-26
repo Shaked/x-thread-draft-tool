@@ -1,0 +1,33 @@
+{
+ "fetched_at": "2026-11-26T12:00:00Z",
+ "repo": "example/repo",
+ "issues": [
+  { "number": 300, "title": "Epic: editor work", "state": "open", "labels": [{ "name": "epic" }], "body": "", "sub_issues_summary": { "total": 14, "completed": 3 }, "updated_at": "2026-11-26T00:00:00Z" },
+  { "number": 301, "title": "E300 task B1: autosave timing", "state": "open", "labels": [{ "name": "task" }], "parent": 300, "body": "", "updated_at": "2026-11-26T10:00:00Z" },
+  { "number": 302, "title": "E300 task B2: turn on admin tools by hand", "state": "open", "labels": [{ "name": "task" }, { "name": "owner" }], "parent": 300, "body": "", "updated_at": "2026-11-26T10:00:00Z" },
+  { "number": 303, "title": "E300 task B3: share link sign-in", "state": "open", "labels": [{ "name": "task" }], "parent": 300, "body": "", "updated_at": "2026-11-26T10:00:00Z" },
+  { "number": 304, "title": "E300 task B4: draft search ranking", "state": "open", "labels": [{ "name": "task" }], "parent": 300, "body": "", "updated_at": "2026-11-26T10:00:00Z" },
+  { "number": 305, "title": "E300 task B5: answered question task", "state": "open", "labels": [{ "name": "task" }], "parent": 300, "body": "", "updated_at": "2026-11-26T10:00:00Z" },
+  { "number": 306, "title": "E300 task B6: undo stack", "state": "open", "labels": [{ "name": "task" }], "parent": 300, "body": "", "updated_at": "2026-11-26T10:00:00Z" },
+  { "number": 307, "title": "E300 task B7: word count", "state": "open", "labels": [{ "name": "task" }], "parent": 300, "body": "", "updated_at": "2026-11-26T10:00:00Z" },
+  { "number": 308, "title": "E300 task B8: theme switch", "state": "open", "labels": [{ "name": "task" }], "parent": 300, "body": "", "updated_at": "2026-11-26T10:00:00Z" },
+  { "number": 309, "title": "E300 task B9: tag filter", "state": "open", "labels": [{ "name": "task" }], "parent": 300, "body": "", "updated_at": "2026-11-26T10:00:00Z" },
+  { "number": 310, "title": "E300 task C1: word count export", "state": "open", "labels": [{ "name": "task" }, { "name": "held" }], "parent": 300, "body": "Depends on #307.", "updated_at": "2026-11-26T10:00:00Z" },
+  { "number": 311, "title": "O1: create the OAuth app by hand", "state": "open", "labels": [{ "name": "parked" }, { "name": "owner" }], "parent": 300, "body": "", "updated_at": "2026-11-20T10:00:00Z" },
+  { "number": 312, "title": "E300 task C2: export button", "state": "closed", "state_reason": "completed", "closed_at": "2026-11-26T10:05:00Z", "labels": [{ "name": "task" }], "parent": 300, "body": "", "updated_at": "2026-11-26T10:05:00Z" },
+  { "number": 313, "title": "E300 task C3: old import fix", "state": "closed", "state_reason": "completed", "closed_at": "2026-11-24T09:05:00Z", "labels": [{ "name": "task" }], "parent": 300, "body": "", "updated_at": "2026-11-24T09:05:00Z" },
+  { "number": 314, "title": "E300 task C4: print view", "state": "open", "labels": [{ "name": "task" }], "parent": 300, "body": "", "updated_at": "2026-11-26T10:00:00Z" },
+  { "number": 430, "title": "Manual tests for the owner (nothing waits for them)", "state": "open", "labels": [], "created_at": "2026-11-25T08:00:00Z", "updated_at": "2026-11-26T08:00:00Z",
+    "body": "Nothing waits for these.\n\n## 1. Grok: grey box (story #352)\n1. Open Grok. Reply `thread shown` or `grey box`.\n\n## 2. Phone: bottom bar spacing (task #374)\n1. Open the app on a phone. Reply `ok`." }
+ ],
+ "pulls": [
+  { "number": 412, "title": "Export button", "body": "Implements #312 Task C2", "merged_at": "2026-11-26T10:00:00Z" },
+  { "number": 413, "title": "Old import fix", "body": "Closes #313", "merged_at": "2026-11-24T09:00:00Z" }
+ ],
+ "open_pulls": [
+  { "number": 408, "title": "Theme switch (#308)", "body": "Implements #308 Task B8" },
+  { "number": 409, "title": "Tag filter", "body": "Implements #309 Task B9" }
+ ],
+ "markers": { "release": [303], "claim": [], "question": [301] },
+ "comments": {}
+}
