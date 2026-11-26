@@ -315,6 +315,20 @@ describe('the tools that show the thread view (plan Task 4, #177), the drafts li
     expect(thread._meta['x-thread/posts'].map((post) => post.text)).toEqual(thread.structuredContent.draft.posts.map(() => expect.any(String)))
   })
 
+  it('#392: update_draft after a 1-post save: the card data has all 7 posts with full text, the new version, and a markdown part', async () => {
+    const made = await call('create_draft', { title: 'Seven', posts: [{ text: 'Only one' }] })
+    expect(made._meta['x-thread/posts']).toHaveLength(1)
+    const texts = Array.from({ length: 7 }, (_, i) => `Post number ${i + 1} with its full text, longer than the forty character preview.`)
+    const updated = await call('update_draft', { id: made.structuredContent.draft.id, posts: texts.map((text) => ({ text })) })
+    expect(updated.isError).not.toBe(true)
+    expect(updated._meta['x-thread/posts'].map((post) => post.text)).toEqual(texts)
+    expect(updated._meta['x-thread/outline'].posts).toHaveLength(7)
+    expect(updated._meta['x-thread/outline'].version).toBe(updated.structuredContent.draft.version)
+    expect(updated.structuredContent.draft.version).toBeGreaterThan(made.structuredContent.draft.version)
+    expect(updated._meta['x-thread/changes']).toMatchObject({ post_count: 7, full: true })
+    expect(textThread({ content: updated.content }).posts.map((post) => post.text)).toEqual(texts)
+  })
+
   it('split_text: no draft wrapper (the view shows it as not saved), and the outline counts its posts', async () => {
     const split = await call('split_text', { text: 'Short post.' })
     expect(split.structuredContent.draft).toBeUndefined()
