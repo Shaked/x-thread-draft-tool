@@ -3,7 +3,7 @@
 - Each change now opens every admin page as the admin, on a phone and a computer, and checks that real data shows.
 
 Area: Admin
-Link: https://github.com/Shaked/x-thread-draft-tool/pulls
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/559
 
 ## Technical details
 
