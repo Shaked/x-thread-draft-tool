@@ -14,7 +14,7 @@ const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10)
 const iso = (ms) => new Date(ms).toISOString()
 
 /** Database size in bytes. Shared with O7's alert A3 and the summary's Database line. */
-export async function dbSizeBytes(q) {
+async function dbSizeBytes(q) {
   const { rows } = await q('select pg_database_size(current_database())::bigint as bytes')
   return Number(rows[0].bytes)
 }
