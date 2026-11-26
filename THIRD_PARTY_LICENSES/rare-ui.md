@@ -9,12 +9,15 @@ Source: https://github.com/swamimalode07/rare-ui/tree/0e9f0ef86bd690b16175fb8195
 | `src/ui/rare/cn.js` | `lib/utils.ts` (`cn`, rewritten without clsx and tailwind-merge) | #406 Task K1 |
 | `src/ui/rare/DeleteButton.jsx` | `components/ui/delete-button.tsx` | #406 Task K2 |
 | `src/ui/rare/AnimatedCounter.jsx` | `components/ui/animated-counter.tsx` (integer path only) | #406 Task K3 |
+| `src/ui/rare/Toast.jsx` | `components/ui/toast.tsx` (sonner stack, our card; the upstream squircle, colours and Undo removed) | #406 Task K4 |
 
 Changes: listed in the header comment of each file (TypeScript removed, values from `src/styles/tokens.css`,
 logical properties, full-width cards, accessible names). Each header keeps the copyright notice.
 
 Credit: the Feature flags page (`/settings/flags`) links to https://rareui.com, as the licence asks, and
 README.md names Rare UI under Credits.
+
+The Rare toast uses the npm package `sonner` 2.0.8 (MIT licence, a normal dependency, not copied here).
 
 Not copied: the other components, and nothing from the Rare UI site (its fonts, analytics and images).
 

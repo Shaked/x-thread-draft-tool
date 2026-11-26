@@ -370,6 +370,14 @@ Some components have a second implementation behind the Components feature flag 
 - States: one toast at a time, above the phone bar; success and neutral go away after 4 s; danger has a Close button. The two live regions are mounted empty at start.
 - Example: `<ToastProvider>…</ToastProvider>`; to show one: `toast({ message: 'Thread copied!', tone: 'success' })`
 
+### Toast with the Components flag (Rare UI)
+- File: `src/ui/rare/Toast.jsx` (flag on, `xt-kit` = `rare`: the provider mounts it and sends every `toast()` call to it; before it is mounted, calls show the plain toast above). Copied from Rare UI's `components/ui/toast.tsx` (`sonner` 2.0.8, pinned; MIT).
+- Status: built (#406 Task K4)
+- Same API: `toast({ message, tone })` with `success`, `danger` or neutral; the 15 call sites do not change.
+- States: one toast at a time, at the bottom centre above the phone bar (`--toast-inset` in `src/styles/tokens.css`). Success and neutral show `role="status"` and go away after 4 s; danger shows `role="alert"`, stays until its Close button is pressed, and that button is 44 px and always visible (also on touch screens). Icons draw in; reduced motion shows them at once. The card is rounded (`--radius-lg`), with tokens for every colour; no clip paths or inline styles.
+- Not in this version: Undo, loading toasts, the info and warning tones.
+- Loads in its own chunk (with `sonner` and the Rare kit CSS). The plain toast shows until it is mounted; no layout moves, because the stack is fixed.
+
 ## Tabs
 - File: `src/ui/Tabs.jsx`
 - Status: built
