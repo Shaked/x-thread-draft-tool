@@ -70,9 +70,25 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
     ]
   },
   // The real Rare UI components (feature flag "Components", #406): the theme selector in the open menu, with the
-  // purple look and with the Rare UI look.
+  // purple look and with the Rare UI look; Delete draft in the list, with both looks.
   { name: 'drafts-menu-kit', path: '/', menu: true, kit: 'rare', drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }] },
   { name: 'drafts-menu-kit-rare', path: '/', menu: true, kit: 'rare', skin: 'rare', drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }] },
+  {
+    name: 'drafts-kit',
+    path: '/',
+    kit: 'rare',
+    drafts: [
+      { title: 'שרשור לדוגמה', posts: [{ id: 'h1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] },
+      { title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }
+    ]
+  },
+  {
+    name: 'drafts-kit-rare',
+    path: '/',
+    kit: 'rare',
+    skin: 'rare',
+    drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }]
+  },
   // The same page with the menu drawer open.
   {
     name: 'drafts-menu',
@@ -323,6 +339,36 @@ test.describe('UI audit', () => {
         await page.keyboard.press('Escape')
         await expect(dialog).toHaveCount(0)
         await expect(page.locator('#root')).not.toHaveAttribute('inert', '')
+        await expect(opener).toBeFocused()
+        await expect(page.getByText('שרשור לדוגמה')).toBeVisible()
+      } finally {
+        await context.close()
+      }
+    })
+  }
+
+  // Rare UI's delete button (feature flag "Components", #406): the open panel on its own. Cancel has focus, both
+  // choices are 44 px on phones, scale and colours, axe, then Escape keeps the draft and gives focus back.
+  for (const c of CASES) {
+    test(`rare delete button at ${c.name}`, async ({ browser, request }) => {
+      const { context, page } = await openPage(browser, request, '/', c, { kit: 'rare', drafts: [{ title: 'שרשור לדוגמה', posts: [{ id: 'h1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] }] })
+      try {
+        const opener = page.getByRole('button', { name: 'Delete draft', expanded: false }).first()
+        await opener.click()
+        const panel = page.getByRole('group', { name: 'Delete this draft?' })
+        await expect(panel).toBeVisible()
+        await expect(panel.getByRole('button', { name: 'Cancel' })).toBeFocused()
+        const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }))
+        expect(widths.scroll, 'horizontal scroll with the panel open').toBeLessThanOrEqual(widths.inner)
+        if (c.width < 800) expect(await smallTargets(page), 'targets under 44 x 44').toEqual([])
+        expect(await scaleAndColourProblems(page, '.ui-rare-delete, .ui-rare-delete [class*="ui-"]'), 'delete button off the scale or the theme colours').toEqual([])
+        const axe = await new AxeBuilder({ page }).include('.ui-rare-delete').withTags(AXE_TAGS).disableRules(AXE_DISABLED).analyze()
+        const serious = axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)
+        expect(serious, 'axe serious or critical in the delete button').toEqual([])
+        await page.screenshot({ path: path.join(OUT, `rare-delete-${c.name}.png`) })
+
+        await page.keyboard.press('Escape')
+        await expect(panel).toHaveCount(0)
         await expect(opener).toBeFocused()
         await expect(page.getByText('שרשור לדוגמה')).toBeVisible()
       } finally {

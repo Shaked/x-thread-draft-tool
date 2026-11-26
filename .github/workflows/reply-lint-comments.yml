@@ -1,0 +1,40 @@
+name: Reply lint (agent comments)
+
+# Lints each new or edited issue or PR comment that ends with the Claude Code footer and starts with
+# HANDOFF, Decision or a question (#486). A failing comment turns this run red and adds the label
+# `reply-style-fail` to the issue or PR; the task janitor reports the label. A check run cannot sit on an
+# issue (checks attach to commits), so the label is the visible mark on the tracker.
+on:
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  reply-lint-comment:
+    name: Reply lint (agent comment)
+    # Only the owner, members and collaborators (the janitor's trusted set); an outside commenter cannot set the label.
+    if: contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Lint the comment
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if node scripts/reply-lint-comment.mjs; then
+            exit 0
+          fi
+          gh api -X POST "repos/$REPO/issues/$ISSUE/labels" -f 'labels[]=reply-style-fail' > /dev/null || echo "::warning::could not add the label reply-style-fail"
+          echo "::error title=reply-lint::An agent comment breaks the reply-style rules (see the log above)."
+          exit 1
