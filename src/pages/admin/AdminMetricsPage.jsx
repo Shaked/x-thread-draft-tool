@@ -151,6 +151,7 @@ export default function AdminMetricsPage() {
       </Section>
       <Section title={`Requests and p95 per ${state.requests.grain}`} headingLevel={2}>
         <LineChart
+          labels={points.map((p) => p.at.slice(0, 16).replace('T', ' '))}
           title={`Requests and p95 per ${state.requests.grain}, ${points.length} points`}
           firstLabel={points[0]?.at.slice(0, 16).replace('T', ' ')}
           lastLabel={points[points.length - 1]?.at.slice(0, 16).replace('T', ' ')}

@@ -8,7 +8,7 @@ const PAD = 8
 // count and a time can share one picture; the legend names the maximum of each. Colours come from tokens, and the
 // second series is dashed, so the lines differ by more than colour. A null value leaves a gap in the line.
 // `series`: [{ key, label, unit, values: [number | null] }], all of the same length.
-export default function LineChart({ title, series, firstLabel, lastLabel }) {
+export default function LineChart({ title, series, firstLabel, lastLabel, labels = [] }) {
   const count = Math.max(...series.map((s) => s.values.length), 0)
   const x = (i) => PAD + (count > 1 ? (i * (W - 2 * PAD)) / (count - 1) : (W - 2 * PAD) / 2)
   return (
@@ -28,7 +28,14 @@ export default function LineChart({ title, series, firstLabel, lastLabel }) {
       </figcaption>
       <div className="line-chart__plot" dir="ltr">
         <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} className="line-chart__svg">
-          <desc>{series.map((s) => `${s.label}: ${s.values.map((v) => v ?? 'none').join(', ')}`).join('. ')}</desc>
+          <desc>
+            {series
+              .map(
+                (s) =>
+                  `${s.label}: ${s.values.map((v, i) => `${labels[i] ?? i + 1} ${v === null ? 'none' : Math.round(v * 10) / 10}`).join(', ')}`
+              )
+              .join('. ')}
+          </desc>
           <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} className="line-chart__axis" />
           {series.map((s, index) => {
             const max = Math.max(0, ...s.values.filter((v) => v !== null)) || 1
