@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
 
-// Guard for speed task S2 (#312): the unit tests run in two shards, and the job named
+// Guard for speed task S2 (#312): the unit tests run in three shards, and the job named
 // "Unit tests (vitest)" is the one branch protection reads. It must never be skipped and must
 // fail unless every job it needs succeeded.
 const WORKFLOW = readFileSync(new URL('../../.github/workflows/tests.yml', import.meta.url), 'utf8')
@@ -16,22 +16,22 @@ function jobBlock(id) {
   return lines.slice(start, end === -1 ? undefined : end).join('\n')
 }
 
-describe('tests workflow: unit tests run in two shards behind one required check', () => {
+describe('tests workflow: unit tests run in three shards behind one required check', () => {
   it('keeps the required check name on the aggregate job', () => {
     expect(jobBlock('unit')).toMatch(/^ {4}name: Unit tests \(vitest\)$/m)
   })
 
-  it('makes the aggregate job wait for the checks and both shards, and never skip it', () => {
+  it('makes the aggregate job wait for the checks and every shard, and never skip it', () => {
     const block = jobBlock('unit')
     expect(block).toMatch(/^ {4}needs: \[checks, unit-shard\]$/m)
     expect(block).toMatch(/^ {4}if: always\(\)$/m)
     expect(block).toMatch(/exit 1/)
   })
 
-  it('runs the test budget in two shards, each one passing its shard flag', () => {
+  it('runs the test budget in three shards, each one passing its shard flag', () => {
     const block = jobBlock('unit-shard')
-    expect(block).toMatch(/^ {6}matrix:\n\s{8}shard: \[1, 2\]$/m)
-    expect(block).toMatch(/npm run test:budget -- --shard=\$\{\{ matrix\.shard \}\}\/2/)
+    expect(block).toMatch(/^ {6}matrix:\n\s{8}shard: \[1, 2, 3\]$/m)
+    expect(block).toMatch(/npm run test:budget -- --shard=\$\{\{ matrix\.shard \}\}\/3/)
   })
 
   it('keeps the static checks in their own job', () => {

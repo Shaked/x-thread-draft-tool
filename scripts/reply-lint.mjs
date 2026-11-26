@@ -14,6 +14,8 @@
 //   long-line       a line over 160 visible characters (a link counts as its text)
 //   emoji, slop     any emoji; a filler phrase from SLOP
 //   headings        a templated reply misses a fixed heading, or has them out of order
+//   loose-label     a bold or plain "Done:", "Blocked on you:" ... line used instead of its "## " heading (#486)
+//   empty-details   a "## Details" heading with nothing under it: leave the heading out (#486)
 //   tldr, steps     TL;DR is 2 to 3 lines and says if the owner must act; the step count matches
 //   evidence        the Done section says "checked" or "not checked"
 //   --kind=changelog: a "# " title, then 1 to 5 lines; no label and no code span anywhere (shape, internal-label)
@@ -39,6 +41,8 @@ const UNCHANGED = /\b(unchanged|still open)\b/i
 const BLOCK_WORD = /\bblock(?:ed|ing|er|ers|s)?\b/gi
 const BLOCK_ON_HUMAN = /^\s+(?:on|by)\s+(?:you|your|Shaked|the owner)\b/i
 const WAITING_HUMAN = /\bwaiting\s+(?:on|for)\s*:?\s+(?:you|your|Shaked|the owner)\b/i
+// A fixed heading (or a common stand-in such as "Not done") written as a label line instead of a "## " heading.
+const LOOSE_LABEL = /^\s*(?:(?:[-*+>]|\d+\.)\s+)*(?:\*\*|__|\*|_)?(?:TL;DR|What you need to do|Waiting for|Blocked on you|Blocked|Not done|Done|Details)(?:\s*:(?:\*\*|__|\*|_)?|(?:\*\*|__|\*|_)\s*:?)(?:\s|$)/i
 const EMOJI = /\p{Extended_Pictographic}/u
 /** A section line that only says there is nothing: "Nothing needed.", "None", "Waiting for: nothing". Telegram messages never have one. */
 export const EMPTY_SECTION = /^(?:[^:]{0,40}:\s*)?(?:nothing(?: needed)?(?: from you)?|none|n\/a)\.?$/i
@@ -86,7 +90,15 @@ function sections(lines) {
   return found
 }
 
-function checkTemplate(lines, force, add) {
+/** A "## Details" heading with nothing under it (no text and no fenced block) is left out. */
+function checkDetails(all, fencedLines, add) {
+  const details = all.find((s) => s.name.toLowerCase() === 'details')
+  if (!details || details.body.length) return
+  const next = all.find((s) => s.line > details.line)?.line ?? Infinity
+  if (!fencedLines.some((n) => n > details.line && n < next)) add(details.line, 'empty-details', 'leave out the "Details" heading when it is empty')
+}
+
+function checkTemplate(lines, force, add, fencedLines = []) {
   const all = sections(lines)
   const find = (name) => all.findIndex((s) => s.name.toLowerCase() === name.toLowerCase())
   const at = HEADINGS.map(find)
@@ -110,6 +122,7 @@ function checkTemplate(lines, force, add) {
       if (want > 0 && steps !== want) add(actions.line, 'steps', `TL;DR says ${want}, the list has ${steps} numbered steps`)
     }
   }
+  checkDetails(all, fencedLines, add)
   const done = all[at[4]]
   if (done && !/\bchecked\b/i.test(done.body.join(' '))) add(done.line, 'evidence', 'say "checked" or "not checked"')
 }
@@ -164,13 +177,14 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
   let headlineAt = 0 // the first non-blank prose line: the Telegram headline
   const prose = []
   let fenced = false
+  const fencedLines = [] // fenced content still counts as content when a section is checked for being empty
   let details = false // a changelog's "## Technical details" part is not checked (it may hold code and labels)
   text.split('\n').forEach((raw, i) => {
     const n = i + 1
     if (kind === 'changelog' && DETAILS_HEADING.test(raw)) details = true
     if (details) return
-    if (/^\s*(```|~~~)/.test(raw)) { fenced = !fenced; return }
-    if (fenced) return
+    if (/^\s*(```|~~~)/.test(raw)) { fenced = !fenced; fencedLines.push(n); return }
+    if (fenced) { fencedLines.push(n); return }
     prose.push({ text: raw, n })
     if (!headlineAt && raw.trim()) headlineAt = n
     // The net-lines line of a PR body ("Implements #273 Task R0") must stay in that exact form.
@@ -182,9 +196,10 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
       seen.add(m[1])
       if (!described(line, m.index, m.index + m[0].length)) add(n, 'bare-label', `${m[1]}: add a link and 3 to 6 words saying what it is`)
     }
+    if (kind === 'reply' && LOOSE_LABEL.test(raw)) add(n, 'loose-label', 'use the "## " heading from the template (for "Not done" or "Blocked", write a sentence under Done or Blocked on you)')
     checkWords(raw, line, n, add, kind, headlineAt)
   })
-  if (kind === 'reply') checkTemplate(prose, template, add)
+  if (kind === 'reply') checkTemplate(prose, template || findings.some((f) => f.rule === 'loose-label'), add, fencedLines)
   else checkShape(prose, kind, add)
   return findings.sort((a, b) => a.line - b.line)
 }

@@ -1,0 +1,20 @@
+{
+ "101": [
+  { "user": "owner", "author_association": "OWNER", "created_at": "2026-11-26T08:00:00Z", "body": "CLAIM session session_done | branch claude/a1 | model Haiku | started 2026-11-26 08:00 UTC | heartbeat 2026-11-26 08:00 UTC" },
+  { "user": "owner", "author_association": "OWNER", "created_at": "2026-11-26T10:00:00Z", "body": "HANDOFF A1 (export button) - done\nPR: #201 (merge abc1234)\nRELEASE" }
+ ],
+ "102": [],
+ "103": [],
+ "104": [],
+ "105": [],
+ "106": [],
+ "107": [
+  { "user": "owner", "author_association": "OWNER", "created_at": "2026-11-26T05:00:00Z", "body": "CLAIM session session_gone | branch claude/a7 | model Haiku | started 2026-11-26 05:00 UTC | heartbeat 2026-11-26 05:00 UTC" }
+ ],
+ "108": [
+  { "user": "owner", "author_association": "OWNER", "created_at": "2026-11-26T09:00:00Z", "body": "CLAIM session session_dupa | branch claude/a8 | model Haiku | started 2026-11-26 09:00 UTC | heartbeat 2026-11-26 11:00 UTC" }
+ ],
+ "109": [],
+ "110": [],
+ "112": []
+}

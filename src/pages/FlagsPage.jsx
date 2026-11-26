@@ -34,7 +34,7 @@ export default function FlagsPage() {
             <SegmentedControl legend="Look" value={look} options={LOOKS} onChange={choose} />
           </Stack>
         </Section>
-        <Section title="Components" description="Use the real Rare UI component for the theme choice in the menu. It takes the colours of the look above.">
+        <Section title="Components" description="Use the real Rare UI components for the theme choice in the menu and for Delete draft in the list. They take the colours of the look above.">
           <Stack gap={4}>
             <SegmentedControl legend="Components" value={kit} options={KITS} onChange={chooseKit} />
             <Banner tone="info" role="none">
