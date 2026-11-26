@@ -4,3 +4,4 @@
 - The template keeps one alert shape for two kinds (speed and metrics). The messages the script sends do not change.
 
 Area: Docs
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/537
