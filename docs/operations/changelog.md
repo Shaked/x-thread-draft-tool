@@ -6,7 +6,7 @@ Every PR adds one file, `docs/changelogs/<UTC YYYYMMDD-HHMMSS>-<slug>.md` (`AGEN
 
 ## How to write an entry
 
-Copy `.claude/skills/reply-style/templates/changelog-entry.md`:
+Copy `.claude/reply-style-templates/changelog-entry.md`:
 
 ```markdown
 # <What changed, for a person, in 3 to 8 words>

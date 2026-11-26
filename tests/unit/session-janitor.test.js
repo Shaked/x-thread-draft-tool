@@ -312,7 +312,7 @@ describe('the templated summary', () => {
   })
 
   it('follows the template headings in order', () => {
-    const template = readFileSync(new URL('../../.claude/skills/reply-style/templates/janitor-summary.md', import.meta.url), 'utf8')
+    const template = readFileSync(new URL('../../.claude/reply-style-templates/janitor-summary.md', import.meta.url), 'utf8')
     const order = (t) => [...t.matchAll(/^## (.+)$/gm)].map((m) => m[1])
     expect(order(template)).toEqual([...HEADINGS, 'Details'])
     expect(order(text)).toEqual(order(template))

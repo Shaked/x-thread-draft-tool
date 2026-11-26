@@ -3,8 +3,33 @@
   "ownerLogin": "Shaked",
   "repo": "Shaked/x-thread-draft-tool",
   "reply-style": {
-    "humans": ["Shaked", "the owner"],
-    "allowLines": ["^Implements #\\d+ Task "],
-    "changelogAreas": ["Drafts", "Editor", "AI apps", "Admin", "Design", "Speed", "Security", "Docs"]
+    "humans": [
+      "Shaked",
+      "the owner"
+    ],
+    "allowLines": [
+      "^Implements #\\d+ Task "
+    ],
+    "changelogAreas": [
+      "Drafts",
+      "Editor",
+      "AI apps",
+      "Admin",
+      "Design",
+      "Speed",
+      "Security",
+      "Docs"
+    ],
+    "extraTemplates": {
+      "changelog-entry": ".claude/reply-style-templates/changelog-entry.md",
+      "telegram-message": ".claude/reply-style-templates/telegram-message.md",
+      "janitor-summary": ".claude/reply-style-templates/janitor-summary.md",
+      "status-board": ".claude/reply-style-templates/status-board.md"
+    },
+    "writingSkills": [
+      "pstack-unslop",
+      "pstack-technical-writing",
+      "pstack-bro"
+    ]
   }
 }

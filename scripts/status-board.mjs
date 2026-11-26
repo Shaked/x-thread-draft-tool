@@ -2,7 +2,7 @@
 // Status board (#499): tickets, pull requests and Claude sessions on one page, and whether the owner is needed.
 // Node 20, no dependencies, no model, no network. It never writes anywhere. It reads the janitor's files
 // (sessions.json, the pass 1 snapshot, comments.json, pulls.json) and reuses the janitor's matching of sessions
-// with issues (scripts/session-janitor.mjs). Template: .claude/skills/reply-style/templates/status-board.md.
+// with issues (scripts/session-janitor.mjs). Template: .claude/reply-style-templates/status-board.md.
 // Command: .claude/commands/status.md (/status).
 //
 //   node scripts/status-board.mjs need sessions.json snapshot.json [--comments f] [--pulls f] [--today ISO] [--since ISO]

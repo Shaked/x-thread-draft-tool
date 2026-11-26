@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- The handoff template has a `## Models` section for who did what, and a last line `RELEASE` for task queues that use claims (leave it out otherwise).
+- The status report, handoff and skill say that a "Waiting for" item for an agent session shows its session link (rule `session-link`).
+- The skill lists every rule by name; its lines are under 160 characters.
+- Golden fixtures cover every lint rule, including the changelog and Telegram shapes. A test lists the rules and fails when one has no failing fixture.
+- The handoff template's `RELEASE` note says when to keep the line. The skill says what to run when `${CLAUDE_PLUGIN_ROOT}` is not filled in.
+- `examples/` holds two GitHub workflows to copy: lint a PR body, lint agent comments.
+
 ## 0.2.2
 
 - The lint reports `session-link`: a "Waiting for" item that names a session needs its session link. `RULES` lists every rule name.

@@ -1,7 +1,7 @@
 # Agents
 
 ## Replies to Shaked (every session, every tool)
-Every reply to Shaked, every HANDOFF, every owner question and every PR or issue comment meant for him uses `.claude/skills/reply-style` (`SKILL.md` and its templates) and passes `npm run reply-lint` before it is posted.
+Every reply to Shaked, every HANDOFF, every owner question and every PR or issue comment meant for him uses `.claude/skills/reply-style` (`SKILL.md` and its templates; it is a symlink into `plugins/reply-style/`, so edit the plugin and bump its version) and passes `npm run reply-lint` before it is posted.
 
 ## Using the product as an agent
 JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`; details in docs/agents/api.md.
