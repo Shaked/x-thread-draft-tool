@@ -60,6 +60,8 @@ export function shortName(issue) {
   // Task ids like M1 or H20 inside the words would need their own description, so they are code spans.
   // Words the reply-style lint reserves ("unchanged", "blocked") are left out of a description.
   words = words.filter((w) => !/^(unchanged|blocked|blocking)[,.:;]?$/i.test(w))
+  // An issue number inside a description would need its own description: it is left out.
+  words = words.filter((w) => !/^#\d+[,.:;]?$/.test(w))
   while (words.length < 3) words.push(words.length === 2 ? 'issue' : 'the')
   return words.slice(0, 5).map((w) => (/^[A-Z]\d+(\.\d+)?[,.]?$/.test(w) ? `\`${w.replace(/[,.]$/, '')}\`` : w)).join(' ').replace(/[,.:;]$/, '')
 }
@@ -460,8 +462,15 @@ export function wrap(line, max = 150) {
   const out = []
   let rest = line
   while (rest.length > max) {
-    const cut = Math.max(rest.lastIndexOf(', ', max), rest.lastIndexOf('; ', max))
-    if (cut <= indent.length) break
+    let cut = Math.max(rest.lastIndexOf(', ', max), rest.lastIndexOf('; ', max))
+    // No comma to break at: break at the last space, outside a code span.
+    if (cut <= indent.length) {
+      cut = [...rest.slice(0, max).matchAll(/ /g)].map((m) => m.index).filter((k) => k > indent.length && (rest.slice(0, k).split('`').length % 2 === 1)).pop() ?? -1
+      if (cut <= indent.length) break
+      out.push(rest.slice(0, cut))
+      rest = indent + rest.slice(cut + 1)
+      continue
+    }
     out.push(rest.slice(0, cut + 1))
     rest = indent + rest.slice(cut + 2)
   }
