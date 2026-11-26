@@ -345,9 +345,19 @@ describe('web admin safety (#284)', () => {
     const webToken = (await webDry(cookie, alice)).confirm_token
     const mcpToken = (await dry(token, alice)).data.confirm_token
     expect((await real(token, alice, webToken)).data.error).toBe('confirm_token is not valid for this call. Run the dry run again.')
-    expect((await webReal(cookie, alice, mcpToken)).status).toBe(400)
+    const refusal = 'confirm_token is not valid for this call. Run the dry run again.'
+    const mcpOnWeb = await webReal(cookie, alice, mcpToken)
+    expect(mcpOnWeb.status).toBe(400)
+    expect((await mcpOnWeb.json()).error).toBe(refusal)
     const otherSession = await db.cookieFor(admin)
-    expect((await webReal(otherSession, alice, webToken)).status).toBe(400)
+    const otherWeb = await webReal(otherSession, alice, webToken)
+    expect(otherWeb.status).toBe(400)
+    expect((await otherWeb.json()).error).toBe(refusal)
+    // Right binding, wrong surface: a token minted for the MCP connection's grant id, presented on web with that value as its jti.
+    const signTok = (payload) => new SignJWT(payload).setProtectedHeader({ alg: 'HS256' }).setAudience('admin-confirm').setIssuedAt().setExpirationTime('10m').sign(secretKey())
+    const forged = await signTok({ act: 'delete_user', target: alice.id, gh: '20', login: 'alice', counts: (await dry(token, alice)).data.will_delete, admin: admin.id, surface: 'web', bind: (await adminConnection()).grantId })
+    const forgedRes = await webReal(cookie, alice, forged)
+    expect(forgedRes.status).toBe(400)
     expect(await userExists(alice)).toBe(true)
   })
 

@@ -23,7 +23,7 @@ export async function recordAdminAction(run, { actor, action, outcome, target = 
       target?.id ?? null,
       target?.github_id ?? null,
       target?.login ?? null,
-      JSON.stringify({ surface: actor.surface, ...details })
+      JSON.stringify({ ...details, surface: actor.surface })
     ]
   )
 }
