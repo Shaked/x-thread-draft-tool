@@ -55,6 +55,12 @@ describe('attrs', () => {
     })
   })
 
+  it('refuses a NUL byte or a lone surrogate in an attr string', () => {
+    expect(cleanAttrs({ error: 'a\u0000b' }, ['error'])).toEqual({ error: 'attrs_text' })
+    expect(cleanAttrs({ code: '\ud800' }, ['code'])).toEqual({ error: 'attrs_text' })
+    expect(cleanAttrs({ code: '\ud83d\ude00' }, ['code'])).toEqual({ attrs: { code: '\ud83d\ude00' } })
+  })
+
   it('cuts long strings to 120 characters', () => {
     const { attrs } = cleanAttrs({ event: 'e'.repeat(300) }, ['event'])
     expect(attrs.event).toHaveLength(120)
@@ -84,6 +90,17 @@ describe('link', () => {
     expect(cleanLink('https://github.com/Shaked/other/actions/runs/1', name)).toBeNull()
     expect(cleanLink('https://example.com/Shaked/x-thread-draft-tool/', name)).toBeNull()
     expect(cleanLink(42, name)).toBeNull()
+  })
+  it('drops a link that leaves the repo with dot segments or encoded dots', () => {
+    const base = `https://github.com/${name}/`
+    expect(cleanLink(`${base}../../evil/repo`, name)).toBeNull()
+    expect(cleanLink(`${base}%2e%2e/%2e%2e/evil/repo`, name)).toBeNull()
+    expect(cleanLink(`${base}%2E%2E/evil`, name)).toBeNull()
+    expect(cleanLink(`${base}%5c..%5cevil`, name)).toBeNull()
+  })
+  it('drops a link with a NUL byte or a lone surrogate', () => {
+    expect(cleanLink(`${LINK}\u0000`, name)).toBeNull()
+    expect(cleanLink(`${LINK}\ud800`, name)).toBeNull()
   })
   it('drops a link longer than 120 characters', () => {
     expect(cleanLink(`https://github.com/${name}/${'a'.repeat(120)}`, name)).toBeNull()
@@ -148,8 +165,20 @@ describe('event checks', () => {
     expect(check(run({ ms: undefined })).event.ms).toBeNull()
   })
 
-  it('cuts the id to 120 characters', () => {
-    expect(check(run({ id: 'i'.repeat(200) })).event.id).toHaveLength(120)
+  it('refuses an id over 120 characters, so no id is cut into another', () => {
+    expect(check(run({ id: 'i'.repeat(121) })).reason).toBe('id')
+    expect(check(run({ id: 'i'.repeat(120) })).event.id).toHaveLength(120)
+  })
+
+  it('refuses an id with a NUL byte or a lone surrogate', () => {
+    expect(check(run({ id: 'x\u0000' })).reason).toBe('id')
+    expect(check(run({ id: '\ud800' })).reason).toBe('id')
+  })
+
+  it('refuses a time that is not ISO 8601 with a zone', () => {
+    expect(check(run({ at: '11/25/2026 10:00' })).reason).toBe('at')
+    expect(check(run({ at: '2026-11-25T10:00:00' })).reason).toBe('at')
+    expect(check(run({ at: '2026-11-25T11:00:00+01:00' })).event.at).toBe('2026-11-25T10:00:00.000Z')
   })
 
   it('refuses a source or kind that is not a string, without throwing', () => {

@@ -12,6 +12,7 @@ const MAX_MS = 2147483647
 const SPEED_STAGES = ['ci', 'merge_wait', 'vercel', 'smoke', 'total']
 const DEPLOY_NAMES = ['Production', 'Preview']
 const BASE_BRANCHES = ['main']
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})$/
 const ROUTE_TEMPLATE = /^(GET|POST|PUT|PATCH|DELETE) \/[A-Za-z0-9/:._-]*$/
 
 // Rule per "source/kind": name() returns the stored name or null (then the name is "other"),
@@ -44,6 +45,11 @@ const KIND_RULES = {
   }
 }
 
+/** False for NUL bytes and lone surrogates: Postgres refuses both in text and jsonb. */
+function isPlainText(value) {
+  return !value.includes('\u0000') && !/[\ud800-\udbff](?![\udc00-\udfff])|(?:^|[^\ud800-\udbff])[\udc00-\udfff]/.test(value)
+}
+
 /** Cuts a string to 120 characters (code points, so no character is split). */
 export function cut(value) {
   return Array.from(value).slice(0, STRING_MAX).join('')
@@ -59,8 +65,10 @@ export function cleanAttrs(raw, keys) {
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
     for (const key of keys) {
       const value = raw[key]
-      if (typeof value === 'string') out[key] = cut(value)
-      else if (typeof value === 'number' && Number.isFinite(value)) out[key] = value
+      if (typeof value === 'string') {
+        if (!isPlainText(value)) return { error: 'attrs_text' }
+        out[key] = cut(value)
+      } else if (typeof value === 'number' && Number.isFinite(value)) out[key] = value
       else if (typeof value === 'boolean') out[key] = value
     }
   }
@@ -70,15 +78,24 @@ export function cleanAttrs(raw, keys) {
 
 /** A link is kept only when it starts with the repo's own GitHub URL and fits in 120 characters. */
 export function cleanLink(link, repoName) {
-  if (typeof link !== 'string') return null
-  if (!link.startsWith(`https://github.com/${repoName}/`)) return null
+  if (typeof link !== 'string' || !isPlainText(link)) return null
+  const prefix = `https://github.com/${repoName}/`
   if (Array.from(link).length > STRING_MAX) return null
-  return link
+  // Dot segments and encoded dots move a path out of the repo: refuse them before parsing.
+  if (/\.\.|%2e|%5c|\\/i.test(link)) return null
+  if (!link.startsWith(prefix)) return null
+  let url
+  try {
+    url = new URL(link)
+  } catch {
+    return null
+  }
+  return url.origin === 'https://github.com' && url.href.startsWith(prefix) ? link : null
 }
 
 /** The "at" time must be within 14 days before and 10 minutes after `now`. Returns the ISO string or null. */
 export function parseAt(value, now) {
-  if (typeof value !== 'string') return null
+  if (typeof value !== 'string' || !ISO_TIME.test(value)) return null
   const time = Date.parse(value)
   if (Number.isNaN(time)) return null
   if (time < now - MAX_AGE_MS || time > now + MAX_AHEAD_MS) return null
@@ -93,7 +110,7 @@ function cleanMs(value) {
 
 /** A name is looked at only when it is a string of at most 120 characters; anything else becomes other. */
 function cleanName(value) {
-  if (typeof value !== 'string' || Array.from(value).length > STRING_MAX) return null
+  if (typeof value !== 'string' || Array.from(value).length > STRING_MAX || !isPlainText(value)) return null
   return value
 }
 
@@ -104,7 +121,9 @@ export function normalizeEvent(raw, { repo, now }) {
   const key = typeof raw.source === 'string' && typeof raw.kind === 'string' ? `${raw.source}/${raw.kind}` : ''
   const rule = Object.hasOwn(KIND_RULES, key) ? KIND_RULES[key] : null
   if (!rule) return { reason: 'unknown_kind' }
-  if (typeof raw.id !== 'string' || raw.id === '') return { reason: 'id' }
+  if (typeof raw.id !== 'string' || raw.id === '' || Array.from(raw.id).length > STRING_MAX || !isPlainText(raw.id)) {
+    return { reason: 'id' }
+  }
   const at = parseAt(raw.at, now)
   if (!at) return { reason: 'at' }
   if (!rule.status(raw.status)) return { reason: 'status' }
@@ -117,7 +136,7 @@ export function normalizeEvent(raw, { repo, now }) {
       repo_id: repo.repository_id,
       source: raw.source,
       kind: raw.kind,
-      id: cut(raw.id),
+      id: raw.id,
       at,
       name: rule.name(cleanName(raw.name), repo) ?? 'other',
       status: raw.status,
