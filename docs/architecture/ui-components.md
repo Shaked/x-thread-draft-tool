@@ -427,3 +427,17 @@ Some components have a second implementation behind the Components feature flag 
 
 - States: flag off (default): a `danger-quiet` small Button that opens the confirm dialog (Cancel focused). Flag on: Rare UI's delete button: a 44 px bin; a press widens it into a panel with Cancel (focused) and the yes button, both 44 px; Escape or Cancel keeps; after yes the bin is busy (`aria-busy`) until `onConfirm` settles; the check mark and "Deleted" show only on success, a failure goes back to idle; the lid and walls animate with motion, instant under reduced motion; mirrored in right-to-left. Loads in its own chunk; the Button shows until then.
 - Example: `<DeleteButton label="Delete draft" confirm={{ title: 'Delete this draft?', body: 'Are you sure you want to delete this draft?', confirmLabel: 'Delete draft' }} onConfirm={remove} />`
+
+## Count
+- File: `src/ui/Count.jsx` (flag on: `src/ui/rare/AnimatedCounter.jsx`, from Rare UI)
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `value` | number | required | The count shown first (the post's characters). |
+| `max` | number | none | The limit after a slash ("/280"); shown as text, not animated. |
+
+- States: flag off (default): plain text, `120/280`. Flag on (`xt-kit` = `rare`, Feature flags > Components): the value's digits roll to the new value (a spring, 0.6 s); the number is read once through a sr-only span; the rolling digits are aria-hidden; not a live region; the value sits in a left-to-right box so Hebrew text keeps `120/280` in order. Under the over-limit colour of `.char-counter`, the counter inherits it. Reduced motion: the digits change at once. Loads in its own chunk; the plain text shows until then.
+- Tokens: `--counter-line` (one digit's height) and `--mask-counter-fade` (the top and bottom fade, alpha only) in `src/styles/tokens.css`.
+- Example: `<Count value={count} max={280} />`

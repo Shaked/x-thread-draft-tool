@@ -8,6 +8,7 @@ Source: https://github.com/swamimalode07/rare-ui/tree/0e9f0ef86bd690b16175fb8195
 | `src/ui/rare/ThemeSelector.jsx` | `components/ui/theme-selector.tsx` | #406 Task K1 |
 | `src/ui/rare/cn.js` | `lib/utils.ts` (`cn`, rewritten without clsx and tailwind-merge) | #406 Task K1 |
 | `src/ui/rare/DeleteButton.jsx` | `components/ui/delete-button.tsx` | #406 Task K2 |
+| `src/ui/rare/AnimatedCounter.jsx` | `components/ui/animated-counter.tsx` (integer path only) | #406 Task K3 |
 
 Changes: listed in the header comment of each file (TypeScript removed, values from `src/styles/tokens.css`,
 logical properties, full-width cards, accessible names). Each header keeps the copyright notice.

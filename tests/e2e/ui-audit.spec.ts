@@ -376,4 +376,29 @@ test.describe('UI audit', () => {
       }
     })
   }
+
+  // Rare UI's animated counter (feature flag "Components", #406): the 280-character count of a 290-character Hebrew
+  // post. The number is read once (sr-only); the rolling digits are hidden; nothing is a live region; the digits stay
+  // left to right; scale and colours, axe, no horizontal scroll.
+  for (const c of CASES) {
+    test(`rare counter at ${c.name}`, async ({ browser, request }) => {
+      const { context, page } = await openPage(browser, request, '/draft/:first', c, { kit: 'rare', drafts: [{ title: 'מונה לדוגמה', posts: [{ id: 'k1', text: 'א'.repeat(290), images: [], embeddedTweet: null }] }] })
+      try {
+        const counter = page.locator('.ui-rare-counter').first()
+        await expect(counter).toBeVisible()
+        await expect(counter.locator('.sr-only')).toHaveText('290')
+        await expect(page.locator('.char-counter').first()).toContainText('(10 over)')
+        await expect(page.locator('.ui-rare-counter [aria-live], .ui-rare-counter [role="status"], .ui-rare-counter [role="alert"]')).toHaveCount(0)
+        const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }))
+        expect(widths.scroll, 'horizontal scroll with the counter').toBeLessThanOrEqual(widths.inner)
+        expect(await scaleAndColourProblems(page, '.ui-rare-counter, .ui-rare-counter [class*="ui-"]'), 'counter off the scale or the theme colours').toEqual([])
+        const axe = await new AxeBuilder({ page }).include('.char-counter').withTags(AXE_TAGS).disableRules(AXE_DISABLED).analyze()
+        const serious = axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)
+        expect(serious, 'axe serious or critical in the counter').toEqual([])
+        await page.screenshot({ path: path.join(OUT, `rare-counter-${c.name}.png`) })
+      } finally {
+        await context.close()
+      }
+    })
+  }
 })
