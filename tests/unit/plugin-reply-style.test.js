@@ -106,6 +106,15 @@ describe('config', () => {
     expect(rules(lint('Blocked on Kim for the review.', {}, DEFAULT_CONFIG))).toEqual(['blocked'])
   })
 
+  it('a custom humans list keeps "you", so the fixed heading still passes (Codex finding on PR 524)', () => {
+    const custom = loadConfig({ cwd: makeDir({ '.claude/agent-kit.json': { owner: 'Sam', 'reply-style': { humans: ['Sam', 'the owner'] } } }), env: {} })
+    expect(custom.replyStyle.humans).toEqual(expect.arrayContaining(['you', 'your', 'Sam', 'the owner']))
+    for (const kind of ['status-report', 'owner-question', 'handoff']) {
+      const good = readFileSync(join(GOLDEN, kind, 'good-1.md'), 'utf8')
+      expect(lint(good, { template: true }, custom), kind).toEqual([])
+    }
+  })
+
   it('an allowLines pattern skips a long line', () => {
     const long = `Implements #12 Task 3 ${'word '.repeat(40)}`
     const allow = loadConfig({ cwd: makeDir({ '.claude/agent-kit.json': { 'reply-style': { allowLines: ['^Implements #\\d+ Task '] } } }), env: {} })

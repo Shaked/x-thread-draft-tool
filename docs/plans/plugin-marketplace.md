@@ -188,7 +188,7 @@ the markers `CLAIM`, `HANDOFF`, `RELEASE`, the owner words in `OWNER_QUESTION`, 
 | `owner` | `the owner` | The display name the skill tells the agent to use, and the Stop hook message |
 | `ownerLogin` | the owner part of `repo` | Which GitHub author counts as the owner (janitor trust, comment lint) |
 | `repo` | from `git remote get-url origin` | Links in examples and in janitor output |
-| `reply-style.humans` | `[owner, "you", "the owner"]` | Words after "blocked on" and "waiting for" that mean a person |
+| `reply-style.humans` | `["the owner"]` | Words after "blocked on" and "waiting for" that mean a person; `you`, `your` and `owner` always count |
 | `reply-style.allowLines` | `[]` | Regular expressions for lines the lint skips, such as a required `Implements #12 Task 1` line |
 | `reply-style.maxLineLength` | `160` | The `long-line` rule |
 | `reply-style.changelogAreas` | `[]` (any one word) | The `Area:` line of `--kind=changelog` |

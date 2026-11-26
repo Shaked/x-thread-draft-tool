@@ -11,7 +11,8 @@ import { dirname, join, resolve } from 'node:path'
 
 const RELATIVE = join('.claude', 'agent-kit.json')
 const DEFAULT_OWNER = 'the owner'
-const DEFAULT_HUMANS = ['you', 'your', 'the owner']
+const ALWAYS_HUMANS = ['you', 'your']
+const DEFAULT_HUMANS = ['the owner']
 
 export class ConfigError extends Error {
   constructor(message) {
@@ -77,8 +78,9 @@ function checkExtraTemplates(value, file) {
 
 /** The `reply-style` section: each key checked, or its default. */
 function replyStyleSection(rs, owner, file) {
-  let humans = rs.humans === undefined ? [...DEFAULT_HUMANS] : stringList(rs.humans, 'reply-style.humans', file)
-  if (owner && !humans.includes(owner)) humans = [...humans, owner]
+  // "you" and "your" always count: the fixed heading "Blocked on you" must pass whatever names a project adds.
+  const listed = rs.humans === undefined ? DEFAULT_HUMANS : stringList(rs.humans, 'reply-style.humans', file)
+  const humans = [...new Set([...ALWAYS_HUMANS, ...listed, ...(owner ? [owner] : [])])]
   return {
     humans,
     allowLines: checkAllowLines(rs.allowLines === undefined ? [] : stringList(rs.allowLines, 'reply-style.allowLines', file), file),

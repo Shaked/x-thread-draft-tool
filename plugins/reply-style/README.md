@@ -23,7 +23,7 @@ the Stop hook prints a warning and lets the turn end.
 | `owner` | `the owner` | The name the skill tells the agent to use for the owner, and the name in the Stop hook message |
 | `ownerLogin` | empty | The owner's GitHub login, for tools that need to know which author is the owner |
 | `repo` | empty | The repository, `owner/name`, for tools that build links |
-| `reply-style.humans` | `you`, `your`, `the owner`, plus `owner` when set | Words after "blocked on" and "waiting for" that mean a person |
+| `reply-style.humans` | `the owner` | Words after "blocked on" and "waiting for" that mean a person. `you`, `your` and `owner` always count, so the fixed heading "Blocked on you" passes |
 | `reply-style.allowLines` | `[]` | Regular expressions for lines the lint skips, such as a required PR body line |
 | `reply-style.maxLineLength` | `160` | The longest line the `long-line` rule allows |
 | `reply-style.changelogAreas` | `[]` (any one word) | The allowed `Area:` values of a changelog entry |
