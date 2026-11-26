@@ -14,6 +14,8 @@
 //   long-line       a line over 160 visible characters (a link counts as its text)
 //   emoji, slop     any emoji; a filler phrase from SLOP
 //   headings        a templated reply misses a fixed heading, or has them out of order
+//   loose-label     a bold or plain "Done:", "Blocked on you:" ... line used instead of its "## " heading (#486)
+//   empty-details   a "## Details" heading with nothing under it: leave the heading out (#486)
 //   tldr, steps     TL;DR is 2 to 3 lines and says if the owner must act; the step count matches
 //   evidence        the Done section says "checked" or "not checked"
 //   --kind=changelog: a "# " title, then 1 to 5 lines; no label and no code span anywhere (shape, internal-label)
@@ -39,6 +41,8 @@ const UNCHANGED = /\b(unchanged|still open)\b/i
 const BLOCK_WORD = /\bblock(?:ed|ing|er|ers|s)?\b/gi
 const BLOCK_ON_HUMAN = /^\s+(?:on|by)\s+(?:you|your|Shaked|the owner)\b/i
 const WAITING_HUMAN = /\bwaiting\s+(?:on|for)\s*:?\s+(?:you|your|Shaked|the owner)\b/i
+// A fixed heading (or a common stand-in such as "Not done") written as a label line instead of a "## " heading.
+const LOOSE_LABEL = /^\s*(?:[-*]\s+)?(?:\*\*|__)?(?:TL;DR|What you need to do|Waiting for|Blocked on you|Blocked|Not done|Done|Details)\s*:(?:\*\*|__)?(?:\s|$)/i
 const EMOJI = /\p{Extended_Pictographic}/u
 /** A section line that only says there is nothing: "Nothing needed.", "None", "Waiting for: nothing". Telegram messages never have one. */
 export const EMPTY_SECTION = /^(?:[^:]{0,40}:\s*)?(?:nothing(?: needed)?(?: from you)?|none|n\/a)\.?$/i
@@ -110,6 +114,8 @@ function checkTemplate(lines, force, add) {
       if (want > 0 && steps !== want) add(actions.line, 'steps', `TL;DR says ${want}, the list has ${steps} numbered steps`)
     }
   }
+  const details = all.find((s) => s.name.toLowerCase() === 'details')
+  if (details && details.body.length === 0) add(details.line, 'empty-details', 'leave out the "Details" heading when it is empty')
   const done = all[at[4]]
   if (done && !/\bchecked\b/i.test(done.body.join(' '))) add(done.line, 'evidence', 'say "checked" or "not checked"')
 }
@@ -118,6 +124,7 @@ function checkTemplate(lines, force, add) {
 function checkWords(raw, line, n, add, kind = 'reply', headlineAt = 1) {
   const unquoted = raw.replace(/["'`]([A-Z])["'`]/g, '$1')
   if (OPTION_LETTERS.some((re) => re.test(unquoted))) add(n, 'option-letters', 'name each option by what it does, not by a letter')
+  if (kind === 'reply' && LOOSE_LABEL.test(raw)) add(n, 'loose-label', 'use the "## " heading from the template, not a bold or plain label line')
   if (UNCHANGED.test(line)) add(n, 'unchanged', 'say what it is and what happens next')
   for (const m of line.matchAll(BLOCK_WORD)) {
     const before = line.slice(0, m.index)
@@ -184,7 +191,7 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
     }
     checkWords(raw, line, n, add, kind, headlineAt)
   })
-  if (kind === 'reply') checkTemplate(prose, template, add)
+  if (kind === 'reply') checkTemplate(prose, template || findings.some((f) => f.rule === 'loose-label'), add)
   else checkShape(prose, kind, add)
   return findings.sort((a, b) => a.line - b.line)
 }
