@@ -95,7 +95,13 @@ function dependencyClause(rest, refs, named) {
   const text = (keyword + tail).replace(/`[^`]*`/g, ' ')
   for (const m of text.matchAll(/(PR\s+|see\s+)?#(\d+)/gi)) if (!m[1]) refs.add(Number(m[2]))
   // Task ids named without a number, outside parentheses: "Depends on: M5 (see #439)" names M5; "C2 (#418)" has its number.
-  const bare = text.replace(/\b[A-Z]{1,2}\d+[a-z]?\s*\(#\d+[^)]*\)/g, ' ').replace(/\([^)]*\)/g, ' ').replace(/#\d+/g, ' ')
+  let bare = text.replace(/\b[A-Z]{1,2}\d+[a-z]?\s*\(#\d+[^)]*\)/g, ' ')
+  // A split-task suffix is part of the id, as taskId() reads it: "L1 (b)" is not "L1".
+  bare = bare.replace(/(?<![\w-])([A-PR-Z]{1,2}\d+[a-z]?)\s*\(([a-z]\d?)\)/g, (_, id, part) => {
+    named.add(`${id} (${part})`)
+    return ' '
+  })
+  bare = bare.replace(/\([^)]*\)/g, ' ').replace(/#\d+/g, ' ')
   for (const m of bare.matchAll(/(?<![\w-])([A-PR-Z]{1,2}\d+[a-z]?)(?![\w-])/g)) named.add(m[1])
 }
 

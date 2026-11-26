@@ -187,6 +187,16 @@ describe('allowed fixes stay narrow', () => {
   const base = (issues, comments = {}) => ({ repo: 'example/repo', issues, pulls: [], open_pulls: [], markers: {}, comments })
   const issue = (number, title, extra = {}) => ({ number, title, state: 'open', labels: [{ name: 'task' }], body: '', updated_at: TODAY, ...extra })
 
+  it('keeps a split-task suffix: "L1 (b)" resolves to the split task, not to L1', () => {
+    expect(dependencies('Depends on L1 (b).').named).toEqual(['L1 (b)'])
+    const snap = base([
+      issue(1, 'E9 task L1: base', { parent: 7 }),
+      issue(2, 'E9 task L1 (b): split', { parent: 7 }),
+      issue(3, 'E9 task A3: uses it', { parent: 7, body: 'Depends on L1 (b).' })
+    ])
+    expect(analyze(snap, { today: TODAY }).find((f) => f.kind === 'missing-dependency').fix).toBe('Add `Depends on: #2`.')
+  })
+
   it('does not resolve a task id across two parent epics', () => {
     const snap = base([issue(1, 'E9 task A1: first', { parent: 7, body: 'Depends on A2.' }), issue(2, 'E9 task A2: second', { parent: 8 })])
     expect(analyze(snap, { today: TODAY }).filter((f) => f.kind === 'missing-dependency')).toEqual([])
