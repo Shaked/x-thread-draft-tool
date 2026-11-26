@@ -167,6 +167,27 @@ describe('Opus review findings on #503', () => {
   })
 })
 
+describe('Codex findings on e83335c', () => {
+  it('two open questions on one issue are two numbered steps, and the label adds no third', () => {
+    const second = { ...comments[301][0], created_at: '2026-11-26T09:10:00Z', html_url: 'https://github.com/example/repo/issues/301#issuecomment-9',
+      body: comments[301][0].body.replace('should drafts save on every keystroke', 'should drafts keep 30 days of history').replace('save-each', 'keep-30') }
+    const issues = snapshot.issues.map((i) => (i.number === 301 ? { ...i, labels: [...i.labels, { name: 'owner' }] } : i))
+    const out = formatBoard(buildBoard(sessions, { ...snapshot, issues }, { comments: { ...comments, 301: [...comments[301], second] }, pulls }))
+    expect(out).toContain('You need to do 5 things (below).')
+    expect(out).toContain('Reply `keep-30`')
+    expect(out).not.toContain('`labelled \'owner\': read the issue for the step`. Answer [there](https://github.com/example/repo/issues/301)')
+    expect(lint(out, { template: true })).toEqual([])
+  })
+
+  it('a token in an issue or PR title is masked in the link text', () => {
+    const issues = snapshot.issues.map((i) => (i.number === 301 ? { ...i, title: 'Rotate ghp_abcdefghijklmnopqrstuvwxyz0123 credential' } : i))
+    const open = snapshot.open_pulls.map((p) => (p.number === 409 ? { ...p, title: 'Tag filter github_pat_abcdefghijklmnopqrstuvwxyz0123' } : p))
+    const out = formatBoard(buildBoard(sessions, { ...snapshot, issues, open_pulls: open }, { comments, pulls }))
+    expect(out).not.toMatch(/ghp_abcdef|github_pat_abcdef/)
+    expect(lint(out, { template: true })).toEqual([])
+  })
+})
+
 describe('manual tests are optional', () => {
   it('lists the unanswered test, drops the answered one, and never counts it as owner needed', () => {
     expect(board.manual.map((t) => t.title)).toEqual(['Phone: bottom bar spacing'])

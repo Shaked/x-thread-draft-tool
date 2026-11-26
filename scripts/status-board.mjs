@@ -105,7 +105,9 @@ export function ownerNeeded(issue, list = [], sessions = [], { owner, url, fresh
     const blocked = section(last.body, 'Blocked on you')
     if (!nothing(blocked)) out.push({ rule: 'handoff', what: blocked[0].replace(/^[-*]\s+/, '').replace(/\.$/, ''), words: wordsIn(last.body), url: last.html_url || url })
   }
-  return [...out, ...asking(sessions, freshFrom)]
+  const all = [...out, ...asking(sessions, freshFrom)]
+  // The label `owner` says the same as a question or HANDOFF step on the issue: keep it only when it is the one rule.
+  return all.some((o) => o.rule !== 'label') ? all.filter((o) => o.rule !== 'label') : all
 }
 
 /** Sessions that ask Shaked for a decision. One older than the janitor's stale window is its `stale` finding instead. */
@@ -313,7 +315,8 @@ function row(it, x) {
 export function names(snapshot) {
   const out = new Map()
   // The task id prefix ("E407 task M9 (owner-only): ") and parentheses say nothing a reader needs.
-  const clean = (t) => String(t || '').replace(/^(?:E\d+\s+)?(?:task\s+)?[A-Z]{1,2}-?\d+(?:\.\d+)?[a-z]?(?:\s*\([^)]*\))*\s*:\s*/i, '')
+  // quote() masks a token in a title; its "[redacted]" loses the brackets, which would break the link text.
+  const clean = (t) => quote(t, 300).replace(/\[redacted\]/g, 'redacted').replace(/^(?:E\d+\s+)?(?:task\s+)?[A-Z]{1,2}-?\d+(?:\.\d+)?[a-z]?(?:\s*\([^)]*\))*\s*:\s*/i, '')
     .replace(/\([^)]*\)/g, '').replace(/#\d+/g, '').replace(/\p{Extended_Pictographic}/gu, '').replace(/\|/g, '/')
   for (const p of [...(snapshot.pulls || []), ...(snapshot.open_pulls || [])]) out.set(p.number, shortName({ title: clean(p.title) }))
   for (const i of snapshot.issues || []) out.set(i.number, shortName({ title: clean(i.title) }))
@@ -347,8 +350,8 @@ function head(board) {
   const by = (g) => board.rows.filter((r) => r.group === g)
   const needs = by('needs-you')
   const counts = `${board.openTickets} open tickets, ${by('running').length + by('waiting').length} in progress, ${needs.length} need you`
-  const steps = needs.map((r, k) => {
-    const o = r.owner[0]
+  // One numbered step per owner action: an issue with two open questions gets two steps.
+  const steps = needs.flatMap((r) => r.owner.map((o) => [r, o])).map(([r, o], k) => {
     return `${k + 1}. ${r.ticket}: ${code(quote(o.what, 60))}. ${o.words ? `Reply ${code(quote(o.words, 40))} [there](${o.url}).` : `Answer [there](${o.url}).`}`
   })
   const waiting = board.rows.filter((r) => WHAT[r.group])
@@ -358,7 +361,7 @@ function head(board) {
   return [
     '## TL;DR',
     `Board of ${time(board.now)} UTC: ${counts}, ${by('stuck').length} stuck, ${by('done').length} done since the last board (checked).`,
-    needs.length ? `You need to do ${plural(needs.length, 'thing', 'things')} (below).` : 'Nothing needed from you.',
+    steps.length ? `You need to do ${plural(steps.length, 'thing', 'things')} (below).` : 'Nothing needed from you.',
     '', '## What you need to do', ...or(steps, steps, 'Nothing.'),
     '', '## Waiting for', ...or(waiting, waiting, 'Nothing.'),
     '', '## Blocked on you', ...or(asks, asks, 'Nothing.'),
