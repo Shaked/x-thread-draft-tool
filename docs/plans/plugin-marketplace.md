@@ -280,8 +280,9 @@ All tests run with `npm run test:unit` (vitest, no network, no model, no person)
 | `docs/operations/reply-style.md` | docs | stays here | This repo's setup (opt-in, CI, janitor); the generic part becomes the plugin README |
 | `scripts/changelog-check.mjs` | script | stays here | Checks this repo's `docs/changelogs/` rule |
 | `task-janitor` skill, `scripts/janitor.mjs`, `sessions.schema.json` | skill, script | generic after cleaning | `REPO`, labels, markers and owner words move to config (4.3, 4.4) |
-| `scripts/session-janitor.mjs` | script | generic after cleaning, after #493 closes | On `main` already; same cleaning as the janitor |
-| `/janitor` command (#493) | command | generic after cleaning, after #493 closes | Not on `main` yet (checked 2026-11-26: no `.claude/commands/`) |
+| `scripts/session-janitor.mjs` | script | generic after cleaning | On `main`; #493 closed 2026-11-26; same cleaning as the janitor |
+| `/janitor` command (`.claude/commands/janitor.md`, #493) | command | generic after cleaning | On `main` since #500 (checked 2026-11-26); it names this repo's scripts and report issue |
+| `janitor-summary` template (reply-style templates folder, #493) | template | generic after cleaning, in `task-janitor` | The janitor's report shape; it moves with the janitor, not with the 5 reply templates |
 | Status board and `/status` command (#499) | command | generic after cleaning, after #499 closes | Not built yet (checked 2026-11-26: #499 open) |
 | `agent-pr-workflow` skill and `scripts/agent-pr.sh` | skill, script | generic after cleaning | Branch, push, REST PR and check reading are general; the Vercel smoke part and the repo default stay here |
 | `e2e-contract-tests` skill | skill | generic after cleaning, later | The method is general; it names this repo's helpers (`route()`, PGlite, test paths), which become examples |
