@@ -191,14 +191,6 @@ function openedWithinWeek(lastCreatedAt, now) {
   return Number.isFinite(created) && now.getTime() - created < WEEK_MS
 }
 
-// Speed flags that cleared (a recovery) while every other signal is the same: nothing to report. The weekly
-// review reports slowdowns only (docs/operations/weekly-review.md).
-function speedRecoveryOnly(facts, last) {
-  if (speedFlagged(facts.speed)) return false
-  const rest = (f) => canonicalJson(Object.fromEntries(Object.entries(f).filter(([k]) => k !== 'speed')))
-  return rest(facts) === rest(last)
-}
-
 // A source that cannot be read keeps its last value, so it never changes the fingerprint.
 function factsWithCarry(current, last) {
   const facts = {}
@@ -227,9 +219,6 @@ export function planWeeklyReview({ current, lastBody = '', openWeekly = 0, lastC
   }
   if (fingerprint === lastFingerprint) {
     return { action: 'nochange', fingerprint, unreadable, message: 'nothing changed since the last weekly review' }
-  }
-  if (speedRecoveryOnly(facts, last)) {
-    return { action: 'nochange', fingerprint, unreadable, message: 'speed flags cleared and nothing else changed: nothing to report' }
   }
   const message = `changed: fingerprint ${fingerprint.slice(0, 12)}` + (unreadable.length ? `, unreadable: ${unreadable.join(', ')}` : '')
   if (openedWithinWeek(lastCreatedAt, now)) {

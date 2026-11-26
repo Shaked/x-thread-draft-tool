@@ -27,8 +27,10 @@ Task #294 wrote these rules. Task #295 added the workflow `.github/workflows/wee
 - Permissions added for S7: `actions: read` (download the previous artifact), `pull-requests: read` and
   `deployments: read` (the speed metrics read PRs and deployments, as `speed-metrics.yml` does). All read-only.
   The speed step has no Telegram secret, so it never sends a message. Opus validates this permission change.
-- The weekly review reports slowdowns only. A speed flag that clears with nothing else changed opens nothing.
-  The first run after S7 has no speed facts in its last issue: it opens an issue only for a set flag or another change.
+- Every change of the fingerprint opens the review, as for the other signals. A speed flag that clears opens it too,
+  without the speed table (no flag is set). So a slowdown that comes back after a recovery is reported again.
+- The first run after S7 has no speed facts in its last issue, so it opens an issue whenever the fingerprint
+  differs from that issue.
 
 ## What the run checks
 

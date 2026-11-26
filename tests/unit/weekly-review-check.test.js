@@ -317,11 +317,22 @@ describe('speed signal (task S7, #315): booleans per stage, seconds never in the
     expect(plan.body).not.toContain('| Kind | Stage | p90 |')
   })
 
-  it('a speed flag that clears, with nothing else changed, opens nothing (the review reports slowdowns only)', () => {
+  it('a speed flag that clears is a fingerprint change: the review opens, without a speed table (no flag is set)', () => {
     const overFacts = { ...FULL, speed: speedFacts(speedDoc({ ciOver: true })) }
     const last = buildBody({ facts: overFacts, fingerprint: fingerprintOf(overFacts) })
-    const plan = planWeeklyReview({ current: { ...FULL, speed: speedFacts(speedDoc()) }, lastBody: last, openWeekly: 0 })
-    expect(plan.action).toBe('nochange')
+    const plan = planWeeklyReview({ current: { ...FULL, speed: speedFacts(speedDoc()) }, lastBody: last, openWeekly: 0, speedMd: SPEED_TABLE })
+    expect(plan.action).toBe('create')
+    expect(plan.body).not.toContain('| Kind | Stage | p90 |')
+  })
+
+  it('flagged, cleared, flagged again: every change opens a review, so a slowdown that comes back is reported', () => {
+    const noFlags = { ...FULL, speed: speedFacts(speedDoc()) }
+    const flagged = { ...FULL, speed: speedFacts(speedDoc({ ciOver: true })) }
+    const issueA = buildBody({ facts: flagged, fingerprint: fingerprintOf(flagged) })
+    const cleared = planWeeklyReview({ current: noFlags, lastBody: issueA, openWeekly: 0 })
+    expect(cleared.action).toBe('create')
+    const again = planWeeklyReview({ current: flagged, lastBody: cleared.body, openWeekly: 0 })
+    expect(again.action).toBe('create')
   })
 
   it('a speed flag that clears together with another change still opens the review', () => {
