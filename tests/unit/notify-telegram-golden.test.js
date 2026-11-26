@@ -85,6 +85,19 @@ const GOLDEN = {
       'Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR.',
     ],
   },
+  'weekly-started': {
+    data: { title: 'Weekly review 2026-11-30', url: ISSUE },
+    html: [
+      `🗓 <b><a href="${ISSUE}">Weekly review started</a></b>`,
+      'Weekly review 2026-11-30',
+      'An agent checks the signals and opens up to three PRs; owner items get the label owner.',
+    ],
+    plain: [
+      `🗓 Weekly review started: ${ISSUE}`,
+      'Weekly review 2026-11-30',
+      'An agent checks the signals and opens up to three PRs; owner items get the label owner.',
+    ],
+  },
   'cleanup-started': {
     data: { title: 'Cleanup review 2026-11-25', url: ISSUE },
     html: [

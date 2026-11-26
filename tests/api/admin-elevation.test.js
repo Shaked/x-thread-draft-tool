@@ -291,7 +291,7 @@ describe('admin follows identity, with no special step', () => {
     expect(location.origin + location.pathname).toBe(CLAUDE)
     expect(location.searchParams.get('state')).toBe('st-1')
 
-    expect(await adminNames(token)).toHaveLength(8)
+    expect(await adminNames(token)).toHaveLength(10)
     expect(await adminNames(token)).toContain('admin_status')
     const listed = await rpcOn(token, 'tools/list', {})
     expect(listed.result.cacheScope).toBe('private')
@@ -325,7 +325,7 @@ describe('admin follows identity, with no special step', () => {
 
   it('ADMIN_DISABLED=1 lists no admin tool and an admin tool call is an unknown-tool error', async () => {
     const { token } = await ownerApp()
-    expect(await adminNames(token)).toHaveLength(8)
+    expect(await adminNames(token)).toHaveLength(10)
     process.env.ADMIN_DISABLED = '1'
     expect(await adminNames(token)).toEqual([])
     expect((await callOn(token, 'admin_status', {})).error.message).toMatch(/unknown tool/)
@@ -342,7 +342,7 @@ describe('admin follows identity, with no special step', () => {
 
   it('a revoked grant is rejected with 401', async () => {
     const { token } = await ownerApp()
-    expect(await adminNames(token)).toHaveLength(8)
+    expect(await adminNames(token)).toHaveLength(10)
     const grant = await grantOf(admin)
     const res = await route(apiRequest(`/api/grants/${grant.id}`, { method: 'DELETE', cookie: await cookieFor(admin) }))
     expect(res.status).toBeLessThan(300)

@@ -45,6 +45,8 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | Admin suspend user | `POST /admin/users/:id/suspend` | `admin_suspend_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin unsuspend user | `POST /admin/users/:id/unsuspend` | `admin_unsuspend_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin delete user | `POST /admin/users/:id/delete` | `admin_delete_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
+| Admin metrics | `GET /admin/metrics` | `admin_metrics` | `no: planned in #331 Task 6` | Admin only (#335): counts and percentiles by route, op or caller |
+| Admin metrics history | `GET /admin/metrics/series` | `admin_metrics_series` | `no: planned in #331 Task 6` | Admin only (#335): points per hour or day |
 
 ## Infrastructure
 
@@ -58,5 +60,6 @@ Routes that are not user capabilities. Each has a reason. The keys follow the sa
 | `GET /openapi.json` | Documentation, not a user function |
 | `GET /health` | Health check, not a user function |
 | `POST /ops/events` | Metrics ingest from the `metrics-daily` workflow (its own OIDC token, #448), not a user function |
+| `POST /ops/metrics-daily` | Scheduled metrics step for its own workflow's OIDC token (#336), not a user function |
 | `GET /mcp/ui-manifest` | Deploy check: view hashes for the production smoke step, not a user function |
 | `POST /mcp` | The MCP endpoint itself |

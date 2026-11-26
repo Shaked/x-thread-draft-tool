@@ -21,6 +21,7 @@ const EXCLUDED = {
   'GET /openapi.json': 'Documentation, not a user function',
   'GET /health': 'Health check, not a user function',
   'POST /ops/events': 'Metrics ingest from the metrics-daily workflow (GitHub OIDC), not a user function',
+  'POST /ops/metrics-daily': 'Daily metrics step from the metrics-daily workflow (GitHub OIDC), not a user function',
   'GET /mcp/ui-manifest': 'Deploy check: view hashes for the production smoke step, not a user function',
   'POST /mcp': 'The MCP endpoint itself',
 }
