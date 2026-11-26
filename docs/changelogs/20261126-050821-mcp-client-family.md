@@ -1,1 +1,11 @@
-- O3 (#334): MCP calls are recorded under their client app family (mcp:claude, mcp:chatgpt, mcp:grok, mcp:cli, mcp:other) instead of mcp. The token check joins oauth_clients and returns only the family; the raw client_id is never stored.
+# Metrics count MCP calls by app
+
+- The metrics now show MCP calls by app: Claude, ChatGPT, the command line, or other apps.
+- Nothing about a client is stored beyond its app name.
+
+Area: AI apps
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/477
+
+## Technical details
+
+`server/mcp/rate.js` joins `oauth_clients` in the token check (still one statement) and returns `family` from `server/metrics/client-family.js`; `server/metrics/record.js` takes the five `mcp:*` callers in place of `mcp`. Tests: `tests/unit/client-family.test.js`, `tests/api/metrics-record.test.js`.
