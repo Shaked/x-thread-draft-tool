@@ -29,7 +29,7 @@ describe('ui-debug skill', () => {
   it('stays generic: no app name, owner name or issue numbers', () => {
     for (const file of [SKILL, '.claude/commands/ui-debug.md']) {
       const text = read(file)
-      expect(text, file).not.toMatch(/x-thread|shaked|\bXThread\b/i)
+      expect(text, file).not.toMatch(/x-thread|shaked|\bXThread\b|\bxt[_-]/i)
       expect(text, file).not.toMatch(/#\d+/)
     }
   })

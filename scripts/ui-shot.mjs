@@ -84,9 +84,9 @@ export function parseArgs(argv) {
   return opts
 }
 
-// "/admin/users/42" -> "admin-users-42"; "/" -> "home".
+// "/admin/users/42" -> "admin-users-42"; "/" -> "home"; a query stays in the name: "/?a=1" -> "a-1".
 export function slug(route) {
-  const clean = route.split('?')[0].replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  const clean = route.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
   return clean || 'home'
 }
 
@@ -97,10 +97,17 @@ export function shotName(route, width, theme, lang) {
 // Every combination, in a stable order: route, width, theme, language.
 export function buildCases(opts) {
   const cases = []
+  const used = new Set()
+  const unique = (file) => {
+    let name = file
+    for (let n = 2; used.has(name); n++) name = file.replace(/\.png$/, `-${n}.png`)
+    used.add(name)
+    return name
+  }
   for (const route of opts.routes)
     for (const width of opts.widths)
       for (const theme of opts.themes)
-        for (const lang of opts.langs) cases.push({ route, width, theme, lang, file: shotName(route, width, theme, lang) })
+        for (const lang of opts.langs) cases.push({ route, width, theme, lang, file: unique(shotName(route, width, theme, lang)) })
   return cases
 }
 
@@ -114,14 +121,19 @@ export function isAllowed(failure, allow) {
 
 // A case fails on a page error, a console error, a request that failed or answered 4xx or 5xx (unless allowed),
 // sideways scroll, or an empty page. Small targets are warnings: the strict check lives in the UI audit test.
+// The browser's own messages when a script file is gone: expected in a stale tab run, where the page must instead show a message.
+export const STALE_MESSAGES = /Failed to load module script|dynamically imported module|Unable to preload|Importing a module script failed|error loading dynamically imported/i
+
 export function judge(entry, allow = []) {
   const problems = []
-  for (const e of entry.pageErrors) problems.push(`page error: ${e}`)
-  for (const e of entry.consoleErrors) problems.push(`console error: ${e}`)
+  const expected = (text) => entry.stale && STALE_MESSAGES.test(text)
+  for (const e of entry.pageErrors) if (!expected(e)) problems.push(`page error: ${e}`)
+  for (const e of entry.consoleErrors) if (!expected(e)) problems.push(`console error: ${e}`)
+  if (entry.stale && !entry.recovery) problems.push('stale tab: no visible message or reload button after the script file failed')
   for (const f of entry.failedRequests) if (!isAllowed(f, allow)) problems.push(`request ${f.status} ${f.method} ${f.path}`)
   if (entry.overflowX > 0) problems.push(`sideways scroll: ${entry.overflowX}px wider than the screen`)
   if (entry.blank) problems.push('page is blank (no text and no controls)')
-  const warnings = entry.smallTargets.length ? [`${entry.smallTargets.length} touch targets under 44 px`] : []
+  const warnings = (entry.smallTargets ?? []).length ? [`${entry.smallTargets.length} touch targets under 44 px`] : []
   return { ...entry, problems, warnings, ok: problems.length === 0 }
 }
 
@@ -181,20 +193,64 @@ async function measure(page, inspect) {
           return { box: { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }, styles: Object.fromEntries(props.map((p) => [p, s.getPropertyValue(p)])) }
         })
       : null
-    return { overflowX, blank: text === '' && controls === 0, smallTargets: small.slice(0, 50), inspected }
+    const recovery = !!document.querySelector('[role=alert]') || [...document.querySelectorAll('button, a')].some((el) => /reload|try again|refresh/i.test(el.textContent || ''))
+    return { recovery, overflowX, blank: text === '' && controls === 0, smallTargets: small.slice(0, 50), inspected }
   }, { inspect, props: STYLE_PROPS })
 }
 
 // Playwright's own browser when it is installed; else the pre-installed Chromium (never run `playwright install`).
 const PREINSTALLED_CHROMIUM = '/opt/pw-browsers/chromium'
 async function launchBrowser(chromium) {
-  const explicit = process.env.XT_CHROMIUM_PATH
+  const explicit = process.env.UI_SHOT_CHROMIUM
   if (explicit) return chromium.launch({ executablePath: explicit, args: ['--no-sandbox'] })
   try {
     return await chromium.launch()
   } catch (error) {
     if (!/Executable doesn't exist/.test(String(error.message)) || !existsSync(PREINSTALLED_CHROMIUM)) throw error
     return chromium.launch({ executablePath: PREINSTALLED_CHROMIUM, args: ['--no-sandbox'] })
+  }
+}
+
+async function runCase(browser, c, opts, origin, apiOrigin) {
+  const context = await browser.newContext({
+    viewport: { width: c.width, height: c.width < 800 ? 844 : 800 }, deviceScaleFactor: opts.scale,
+    hasTouch: c.width < 800, serviceWorkers: 'block', colorScheme: c.theme
+  })
+  try {
+    if (opts.trace) await context.tracing.start({ screenshots: true, snapshots: true })
+    await signIn(context, opts, opts.base)
+    await context.route(`${origin}/api/**`, async (route) => {
+      if (route.request().method() === 'GET') return route.continue()
+      const response = await route.fetch({ headers: { ...route.request().headers(), origin: apiOrigin }, maxRedirects: 0 })
+      return route.fulfill({ response })
+    })
+    const entry = { route: c.route, width: c.width, theme: c.theme, lang: c.lang, user: opts.user, stale: opts.staleChunk, file: c.file, consoleErrors: [], pageErrors: [], failedRequests: [] }
+    const page = await context.newPage()
+    page.on('console', (m) => { if (m.type() === 'error' && !/^Failed to load resource/.test(m.text())) entry.consoleErrors.push(m.text().slice(0, 300)) })
+    page.on('pageerror', (e) => entry.pageErrors.push(String(e.message || e).slice(0, 300)))
+    page.on('requestfailed', (r) => entry.failedRequests.push({ status: 'failed', method: r.method(), path: new URL(r.url()).pathname }))
+    page.on('response', (r) => { if (r.status() >= 400) entry.failedRequests.push({ status: r.status(), method: r.request().method(), path: new URL(r.url()).pathname }) })
+    await page.addInitScript(([theme, lang]) => {
+      try { localStorage.setItem('xt-theme', theme) } catch { /* storage can be blocked */ }
+      if (lang === 'he') document.addEventListener('DOMContentLoaded', () => { document.documentElement.setAttribute('dir', 'rtl'); document.documentElement.setAttribute('lang', 'he') })
+    }, [c.theme, c.lang])
+    if (opts.staleChunk) {
+      // An old tab after a deploy: the entry loaded from "/", then the script files it asks for are gone and the host answers with the page.
+      await page.goto(`${opts.base}/`, { waitUntil: 'networkidle' })
+      await page.route(`${origin}/assets/**/*.js`, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html></html>' }))
+      await page.evaluate((target) => { history.pushState({}, '', target); dispatchEvent(new PopStateEvent('popstate')) }, c.route)
+      await page.waitForLoadState('networkidle').catch(() => {})
+      // The notice renders after the failed import settles; a page with no alert is judged after the wait.
+      await page.waitForFunction(() => document.querySelector('[role=alert]'), null, { timeout: 3000 }).catch(() => {})
+    } else {
+      await page.goto(`${opts.base}${c.route}`, { waitUntil: 'networkidle' })
+    }
+    Object.assign(entry, await measure(page, opts.inspect))
+    await page.screenshot({ path: path.join(opts.out, c.file), fullPage: true })
+    if (opts.trace) await context.tracing.stop({ path: path.join(opts.out, `trace-${c.file.replace(/\.png$/, '')}.zip`) })
+    return entry
+  } finally {
+    await context.close()
   }
 }
 
@@ -210,41 +266,12 @@ async function main() {
   const entries = []
   try {
     for (const c of buildCases(opts)) {
-      const context = await browser.newContext({
-        viewport: { width: c.width, height: c.width < 800 ? 844 : 800 }, deviceScaleFactor: opts.scale,
-        hasTouch: c.width < 800, serviceWorkers: 'block', colorScheme: c.theme
-      })
-      if (opts.trace) await context.tracing.start({ screenshots: true, snapshots: true })
-      await signIn(context, opts, opts.base)
-      await context.route(`${origin}/api/**`, async (route) => {
-        if (route.request().method() === 'GET') return route.continue()
-        const response = await route.fetch({ headers: { ...route.request().headers(), origin: apiOrigin }, maxRedirects: 0 })
-        return route.fulfill({ response })
-      })
-      const entry = { route: c.route, width: c.width, theme: c.theme, lang: c.lang, user: opts.user, file: c.file, consoleErrors: [], pageErrors: [], failedRequests: [] }
-      const page = await context.newPage()
-      page.on('console', (m) => { if (m.type() === 'error') entry.consoleErrors.push(m.text().slice(0, 300)) })
-      page.on('pageerror', (e) => entry.pageErrors.push(String(e.message || e).slice(0, 300)))
-      page.on('requestfailed', (r) => entry.failedRequests.push({ status: 'failed', method: r.method(), path: new URL(r.url()).pathname }))
-      page.on('response', (r) => { if (r.status() >= 400) entry.failedRequests.push({ status: r.status(), method: r.request().method(), path: new URL(r.url()).pathname }) })
-      await page.addInitScript(([theme, lang]) => {
-        try { localStorage.setItem('xt-theme', theme) } catch { /* storage can be blocked */ }
-        if (lang === 'he') document.addEventListener('DOMContentLoaded', () => { document.documentElement.setAttribute('dir', 'rtl'); document.documentElement.setAttribute('lang', 'he') })
-      }, [c.theme, c.lang])
-      if (opts.staleChunk) {
-        // An old tab after a deploy: the entry loaded from "/", then the script files it asks for are gone and the host answers with the page.
-        await page.goto(`${opts.base}/`, { waitUntil: 'networkidle' })
-        await page.route(`${origin}/assets/**/*.js`, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html></html>' }))
-        await page.evaluate((target) => { history.pushState({}, '', target); dispatchEvent(new PopStateEvent('popstate')) }, c.route)
-        await page.waitForLoadState('networkidle').catch(() => {})
-      } else {
-        await page.goto(`${opts.base}${c.route}`, { waitUntil: 'networkidle' })
+      try {
+        entries.push(await runCase(browser, c, opts, origin, apiOrigin))
+      } catch (error) {
+        // One case failing keeps the others: it becomes a problem in the report.
+        entries.push({ route: c.route, width: c.width, theme: c.theme, lang: c.lang, user: opts.user, stale: false, file: c.file, consoleErrors: [], pageErrors: [`case did not finish: ${String(error.message).split('\n')[0]}`], failedRequests: [], overflowX: 0, blank: false, smallTargets: [] })
       }
-      Object.assign(entry, await measure(page, opts.inspect))
-      await page.screenshot({ path: path.join(opts.out, c.file), fullPage: true })
-      if (opts.trace) await context.tracing.stop({ path: path.join(opts.out, `trace-${c.file.replace(/\.png$/, '')}.zip`) })
-      await context.close()
-      entries.push(entry)
     }
   } finally {
     await browser.close()

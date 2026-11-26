@@ -17,13 +17,13 @@ Run servers in the background and stop them when you finish. Never point these t
 
 ## 2. Sign in with fixtures (no real secrets)
 - Signed out: no cookie.
-- Normal user: `POST /api/dev/session` with `{"login": "<any name>"}` answers a session cookie (`xt_session`); `POST /api/dev/token` answers a bearer token.
+- Normal user: `POST /api/dev/session` with `{"login": "<any name>"}` answers a session cookie; `POST /api/dev/token` answers a bearer token.
 - Admin: the same with `"admin": true`. Every dev admin session is the same user, and admin reads are rate limited, so keep a run small.
 - Writes from a browser must carry the API's own origin: the scripts below re-send non-GET calls with it.
 - Seed content through the API with that session (drafts and so on). Never print a token or commit one.
 
 ## 3. The browser
-- Chromium and Playwright are pre-installed. Never run `playwright install`. `scripts/ui-shot.mjs` falls back to `/opt/pw-browsers/chromium`; set `XT_CHROMIUM_PATH` to use another binary.
+- Chromium and Playwright are pre-installed. Never run `playwright install`. `scripts/ui-shot.mjs` falls back to `/opt/pw-browsers/chromium`; set `UI_SHOT_CHROMIUM` to use another binary.
 - Test runs: pass `--trace off`; use `--trace on` only to debug one failing test.
 - A shot a person will see: device scale factor 2. A shot only you read: 1.
 
@@ -36,7 +36,7 @@ Run servers in the background and stop them when you finish. Never point these t
 
 ## 5. Errors and failures
 The script records, per route, console errors, uncaught page errors and requests that failed or answered 4xx or 5xx, and fails the case on any of them. It also fails on sideways scroll and on a blank page, and warns about touch targets under 44 px on phones.
-- A request that is expected, for example a 401 while signed out, is allowed by name: `--allow "401 /api/auth/me"`. Never allow something to make a run green without saying why in the PR.
+- A request that is expected, for example a 401 while signed out, is allowed by name: `--allow "401 /api/auth/me"`. Browser lines such as "Failed to load resource" are covered by the request record, so allowing the request is enough. Never allow something to make a run green without saying why in the PR.
 - Fix the cause of an error. Do not hide the message.
 
 ## 6. Audits that already run in CI
@@ -46,7 +46,7 @@ The script records, per route, console errors, uncaught page errors and requests
 - A page that talks to the API gets one test against the real local API with a real session and no fixed answers: fixed answers hide real defects.
 
 ## 7. Layout bugs: measure, do not guess
-`--inspect "<css selector>"` adds each match's box (x, y, width, height) and computed `display`, `position`, `overflow-x`, `padding-inline`, `margin-inline`, `gap`, `font-size`, `color`, `background-color`, `text-align` to `report.json`. Look for:
+`--inspect "<css selector>"` adds each match's box (the first 20 matches) (x, y, width, height) and computed `display`, `position`, `overflow-x`, `padding-inline`, `margin-inline`, `gap`, `font-size`, `color`, `background-color`, `text-align` to `report.json`. Look for:
 - overflow: `document.documentElement.scrollWidth` above `clientWidth`; find the widest child by box;
 - doubled gutters: a parent and a child both add padding or margin;
 - hidden or clipped elements: `display: none`, zero size, `overflow: hidden` on an ancestor, a box outside the screen;
@@ -55,11 +55,11 @@ For more, write a short Playwright script and use `page.evaluate` with `getBound
 
 ## 8. Stale tab after a deploy
 After a deploy, an open tab still asks for script files of the old build. Those files are gone, and a host that rewrites unknown paths to the page answers `200 text/html`. The dynamic import fails. A page without an error boundary goes blank.
-`node scripts/ui-shot.mjs --routes /<lazy route> --stale-chunk` loads the entry, answers every later script file with the page, then moves to the route. Pass means a visible message and a way to reload, not a blank page and not a console error you hide.
+`node scripts/ui-shot.mjs --routes /<lazy route> --stale-chunk` loads the entry, answers every later script file with the page, then moves to the route. The browser's own module-load errors are expected in this mode and are not counted. Pass means a visible message or alert and a reload button; a blank page fails.
 
 ## 9. Before and after, and what goes in the PR
 - Take "before" shots first: `--out docs/screenshots/<task>/before`. After the fix: `--out docs/screenshots/<task>/after`. Same routes, widths, themes and languages.
-- Attach to the PR: the after shots for each width (phone and desktop, light and dark, and right-to-left when text direction matters), the one-line result of `report.json` (cases, failures, warnings), and the command you ran. Link the images from the PR text; keep `report.json` out of the commit.
+- Attach to the PR: the after shots for each width (phone and desktop, light and dark, and right-to-left when text direction matters), the one-line result of `report.json` (cases, failures, warnings), and the command you ran. Link the images from the PR text; `report.json` and trace files are ignored by git.
 - Any text you post (PR, issue comment, handoff) uses the `reply-style` skill and passes `npm run reply-lint`.
 - Keep the number of committed images small: the changed pages only.
 

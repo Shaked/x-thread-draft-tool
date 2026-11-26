@@ -57,6 +57,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Thread view after an edit | view:thread | renders_ui_views | 2026-11-25 |
 | Image operations | tools | none | 2026-11-25 |
 | Agent plugin: reply-style | docs/plans/plugin-marketplace.md | none | 2026-11-26 |
+| Agent skill: ui-debug | tests/unit/ui-debug-skill.test.js | none | 2026-11-26 |
 | Agent plugin: metrics | docs/plans/central-metrics.md | none | 2026-11-26 |
 | Connect guide | docs/agents/mcp.md | none | 2026-11-26 |
 
@@ -83,6 +84,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Thread view after an edit | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | not checked | built: tests/api/mcp-edit-result.test.js | not checked | not checked | not checked | not checked |
 | Image operations | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js |
 | Agent plugin: reply-style | built: tests/unit/plugin-reply-style.test.js | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | not checked | no: a Claude Code plugin only | no: a Claude Code plugin only |
+| Agent skill: ui-debug | built: tests/unit/ui-debug-skill.test.js | no: a repo developer skill only | no: a repo developer skill only | no: a repo developer skill only | no: a repo developer skill only | not checked | no: a repo developer skill only | no: a repo developer skill only |
 | Agent plugin: metrics | built: tests/unit/plugin-metrics.test.js | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | not checked | no: a Claude Code plugin only | no: a Claude Code plugin only |
 | Connect guide | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | not checked | built: docs/agents/mcp.md | built: docs/agents/mcp.md | no: no steps for other MCP clients (#372) |
 
@@ -109,6 +111,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Thread view after an edit | built: tests/api/mcp-edit-result.test.js, tests/unit/mcp-ui-thread.test.js | built: tests/unit/mcp-ui-thread.test.js | not checked | built: tests/unit/mcp-ui-thread.test.js | not checked | not checked | not checked | not checked |
 | Image operations | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) |
 | Agent plugin: reply-style | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only |
+| Agent skill: ui-debug | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only |
 | Agent plugin: metrics | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only |
 | Connect guide | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | not checked | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | no: no steps for other MCP clients (#372) |
 

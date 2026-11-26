@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { buildCases, formatReport, isAllowed, judge, parseArgs, shotName, slug, summarize } from '../../scripts/ui-shot.mjs'
+import { STALE_MESSAGES, buildCases, formatReport, isAllowed, judge, parseArgs, shotName, slug, summarize } from '../../scripts/ui-shot.mjs'
 
 const clean = { route: '/', width: 390, theme: 'light', lang: 'en', file: 'home-390-light-en.png', consoleErrors: [], pageErrors: [], failedRequests: [], overflowX: 0, blank: false, smallTargets: [] }
 
@@ -28,7 +28,9 @@ describe('ui-shot arguments', () => {
 describe('ui-shot cases', () => {
   it('names files from the route', () => {
     expect(slug('/')).toBe('home')
-    expect(slug('/admin/users/42?x=1')).toBe('admin-users-42')
+    expect(slug('/admin/users/42')).toBe('admin-users-42')
+    expect(slug('/?suspended=1')).toBe('suspended-1')
+    expect(slug('/a?x=1')).not.toBe(slug('/a?x=2'))
     expect(shotName('/admin', 390, 'dark', 'he')).toBe('admin-390-dark-he.png')
   })
   it('builds every combination in a stable order', () => {
@@ -37,6 +39,29 @@ describe('ui-shot cases', () => {
     expect(cases[0]).toMatchObject({ route: '/', width: 390, theme: 'light', lang: 'en', file: 'home-390-light-en.png' })
     expect(cases[7]).toMatchObject({ route: '/a', width: 1280, theme: 'dark' })
     expect(new Set(cases.map((c) => c.file)).size).toBe(8)
+  })
+})
+
+describe('ui-shot file names', () => {
+  it('never writes two cases to one file', () => {
+    const cases = buildCases(parseArgs(['--routes', '/a-b,/a/b,/a-b', '--widths', '390']))
+    expect(new Set(cases.map((c) => c.file)).size).toBe(3)
+    expect(cases.map((c) => c.file)).toEqual(['a-b-390-light-en.png', 'a-b-390-light-en-2.png', 'a-b-390-light-en-3.png'])
+  })
+})
+
+describe('ui-shot stale tab', () => {
+  const stale = { ...clean, stale: true, recovery: true, consoleErrors: ['Failed to load module script: Expected a JavaScript module', 'TypeError: Failed to fetch dynamically imported module: /assets/A.js'] }
+  it('expects the module errors when a message shows', () => {
+    expect(judge(stale)).toMatchObject({ ok: true, problems: [] })
+  })
+  it('fails when nothing tells the person', () => {
+    expect(judge({ ...stale, recovery: false }).problems).toEqual(['stale tab: no visible message or reload button after the script file failed'])
+  })
+  it('still fails on other errors, and outside stale mode counts the module errors', () => {
+    expect(judge({ ...stale, consoleErrors: ['boom'] }).problems).toEqual(['console error: boom'])
+    expect(judge({ ...stale, stale: false, recovery: false }).problems).toHaveLength(2)
+    expect(STALE_MESSAGES.test('Unable to preload CSS for /assets/x.css')).toBe(true)
   })
 })
 
