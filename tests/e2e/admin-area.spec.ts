@@ -98,7 +98,7 @@ const ENTRIES: { label: string; path: string; real: (page: Page) => Promise<void
     real: async (page) => {
       await expect(page.getByRole('heading', { name: 'Look', level: 2 })).toBeVisible()
       // The account's look is read: exactly one of the two is chosen (other specs may set either).
-      await expect(page.getByRole('radio', { name: 'Current (purple)' }).or(page.getByRole('radio', { name: 'Rare UI (black, orange)' })).and(page.locator(':checked'))).toHaveCount(1)
+      await expect(page.getByRole('radio', { name: 'Old look, purple (only you)' }).or(page.getByRole('radio', { name: 'Rare UI (everyone)' })).and(page.locator(':checked'))).toHaveCount(1)
       await expect(page.getByRole('heading', { name: 'Components', level: 2 })).toBeVisible()
     }
   },
