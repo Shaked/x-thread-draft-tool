@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Badge from '../../ui/Badge'
 import Banner from '../../ui/Banner'
@@ -33,7 +33,7 @@ const COLUMNS = [
   { key: 'mcp', label: 'App calls, 7 days' }
 ]
 
-export const day = (value) => (value ? String(value).slice(0, 10) : 'unknown')
+const day = (value) => (value ? String(value).slice(0, 10) : 'unknown')
 
 const rowOf = (user) => ({
   login: <Link to={`/admin/users/${user.id}`}>{user.login}</Link>,
@@ -55,12 +55,23 @@ export default function AdminUsersPage() {
   const [state, setState] = useState({ status: 'loading', users: [], next: null })
   const [more, setMore] = useState(false)
 
-  const load = (cursor) =>
-    adminApi
+  // Each request gets a number; an answer that is not for the latest request (an older filter) is dropped.
+  const latest = useRef(0)
+
+  const load = (cursor) => {
+    const mine = ++latest.current
+    return adminApi
       .users({ ...filter, cursor })
-      .then((data) => setState((old) => ({ status: 'ready', users: cursor ? [...old.users, ...data.users] : data.users, next: data.next_cursor })))
-      .catch(() => setState((old) => ({ ...old, status: 'error' })))
-      .finally(() => setMore(false))
+      .then((data) => {
+        if (mine === latest.current) setState((old) => ({ status: 'ready', users: cursor ? [...old.users, ...data.users] : data.users, next: data.next_cursor }))
+      })
+      .catch(() => {
+        if (mine === latest.current) setState((old) => ({ ...old, status: 'error' }))
+      })
+      .finally(() => {
+        if (mine === latest.current) setMore(false)
+      })
+  }
 
   useEffect(() => {
     load()

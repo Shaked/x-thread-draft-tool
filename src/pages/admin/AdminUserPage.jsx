@@ -14,6 +14,12 @@ const LOGIN = /^[A-Za-z0-9-]{1,39}$/
 const show = (value) => (value === null || value === undefined ? 'unknown' : value)
 const when = (value) => (value ? String(value).replace('T', ' ').slice(0, 16) + ' UTC' : 'unknown')
 
+// A token that is revoked or past its expiry cannot sign in, so it is not shown as active.
+const tokenBadge = (token) =>
+  token.revoked_at ? <Badge tone="danger">Revoked</Badge>
+    : token.expires_at && new Date(token.expires_at) <= new Date() ? <Badge>Expired</Badge>
+      : <Badge tone="success">Active</Badge>
+
 const bytes = (n) => (n === null || n === undefined ? 'unknown' : `${n} bytes`)
 
 // One user of GET /api/admin/users/:id, the same fields as the admin_get_user tool (#286). User text is shown as text only.
@@ -97,7 +103,7 @@ function UserDetails({ id }) {
               <ListItem
                 key={token.id}
                 title={`Created via ${show(token.created_via)}`}
-                badge={token.revoked_at ? <Badge tone="danger">Revoked</Badge> : <Badge tone="success">Active</Badge>}
+                badge={tokenBadge(token)}
                 meta={[`Created ${when(token.created_at)}`, `Last used ${when(token.last_used_at)}`, `Expires ${token.expires_at ? when(token.expires_at) : 'never'}`]}
               />
             ))}

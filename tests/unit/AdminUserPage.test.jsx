@@ -41,6 +41,11 @@ describe('admin user details', () => {
     expect(document.body.textContent).not.toMatch(/HASH123|xt_PREFIX/)
   })
 
+  it('shows an expired token as expired, not active', async () => {
+    mount(200, { user: { ...USER, api_tokens: [{ ...USER.api_tokens[0], expires_at: '2020-01-01T00:00:00.000Z' }] } })
+    expect(await screen.findByText('Expired')).toBeInTheDocument()
+  })
+
   it('says when the user does not exist', async () => {
     mount(404, { error: 'User not found' })
     expect(await screen.findByText('User not found.')).toBeInTheDocument()
