@@ -4,4 +4,4 @@
 - Every reply template has good and bad examples that a test runs without a person.
 
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/487
