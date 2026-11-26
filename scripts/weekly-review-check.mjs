@@ -2,8 +2,10 @@
 // Weekly improvement review, deterministic part (epic #273, task #295). Node 20, no model, no tokens.
 //
 // It collects signals (npm outdated and audit, the MCP and Vercel pins, the Telegram Bot API version,
-// the Node LTS line, the stale client-matrix rows), hashes them and compares the hash with the one
-// stored in the newest `weekly` issue.
+// the Node LTS line, the stale client-matrix rows, the speed flags of the last 7 days), hashes them and
+// compares the hash with the one stored in the newest `weekly` issue.
+// The speed flags are booleans only, per stage: `over` (p90 over its limit) and `slower` (median 20 % and
+// 10 s higher than last week). The seconds never enter the fingerprint (task S7, #315, plan speed.md section 6).
 //   nochange    the fingerprint is the same as last week: nothing to do
 //   still-open  it changed, but a `weekly` issue is still open: create nothing
 //   create      it changed and no `weekly` issue is open: open ONE issue (labels task and weekly)
@@ -15,7 +17,9 @@
 //   node scripts/weekly-review-check.mjs notify         one Telegram line (kind weekly-started) after the issue is opened
 // Env for the plan: LAST_BODY_FILE (the newest weekly issue body, empty file on the first run),
 // OPEN_WEEKLY (count of open weekly issues), BODY_FILE (where the issue body is written),
-// DRY_RUN ('true' prints only), TEMPLATE (default .github/weekly-review-issue.md), GITHUB_OUTPUT.
+// DRY_RUN ('true' prints only), TEMPLATE (default .github/weekly-review-issue.md), GITHUB_OUTPUT,
+// SPEED_FILE (speed.json of `speed-metrics.mjs --since 7d`; missing = speed unreadable),
+// SPEED_MD (its speed.md, put in the issue body when a speed flag is true).
 // Env for notify: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, ISSUE_TITLE, ISSUE_URL.
 
 import { createHash } from 'node:crypto'
@@ -129,6 +133,38 @@ export function parseWorkflowNodeVersions(files) {
   return [...found].sort((a, b) => a - b)
 }
 
+// The speed flags from a speed.json (scripts/speed-metrics.mjs): per kind and stage, two booleans.
+// `over`: the p90 is over its limit. `slower`: the median is 20 % and 10 s higher than last week; a run
+// without a previous file has no change, so slower is false. Null when the document cannot be read.
+export function speedFacts(doc) {
+  const summary = doc && typeof doc === 'object' ? doc.summary : null
+  if (!summary || typeof summary !== 'object') return null
+  const out = {}
+  for (const kind of Object.keys(summary).sort()) {
+    const stages = summary[kind]
+    if (!stages || typeof stages !== 'object') continue
+    out[kind] = {}
+    for (const stage of Object.keys(stages).sort()) {
+      const s = stages[stage]
+      if (!s || typeof s !== 'object') continue
+      out[kind][stage] = { over: s.over === true, slower: s.change?.slower === true }
+    }
+  }
+  return Object.keys(out).length ? out : null
+}
+
+// True when any speed flag is set: the issue then carries the speed table.
+export function speedFlagged(speed) {
+  if (!speed) return false
+  return Object.values(speed).some((stages) => Object.values(stages).some((s) => s.over || s.slower))
+}
+
+// One line for the signals block: how many stage flags are set.
+export function speedSummaryText(speed) {
+  const all = Object.values(speed).flatMap((stages) => Object.values(stages))
+  return `${all.filter((s) => s.over).length} stage(s) over the limit, ${all.filter((s) => s.slower).length} slower than last week`
+}
+
 // Reads the facts from the last issue body: the JSON block, but only when its hash matches the marker.
 export function readLastFacts(body) {
   // GitHub's web editor saves CRLF line endings after an edit (for example a ticked checkbox).
@@ -155,8 +191,18 @@ function openedWithinWeek(lastCreatedAt, now) {
   return Number.isFinite(created) && now.getTime() - created < WEEK_MS
 }
 
+// A source that cannot be read keeps its last value, so it never changes the fingerprint.
+function factsWithCarry(current, last) {
+  const facts = {}
+  for (const key of Object.keys(current)) {
+    if (current[key] !== null) facts[key] = current[key]
+    else if (key in last) facts[key] = last[key]
+  }
+  return facts
+}
+
 // Decides the action. `current` maps each source to its value, or null when it could not be read.
-export function planWeeklyReview({ current, lastBody = '', openWeekly = 0, lastCreatedAt = '', now = new Date(), date = '', template = '' }) {
+export function planWeeklyReview({ current, lastBody = '', openWeekly = 0, lastCreatedAt = '', now = new Date(), date = '', template = '', speedMd = '' }) {
   const trusted = readLastFacts(lastBody)
   const last = trusted || {}
   const unreadable = Object.keys(current).filter((k) => current[k] === null)
@@ -164,12 +210,7 @@ export function planWeeklyReview({ current, lastBody = '', openWeekly = 0, lastC
   if (cannotCompare(lastBody, trusted, unreadable)) {
     return { action: 'nochange', fingerprint: '', unreadable, message: 'last review cannot be read and a source is unreadable: nothing to compare' }
   }
-  // A source that cannot be read keeps its last value, so it never changes the fingerprint.
-  const facts = {}
-  for (const key of Object.keys(current)) {
-    if (current[key] !== null) facts[key] = current[key]
-    else if (key in last) facts[key] = last[key]
-  }
+  const facts = factsWithCarry(current, last)
   const fingerprint = fingerprintOf(facts)
   const lastFingerprint = FINGERPRINT_MARK.exec(String(lastBody || ''))?.[1] || ''
   // Nothing could be read at all: a failed fetch never opens an issue by itself.
@@ -191,16 +232,17 @@ export function planWeeklyReview({ current, lastBody = '', openWeekly = 0, lastC
     facts,
     message,
     title: `Weekly review ${date}`.trim(),
-    body: buildBody({ facts, fingerprint, unreadable, template }),
+    body: buildBody({ facts, fingerprint, unreadable, template, speedMd }),
   }
 }
 
 // The issue body: the template, the signals in a block, the unreadable sources, and the hash + JSON
 // the next run reads back.
-export function buildBody({ facts, fingerprint, unreadable = [], template = '' }) {
+export function buildBody({ facts, fingerprint, unreadable = [], template = '', speedMd = '' }) {
   const parts = []
   if (template.trim()) parts.push(template.trim())
   const lines = []
+  if (facts.speed) lines.push(`Speed, last 7 days: ${speedSummaryText(facts.speed)}`)
   if (facts.outdated) lines.push(`Outdated packages: ${facts.outdated.length}`, ...facts.outdated.map((o) => `${o.name} ${o.current} -> ${o.latest} (${o.kind})`))
   if (facts.audit) lines.push(`Audit: critical ${facts.audit.critical}, high ${facts.audit.high}, moderate ${facts.audit.moderate}, low ${facts.audit.low}`)
   if (facts.pins) lines.push(...Object.entries(facts.pins).map(([name, p]) => `Pin ${name}: ${p.pinned} (npm latest ${p.latest})`))
@@ -209,6 +251,10 @@ export function buildBody({ facts, fingerprint, unreadable = [], template = '' }
   if (typeof facts.matrixStale === 'number') lines.push(`Client matrix rows not checked for over 30 days: ${facts.matrixStale}`)
   parts.push('Signals this week (checked by scripts/weekly-review-check.mjs):')
   parts.push(fence(lines))
+  if (speedFlagged(facts.speed) && speedMd.trim()) {
+    parts.push('Speed table (scripts/speed-metrics.mjs --since 7d). A stage is over when its p90 is over the limit, slower when its median rose:')
+    parts.push(fence(speedMd.trim().split('\n')))
+  }
   if (unreadable.length) parts.push(`Unreadable this week (value carried from the last issue): ${unreadable.join(', ')}`)
   parts.push(`<!-- weekly-fingerprint:${fingerprint} -->`)
   // A backtick is written as the JSON escape `: it still reads back as the same text, and it cannot close the block.
@@ -237,10 +283,19 @@ async function getText(url) {
 }
 
 // The real fetchers. Each returns the parsed value, or null when it could not be read.
-export function liveFetchers(root = process.cwd()) {
+export function liveFetchers(root = process.cwd(), speedFile = '') {
   const pkg = JSON.parse(readFileSync(`${root}/package.json`, 'utf8'))
   const pinOf = (name) => (pkg.dependencies?.[name] || pkg.devDependencies?.[name] || '').replace(/^[\^~]/, '')
   return {
+    // A missing or unreadable speed.json is unreadable, never "no speed flags".
+    speed: async () => {
+      if (!speedFile || !existsSync(speedFile)) return null
+      try {
+        return speedFacts(JSON.parse(readFileSync(speedFile, 'utf8')))
+      } catch {
+        return null
+      }
+    },
     outdated: async () => parseOutdated(run('npm', ['outdated', '--json'])),
     audit: async () => parseAudit(run('npm', ['audit', '--json'])),
     pins: async () => {
@@ -294,9 +349,10 @@ function writeOutputs(outputs) {
 }
 
 async function planMain(env) {
-  const current = await collectSignals(liveFetchers())
+  const current = await collectSignals(liveFetchers(process.cwd(), env.SPEED_FILE || ''))
   const lastBody = env.LAST_BODY_FILE && existsSync(env.LAST_BODY_FILE) ? readFileSync(env.LAST_BODY_FILE, 'utf8') : ''
   const template = existsSync(env.TEMPLATE || TEMPLATE) ? readFileSync(env.TEMPLATE || TEMPLATE, 'utf8') : ''
+  const speedMd = env.SPEED_MD && existsSync(env.SPEED_MD) ? readFileSync(env.SPEED_MD, 'utf8') : ''
   const plan = planWeeklyReview({
     current,
     lastBody,
@@ -304,6 +360,7 @@ async function planMain(env) {
     lastCreatedAt: env.LAST_CREATED_AT || '',
     date: utcDate(),
     template,
+    speedMd,
   })
   console.log(plan.message)
   if (plan.action === 'create') {

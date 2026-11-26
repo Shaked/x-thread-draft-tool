@@ -19,6 +19,18 @@ Task #294 wrote these rules. Task #295 added the workflow `.github/workflows/wee
   the newest `weekly` issue. Same hash: nothing happens. A source that cannot be read keeps its last value, so it
   never opens an issue by itself.
 - It opens no new issue while an earlier `weekly` issue is still open.
+- Speed (task S7, #315): before the check, the workflow runs `scripts/speed-metrics.mjs --since 7d`, with the
+  `speed.json` of the last successful run as `--previous` (its artifact `speed-metrics-weekly`). Missing previous
+  artifact: `slower` is false for every stage, and that is not a change. The fingerprint takes two booleans per
+  stage, `over` and `slower`. Seconds never enter it, so a normal week changes nothing. When a flag is set and the
+  fingerprint changed, the issue body carries the `speed.md` table in a fenced block.
+- Permissions added for S7: `actions: read` (download the previous artifact), `pull-requests: read` and
+  `deployments: read` (the speed metrics read PRs and deployments, as `speed-metrics.yml` does). All read-only.
+  The speed step has no Telegram secret, so it never sends a message. Opus validates this permission change.
+- Every change of the fingerprint opens the review, as for the other signals. A speed flag that clears opens it too,
+  without the speed table (no flag is set). So a slowdown that comes back after a recovery is reported again.
+- The first run after S7 has no speed facts in its last issue, so it opens an issue whenever the fingerprint
+  differs from that issue.
 
 ## What the run checks
 

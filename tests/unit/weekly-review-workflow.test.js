@@ -21,7 +21,7 @@ describe('weekly review workflow', () => {
     expect(lines.slice(at + 1, at + 6).some((l) => /^\s+default: false$/.test(l))).toBe(true)
   })
 
-  it('has exactly the permissions it needs: read the code, write issues, nothing else', () => {
+  it('has exactly the permissions it needs: read the code and the speed data (task S7, #315), write issues, nothing else', () => {
     const block = /^permissions:\n((?:\s{2}.*\n?)+)/m.exec(WORKFLOW)
     expect(block).not.toBeNull()
     const perms = block[1]
@@ -29,7 +29,40 @@ describe('weekly review workflow', () => {
       .map((l) => l.trim())
       .filter(Boolean)
       .sort()
-    expect(perms).toEqual(['contents: read', 'issues: write'])
+    // actions, pull-requests and deployments: read-only, for `gh run download` and scripts/speed-metrics.mjs (S7).
+    expect(perms).toEqual(['actions: read', 'contents: read', 'deployments: read', 'issues: write', 'pull-requests: read'])
+  })
+
+  it('the speed step gets no Telegram secret, so it can never send a message', () => {
+    const lines = WORKFLOW.split('\n')
+    const at = lines.findIndex((l) => /name: "Measure the speed of the last 7 days/.test(l))
+    expect(at).toBeGreaterThan(-1)
+    const end = lines.findIndex((l, i) => i > at && /^\s{6}- name:/.test(l))
+    const step = lines.slice(at, end)
+    expect(step.join('\n')).not.toMatch(/secrets\./)
+    expect(step.some((l) => /^\s+continue-on-error:\s*true\s*$/.test(l))).toBe(true)
+  })
+
+  it('the speed metrics are measured for the last 7 days, with the previous week when the artifact exists', () => {
+    expect(WORKFLOW).toMatch(/--since 7d --out speed-metrics/)
+    expect(WORKFLOW).toMatch(/--previous "\$RUNNER_TMP_DIR\/previous-speed\/speed\.json"/)
+    expect(WORKFLOW).toMatch(/name: speed-metrics-weekly/)
+  })
+
+  it('every step name is valid YAML: a name with ": " in it is quoted (an unquoted one breaks the whole workflow)', () => {
+    for (const line of WORKFLOW.split('\n')) {
+      const m = /^\s*-?\s*name:\s*(.*)$/.exec(line)
+      if (!m || m[1].startsWith('"') || m[1].startsWith("'")) continue
+      expect(m[1], line).not.toMatch(/: /)
+    }
+  })
+
+  it('the baseline is a successful scheduled run on the default branch only, and a dry run never uploads one', () => {
+    expect(WORKFLOW).toMatch(/gh run list[^\n]*--branch "\$DEFAULT_BRANCH"[^\n]*--event schedule[^\n]*--status success/)
+    expect(WORKFLOW).toMatch(/DEFAULT_BRANCH: \$\{\{ github\.event\.repository\.default_branch \}\}/)
+    const lines = WORKFLOW.split('\n')
+    const at = lines.findIndex((l) => /name: Upload the speed metrics of the week/.test(l))
+    expect(lines.slice(at, at + 4).join('\n')).toMatch(/if: inputs\.dry_run != true/)
   })
 
   it('never keeps the checkout token in .git', () => {

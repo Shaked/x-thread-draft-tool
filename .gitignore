@@ -46,3 +46,5 @@ server/generated/
 
 # Test-only bundle of the official AppBridge (tests/e2e/global-setup.ts)
 tests/e2e/.generated/
+docs/screenshots/**/report.json
+docs/screenshots/**/trace-*.zip
