@@ -27,7 +27,8 @@ export function decide(input, env = process.env, config = DEFAULT_CONFIG) {
   }
 }
 
-function main() {
+/** Reads the hook input from stdin and prints the block decision, if any. */
+export function main() {
   let input = null
   try {
     input = JSON.parse(readFileSync(0, 'utf8'))
@@ -40,7 +41,7 @@ function main() {
     config = loadConfig({ env: process.env })
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error
-    process.stderr.write(`reply-style: config ignored: ${error.message}\n`)
+    process.stderr.write(`reply-style: check skipped, config broken: ${error.message}\n`)
     return
   }
   const result = decide(input, process.env, config)

@@ -69,7 +69,7 @@ describe('reply-lint golden fixtures', () => {
   })
 
   it('RULES lists exactly the rule names the lint reports', () => {
-    const source = readFileSync(new URL('../../scripts/reply-lint.mjs', import.meta.url), 'utf8')
+    const source = readFileSync(new URL('../../plugins/reply-style/scripts/reply-lint.mjs', import.meta.url), 'utf8')
     const used = new Set([...source.matchAll(/\badd\([^,()]+,\s*'([a-z-]+)'/g)].map((m) => m[1]))
     expect([...used].sort()).toEqual([...RULES].sort())
   })
