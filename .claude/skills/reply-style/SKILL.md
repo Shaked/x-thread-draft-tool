@@ -42,11 +42,10 @@ Apply `pstack-unslop` and `pstack-technical-writing` to both.
   useful line goes first and the first three lines stay short.
   Plain words only: no issue numbers, task ids, file names or code spans. Say what a person can now
   do or see, not how it was built.
-- **Telegram message (target format):** the script still sends the old text, with an emoji per
-  headline, until task #369 changes the script, its tests and `docs/operations/telegram.md`.
+- **Telegram message (target format):** the script sends these forms (issue #463).
   The template is Markdown; the script turns it into HTML. One message per event, at most 5 lines.
-  Line 1 is the headline in bold, linked, saying what happened, with no emoji. Then the item, one
-  fact when the kind has one, `Needs you:` with one action or `Nothing needed.`, and other links.
+  Line 1 is one emoji, then the headline in bold, linked, saying what happened. Then the item, one
+  fact when the kind has one, `Needs you:` with one action (left out when nothing is needed), and other links.
   Never a secret, a login name, draft text or log output (`docs/operations/telegram.md`).
 - Check them with `npm run reply-lint -- --kind=changelog <file>` or `--kind=telegram <file>`.
 

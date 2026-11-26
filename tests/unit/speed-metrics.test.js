@@ -229,10 +229,9 @@ describe('run(): modes, output and the checks', () => {
     })
     expect(sent).toHaveLength(1)
     expect(sent[0].html).toBe([
-      '<b><a href="https://github.com/owner/repo/actions/runs/42">Speed over the budget: CI</a></b>',
+      '🐢 <b><a href="https://github.com/owner/repo/actions/runs/42">Speed over the budget: CI</a></b>',
       'The last 5 merged pull requests, merged since 2026-11-20.',
       'Product code CI: p90 99 s, limit 90 s, usual 90 s',
-      'Nothing needed: this check only warns.',
     ].join('\n'))
   })
 

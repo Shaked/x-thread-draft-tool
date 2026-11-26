@@ -73,12 +73,22 @@ describe('reply-lint rules', () => {
     expect(rules('# Faster saves\n- A draft opens sooner.\nArea: Speed\nLink: https://x.test/pull/2\nArea: Docs\n', { kind: 'changelog' })).toEqual(['shape'])
     // Labels and code below the heading are not checked.
     expect(rules(entry('Speed', 'https://x.test/pull/2', '\n## Technical details\n\nFixed T7 in `server/x.js`.\n'), { kind: 'changelog' })).toEqual([])
-    // Every example message in the template (five kinds, seven forms) passes the Telegram lint.
+    // Every example message in the template (six kinds, eight forms) passes the Telegram lint.
     const examples = [...templates('telegram-message.md').matchAll(/^Example:\n```text\n([\s\S]*?)```$/gm)].map((m) => m[1])
-    expect(examples).toHaveLength(7)
+    expect(examples).toHaveLength(8)
     for (const message of examples) {
       expect(lint(message, { kind: 'telegram' }), message).toEqual([])
     }
     expect(rules('Production is live\n[Open](https://x.test)', { kind: 'telegram' })).toEqual(['shape'])
+    // #463: the headline needs its emoji, and a "nothing" section is flagged.
+    expect(rules('**[Production is live](https://x.test)**\nT', { kind: 'telegram' })).toEqual(['shape'])
+    expect(rules('✅ **[Production is live](https://x.test)**\nT\nNothing needed.', { kind: 'telegram' })).toEqual(['empty-section'])
+    expect(rules('✅ **[Production is live](https://x.test)**\nT 🎉', { kind: 'telegram' })).toEqual(['emoji'])
+    // A real title that starts with "None" or "Nothing" is not an empty section.
+    for (const title of ['None of the drafts are lost on reload', 'Nothing breaks when offline', 'Nothing lost after reload']) {
+      expect(rules(`🙋 **[An issue needs you](https://x.test)**\n${title}`, { kind: 'telegram' }), title).toEqual([])
+    }
+    // The headline is the first prose line, even after a fenced block.
+    expect(rules('```\nx\n```\n✅ **[P](https://x.test)**\nT', { kind: 'telegram' })).toEqual([])
   })
 })
