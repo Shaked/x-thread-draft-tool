@@ -248,7 +248,7 @@ async function getDraft({ request, params }) {
   if (!rows[0]) throw notFound()
   const { unchanged, ...draft } = rows[0]
   if (unchanged) return new Response(null, { status: 304, headers: { ...etagHeaders(draft.version), 'cache-control': 'no-store' } })
-  return json({ draft }, 200, etagHeaders(draft.version))
+  return json({ draft: { ...draft, post_count: Array.isArray(draft.posts) ? draft.posts.length : 0 } }, 200, etagHeaders(draft.version))
 }
 
 /** GET /api/drafts/:id/outline: owner only. Counts and a preview per post, not the full text. */

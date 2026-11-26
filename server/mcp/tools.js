@@ -14,6 +14,7 @@ import { adminTool, listAdminTools } from './admin-tools.js'
 import { mcpAdminReason } from '../admin/role.js'
 import { PREVIOUS_POST } from '../routes/drafts.js'
 import { changeMeta, changesText } from './edit-result.js'
+import { stateLine } from './state-line.js'
 
 const UUID = { type: 'string', format: 'uuid' }
 const TITLE = { type: 'string', maxLength: 500, description: 'Draft title, at most 500 characters.' }
@@ -640,6 +641,9 @@ export async function callTool(name, args, { caller, origin }) {
     if (VIEW_OUTLINE[name] && result._meta) {
       for (const text of EDIT_TOOLS.includes(name) ? editTexts(name, result, origin) : [markdownOf(result)]) result.content.push({ type: 'text', text })
     }
+    // #390: every successful draft result ends with the state line (id, version, counts, editor link, next step).
+    const line = result.isError ? null : stateLine(result.structuredContent?.draft, name, origin, { postId: args.postId ?? args.post_id })
+    if (line) result.content.push({ type: 'text', text: line })
     return result
   } catch (err) {
     console.error('[mcp] tool failed', name, err)
