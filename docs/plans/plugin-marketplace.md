@@ -190,7 +190,7 @@ the markers `CLAIM`, `HANDOFF`, `RELEASE`, the owner words in `OWNER_QUESTION`, 
 | `reply-style.allowLines` | `[]` | Regular expressions for lines the lint skips, such as a required `Implements #12 Task 1` line |
 | `reply-style.maxLineLength` | `160` | The `long-line` rule |
 | `reply-style.changelogAreas` | `[]` (any one word) | The `Area:` line of `--kind=changelog` |
-| `reply-style.extraTemplates` | `{}` | Project templates the skill lists next to its own (this repo: changelog entry, Telegram) |
+| `reply-style.extraTemplates` | `{}` | Project templates the skill lists next to its own (this repo: changelog entry, Telegram, janitor summary, status board) |
 | `reply-style.writingSkills` | `[]` | Writing skills the skill tells the agent to apply, by name (this repo: the pstack copies) |
 
 Fixed, not configurable: the opt-in variable `REPLY_STYLE=owner`; the comment lint's Claude Code footer and its
@@ -243,8 +243,10 @@ All tests run with `npm run test:unit` (vitest, no network, no model, no person)
    exempt, and so are the `plugins/*/LICENSE` files (their copyright line). The list is in the test, not in a plugin.
 3. **Golden fixtures.** Every plugin template has a good fixture that passes and bad fixtures that fail for exactly
    the named rules. The `WANT` map and every rule assertion of `tests/unit/reply-lint-golden.test.js` are kept; the
-   fixtures move into the plugin and their names change to the sample project. The changelog and Telegram fixtures
-   stay in `tests/unit/` and run against the plugin lint with this repo's config, so all seven kinds stay covered.
+   fixtures move into the plugin and their names change to the sample project. The changelog, Telegram, janitor
+   summary and status board fixtures stay in `tests/unit/` and run against the plugin lint with this repo's config,
+   so all nine kinds stay covered. In step 1b those four templates become `extraTemplates` of this repo (the
+   symlinked skill folder would drop them); step 2 moves the last two into `task-janitor`.
    New: every rule the lint can report has at least one bad fixture (the #486 rule: nothing ships without lint and
    fixtures).
 4. **Config.** No file gives the defaults; each key changes its rule; a broken file gives exit 2 and the key name.
@@ -280,9 +282,10 @@ All tests run with `npm run test:unit` (vitest, no network, no model, no person)
 | `docs/operations/reply-style.md` | docs | stays here | This repo's setup (opt-in, CI, janitor); the generic part becomes the plugin README |
 | `scripts/changelog-check.mjs` | script | stays here | Checks this repo's `docs/changelogs/` rule |
 | `task-janitor` skill, `scripts/janitor.mjs`, `sessions.schema.json` | skill, script | generic after cleaning | `REPO`, labels, markers and owner words move to config (4.3, 4.4) |
-| `scripts/session-janitor.mjs` | script | generic after cleaning, after #493 closes | On `main` already; same cleaning as the janitor |
-| `/janitor` command (#493) | command | generic after cleaning, after #493 closes | Not on `main` yet (checked 2026-11-26: no `.claude/commands/`) |
-| Status board and `/status` command (#499) | command | generic after cleaning, after #499 closes | Not built yet (checked 2026-11-26: #499 open) |
+| `scripts/session-janitor.mjs` | script | generic after cleaning | On `main`; #493 closed 2026-11-26; same cleaning as the janitor |
+| `/janitor` command (`.claude/commands/janitor.md`, #493) | command | generic after cleaning | On `main` since #500 (checked 2026-11-26); it names this repo's scripts and report issue |
+| `janitor-summary` template (reply-style templates folder, #493) | template | generic after cleaning, in `task-janitor` | The janitor's report shape; it moves with the janitor, not with the 5 reply templates |
+| Status board: `/status` command, `scripts/status-board.mjs`, `status-board` template (#499) | command, script, template | generic after cleaning, in `task-janitor` | On `main` since #503 (checked 2026-11-26); #499 is still open |
 | `agent-pr-workflow` skill and `scripts/agent-pr.sh` | skill, script | generic after cleaning | Branch, push, REST PR and check reading are general; the Vercel smoke part and the repo default stay here |
 | `e2e-contract-tests` skill | skill | generic after cleaning, later | The method is general; it names this repo's helpers (`route()`, PGlite, test paths), which become examples |
 | `product-care` skill | skill | stays here | Every fact is about this product's clients and platform |
