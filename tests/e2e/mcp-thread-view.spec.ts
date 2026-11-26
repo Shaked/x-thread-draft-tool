@@ -210,3 +210,23 @@ test('after update_post the card shows only the changed post, before and after, 
   await expect(frame.locator('article')).toHaveCount(6)
   await expect(frame.getByText('פוסט ישן 2')).toHaveCount(0)
 })
+
+// #392 (W5): a draft saved with 1 post, then update_draft with 7 posts. The newest card says "7 posts" and shows all 7,
+// built from the result as the server sends it (changeMeta of the 1-post draft before and the 7-post draft after).
+test('after update_draft with 7 posts the new card says 7 posts and shows all 7', async ({ page }) => {
+  const { changeMeta } = await import('../../server/mcp/edit-result.js')
+  const before = { title: 'Seven', version: 1, posts: [{ id: 'p1', text: 'Only one', images: [] }] }
+  const posts = [1, 2, 3, 4, 5, 6, 7].map((n) => ({ id: `p${n}`, text: `Post number ${n} with its full text`, images: [] }))
+  const after = { title: 'Seven', version: 2, posts }
+  const updated = {
+    content: [{ type: 'text', text: 'fixture' }],
+    structuredContent: { draft: { id: '00000000-0000-4000-8000-000000000002', title: 'Seven', version: 2, posts: posts.map((post) => ({ id: post.id })) } },
+    _meta: { 'x-thread/outline': { posts: posts.map((post) => ({ chars: post.text.length, over_limit: false })) }, 'x-thread/posts': posts, 'x-thread/changes': changeMeta(before, after) }
+  }
+  await load(page, updated as unknown as typeof FIXTURE)
+  const frame = page.frameLocator('#view')
+  await expect(frame.locator('header p').first()).toContainText('7 posts')
+  await expect(frame.locator('article')).toHaveCount(7)
+  await expect(frame.getByText('Post number 7 with its full text')).toBeVisible()
+  await expect(frame.getByText('Only one')).toHaveCount(0)
+})
