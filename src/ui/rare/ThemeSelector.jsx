@@ -8,7 +8,8 @@
  * (light and dark halves); a visible legend; a three-column grid that fits the menu drawer; logical
  * (start/end) positions; arrow keys follow the reading direction; the base focus ring; ui-rare-* classes for
  * the UI audit.
- * Controlled only (no defaultValue, disabled, labels, className or rest props); the group is named with aria-labelledby; reduced motion goes through the duration tokens.
+ * Controlled only (no defaultValue, disabled, labels, className or rest props); the group is named with
+ * aria-labelledby; reduced motion goes through the duration tokens.
  */
 import { useId, useRef } from 'react'
 import '../../styles/rare-kit.css'

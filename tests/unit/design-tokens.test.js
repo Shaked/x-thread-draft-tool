@@ -196,9 +196,10 @@ describe('token lint: self-check', () => {
 
   it('reports each Tailwind rule in a Rare UI file and nothing on a clean one', () => {
     const file = 'src/ui/rare/X.jsx'
-    expect(lintJs('const a = <b className="bg-[#fff] dark:bg-(--color-bg) left-(--space-0) outline-none p-4 p-4!" />', file)).toEqual(['tw-arbitrary', 'tw-dark', 'tw-outline-none', 'tw-physical', 'tw-theme-value'])
+    expect(lintJs('const a = <b className="bg-[#fff] dark:bg-(--color-bg) left-(--space-0) outline-none p-4" />', file)).toEqual(['tw-arbitrary', 'tw-dark', 'tw-outline-none', 'tw-physical', 'tw-theme-value'])
     expect(lintJs('const a = <b className="h-[3px] text-sm" />', file)).toEqual(['tw-arbitrary', 'tw-theme-value'])
     expect(lintJs('const a = <b className="bg-red-500 border-black/10" />', file)).toEqual(['tw-theme-value'])
+    expect(lintJs('const a = <b className="p-4! outline-none!" />', file)).toEqual(['tw-outline-none', 'tw-theme-value'])
     expect(lintJs('const a = <b className="p-(--space-4) text-(length:--font-size-sm) start-[13cqw] aspect-[4/3] w-full [color-scheme:dark] rtl:[clip-path:polygon(0_0,100%_50%,0_100%)]" />', file)).toEqual([])
     expect(lintJs('const a = <b className="p-4 bg-[#fff]" />', 'src/components/X.jsx')).toEqual([])
   })
