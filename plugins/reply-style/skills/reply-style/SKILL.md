@@ -17,12 +17,20 @@ owner question uses one template below, follows the hard rules, and passes the l
 1. Start from the template file for your kind. The `##` headings come first, in this order: `TL;DR`,
    `What you need to do`, `Waiting for`, `Blocked on you`, `Done`, then `Details`.
 2. No loose bold or plain labels such as `**Done:**`, `Not done:` or `Blocked on you:`. Use the `##` heading.
-3. `What you need to do`, `Waiting for` and `Blocked on you` say "Nothing." when empty. `Done` always has content with "checked" or "not checked". Leave `Details` out when it is empty.
+3. `What you need to do`, `Waiting for` and `Blocked on you` say "Nothing." when empty.
+   `Done` always has content with "checked" or "not checked". Leave `Details` out when it is empty.
 4. Every label (`#12`, `Q1`) has a link and 3 to 6 words the first time. Never "unchanged" alone.
-5. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/reply-lint.mjs" --template reply.md` and fix every finding before you
-   send. The script is `scripts/reply-lint.mjs` in the plugin folder, two folders above this file; when this text
-   shows `${CLAUDE_PLUGIN_ROOT}` unfilled, use that path, or the project's own command if it names one. A session started with `REPLY_STYLE=owner` in its
-   environment is also checked when the turn ends: the Stop hook returns the failing rules and you rewrite the reply.
+5. A `Waiting for` item that is an agent session shows the task link and the Claude session link side by side:
+   `[#<n> <3 to 6 words>](<issue link>) · [session](https://claude.ai/code/session_<id>)` (rule `session-link`).
+   The link has the shape the commit attribution uses. Whether it opens in the Claude app is not checked.
+6. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/reply-lint.mjs" --template reply.md` and fix every finding before you send.
+   The script is `scripts/reply-lint.mjs` in the plugin folder, two folders above this file. When this text shows
+   `${CLAUDE_PLUGIN_ROOT}` unfilled, use that path, or the project's own command if it names one.
+   A session started with `REPLY_STYLE=owner` in its environment is also checked when the turn ends: the Stop hook
+   returns the failing rules and you rewrite the reply.
+7. The lint rules, by name, so that each one is on this list: `bare-label`, `option-letters`, `unchanged`, `blocked`,
+   `waiting-human`, `long-line`, `emoji`, `slop`, `headings`, `loose-label`, `empty-details`, `tldr`, `steps`,
+   `session-link`, `evidence`, `internal-label`, `shape`, `app-name`, `empty-section`.
 
 ## Which template
 | You are writing | Template | Where it goes |
@@ -32,7 +40,7 @@ owner question uses one template below, follows the hard rules, and passes the l
 | A task session ends | [`handoff`](templates/handoff.md) | A comment on the task, last |
 | A step the owner must do by hand | [`owner-action`](templates/owner-action.md) | Chat reply, and a comment on the item it unblocks |
 | Something failed (CI, deploy, production, a session) | [`incident`](templates/incident.md) | Chat reply, and a comment on the item or pull request |
-| Anything else to the owner: a reminder, a progress note, an answer to a question | [`status-report`](templates/status-report.md) | Chat reply, or a comment where the owner asked |
+| Anything else to the owner: a reminder, a progress note, an answer | [`status-report`](templates/status-report.md) | Chat reply, or a comment where the owner asked |
 
 Project templates, listed in `reply-style.extraTemplates` of `.claude/agent-kit.json`, cover the other kinds
 (a changelog entry, a message to a chat app, a summary report). They are not in this plugin.

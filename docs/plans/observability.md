@@ -363,7 +363,7 @@ without `group`.
 ## 6. Alerts (three kinds, Telegram)
 
 Worked out by every run of the daily step (every 6 hours). Sent with `scripts/notify-telegram.mjs`, new kind
-`metrics`, in the Alert shape of `.claude/skills/reply-style/templates/telegram-message.md` once #475 folds
+`metrics`, in the Alert shape of `.claude/reply-style-templates/telegram-message.md` once #475 folds
 its section 5 (central-metrics D6), with the existing secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 The app itself still sends nothing (`docs/operations/telegram.md`).
 

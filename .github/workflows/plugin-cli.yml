@@ -1,0 +1,46 @@
+name: Plugin CLI
+
+# Installs the plugins with the real Claude Code CLI (pinned), with an empty config folder and no login.
+# No model call is made. See docs/plans/plugin-marketplace.md, test 8.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'plugins/**'
+      - '.claude-plugin/**'
+      - '.github/workflows/plugin-cli.yml'
+
+permissions:
+  contents: read
+
+env:
+  CLAUDE_CODE_VERSION: 2.1.332
+
+jobs:
+  plugin-cli:
+    name: Plugin CLI (validate, install)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Install the Claude Code CLI
+        run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+
+      - name: Validate the marketplace and each plugin
+        run: |
+          export CLAUDE_CONFIG_DIR="$(mktemp -d)"
+          claude plugin validate . --strict
+          for dir in plugins/*/; do claude plugin validate "$dir" --strict; done
+
+      - name: Install each plugin and check what the CLI sees
+        run: |
+          export CLAUDE_CONFIG_DIR="$(mktemp -d)"
+          node scripts/plugin-cli-check.mjs

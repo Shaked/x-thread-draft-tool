@@ -12,7 +12,7 @@ import { HEADINGS, lint } from '../../scripts/reply-lint.mjs'
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8')
 const fixture = (name) => read(`./fixtures/reply-lint/${name}.md`)
 const rules = (text, options) => lint(text, options).map((f) => f.rule)
-const templates = (name) => read(`../../.claude/skills/reply-style/templates/${name}`)
+const templates = (name) => read(`../../.claude/reply-style-templates/${name}`)
 const OTHER_KINDS = ['changelog-entry.md', 'telegram-message.md']
 
 describe('reply-lint on the three real replies', () => {
@@ -51,12 +51,12 @@ describe('reply-lint rules', () => {
   })
 
   it('every reply template has the fixed headings in order', () => {
-    const dir = new URL('../../.claude/skills/reply-style/templates/', import.meta.url)
-    const files = readdirSync(dir).filter((f) => !OTHER_KINDS.includes(f))
-    expect(files.length).toBeGreaterThanOrEqual(5)
+    const dirs = [new URL('../../plugins/reply-style/skills/reply-style/templates/', import.meta.url), new URL('../../.claude/reply-style-templates/', import.meta.url)]
+    const files = dirs.flatMap((dir) => readdirSync(dir).filter((f) => !OTHER_KINDS.includes(f)).map((f) => new URL(f, dir)))
+    expect(files.length).toBeGreaterThanOrEqual(7)
     for (const file of files) {
-      const found = [...read(new URL(file, dir)).matchAll(/^## (.+)$/gm)].map((m) => m[1]).filter((h) => HEADINGS.includes(h))
-      expect(found, file).toEqual(HEADINGS)
+      const found = [...read(file).matchAll(/^## (.+)$/gm)].map((m) => m[1]).filter((h) => HEADINGS.includes(h))
+      expect(found, file.pathname).toEqual(HEADINGS)
     }
   })
 

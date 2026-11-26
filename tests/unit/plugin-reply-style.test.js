@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ConfigError, loadConfig } from '../../plugins/reply-style/scripts/config.mjs'
-import { DEFAULT_CONFIG, lint } from '../../plugins/reply-style/scripts/reply-lint.mjs'
+import { DEFAULT_CONFIG, RULES, lint } from '../../plugins/reply-style/scripts/reply-lint.mjs'
 import { decide } from '../../plugins/reply-style/scripts/reply-style-stop.mjs'
 
 const PLUGIN = fileURLToPath(new URL('../../plugins/reply-style/', import.meta.url))
@@ -16,7 +16,7 @@ const LINT = join(PLUGIN, 'scripts', 'reply-lint.mjs')
 const HOOK = join(PLUGIN, 'scripts', 'reply-style-stop.mjs')
 const GOLDEN = join(PLUGIN, 'fixtures', 'golden')
 const TEMPLATES = join(PLUGIN, 'skills', 'reply-style', 'templates')
-const KINDS = ['status-report', 'owner-question', 'handoff', 'owner-action', 'incident']
+const KINDS = ['status-report', 'owner-question', 'handoff', 'owner-action', 'incident', 'telegram', 'changelog']
 const TEMPLATE_FILES = ['handoff.md', 'incident.md', 'owner-action.md', 'owner-question.md', 'status-report.md']
 
 // The rules each bad fixture must fail for (the same map as tests/unit/reply-lint-golden.test.js).
@@ -24,13 +24,17 @@ const WANT = {
   'status-report': {
     'bad-missing-heading': 'headings', 'bad-loose-label': ['loose-label', 'headings'], 'bad-wrong-order': 'headings',
     'bad-bare-label': 'bare-label', 'bad-unchanged': 'unchanged', 'bad-empty-details': 'empty-details',
-    'bad-no-evidence': 'evidence', 'bad-steps-count': 'steps'
+    'bad-no-evidence': 'evidence', 'bad-steps-count': 'steps', 'bad-session-link': 'session-link',
+    'bad-tldr': 'tldr', 'bad-long-line': 'long-line', 'bad-waiting-human': 'waiting-human'
   },
-  handoff: { 'bad-loose-label': ['loose-label', 'headings'], 'bad-missing-heading': 'headings', 'bad-bare-label': 'bare-label', 'bad-wrong-order': 'headings' },
+  handoff: { 'bad-session-link': 'session-link', 'bad-loose-label': ['loose-label', 'headings'], 'bad-missing-heading': 'headings', 'bad-bare-label': 'bare-label', 'bad-wrong-order': 'headings' },
   'owner-question': { 'bad-letter-options': 'option-letters', 'bad-loose-label': ['loose-label', 'headings'], 'bad-missing-heading': 'headings', 'bad-blocked-machine': 'blocked' },
   'owner-action': { 'bad-loose-label': ['loose-label', 'headings'], 'bad-steps-count': 'steps', 'bad-slop': 'slop' },
   incident: { 'bad-loose-label': ['loose-label', 'headings'], 'bad-emoji': 'emoji', 'bad-missing-heading': 'headings' },
+  telegram: { 'bad-no-emoji-headline': 'shape', 'bad-empty-section': 'empty-section', 'bad-too-long': 'shape', 'bad-no-app-name': 'app-name' },
+  changelog: { 'bad-label': 'internal-label', 'bad-area': 'shape', 'bad-no-title': 'shape' },
 }
+const OPTIONS = { telegram: { kind: 'telegram' }, changelog: { kind: 'changelog' } }
 
 const roots = []
 
@@ -65,7 +69,7 @@ afterEach(() => {
 })
 
 describe('golden fixtures (sample project: owner Sam, acme/sample-app)', () => {
-  it('has the five templates, and every kind has a good and a bad fixture', () => {
+  it('has the five templates, and every kind (the telegram and changelog shapes too) has a good and a bad fixture', () => {
     expect(readdirSync(TEMPLATES).sort()).toEqual(TEMPLATE_FILES)
     for (const kind of KINDS) {
       const names = readdirSync(join(GOLDEN, kind))
@@ -78,14 +82,40 @@ describe('golden fixtures (sample project: owner Sam, acme/sample-app)', () => {
   describe.each(KINDS)('%s', (kind) => {
     const files = readdirSync(join(GOLDEN, kind))
     it('every good fixture passes', () => {
-      for (const f of files.filter((n) => n.startsWith('good-'))) expect(lint(golden(kind, f), { template: true }, SAM), f).toEqual([])
+      for (const f of files.filter((n) => n.startsWith('good-'))) expect(lint(golden(kind, f), OPTIONS[kind] ?? { template: true }, SAM), f).toEqual([])
     })
     it('every bad fixture fails for exactly its named rules', () => {
       for (const f of files.filter((n) => n.startsWith('bad-'))) {
         const want = [WANT[kind][f.replace(/\.md$/, '')]].flat().sort()
-        expect(rules(lint(golden(kind, f), { template: true }, SAM)), `${kind}/${f}`).toEqual(want)
+        expect(rules(lint(golden(kind, f), OPTIONS[kind] ?? { template: true }, SAM)), `${kind}/${f}`).toEqual(want)
       }
     })
+  })
+})
+
+describe('every rule', () => {
+  it('has a bad fixture in this plugin that fails for it', () => {
+    const covered = new Set(Object.values(WANT).flatMap((k) => Object.values(k).flat()))
+    for (const rule of RULES) expect(covered.has(rule), `rule ${rule} has no failing fixture`).toBe(true)
+  })
+
+  it('RULES lists exactly the rule names the lint reports', () => {
+    const source = readFileSync(LINT, 'utf8')
+    const used = new Set([...source.matchAll(/\badd\([^,()]+,\s*'([a-z-]+)'/g)].map((m) => m[1]))
+    expect([...used].sort()).toEqual([...RULES].sort())
+  })
+
+  it('the skill names every rule in "Before you send" and every template in its table', () => {
+    const skill = readFileSync(join(PLUGIN, 'skills', 'reply-style', 'SKILL.md'), 'utf8')
+    const before = skill.split('## Before you send')[1]?.split(/\n## /)[0] ?? ''
+    for (const rule of RULES) expect(before.includes(`\`${rule}\``), `rule ${rule} is not in "Before you send"`).toBe(true)
+    for (const f of TEMPLATE_FILES) expect(skill.includes(`templates/${f}`), `${f} is not in the skill`).toBe(true)
+  })
+
+  it('the handoff template keeps its Models section and the RELEASE line', () => {
+    const handoff = readFileSync(join(TEMPLATES, 'handoff.md'), 'utf8')
+    expect(handoff).toMatch(/^## Models$/m)
+    expect(handoff).toMatch(/^RELEASE$/m)
   })
 })
 

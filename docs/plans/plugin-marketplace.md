@@ -11,7 +11,8 @@ projects can install; they become generic (nothing about this app); the reply te
 
 Out of scope: the product (the app, its API and MCP server). The marketplace is developer tooling for agents that
 work on a repository, not a product surface. It still has a row in `docs/architecture/client-matrix.md`, because
-`AGENTS.md` names skills and plugin metadata: Claude Code only, English only (owner replies are English). Claude Code is the only client that installs these plugins; Codex and other
+`AGENTS.md` names skills and plugin metadata: Claude Code only, English only (owner replies are English).
+Claude Code is the only client that installs these plugins; Codex and other
 agents read the same files by path through `AGENTS.md` (section 4.2).
 
 ## 2. Licence
@@ -158,7 +159,7 @@ Risks, and what handles them:
 - A broken file (not JSON, or a key of the wrong type): the command-line lint stops with exit 2 and names the key.
   The Stop hook never does that, because exit 2 from a Stop hook keeps the turn from ending: it checks
   `stop_hook_active` first, then on a broken file prints a warning on stderr and exits 0.
-- The skill text is static, so it tells the agent to read `.claude/agent-kit.json` for the owner name and the
+- The skill text is static, so it tells the agent to read `.claude/agent-kit.json` for the `owner` name and the
   project templates. The scripts read the same file.
 - Not used: `userConfig` in `plugin.json`. It is set per person at install time; these settings belong to the
   project and are committed.
