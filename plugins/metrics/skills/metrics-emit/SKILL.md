@@ -51,7 +51,7 @@ sent twice is stored once.
 | `git` / `merge` | merge commit | the base branch | `merged` | PR open to merge | `pr`, `files`, `docs_only` |
 | `speed` / `merge` | merge commit and stage | `ci`, `merge_wait`, `vercel`, `smoke`, `total` | `ok`, `over` | stage time | `limit_ms`, `pr` |
 | `deploy` / `deploy` | deployment id | `Production` or `Preview` | `success`, `failure` | created to success | `sha` |
-| `prod` / `error` | a random id | route template, or `unmatched` | HTTP status, 4xx or 5xx | request time | `error`, `code`, `region`, `tool` |
+| `prod` / `error` | a random id | `METHOD /route/template`, or `unmatched` | status text, e.g. `"500"` | request time | `error`, `code`, `region`, `tool` |
 
 Caps, as the service enforces them (its ingest code is the truth):
 - `at` is an ISO time between 14 days ago and 10 minutes from now. `ms` is a whole number from 0 to 2147483647, or left out.
@@ -60,7 +60,7 @@ Caps, as the service enforces them (its ingest code is the truth):
 - `link` is kept only when it starts with `https://github.com/<owner>/<name>/` of the same repository, is at most 120
   characters and has no `..`, `%2e` or `\`. Otherwise it is dropped and the event is stored without it.
 - A `name` over 120 characters, or one the service does not list, is stored as `other`. For `ci` the list is the repository's
-  workflows; for the other kinds it is fixed: the base branch, the stage names, `Production` and `Preview`.
+  workflows; for the other kinds it is fixed: the base branch, the stage names, `Production` and `Preview`; for `prod` it is `unmatched` or a route template.
 - A batch holds at most 500 events (413). A repository gets at most 5000 events and 200 counter rows per UTC day (429).
   Over 100000 stored rows, new events are refused (503).
 - The ingest route accepts only the identity token of the service's own scheduled workflow, from its default

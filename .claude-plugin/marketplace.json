@@ -14,8 +14,8 @@
     {
       "name": "metrics",
       "source": "./plugins/metrics",
-      "version": "0.1.0",
-      "description": "Skills for a central metrics service: how a repository joins it, with a config script."
+      "version": "0.2.0",
+      "description": "Two skills for a central metrics service: join it with a repository, and read its summary and act on it."
     }
   ]
 }
