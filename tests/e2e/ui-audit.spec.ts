@@ -201,8 +201,8 @@ const metricsSeries = (name: string) => ({
 const DELIVERY_SUMMARY = {
   text: 'Metrics summary, last 24 hours.\n- CI checks: 4 runs, 1 failed (25 %). Last week 50 %.\nNothing is over its limit.',
   findings: [
-    { area: 'speed', value: 200, baseline: 120, ci: null },
-    { area: 'ci', value: 25, baseline: 50, ci: { median_ms: 120000, p90_ms: 300000, flaky: 1, baseline_median_ms: 90000, baseline_p90_ms: 240000, baseline_flaky: 0 } },
+    { area: 'speed', value: 200, baseline: 120, ci: null, link: 'https://github.com/x/y/actions/workflows/speed-metrics.yml' },
+    { area: 'ci', value: 25, baseline: 50, ci: { median_ms: 120000, p90_ms: 300000, flaky_pct: 25, baseline_median_ms: 90000, baseline_p90_ms: 240000, baseline_flaky_pct: 0 } },
     { area: 'deploys', value: 22, baseline: 20, ci: null }
   ]
 }
@@ -270,7 +270,10 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   await expect(extra.heading ? page.getByRole('heading', { name: extra.heading, level: 1 }) : page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(page.getByText('Loading…')).toHaveCount(0)
   // The metrics page loads its numbers after the shell: audit the tables and the chart, not the error banner.
-  if (pagePath === '/admin/metrics') await expect(page.getByRole('heading', { name: 'Delivery and CI' })).toBeVisible()
+  if (pagePath === '/admin/metrics') {
+    await expect(page.getByRole('heading', { name: 'All routes' })).toBeVisible()
+    await expect(page.getByRole('table', { name: 'Delivery events, newest first' })).toBeVisible()
+  }
   if (c.rtl) await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'))
   // The menu drawer (a Dialog on the start edge) is audited open, so its targets, type and colours are checked too.
   if (extra.menu) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Banner from '../../ui/Banner'
 import Button from '../../ui/Button'
 import DescriptionList from '../../ui/DescriptionList'
+import { List, ListItem } from '../../ui/List'
 import Section from '../../ui/Section'
 import SegmentedControl from '../../ui/SegmentedControl'
 import Skeleton from '../../ui/Skeleton'
@@ -15,7 +16,6 @@ const WINDOWS = [
   { value: '7d', label: '7 days' }
 ]
 const HOURS = { '24h': 24, '7d': 168 }
-const HISTORY = 'https://github.com/Shaked/x-thread-draft-tool/actions/workflows/speed-metrics.yml'
 
 const time = (ms) => {
   if (ms === null || ms === undefined) return '–'
@@ -83,19 +83,17 @@ export default function DeliverySection() {
       { term: 'Push to production, p90', value: pair(seconds(speed.value), seconds(speed.baseline), time) },
       { term: 'Deploy to live, median', value: pair(seconds(deploys.value), seconds(deploys.baseline), time) },
       { term: 'CI failures', value: pair(ci.value, ci.baseline, (v) => `${v} %`) },
-      { term: 'Flaky retries', value: pair(stats ? stats.flaky : null, stats?.baseline_flaky) }
+      { term: 'Flaky retries (share of runs)', value: pair(stats?.flaky_pct ?? null, stats?.baseline_flaky_pct, (v) => `${v} %`) }
     ]
-    const lines = state.summary.text.split('\n').filter((line) => line.startsWith('- ') || !line.startsWith('Metrics summary'))
+    const lines = state.summary.text.split('\n').filter((line) => !line.startsWith('Metrics summary'))
     body = (
       <Stack gap={6}>
         <DescriptionList columns={2} items={items} />
-        <ul>
+        <List>
           {lines.map((line) => (
-            <li key={line} dir="auto">
-              {line.replace(/^- /, '')}
-            </li>
+            <ListItem key={line} title={line.replace(/^- /, '')} />
           ))}
-        </ul>
+        </List>
         <Table
           caption="Delivery events, newest first"
           columns={[
@@ -123,7 +121,7 @@ export default function DeliverySection() {
             )
           }))}
         />
-        <Button variant="ghost" href={HISTORY}>
+        <Button variant="ghost" href={speed.link}>
           Older history: speed-metrics workflow runs
         </Button>
       </Stack>

@@ -124,7 +124,7 @@ describe('GET /admin/metrics/summary', () => {
     await run('4.1', 3 * DAY, 'success', { ms: 90000 })
     const { body } = await getJson('admin_metrics_summary', '/admin/metrics/summary')
     expect(body.findings.find((f) => f.area === 'ci').ci).toEqual({
-      median_ms: 120000, p90_ms: 300000, flaky: 1, baseline_median_ms: 90000, baseline_p90_ms: 90000, baseline_flaky: 0
+      median_ms: 120000, p90_ms: 300000, flaky_pct: 33, baseline_median_ms: 90000, baseline_p90_ms: 90000, baseline_flaky_pct: 0
     })
     expect(body.findings.find((f) => f.area === 'speed').ci).toBeNull()
   })

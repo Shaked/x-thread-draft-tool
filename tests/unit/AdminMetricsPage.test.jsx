@@ -44,8 +44,8 @@ const finding = (area, extra = {}) => ({ area, text: '', value: null, baseline: 
 const SUMMARY = {
   text: 'Metrics summary for Shaked/x-thread-draft-tool, last 24 hours.\n- CI checks: 4 runs, 1 failed (25 %). Last week 50 %.\nNothing is over its limit.',
   findings: [
-    finding('speed', { value: 200, baseline: 120 }),
-    finding('ci', { value: 25, baseline: 50, ci: { median_ms: 120000, p90_ms: 300000, flaky: 1, baseline_median_ms: 90000, baseline_p90_ms: null, baseline_flaky: 0 } }),
+    finding('speed', { value: 200, baseline: 120, link: 'https://github.com/x/y/actions/workflows/speed-metrics.yml' }),
+    finding('ci', { value: 25, baseline: 50, ci: { median_ms: 120000, p90_ms: 300000, flaky_pct: 25, baseline_median_ms: 90000, baseline_p90_ms: null, baseline_flaky_pct: 0 } }),
     finding('deploys', { value: 22, baseline: null })
   ]
 }
@@ -109,7 +109,7 @@ describe('admin metrics page', () => {
     expect(section.getByText('3 min 20 s (last week 2 min)')).toBeInTheDocument()
     expect(section.getByText('22 s (last week –)')).toBeInTheDocument()
     expect(section.getByText('25 % (last week 50 %)')).toBeInTheDocument()
-    expect(section.getByText('1 (last week 0)')).toBeInTheDocument()
+    expect(section.getByText('25 % (last week 0 %)')).toBeInTheDocument()
     const table = section.getByRole('table', { name: 'Delivery events, newest first' })
     expect(within(table).getAllByRole('row')).toHaveLength(3)
     expect(within(table).getByRole('link', { name: 'Open' })).toHaveAttribute('href', 'https://github.com/x/y/actions/runs/1')

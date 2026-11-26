@@ -76,7 +76,7 @@ function speedFinding(events, base, link) {
   })
 }
 
-// CI time and flaky retries for the page (#452). A flaky retry is a run that passed on a second or later attempt (id `<run>.<attempt>`).
+// CI time and flaky retries for the page (#452). Flaky retries are a share of runs, since the window and last week differ in length. A flaky retry is a run that passed on a second or later attempt (id `<run>.<attempt>`).
 const flaky = (list) => list.filter((e) => e.status === 'success' && Number(String(e.id).split('.')[1]) > 1).length
 const ciTimes = (list) => list.filter((e) => e.ms !== null).map((e) => e.ms)
 
@@ -101,8 +101,8 @@ function ciFinding(events, base, repo) {
     if (last.link) text += ` Last failure: ${last.link}`
   }
   const ci = {
-    median_ms: rank(ciTimes(runs), 0.5), p90_ms: rank(ciTimes(runs), 0.9), flaky: flaky(runs),
-    baseline_median_ms: rank(ciTimes(baseRuns), 0.5), baseline_p90_ms: rank(ciTimes(baseRuns), 0.9), baseline_flaky: flaky(baseRuns)
+    median_ms: rank(ciTimes(runs), 0.5), p90_ms: rank(ciTimes(runs), 0.9), flaky_pct: percent(flaky(runs), runs.length),
+    baseline_median_ms: rank(ciTimes(baseRuns), 0.5), baseline_p90_ms: rank(ciTimes(baseRuns), 0.9), baseline_flaky_pct: percent(flaky(baseRuns), baseRuns.length)
   }
   return finding('ci', text, { value: pct, unit: '%', baseline: basePct, link: last?.link ?? link, ci })
 }
