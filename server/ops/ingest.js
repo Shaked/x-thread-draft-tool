@@ -6,9 +6,9 @@ import { HttpError } from '../http.js'
 import { SOURCES } from './sources.js'
 import { isPlainText, parseAt, validateBatch } from './events.js'
 
-export const DAILY_EVENT_CAP = 5000
-export const DAILY_COUNTER_CAP = 200
-export const ROW_GUARD = 100000
+const DAILY_EVENT_CAP = 5000
+const DAILY_COUNTER_CAP = 200
+const ROW_GUARD = 100000
 const COUNTER_MAX = 1_000_000
 const STRING_MAX = 120
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
