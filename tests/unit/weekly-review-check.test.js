@@ -1,6 +1,10 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
+  liveFetchers,
   canonicalJson,
   fingerprintOf,
   fence,
@@ -311,6 +315,15 @@ describe('speed signal (task S7, #315): booleans per stage, seconds never in the
     })
     expect(plan.action).toBe('create')
     expect(plan.body).not.toContain('| Kind | Stage | p90 |')
+  })
+
+  it('the live speed fetcher: no SPEED_FILE, or a malformed file, is unreadable (null), never "no flags"', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speed-fetch-'))
+    const bad = join(dir, 'speed.json')
+    writeFileSync(bad, '{ not json')
+    expect(await liveFetchers(process.cwd(), '').speed()).toBeNull()
+    expect(await liveFetchers(process.cwd(), join(dir, 'missing.json')).speed()).toBeNull()
+    expect(await liveFetchers(process.cwd(), bad).speed()).toBeNull()
   })
 
   it('an unreadable speed.json is carried from the last issue and never opens an issue by itself', () => {

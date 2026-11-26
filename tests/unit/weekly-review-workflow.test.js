@@ -49,6 +49,14 @@ describe('weekly review workflow', () => {
     expect(WORKFLOW).toMatch(/name: speed-metrics-weekly/)
   })
 
+  it('the baseline is a successful run on the default branch only, and a dry run never uploads one', () => {
+    expect(WORKFLOW).toMatch(/gh run list[^\n]*--branch "\$DEFAULT_BRANCH"[^\n]*--status success/)
+    expect(WORKFLOW).toMatch(/DEFAULT_BRANCH: \$\{\{ github\.event\.repository\.default_branch \}\}/)
+    const lines = WORKFLOW.split('\n')
+    const at = lines.findIndex((l) => /name: Upload the speed metrics of the week/.test(l))
+    expect(lines.slice(at, at + 4).join('\n')).toMatch(/if: inputs\.dry_run != true/)
+  })
+
   it('never keeps the checkout token in .git', () => {
     expect(WORKFLOW).toMatch(/persist-credentials:\s*false/)
   })

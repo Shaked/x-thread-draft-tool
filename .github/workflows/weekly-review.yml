@@ -84,8 +84,10 @@ jobs:
         continue-on-error: true
         env:
           RUNNER_TMP_DIR: ${{ runner.temp }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
-          RUN=$(gh run list --repo "$REPO" --workflow weekly-review.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId // ""')
+          # Only a successful run on the default branch: a dry run elsewhere must never become the baseline.
+          RUN=$(gh run list --repo "$REPO" --workflow weekly-review.yml --branch "$DEFAULT_BRANCH" --status success --limit 1 --json databaseId --jq '.[0].databaseId // ""')
           if [ -n "$RUN" ]; then
             gh run download "$RUN" --repo "$REPO" --name speed-metrics-weekly --dir "$RUNNER_TMP_DIR/previous-speed" || echo "no speed artifact in run $RUN"
           fi
@@ -107,7 +109,8 @@ jobs:
           node scripts/speed-metrics.mjs "${ARGS[@]}"
 
       - name: Upload the speed metrics of the week
-        if: hashFiles('speed-metrics/speed.json') != ''
+        # A dry run never leaves a baseline for the next week.
+        if: inputs.dry_run != true && hashFiles('speed-metrics/speed.json') != ''
         uses: actions/upload-artifact@v4
         with:
           name: speed-metrics-weekly
