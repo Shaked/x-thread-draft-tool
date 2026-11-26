@@ -27,6 +27,20 @@ export const PREVIEW_URL = 'https://x-thread-draft-tool-preview.vercel.app'
 export const MAX_TITLE = 120
 
 const SPEED_HEADLINE = 'Speed budget over limit'
+export const REPO_URL = 'https://github.com/Shaked/x-thread-draft-tool'
+
+// One emoji per kind, at the start of the headline (owner decision, issue #463). It sits outside the
+// bold link so the link text stays clean. A section with nothing to say is never written: no
+// "Nothing needed" line exists in any kind.
+export const EMOJI = {
+  live: '✅',
+  failed: '🚨',
+  preview: '👀',
+  owner: '🙋',
+  cleanup: '🧹',
+  'cleanup-started': '🧹',
+  speed: '🐢',
+}
 
 // Escapes the three characters Telegram HTML needs, plus the double quote for attribute values.
 export function escapeHtml(value) {
@@ -71,9 +85,9 @@ const commitLine = (sha, title) =>
 
 // The shape of the template: a bold headline that links to the main page, the body lines, then the
 // other links on one line, separated by " · ". The headline's link is the first link of the message.
-function message([label, url], body, links = []) {
-  const html = [`<b>${linkHtml(label, url)}</b>`, ...body.map((line) => line.html)]
-  const plain = [linkPlain(label, url), ...body.map((line) => line.plain)]
+function message(kind, [label, url], body, links = []) {
+  const html = [`${EMOJI[kind]} <b>${linkHtml(label, url)}</b>`, ...body.map((line) => line.html)]
+  const plain = [`${EMOJI[kind]} ${linkPlain(label, url)}`, ...body.map((line) => line.plain)]
   if (links.length) {
     html.push(links.map(([name, href]) => linkHtml(name, href)).join(' · '))
     plain.push(links.map(([name, href]) => linkPlain(name, href)).join(' · '))
@@ -82,13 +96,22 @@ function message([label, url], body, links = []) {
 }
 
 // Speed budget: the headline links to the run page (its summary holds the stage table), then the
-// window, one line per stage over its p90 limit, and a line saying nothing is needed.
+// window and one line per stage over its p90 limit.
 function speedMessage(data) {
   const headline = clip(data.title || SPEED_HEADLINE)
-  const body = [data.window, ...(data.lines || []), 'Nothing needed: this check only warns.'].filter(Boolean)
-  const html = [`<b>${linkHtml(headline, data.url)}</b>`, ...body.map(escapeHtml)]
-  const plain = [linkPlain(headline, data.url), ...body]
+  const body = [data.window, ...(data.lines || [])].filter(Boolean)
+  const html = [`${EMOJI.speed} <b>${linkHtml(headline, data.url)}</b>`, ...body.map(escapeHtml)]
+  const plain = [`${EMOJI.speed} ${linkPlain(headline, data.url)}`, ...body]
   return { html: html.join('\n'), plain: plain.join('\n') }
+}
+
+// Production passed: the headline and "Open production" both link the site; the commit has its own link.
+function liveMessage(data, title, sha) {
+  const prod = data.url || PROD_URL
+  const links = [['Open production', prod]]
+  if (sha) links.push([`Commit ${sha}`, `${REPO_URL}/commit/${data.sha}`])
+  if (data.runUrl) links.push(['See the run', data.runUrl])
+  return message('live', ['Production is live and tested', prod], [commitLine(sha, title)], links)
 }
 
 // Returns { html, plain } for a kind, or null for an unknown kind. The first link is the headline's,
@@ -100,9 +123,10 @@ export function buildMessage(kind, data = {}) {
   const summary = summaryLine(data.body)
   switch (kind) {
     case 'live':
-      return message(['Production is live and tested', data.url || PROD_URL], [commitLine(sha, title), text('Nothing needed.')], data.runUrl ? [['See the run', data.runUrl]] : [])
+      return liveMessage(data, title, sha)
     case 'failed':
       return message(
+        'failed',
         ['Production smoke test failed', data.runUrl],
         [
           commitLine(sha, title),
@@ -113,17 +137,20 @@ export function buildMessage(kind, data = {}) {
       )
     case 'preview':
       return message(
+        'preview',
         ['Try it on preview', data.previewUrl || PREVIEW_URL],
         [text(title), ...(summary ? [text(`What changed: ${summary}`)] : []), text('Needs you: try the change on preview.')],
         [[pr ? `PR #${pr} on GitHub` : 'PR on GitHub', data.url]],
       )
     case 'owner':
       return message(
+        'owner',
         [pr ? 'A PR needs you' : 'An issue needs you', data.url],
         [text(title), text('Needs you: open it and answer or do what it asks.')],
       )
     case 'cleanup':
       return message(
+        'cleanup',
         ['Cleanup review ready', data.url],
         [
           text(title),
@@ -133,8 +160,9 @@ export function buildMessage(kind, data = {}) {
       )
     case 'cleanup-started':
       return message(
+        'cleanup-started',
         ['Cleanup review started', data.url],
-        [text(title), text('Nothing needed. An agent reviews the commits since the last review and opens up to three PRs.')],
+        [text(title), text('An agent reviews the commits since the last review and opens up to three PRs.')],
       )
     case 'speed':
       return speedMessage(data)

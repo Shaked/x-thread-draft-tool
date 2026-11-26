@@ -80,5 +80,9 @@ describe('reply-lint rules', () => {
       expect(lint(message, { kind: 'telegram' }), message).toEqual([])
     }
     expect(rules('Production is live\n[Open](https://x.test)', { kind: 'telegram' })).toEqual(['shape'])
+    // #463: the headline needs its emoji, and a "nothing" section is flagged.
+    expect(rules('**[Production is live](https://x.test)**\nT', { kind: 'telegram' })).toEqual(['shape'])
+    expect(rules('✅ **[Production is live](https://x.test)**\nT\nNothing needed.', { kind: 'telegram' })).toEqual(['empty-section'])
+    expect(rules('✅ **[Production is live](https://x.test)**\nT 🎉', { kind: 'telegram' })).toEqual(['emoji'])
   })
 })

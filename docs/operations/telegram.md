@@ -13,7 +13,7 @@ Code:
 
 ## The six kinds
 
-The script sends the forms in `.claude/skills/reply-style/templates/telegram-message.md` (task #369, step 7). No emoji. Each form has a golden test in `tests/unit/notify-telegram.test.js`. "The messages" below shows each one.
+The script sends the forms in `.claude/skills/reply-style/templates/telegram-message.md` (task #369, step 7). Each headline starts with one emoji (✅ live, 🚨 failed, 👀 preview, 🙋 needs you, 🧹 cleanup, 🐢 speed) and no section says "nothing". Each kind has a golden test in `tests/unit/notify-telegram-golden.test.js`. "The messages" below shows each one.
 
 
 | Kind | Headline (it is the link) | When it is sent | Other links |
@@ -24,13 +24,13 @@ The script sends the forms in `.claude/skills/reply-style/templates/telegram-mes
 | Needs you | An issue needs you, or A PR needs you (the item) | The label `owner` is added to an issue or a pull request, by the repository owner's account. | none |
 | Cleanup review ready | Cleanup review ready (the PR) | A pull request gets the label `cleanup-pr`, added by the repository owner's account. The same label on an issue sends nothing. | none |
 | Cleanup review started | Cleanup review started (the issue) | The daily workflow opens a cleanup review issue. | none |
-| Speed budget over limit | Speed over the budget: <stages> (no emoji; the headline is the link) | A manual run of `speed-metrics.yml` (input `last`) finds a stage whose p90 is over its limit (`docs/plans/speed.md` section 1). Lines of numbers: the window (the last N merged PRs and the date of the oldest), then one line per stage over its limit with its p90, limit and usual (median) value, then "Nothing needed: this check only warns." The link opens the run, whose summary has the stage table. The per-merge check after a production smoke run sends nothing. | The headline (the run) |
+| Speed budget over limit | Speed over the budget: <stages> (the headline is the link) | A manual run of `speed-metrics.yml` (input `last`) finds a stage whose p90 is over its limit (`docs/plans/speed.md` section 1). Lines of numbers: the window (the last N merged PRs and the date of the oldest), then one line per stage over its limit with its p90, limit and usual (median) value,  The link opens the run, whose summary has the stage table. The per-merge check after a production smoke run sends nothing. | The headline (the run) |
 
 What a message looks like (the forms in the template):
 - Line 1: the headline in bold. It is the link (in the HTML version; the plain-text fallback shows the link as `label: url`).
 - Line 2: for the production kinds, the short commit id (7 characters, in code font) and the commit title. For the other kinds, the issue or PR title.
 - A fact line, when the kind has one: "What changed" (try-preview) or "What it removes" (cleanup ready), from the PR body. See the note below.
-- "Needs you: ..." with one action, or "Nothing needed." on the last text line.
+- "Needs you: ..." with one action, only when the kind needs one. A section with nothing to say is not written.
 - The other links on one line, separated by " · ". The line is left out when there is no other link.
 
 Titles are cut to 120 characters.
@@ -44,12 +44,12 @@ Bold is the headline, and the headline is the link. English only: the owner read
 
 | Kind | Example |
 |---|---|
-| Production passed | **Production is live and tested**<br>`46070af` Thread view: one action row and purple accent<br>Nothing needed.<br>See the run |
-| Production failed | **Production smoke test failed**<br>`46070af` Thread view: one action row and purple accent<br>Production runs this commit, and its smoke test failed or did not run.<br>Needs you: open the run and read the first failed step.<br>Open production |
-| Try it on preview | **Try it on preview**<br>Thread view: one action row and purple accent<br>What changed: the thread view shows its three buttons in one row.<br>Needs you: try the change on preview.<br>PR #424 on GitHub |
-| Needs you | **An issue needs you**, or **A PR needs you**<br>Changelog entries and Telegram messages follow the writing templates<br>Needs you: open it and answer or do what it asks. |
-| Cleanup review ready | **Cleanup review ready**<br>Remove duplicate tests<br>What it removes: two parser tests that check the same thing.<br>Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR. |
-| Cleanup review started | **Cleanup review started**<br>Cleanup review 2026-11-25<br>Nothing needed. An agent reviews the commits since the last review and opens up to three PRs. |
+| Production passed | ✅ **Production is live and tested**<br>`46070af` Thread view: one action row and purple accent<br>Open production · Commit 46070af · See the run |
+| Production failed | 🚨 **Production smoke test failed**<br>`46070af` Thread view: one action row and purple accent<br>Production runs this commit, and its smoke test failed or did not run.<br>Needs you: open the run and read the first failed step.<br>Open production |
+| Try it on preview | 👀 **Try it on preview**<br>Thread view: one action row and purple accent<br>What changed: the thread view shows its three buttons in one row.<br>Needs you: try the change on preview.<br>PR #424 on GitHub |
+| Needs you | 🙋 **An issue needs you**, or **A PR needs you**<br>Changelog entries and Telegram messages follow the writing templates<br>Needs you: open it and answer or do what it asks. |
+| Cleanup review ready | 🧹 **Cleanup review ready**<br>Remove duplicate tests<br>What it removes: two parser tests that check the same thing.<br>Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR. |
+| Cleanup review started | 🧹 **Cleanup review started**<br>Cleanup review 2026-11-25<br>An agent reviews the commits since the last review and opens up to three PRs. |
 | Metrics alert | **Metrics alert: slow answers**<br>Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms.<br>Needs you: open the metrics page and find the route with the errors or the slow answers. |
 
 Notes:
@@ -57,7 +57,7 @@ Notes:
 - The "What it removes" line (cleanup ready) comes from the `Summary:` line of the PR body. `scripts/notify-label.mjs` passes the body for the `cleanup-pr` label only, so it shows there.
 - The "What changed" line (try-preview) never shows: the preview label does not pass the body, and `messageFromEnv` does not read it. This was already true before task #369.
 - The production passed message links the run only when `smoke-deployed.yml` passes `NOTIFY_RUN_URL`. Today it passes it only for the failed message.
-- The speed kind is not in the template yet, so its text has not changed.
+- The speed kind follows the same rules: an emoji, and no "nothing needed" line.
 - No workflow sends a metrics alert yet. Task O7 of `docs/plans/observability.md` adds the kind `metrics` and uses its form in the template.
 
 ## The two secrets, and how to set them
