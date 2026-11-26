@@ -97,4 +97,25 @@ describe('AboutPage', () => {
     expect(screen.getByRole('heading', { name: 'This app' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull()
   })
+
+  it('credits Rare UI with a link to https://rareui.com in English and in Hebrew', async () => {
+    const { container } = renderPage()
+    await screen.findByText('bbbbbbb')
+    expect(screen.getByRole('heading', { name: 'Credits' })).toBeInTheDocument()
+    const links = screen.getAllByRole('link', { name: 'Rare UI (rareui.com)' })
+    expect(links).toHaveLength(2)
+    for (const link of links) {
+      expect(link).toHaveAttribute('href', 'https://rareui.com')
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveAttribute('rel', 'noreferrer')
+    }
+    const en = container.querySelector('p[lang="en"]')
+    const he = container.querySelector('p[lang="he"]')
+    expect(en).toHaveAttribute('lang', 'en')
+    expect(en).toContainElement(links[0])
+    expect(en).toHaveTextContent('MIT + Commons Clause License Condition v1.0 + Attribution')
+    expect(he).toHaveAttribute('dir', 'rtl')
+    expect(he).toContainElement(links[1])
+    expect(he).toHaveTextContent('לפי הרישיון שלו')
+  })
 })
