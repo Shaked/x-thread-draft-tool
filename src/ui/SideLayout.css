@@ -10,7 +10,23 @@
   min-inline-size: 0;
 }
 
+/* A menu in the side column (a nav of Buttons, #551): rows start at the inline start edge, as in the app menu. Phones:
+   two columns above the content, so six entries take three rows. From 768 px: one column at the side. */
+.ui-side-layout__side > nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.ui-side-layout__side > nav .ui-button {
+  justify-content: flex-start;
+}
+
 @media (width >= 768px) {
+  .ui-side-layout__side > nav {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .ui-side-layout {
     flex-direction: row;
     align-items: flex-start;

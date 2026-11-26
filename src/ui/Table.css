@@ -1,4 +1,11 @@
 /* Table: a real table from 768 px; label and value cards below. */
+
+/* The box around the table: a table wider than its column scrolls here, not the page (#551). */
+.ui-table-scroll {
+  min-inline-size: 0;
+  overflow-x: auto;
+}
+
 .ui-table {
   inline-size: 100%;
   border-collapse: collapse;
@@ -35,6 +42,11 @@
   .ui-table__row,
   .ui-table__row th,
   .ui-table__row td {
+    display: block;
+  }
+
+  /* The table is a block on phones; the caption takes the full width, not one word per line (#551). */
+  .ui-table__caption {
     display: block;
   }
 

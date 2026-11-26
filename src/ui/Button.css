@@ -67,6 +67,14 @@
   color: var(--color-danger);
 }
 
+/* A link of the open page (`ariaCurrent="page"`, a menu row): a soft accent background and an accent edge on the inline
+   start, so the open page is visible even where the soft accent is close to the page colour (Rare UI light look, #551). */
+.ui-button--ghost[aria-current='page'] {
+  border-inline-start: var(--border-width-strong) solid var(--color-accent);
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent-soft-text);
+}
+
 @media (hover: hover) {
   .ui-button--primary:not([aria-disabled='true']):not(:disabled):hover {
     background-color: var(--color-accent-hover);

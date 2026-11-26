@@ -102,6 +102,8 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
     skin: 'rare',
     drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }]
   },
+  // The app menu open for the admin, on the admin area: one Admin link, the admin menu behind it (#551).
+  { name: 'admin-menu', path: '/admin', menu: true },
   // The same page with the menu drawer open.
   {
     name: 'drafts-menu',
@@ -305,6 +307,23 @@ async function smallTargets(page: Page): Promise<string[]> {
   }, EXEMPT_TARGETS.map((entry) => entry.selector))
 }
 
+// Fields inside a column (Stack) taller than their visible children and the gaps between them.
+async function tallFields(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    [...document.querySelectorAll('.ui-field')]
+      .filter((field) => getComputedStyle(field.parentElement!).flexDirection === 'column')
+      .map((field) => {
+        const kids = [...field.children].map((kid) => kid.getBoundingClientRect().height).filter((height) => height > 0)
+        const gap = parseFloat(getComputedStyle(field).rowGap) || 0
+        const content = kids.reduce((sum, height) => sum + height, 0) + gap * Math.max(0, kids.length - 1)
+        const height = field.getBoundingClientRect().height
+        // 8 px: the label's own margin (--space-1) and rounding.
+        return height > content + 8 ? `${(field.textContent ?? '').trim().slice(0, 30)}: ${Math.round(height)} px for ${Math.round(content)} px` : ''
+      })
+      .filter(Boolean)
+  )
+}
+
 // Every ui- element: type, radius and space on their scales; colours equal a --color token of this theme, or transparent.
 async function scaleAndColourProblems(page: Page, scope = '[class*="ui-"]', radii = RADIUS_PX): Promise<string[]> {
   return page.evaluate(
@@ -374,6 +393,16 @@ test.describe('UI audit', () => {
           }
 
           expect(await scaleAndColourProblems(page, undefined, pageInfo.skin ? RADIUS_PX_RARE : RADIUS_PX), 'ui- elements off the scale or the theme colours').toEqual([])
+
+          // A field in a column is as tall as its label, control and help: no empty band under it (#551, the users search).
+          expect(await tallFields(page), 'fields taller than their content').toEqual([])
+
+          // The admin menu marks the open page, and only that one, with a visible background (#551).
+          if (pageInfo.path.startsWith('/admin')) {
+            const current = page.getByRole('navigation', { name: 'Admin pages' }).locator('[aria-current="page"]')
+            await expect(current).toHaveCount(1)
+            expect(await current.evaluate((el) => getComputedStyle(el).backgroundColor), 'the open page is marked').not.toBe('rgba(0, 0, 0, 0)')
+          }
 
           const axe = await new AxeBuilder({ page }).withTags(AXE_TAGS).disableRules(AXE_DISABLED).analyze()
           const serious = axe.violations
