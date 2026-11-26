@@ -1,7 +1,7 @@
 // @vitest-environment node
 // Plan O1 part 2: the whole-draft PATCH and publish are one transaction on a locked row, honour
 // If-Match (RFC 9110: `*`, strong tags only, malformed is 400), and a replay writes nothing. The MCP
-// post tools send the version they read as If-Match. Real route(), real SQL (PGlite).
+// post tools call one route each (#412), which checks the version it read when it writes. Real route(), real SQL (PGlite).
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn(async () => {}) }))
@@ -22,11 +22,18 @@ let db
 let alice
 let aliceCookie
 let failOn = null
+/** Set by a test: runs once, awaited, before the next post write (a second writer landing between read and write). */
+let beforePostWrite = null
 
 beforeAll(async () => {
   db = await setupTestDb()
   setQueryImpl(async (text, params = []) => {
     if (failOn?.(text)) throw new Error('injected failure')
+    if (beforePostWrite && text.startsWith('update drafts set posts')) {
+      const hook = beforePostWrite
+      beforePostWrite = null
+      await hook()
+    }
     const result = await db.pg.query(text, params)
     return { rows: result.rows, rowCount: result.affectedRows ?? result.rows.length }
   })
@@ -34,6 +41,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   failOn = null
+  beforePostWrite = null
   vi.restoreAllMocks()
   await db.reset()
   alice = await db.insertUser({ github_id: 1, login: 'alice' })
@@ -252,45 +260,43 @@ describe('MCP post tools', () => {
   const run = (name, args) => callTool(name, args, { caller: { uid: alice.id }, origin: 'https://app.test' })
   // Spy on the router the tools call (the real one still runs).
   let spy
-  let realRoute
   beforeEach(() => {
-    realRoute = router.route
     spy = vi.spyOn(router, 'route')
   })
-  const patchCalls = () => spy.mock.calls.map(([req]) => req).filter((req) => req.method === 'PATCH')
+  const routeCalls = () => spy.mock.calls.map(([req]) => `${req.method} ${new URL(req.url).pathname}`).filter((call) => call.includes('/drafts/'))
 
   it.each([
-    ['add_post', (id) => ({ id, text: 'new' })],
-    ['remove_post', (id) => ({ id, post_id: 'a' })],
-    ['move_post', (id) => ({ id, post_id: 'b', position: 1 })]
-  ])('%s sends the version it read as If-Match', async (name, args) => {
+    ['add_post', (id) => ({ id, text: 'new' }), (id) => `POST /api/drafts/${id}/posts`],
+    ['remove_post', (id) => ({ id, post_id: 'a' }), (id) => `DELETE /api/drafts/${id}/posts/a`],
+    ['move_post', (id) => ({ id, post_id: 'b', position: 1 }), (id) => `POST /api/drafts/${id}/posts/b/move`]
+  ])('%s is one route call, with no read and PATCH of the whole draft', async (name, args, expected) => {
     const draft = await db.insertDraft(alice.id, { posts: POSTS() })
     await patchDraft(draft.id, { title: 'bump' }) // version 2
     spy.mockClear()
     const result = await run(name, args(draft.id))
     expect(result.isError).toBe(false)
-    const [patch] = patchCalls()
-    expect(patch.headers.get('if-match')).toBe('"2"')
+    expect(routeCalls()).toEqual([expected(draft.id)])
+    expect((await rowOf(draft.id)).version).toBe(3)
   })
 
-  it('a concurrent edit between read and write is a 412 tool error that says to re-read, with no retry', async () => {
+  it('a save that lands between the route read and its write is kept: the edit is planned again on the newer draft', async () => {
     const draft = await db.insertDraft(alice.id, { posts: POSTS() })
-    // Someone else writes right after the tool's GET.
-    spy.mockImplementation(async (req) => {
-      const res = await realRoute(req)
-      if (req.method === 'GET' && req.url.endsWith(`/drafts/${draft.id}`)) {
-        await db.pg.query('update drafts set version = version + 1 where id = $1', [draft.id])
-      }
-      return res
-    })
+    beforePostWrite = () => db.pg.query("update drafts set title = 'theirs', version = version + 1 where id = $1", [draft.id])
     const result = await run('remove_post', { id: draft.id, post_id: 'a' })
-    const patches = patchCalls()
-    spy.mockRestore()
+    expect(result.isError).toBe(false)
+    const row = await rowOf(draft.id)
+    expect(row).toMatchObject({ title: 'theirs', version: 3 })
+    expect(row.posts.map((post) => post.id)).toEqual(['b'])
+  })
+
+  it('move_post with a stale version is a 412 tool error that says to re-read, and writes nothing', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: POSTS() })
+    await patchDraft(draft.id, { title: 'theirs' }) // version 2
+    const result = await run('move_post', { id: draft.id, post_id: 'b', position: 1, version: 1 })
     expect(result.isError).toBe(true)
     expect(result.structuredContent.version).toBe(2)
     expect(result.content[0].text).toMatch(/get_draft/)
-    expect(patches).toHaveLength(1)
-    expect((await rowOf(draft.id)).posts).toHaveLength(2)
+    expect((await rowOf(draft.id)).posts.map((post) => post.id)).toEqual(['a', 'b'])
   })
 
   it('add_post with a client id: replay is a no-op, other text is 409', async () => {

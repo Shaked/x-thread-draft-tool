@@ -5,6 +5,9 @@ const ID = { name: 'id', in: 'path', required: true, schema: { type: 'string', f
 const TOKEN_PARAM = { name: 'token', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }
 const UNAUTHORIZED = { description: 'Not signed in or invalid API token', content: errorContent() }
 const NOT_FOUND = { description: 'Not found (also returned for drafts the caller does not own)', content: errorContent() }
+const POST_ID = { name: 'postId', in: 'path', required: true, schema: { type: 'string' } }
+const EDIT_CONFLICT = { description: 'The draft is published (duplicate it to edit), or the post_id exists with other text.', content: errorContent() }
+const EDIT_REFUSED = { description: 'The edit breaks a rule: unknown place, 4 images in the post, last post of the draft, image not found.', content: errorContent() }
 const IF_MATCH = {
   name: 'If-Match',
   in: 'header',
@@ -443,7 +446,7 @@ export const OPENAPI = {
         security: BEARER,
         parameters: [
           ID,
-          { name: 'postId', in: 'path', required: true, schema: { type: 'string' } },
+          POST_ID,
           IF_MATCH
         ],
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['text'], additionalProperties: false, properties: { text: { type: 'string', maxLength: 4000, description: 'At most 280 characters as X counts them (a URL counts 23, an emoji 2).' } } } } } },
@@ -455,6 +458,46 @@ export const OPENAPI = {
           409: { description: 'The draft is published. Duplicate it to edit.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
           412: PRECONDITION_FAILED
         }
+      },
+      delete: {
+        summary: 'Remove one post (owner only). A draft keeps at least one post. Images only that post used are deleted. If-Match with a stale version is 412.',
+        security: BEARER,
+        parameters: [ID, POST_ID, IF_MATCH],
+        responses: { ...json({ type: 'object', properties: { draft: draftRef } }), 400: BAD_REQUEST, 401: UNAUTHORIZED, 404: NOT_FOUND, 409: EDIT_CONFLICT, 412: PRECONDITION_FAILED, 422: EDIT_REFUSED }
+      }
+    },
+    '/drafts/{id}/posts': {
+      post: {
+        summary: 'Add one post, last or right after after_post_id (owner only). One UPDATE that re-checks the version it read: the same post_id and text again is a 200 with no write, the same post_id with other text is 409; If-Match with a stale version is 412.',
+        security: BEARER,
+        parameters: [ID, IF_MATCH],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['text'], additionalProperties: false, properties: { text: { type: 'string', maxLength: 4000, description: 'At most 280 characters as X counts them.' }, after_post_id: { type: 'string' }, post_id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,100}$', description: 'An id you choose for the new post.' } } } } } },
+        responses: { ...json({ type: 'object', properties: { draft: draftRef } }), 400: BAD_REQUEST, 401: UNAUTHORIZED, 404: NOT_FOUND, 409: EDIT_CONFLICT, 412: PRECONDITION_FAILED, 422: EDIT_REFUSED }
+      }
+    },
+    '/drafts/{id}/posts/{postId}/move': {
+      post: {
+        summary: 'Move the post to position (1 is first). With image_url: move that image to this post at position (reorder it, or move it from another post; at most 4 images per post). Owner only; If-Match with a stale version is 412.',
+        security: BEARER,
+        parameters: [ID, POST_ID, IF_MATCH],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['position'], additionalProperties: false, properties: { position: { type: 'integer', minimum: 1 }, image_url: { type: 'string' } } } } } },
+        responses: { ...json({ type: 'object', properties: { draft: draftRef } }), 400: BAD_REQUEST, 401: UNAUTHORIZED, 404: NOT_FOUND, 409: EDIT_CONFLICT, 412: PRECONDITION_FAILED, 422: EDIT_REFUSED }
+      }
+    },
+    '/drafts/{id}/images': {
+      post: {
+        summary: 'Fetch a public image URL and add it to post_id (at position, default last, at most 4 images), or with replace put it where the image replace was, in every post that uses it. The old file is deleted when no draft of yours uses it; on any failure the new file is deleted. Owner only; If-Match with a stale version is 412.',
+        security: BEARER,
+        parameters: [ID, IF_MATCH],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['url'], additionalProperties: false, properties: { url: { type: 'string', format: 'uri' }, post_id: { type: 'string', description: 'Add the image to this post. Give this or replace.' }, position: { type: 'integer', minimum: 1, description: 'With post_id: 1-based place in the post.' }, replace: { type: 'string', description: 'The url of an image of this draft to swap out.' } } } } } },
+        responses: { ...json({ type: 'object', properties: { draft: draftRef, url: { type: 'string', description: 'The new image.' }, replaced: { type: 'string' } } }), 400: BAD_REQUEST, 401: UNAUTHORIZED, 404: NOT_FOUND, 409: EDIT_CONFLICT, 412: PRECONDITION_FAILED, 422: EDIT_REFUSED, 502: { description: 'Image host failed', content: errorContent() } }
+      },
+      delete: {
+        summary: 'Remove the image url from every post that has it, or with post_id every image of that post (owner only). Files the caller owns that no draft uses any more are deleted. Answers removed (how many urls) and deleted (how many files).',
+        security: BEARER,
+        parameters: [ID, IF_MATCH],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', additionalProperties: false, properties: { url: { type: 'string' }, post_id: { type: 'string', description: 'Give url or post_id, not both.' } } } } } },
+        responses: { ...json({ type: 'object', properties: { draft: draftRef, removed: { type: 'integer' }, deleted: { type: 'integer' } } }), 400: BAD_REQUEST, 401: UNAUTHORIZED, 404: NOT_FOUND, 409: EDIT_CONFLICT, 412: PRECONDITION_FAILED, 422: EDIT_REFUSED }
       }
     },
     '/images': {
