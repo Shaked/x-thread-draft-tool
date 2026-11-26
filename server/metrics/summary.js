@@ -120,7 +120,13 @@ function deployFinding(events, base, repo) {
 // The Production line is view.js: the window as the admin metrics route reads it, and the 7 days before it.
 async function productionFinding(windowName, now, windowMs) {
   const params = { window: windowName, by: 'total', route: null }
-  const [view, before] = await Promise.all([metricsView(params, now), metricsView({ ...params, window: '7d' }, now - windowMs - 1)])
+  // Hourly rows are kept 14 days and then rolled into whole days. A baseline that reaches that edge would count hours
+  // outside itself, so past 13 days back there is no last-week value, rather than a wrong one.
+  const exact = windowMs + 7 * 24 * HOUR <= 13 * 24 * HOUR
+  const [view, before] = await Promise.all([
+    metricsView(params, now),
+    exact ? metricsView({ ...params, window: '7d' }, now - windowMs - 1) : { metrics: [] }
+  ])
   const current = view.metrics[0]
   const link = '/admin/metrics'
   if (!current) return finding('production', 'Production: no requests in this window.', { link })

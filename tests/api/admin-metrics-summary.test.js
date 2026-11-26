@@ -158,6 +158,15 @@ describe('GET /admin/metrics/summary', () => {
     expect(body.text).toContain('Deploys: 3 to production, 2 failed. Median 1 min from deploy start to live.')
   })
 
+  it('the 7d window has no last-week production value (the baseline would reach rolled-up hours)', async () => {
+    await db.pg.query(
+      `insert into metrics_hourly (hour, route, op, caller, n, sum_ms, max_ms, buckets) values ($1, 'GET /drafts', '-', 'web', 300, 2400, 8, $2)`,
+      [iso(hourOf(now) - 5 * DAY), literal(oneHot(8).map((v) => v * 300))]
+    )
+    const week = (await getJson('admin_metrics_summary', '/admin/metrics/summary?window=7d')).body
+    expect(week.text).toMatch(/Production: 335 requests, 1 server errors\. Slowest 5 %: 8 ms or more\. Last week no data\./)
+  })
+
   it('has no data: every line still answers', async () => {
     await db.pg.exec('delete from metrics_hourly')
     const { body } = await getJson('admin_metrics_summary', '/admin/metrics/summary')
