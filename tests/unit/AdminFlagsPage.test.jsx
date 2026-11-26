@@ -7,12 +7,12 @@ import AdminLayout from '../../src/pages/admin/AdminLayout.jsx'
 import { ToastProvider } from '../../src/ui/Toast'
 import { allowFlags, KIT_KEY, SKIN_KEY } from '../../src/utils/skin.js'
 
-const flag = (name, value) => ({ name, value, values: ['default', 'rare'], default: 'default', meaning: '' })
+const flag = (name, value) => ({ name, value, values: ['rare', 'default'], default: 'rare', meaning: '' })
 
 // A fake of GET and POST /api/admin/flags that keeps the two values.
 function flagsApi({ failPost = false, staleFirstPost = false, staleAlways = false } = {}) {
   let stale = staleFirstPost || staleAlways
-  const state = { look: 'default', components: 'default' }
+  const state = { look: 'rare', components: 'rare' }
   const view = () => ({ flags: [flag('look', state.look), flag('components', state.components)] })
   return vi.fn(async (url, init = {}) => {
     if (String(url) !== '/api/admin/flags') return { ok: false, status: 404, json: async () => ({}) }
@@ -53,34 +53,34 @@ describe('admin feature flags page', () => {
     localStorage.clear()
   })
 
-  it('shows the current look and components as chosen by default', async () => {
+  it('shows Rare UI as the chosen look and components by default, for the admin too', async () => {
     vi.stubGlobal('fetch', flagsApi())
     renderPage()
-    expect((await screen.findByRole('radio', { name: 'Current (purple)' })).checked).toBe(true)
-    expect(screen.getByRole('radio', { name: 'Current components' }).checked).toBe(true)
+    expect((await screen.findByRole('radio', { name: 'Rare UI (everyone)' })).checked).toBe(true)
+    expect(screen.getByRole('radio', { name: 'Rare UI components (everyone)' }).checked).toBe(true)
   })
 
-  it('saves the Rare UI look on the account, copies it to this device and applies it', async () => {
+  it('saves the old purple look on the account for this admin, copies it to this device and applies it', async () => {
     const fetchMock = flagsApi()
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('radio', { name: 'Rare UI (black, orange)' }))
-    await waitFor(() => expect(document.documentElement.dataset.skin).toBe('rare'))
+    await user.click(await screen.findByRole('radio', { name: 'Old look, purple (only you)' }))
+    await waitFor(() => expect(document.documentElement.dataset.skin).toBe('default'))
     const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
-    expect(JSON.parse(post[1].body)).toEqual({ name: 'look', value: 'rare' })
+    expect(JSON.parse(post[1].body)).toEqual({ name: 'look', value: 'default' })
     expect(post[1].headers['x-xt-admin']).toBe('1')
-    expect(localStorage.getItem(SKIN_KEY)).toBe('rare')
-    expect(screen.getByRole('radio', { name: 'Rare UI (black, orange)' }).checked).toBe(true)
+    expect(localStorage.getItem(SKIN_KEY)).toBe('default')
+    expect(screen.getByRole('radio', { name: 'Old look, purple (only you)' }).checked).toBe(true)
   })
 
-  it('saves the Rare UI components apart from the look', async () => {
+  it('saves the old components for this admin apart from the look', async () => {
     vi.stubGlobal('fetch', flagsApi())
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('radio', { name: 'Rare UI components' }))
-    await waitFor(() => expect(localStorage.getItem(KIT_KEY)).toBe('rare'))
-    expect(document.documentElement.dataset.skin).toBe('default')
+    await user.click(await screen.findByRole('radio', { name: 'Old components (only you)' }))
+    await waitFor(() => expect(localStorage.getItem(KIT_KEY)).toBe('default'))
+    expect(document.documentElement.dataset.skin).toBe('rare')
     expect(screen.getByRole('link', { name: 'Rare UI' })).toHaveAttribute('href', 'https://rareui.com')
   })
 
@@ -92,7 +92,7 @@ describe('admin feature flags page', () => {
     vi.stubGlobal('open', open)
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('radio', { name: 'Rare UI (black, orange)' }))
+    await user.click(await screen.findByRole('radio', { name: 'Old look, purple (only you)' }))
     const dialog = await screen.findByRole('dialog', { name: 'Sign in again to save' })
     expect(document.body.textContent).not.toMatch(/Could not save the flag|Nothing changed/)
     await user.click(screen.getByRole('button', { name: 'Sign in with GitHub' }))
@@ -102,8 +102,8 @@ describe('admin feature flags page', () => {
     expect(dialog).not.toBeInTheDocument()
     const posts = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
     expect(posts).toHaveLength(2)
-    expect(JSON.parse(posts[1][1].body)).toEqual({ name: 'look', value: 'rare' })
-    expect(localStorage.getItem(SKIN_KEY)).toBe('rare')
+    expect(JSON.parse(posts[1][1].body)).toEqual({ name: 'look', value: 'default' })
+    expect(localStorage.getItem(SKIN_KEY)).toBe('default')
     expect(document.body.textContent).not.toMatch(/Sign in again: admin changes/)
   })
 
@@ -112,12 +112,12 @@ describe('admin feature flags page', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('radio', { name: 'Rare UI (black, orange)' }))
+    await user.click(await screen.findByRole('radio', { name: 'Old look, purple (only you)' }))
     await user.click(await screen.findByRole('button', { name: 'Cancel' }))
     expect(await screen.findByText(/You did not sign in, so nothing changed/)).toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/last 7 days/)
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
-    expect(localStorage.getItem(SKIN_KEY)).not.toBe('rare')
+    expect(localStorage.getItem(SKIN_KEY)).not.toBe('default')
   })
 
   it('closing the pop-up without signing in (the repeat is refused again) shows a plain message, never the server text', async () => {
@@ -127,7 +127,7 @@ describe('admin feature flags page', () => {
     vi.stubGlobal('open', vi.fn(() => popup))
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('radio', { name: 'Rare UI (black, orange)' }))
+    await user.click(await screen.findByRole('radio', { name: 'Old look, purple (only you)' }))
     await user.click(await screen.findByRole('button', { name: 'Sign in with GitHub' }))
     popup.closed = true
     expect(await screen.findByText('You did not sign in, so nothing changed.')).toBeInTheDocument()
@@ -140,7 +140,7 @@ describe('admin feature flags page', () => {
     vi.stubGlobal('open', vi.fn(() => null))
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('radio', { name: 'Rare UI (black, orange)' }))
+    await user.click(await screen.findByRole('radio', { name: 'Old look, purple (only you)' }))
     await user.click(await screen.findByRole('button', { name: 'Sign in with GitHub' }))
     expect(await screen.findByText(/blocked the pop-up/)).toBeInTheDocument()
     expect(screen.getByRole('dialog', { name: 'Sign in again to save' })).toBeInTheDocument()
@@ -150,41 +150,42 @@ describe('admin feature flags page', () => {
     vi.stubGlobal('fetch', flagsApi({ failPost: true }))
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('radio', { name: 'Rare UI (black, orange)' }))
+    await user.click(await screen.findByRole('radio', { name: 'Old look, purple (only you)' }))
     expect(await screen.findByText('Could not save the flag (no). Nothing changed.')).toBeInTheDocument()
-    expect(localStorage.getItem(SKIN_KEY)).not.toBe('rare')
-    expect(document.documentElement.dataset.skin).toBe('default')
+    expect(localStorage.getItem(SKIN_KEY)).not.toBe('default')
+    expect(document.documentElement.dataset.skin).toBe('rare')
   })
 
-  it('a signed-in normal user gets the default look and /settings/flags goes to the drafts page, whatever is stored', async () => {
-    localStorage.setItem(SKIN_KEY, 'rare')
-    localStorage.setItem(KIT_KEY, 'rare')
+  it('a signed-in normal user gets Rare UI and /settings/flags goes to the drafts page, whatever is stored (#406)', async () => {
+    localStorage.setItem(SKIN_KEY, 'default')
+    localStorage.setItem(KIT_KEY, 'default')
     window.history.pushState({}, '', '/settings/flags')
     vi.stubGlobal('fetch', vi.fn(async (url) => (String(url) === '/api/auth/me' ? { ok: true, json: async () => ({ user: { login: 'bob', role: 'user' } }) } : { ok: true, json: async () => ({ drafts: [] }) })))
     render(<App />)
     await waitFor(() => expect(window.location.pathname).toBe('/'))
-    expect(document.documentElement.dataset.skin).toBe('default')
+    expect(document.documentElement.dataset.skin).toBe('rare')
     expect(document.body.textContent).not.toMatch(/Feature flags/)
     window.history.pushState({}, '', '/')
   })
 
-  it('the admin gets the look saved on the account, over an older stored value', async () => {
+  it('the admin gets the old look saved on the account, over the device value', async () => {
+    localStorage.setItem(SKIN_KEY, 'rare')
     window.history.pushState({}, '', '/')
     vi.stubGlobal('fetch', vi.fn(async (url) => {
       if (String(url) === '/api/auth/me') return { ok: true, json: async () => ({ user: { login: 'shaked', role: 'admin', admin: true } }) }
-      if (String(url) === '/api/admin/flags') return { ok: true, json: async () => ({ flags: [flag('look', 'rare'), flag('components', 'default')] }) }
+      if (String(url) === '/api/admin/flags') return { ok: true, json: async () => ({ flags: [flag('look', 'default'), flag('components', 'rare')] }) }
       return { ok: true, json: async () => ({ drafts: [] }) }
     }))
     render(<App />)
-    await waitFor(() => expect(document.documentElement.dataset.skin).toBe('rare'))
-    expect(localStorage.getItem(SKIN_KEY)).toBe('rare')
+    await waitFor(() => expect(document.documentElement.dataset.skin).toBe('default'))
+    expect(localStorage.getItem(SKIN_KEY)).toBe('default')
   })
 
   it('applies the account values to this device when the page loads', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ flags: [flag('look', 'rare'), flag('components', 'rare')] }) })))
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ flags: [flag('look', 'default'), flag('components', 'default')] }) })))
     renderPage()
-    expect((await screen.findByRole('radio', { name: 'Rare UI (black, orange)' })).checked).toBe(true)
-    expect(document.documentElement.dataset.skin).toBe('rare')
-    expect(localStorage.getItem(KIT_KEY)).toBe('rare')
+    expect((await screen.findByRole('radio', { name: 'Old look, purple (only you)' })).checked).toBe(true)
+    expect(document.documentElement.dataset.skin).toBe('default')
+    expect(localStorage.getItem(KIT_KEY)).toBe('default')
   })
 })

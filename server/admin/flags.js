@@ -2,11 +2,12 @@ import { query, transaction } from '../db.js'
 import { HttpError, json, readJson } from '../http.js'
 import { recordAdminAction } from './audit.js'
 
-// The feature flags of the admin's own account (#483). They change what this admin sees, never what another user sees,
-// so a change needs no confirm token. Each change writes one audit row.
+// The feature flags of the admin's own account (#483). They are the admin's off switch for the Rare UI look (#406): the first
+// value is the default for everyone, and a non-admin never reads these. They change what this admin sees, never what another
+// user sees, so a change needs no confirm token. Each change writes one audit row.
 const FLAGS = [
-  { name: 'look', values: ['default', 'rare'], meaning: 'Colours, corner radius, shadows and motion. default is the purple look; rare is the Rare UI look (black, orange).' },
-  { name: 'components', values: ['default', 'rare'], meaning: 'default uses the app components; rare uses the real Rare UI components (theme choice, Delete draft, character count) and takes the colours of the look.' }
+  { name: 'look', values: ['rare', 'default'], meaning: 'Colours, corner radius, shadows and motion. rare is the Rare UI look (black, orange) and the default for everyone; default is the old purple look, which only this admin can see.' },
+  { name: 'components', values: ['rare', 'default'], meaning: 'rare uses the real Rare UI components (theme choice, Delete draft, character count, toast) and takes the colours of the look; the default for everyone. default uses the old app components, only for this admin.' }
 ]
 
 const valueOf = (flag, stored) => (flag.values.includes(stored?.[flag.name]) ? stored[flag.name] : flag.values[0])
