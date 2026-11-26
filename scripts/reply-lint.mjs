@@ -42,7 +42,7 @@ const BLOCK_WORD = /\bblock(?:ed|ing|er|ers|s)?\b/gi
 const BLOCK_ON_HUMAN = /^\s+(?:on|by)\s+(?:you|your|Shaked|the owner)\b/i
 const WAITING_HUMAN = /\bwaiting\s+(?:on|for)\s*:?\s+(?:you|your|Shaked|the owner)\b/i
 // A fixed heading (or a common stand-in such as "Not done") written as a label line instead of a "## " heading.
-const LOOSE_LABEL = /^\s*(?:[-*]\s+)?(?:\*\*|__)?(?:TL;DR|What you need to do|Waiting for|Blocked on you|Blocked|Not done|Done|Details)\s*:(?:\*\*|__)?(?:\s|$)/i
+const LOOSE_LABEL = /^\s*(?:(?:[-*+>]|\d+\.)\s+)*(?:\*\*|__|\*|_)?(?:TL;DR|What you need to do|Waiting for|Blocked on you|Blocked|Not done|Done|Details)(?:\s*:(?:\*\*|__|\*|_)?|(?:\*\*|__|\*|_)\s*:?)(?:\s|$)/i
 const EMOJI = /\p{Extended_Pictographic}/u
 /** A section line that only says there is nothing: "Nothing needed.", "None", "Waiting for: nothing". Telegram messages never have one. */
 export const EMPTY_SECTION = /^(?:[^:]{0,40}:\s*)?(?:nothing(?: needed)?(?: from you)?|none|n\/a)\.?$/i

@@ -204,7 +204,7 @@ function checkShipped(c, i) {
   if (done && f.last.release) {
     const merged = Boolean(f.last.pr) && c.pulls.has(f.last.pr)
     const pr = f.last.pr ? `; PR {#${f.last.pr}} is ${merged ? 'merged' : 'not in the merged list'}` : ''
-    if (merged) c.add('shipped', [i.number], `${ref(i.number)}: the last HANDOFF says done and has RELEASE${pr}.`, 'Read the HANDOFF and its "Not done" line, then close as completed.', 'allowed')
+    if (merged) c.add('shipped', [i.number], `${ref(i.number)}: the last HANDOFF says done and has RELEASE${pr}.`, 'Read the HANDOFF, check its Done section, then close as completed.', 'allowed')
     else c.add('shipped', [i.number], `${ref(i.number)}: the last HANDOFF says done and has RELEASE${pr}.`, 'Read the HANDOFF; close only when its PR is merged.')
   } else if (!c.loaded(i) && c.marked('release', i)) {
     c.add('shipped', [i.number], `${ref(i.number)}: a comment has RELEASE, comments not loaded.`, 'Read its comments; a HANDOFF that is not "done" keeps the issue open.')
