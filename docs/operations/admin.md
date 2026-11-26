@@ -54,6 +54,8 @@ The admin connection sees the fourteen admin tools below. Nobody else sees any o
 | `admin_unsuspend_user` | `id`, `confirm_login` | `POST /api/admin/users/:id/unsuspend` |
 | `admin_delete_user` | `id`, `dry_run` (default true), `confirm_token`, `confirm_login` | `POST /api/admin/users/:id/delete` |
 
+The "Delivery and CI" section of `/admin/metrics` (#452) shows the summary numbers and the events table. The CI finding of the summary carries `ci`: median and p90 CI time and flaky retries, with last week's values. A flaky retry is a run that passed on attempt 2 or later, so a manual re-run of a green run counts too. The events table leaves out production errors.
+
 The REST routes are under `/api/admin/`. They answer 404 to everyone except the admin connection (MCP) and the owner's browser session (web, below), the same answer as an unknown path. The smoke test checks this on the deployed site (`PASS admin paths answer like an unknown path (404)`).
 
 The answers hold account details and numbers only. They never hold draft text, token secrets, token hashes, client secrets or image URLs.

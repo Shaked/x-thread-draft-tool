@@ -197,6 +197,19 @@ const metricsSeries = (name: string) => ({
   points: Array.from({ length: 24 }, (_, i) => ({ at: `2026-11-25T${String(i).padStart(2, '0')}:00:00Z`, value: (i * 7) % 11, p95: i % 5 === 0 ? null : 10 + (i % 7) }))
 })
 
+// A fixed answer for the delivery section (#452).
+const DELIVERY_SUMMARY = {
+  text: 'Metrics summary, last 24 hours.\n- CI checks: 4 runs, 1 failed (25 %). Last week 50 %.\nNothing is over its limit.',
+  findings: [
+    { area: 'speed', value: 200, baseline: 120, ci: null, link: 'https://github.com/x/y/actions/workflows/speed-metrics.yml' },
+    { area: 'ci', value: 25, baseline: 50, ci: { median_ms: 120000, p90_ms: 300000, flaky_pct: 25, baseline_median_ms: 90000, baseline_p90_ms: 240000, baseline_flaky_pct: 0 } },
+    { area: 'deploys', value: 22, baseline: 20, ci: null }
+  ]
+}
+const DELIVERY_EVENTS = {
+  events: [{ at: '2026-11-26T10:00:00.000Z', source: 'ci', kind: 'run', id: '1.2', name: 'Tests', status: 'failure', ms: 61000, link: 'https://github.com/x/y/actions/runs/1' }]
+}
+
 async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare'; kit?: 'rare' } = {}) {
   const phone = c.width < 800
   const context: BrowserContext = await browser.newContext({
@@ -233,6 +246,8 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
       if (url.pathname === '/api/admin/audit') return route.fulfill({ json: ADMIN_AUDIT })
       if (url.pathname === '/api/admin/metrics') return route.fulfill({ json: metricsAnswer(url.searchParams.get('by') ?? 'route') })
       if (url.pathname === '/api/admin/metrics/series') return route.fulfill({ json: metricsSeries(url.searchParams.get('name') ?? 'requests') })
+      if (url.pathname === '/api/admin/metrics/summary') return route.fulfill({ json: DELIVERY_SUMMARY })
+      if (url.pathname === '/api/admin/metrics/events') return route.fulfill({ json: { events: url.searchParams.get('source') === 'ci' ? DELIVERY_EVENTS.events : [] } })
       if (url.pathname === '/api/admin/flags') {
         const flag = (name: string, value?: string) => ({ name, value: value ?? 'default', values: ['default', 'rare'], default: 'default', meaning: '' })
         return route.fulfill({ json: { flags: [flag('look', extra.skin), flag('components', extra.kit)] } })
@@ -255,7 +270,10 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   await expect(extra.heading ? page.getByRole('heading', { name: extra.heading, level: 1 }) : page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(page.getByText('Loading…')).toHaveCount(0)
   // The metrics page loads its numbers after the shell: audit the tables and the chart, not the error banner.
-  if (pagePath === '/admin/metrics') await expect(page.getByRole('heading', { name: 'All routes' })).toBeVisible()
+  if (pagePath === '/admin/metrics') {
+    await expect(page.getByRole('heading', { name: 'All routes' })).toBeVisible()
+    await expect(page.getByRole('table', { name: 'Delivery events, newest first' })).toBeVisible()
+  }
   if (c.rtl) await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'))
   // The menu drawer (a Dialog on the start edge) is audited open, so its targets, type and colours are checked too.
   if (extra.menu) {
