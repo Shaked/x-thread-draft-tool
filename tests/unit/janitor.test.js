@@ -238,6 +238,11 @@ describe('allowed fixes stay narrow', () => {
     expect(order(snap).order).toEqual([20, 10])
   })
 
+  it('does not report a weekly review task as an orphan', () => {
+    const weekly = analyze(base([issue(1, 'Weekly review 2026-11-30', { labels: [{ name: 'task' }, { name: 'weekly' }] })]), { today: TODAY })
+    expect(weekly.filter((f) => f.kind === 'orphan')).toEqual([])
+  })
+
   it('never proposes the reverse of "Do not start before #n"', () => {
     const snap = base([issue(1, 'E9 task A1: one', { body: 'Depends on: #2.\nDo not start this before #2 is merged.' }), issue(2, 'E9 task A2: two')])
     expect(analyze(snap, { today: TODAY }).filter((f) => f.kind === 'missing-dependency')).toEqual([])

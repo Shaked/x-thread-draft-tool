@@ -330,7 +330,7 @@ function checkLabels(c, i) {
     if (label) c.add('labels', [i.number], `${ref(i.number)} has no label.`, `Add the label \`${label}\`.`, 'allowed')
     else c.add('labels', [i.number], `${ref(i.number)} has no label.`, 'Ask the dispatcher which epic it belongs to.')
   } else if (i.subIssues > 0 && !has(i, 'epic')) c.add('labels', [i.number], `${ref(i.number)} has sub-issues but no \`epic\` label.`, 'Add the label `epic`.', 'allowed')
-  if (has(i, 'task') && !i.parent && !has(i, 'cleanup')) c.add('orphan', [i.number], `${ref(i.number)} is a task with no parent epic.`, 'Add it to its epic as a sub-issue (the dispatcher picks the epic).')
+  if (has(i, 'task') && !i.parent && !has(i, 'cleanup') && !has(i, 'weekly')) c.add('orphan', [i.number], `${ref(i.number)} is a task with no parent epic.`, 'Add it to its epic as a sub-issue (the dispatcher picks the epic).')
   if (has(i, 'held') || has(i, 'owner') || !/Label `held`|^## Held/m.test(i.body)) return
   if (OWNER_QUESTION.test(i.body)) {
     c.add('labels', [i.number], `${ref(i.number)}: the body says \`held\` but the label is gone; the body still names an owner question.`, 'Check the answer is recorded in the epic; if not, ask the owner.', 'owner')
