@@ -172,6 +172,10 @@ Some tools can show their result as a small view inside an app that supports MCP
   "Open in editor". "View thread" asks the app to call `get_draft` again.
 - `create_share_link` shows the share card: the preview and markdown links, Copy (when the app allows
   it) and the time left until the link expires.
+- Every label and button in the three views is in English and in Hebrew (#371). The view uses the host's
+  locale when the app sends one (`he` gives Hebrew, any other locale English), else the main script of the draft
+  text, else English. In Hebrew the page is right to left; post text keeps its own direction. Which apps send a
+  locale: not checked.
 
 Each of these tools also returns the same text and data as before, so a client without views gets the
 same answer it always got.

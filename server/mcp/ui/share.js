@@ -2,7 +2,8 @@
 // loads or sends anything but the host's openLink, the clipboard and, when the host can call tools, the one
 // revoke_share_link call the card asks for (rules 9 and 10). The link text reaches the page only through input values
 // and text nodes (rule 9).
-import { bridge, el, linkButton, safeUrl } from './client.js'
+import { bridge, el, linkButton, safeUrl, setLang, tr } from './client.js'
+import { minifyCss, pageScript } from './script.js'
 import { CARD_FUNCTIONS } from './share-card.js'
 import { STYLE as THREAD_STYLE } from './thread.js'
 
@@ -21,9 +22,7 @@ function renderNote(root, message) {
 
 // Every function the share view runs: the bridge and its helpers from client.js, then the card's functions. Each is
 // copied by its source text, so each uses only its own arguments, the page globals and the functions in this list.
-const SCRIPT = [bridge, safeUrl, el, linkButton, ...CARD_FUNCTIONS, renderNote]
-  .map((fn) => fn.toString())
-  .join('\n')
+const FUNCTIONS = [bridge, tr, setLang, safeUrl, el, linkButton, ...CARD_FUNCTIONS, renderNote]
 
 const STARTER = `
 (function () {
@@ -34,21 +33,25 @@ const STARTER = `
   function open(url) { return link.openLink(url).catch(function () { return null; }); }
   // Stops one link (revoke_share_link). The host may ask the user first; the card waits for its answer.
   function revoke(id, token) { return link.callTool('revoke_share_link', { id: id, token: token }, 120000); }
-  function locale() {
+  function hostLocale() {
     var ctx = link.context();
     return ctx && typeof ctx.locale === 'string' ? ctx.locale : undefined;
   }
+  function locale() { return hostLocale() || (document.documentElement.lang === 'he' ? 'he' : undefined); }
+  // The share result has no draft text, so the language comes from the host's locale, else English.
+  function useLang() { setLang(hostLocale(), ''); }
   function showResult(result) {
     shown = true;
+    useLang();
     if (stop) { stop(); stop = null; }
     if (result.isError) {
       var first = result.content && result.content[0];
-      renderNote(root, first && first.text ? first.text : 'The tool returned an error.');
+      renderNote(root, first && first.text ? first.text : tr('common', 'tool_error'));
       return;
     }
     var share = shareFrom(result);
     if (share) stop = renderShare(root, share, { open: open, now: function () { return Date.now(); }, locale: locale(), revoke: link.canCallTools() ? revoke : null });
-    else renderNote(root, 'This view cannot show that result.');
+    else renderNote(root, tr('common', 'cannot_show'));
   }
   function applyContext(ctx) {
     if (ctx && (ctx.theme === 'dark' || ctx.theme === 'light')) document.documentElement.dataset.theme = ctx.theme;
@@ -57,7 +60,7 @@ const STARTER = `
     result: showResult,
     context: applyContext,
     // A late handshake failure must not replace a card already shown from window.openai.
-    error: function () { if (!shown) renderNote(root, 'Could not connect to the host.'); }
+    error: function () { if (!shown) { useLang(); renderNote(root, tr('common', 'no_host')); } }
   });
   // ChatGPT's older path: when no tool result came, use window.openai.toolOutput if the page has it.
   setTimeout(function () {
@@ -76,12 +79,11 @@ const SHARE_HTML = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>Share link</title>
-<style>${THREAD_STYLE}${SHARE_STYLE}</style>
+<style>${minifyCss(THREAD_STYLE + SHARE_STYLE)}</style>
 </head>
 <body>
 <main id="root"><p>Loading link…</p></main>
-<script>${SCRIPT}
-${STARTER}</script>
+<script>${pageScript(['common', 'share'], FUNCTIONS, STARTER)}</script>
 </body>
 </html>
 `
