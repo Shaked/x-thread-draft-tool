@@ -204,7 +204,7 @@ export async function handleMcp(request) {
   const counted = !checked.response && message.id !== undefined && isCountedToolCall(message)
   const caller = await authorizeAndCount(token, `${origin}/api/mcp`, counted)
   if (!caller) return unauthorized(origin)
-  noteCaller('mcp')
+  noteCaller(caller.family)
   // A suspended user is refused with 403 and no www-authenticate header: a 401 would make the app
   // start a new sign-in loop. `admit` also fails closed when the flag was not loaded (an error, not a pass).
   try {

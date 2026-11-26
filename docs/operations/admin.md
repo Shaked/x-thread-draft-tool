@@ -93,7 +93,7 @@ The stats query (`GET /api/admin/stats`) is one statement of scalar subqueries, 
 
 Each request adds one row to `metrics_hourly` in the database, after the answer is sent: the hour, the route
 template (never a real path, id or token), the operation (an MCP method or `tool:<name>` for a known tool), the
-caller (`web`, `token`, `mcp`, `ci` or `anon`) and status counts. Latency is kept as a fixed 65-counter histogram.
+caller (`web`, `token`, `ci` or `anon`; MCP calls by app family: `mcp:claude`, `mcp:chatgpt`, `mcp:grok`, `mcp:cli` or `mcp:other`) and status counts. Latency is kept as a fixed 65-counter histogram.
 
 - A request that used no SQL (health, version, changelog, openapi) is held in memory and written with the next
   request on the same instance that does use the database. Pending counts are lost when the instance stops.
