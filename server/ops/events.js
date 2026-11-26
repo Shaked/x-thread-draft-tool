@@ -91,10 +91,18 @@ function cleanMs(value) {
   return { ms: value }
 }
 
+/** A name is looked at only when it is a string of at most 120 characters; anything else becomes other. */
+function cleanName(value) {
+  if (typeof value !== 'string' || Array.from(value).length > STRING_MAX) return null
+  return value
+}
+
 /** Checks one event of a batch. Returns { event } for a stored row, or { reason } when refused. */
 export function normalizeEvent(raw, { repo, now }) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { reason: 'not_an_object' }
-  const rule = KIND_RULES[`${raw.source}/${raw.kind}`]
+  // Only strings are joined: an object with a broken toString would throw here, not refuse.
+  const key = typeof raw.source === 'string' && typeof raw.kind === 'string' ? `${raw.source}/${raw.kind}` : ''
+  const rule = Object.hasOwn(KIND_RULES, key) ? KIND_RULES[key] : null
   if (!rule) return { reason: 'unknown_kind' }
   if (typeof raw.id !== 'string' || raw.id === '') return { reason: 'id' }
   const at = parseAt(raw.at, now)
@@ -111,7 +119,7 @@ export function normalizeEvent(raw, { repo, now }) {
       kind: raw.kind,
       id: cut(raw.id),
       at,
-      name: rule.name(raw.name, repo) ?? 'other',
+      name: rule.name(cleanName(raw.name), repo) ?? 'other',
       status: raw.status,
       ms: ms.ms,
       attrs: attrs.attrs,

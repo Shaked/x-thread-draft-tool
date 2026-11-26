@@ -152,6 +152,19 @@ describe('event checks', () => {
     expect(check(run({ id: 'i'.repeat(200) })).event.id).toHaveLength(120)
   })
 
+  it('refuses a source or kind that is not a string, without throwing', () => {
+    const hostile = { toString: null }
+    expect(check(run({ source: hostile })).reason).toBe('unknown_kind')
+    expect(check(run({ kind: hostile })).reason).toBe('unknown_kind')
+  })
+
+  it('turns a name that is not a string, or is over 120 characters, into other, without throwing', () => {
+    const hostile = { toString: null }
+    expect(check(run({ name: hostile })).event.name).toBe('other')
+    const long = { source: 'prod', kind: 'error', id: 'i-2', at: run().at, name: `GET /${'a'.repeat(5000)}`, status: '500' }
+    expect(check(long).event.name).toBe('other')
+  })
+
   it('refuses a non-object event', () => {
     expect(check(null).reason).toBe('not_an_object')
     expect(check(['run']).reason).toBe('not_an_object')
