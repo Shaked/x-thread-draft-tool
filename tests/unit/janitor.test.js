@@ -176,12 +176,13 @@ describe('fetchSnapshot', () => {
     const snap = fetchSnapshot({ repo: 'example/repo', run })
     expect(calls.every((a) => a[0] === 'api' && a[3] === 'search/issues')).toBe(true)
     expect(snap.pulls).toEqual([{ number: 50, title: 't', body: 'b', merged_at: 'x' }])
+    expect(snap.open_pulls).toEqual([{ number: 50, title: 't', body: 'b' }])
     expect(snap.markers).toEqual({ release: [15], claim: [15] })
   })
 })
 
 describe('allowed fixes stay narrow', () => {
-  const base = (issues, comments = {}) => ({ repo: 'example/repo', issues, pulls: [], markers: {}, comments })
+  const base = (issues, comments = {}) => ({ repo: 'example/repo', issues, pulls: [], open_pulls: [], markers: {}, comments })
   const issue = (number, title, extra = {}) => ({ number, title, state: 'open', labels: [{ name: 'task' }], body: '', updated_at: TODAY, ...extra })
 
   it('puts a task that says "Goes before #n" ahead of #n in the order', () => {
@@ -211,5 +212,8 @@ describe('allowed fixes stay narrow', () => {
     expect(act(base(pair))).toBe('dispatcher')
     expect(act({ ...base(pair, { 2: [] }), markers: { claim: [2] } })).toBe('dispatcher')
     expect(act({ ...base(pair, { 2: [] }), pulls: [{ number: 9, title: 'x', body: 'Closes #2' }] })).toBe('dispatcher')
+    expect(act({ ...base(pair, { 2: [] }), open_pulls: [{ number: 9, title: 'wip', body: 'Work for #2' }] })).toBe('dispatcher')
+    expect(act({ ...base(pair, { 2: [] }), open_pulls: undefined })).toBe('dispatcher')
+    expect(act(base(pair, { 2: [{ created_at: TODAY, body: 'Started in PR #9' }] }))).toBe('dispatcher')
   })
 })

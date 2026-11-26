@@ -12,7 +12,7 @@ You read the report and apply the fixes this skill allows. Task: #458 (task jani
 ## Run it
 1. Snapshot (gh search only, as AGENTS.md allows):
    `node scripts/janitor.mjs fetch > snapshot.json`
-   It holds open and closed issues, merged pull requests, and two lists of open issues with a comment that contains
+   It holds open and closed issues, merged and open pull requests, and two lists of open issues with a comment that contains
    `RELEASE` or `CLAIM`. It has no comment bodies.
 2. Comments: the first report names issues whose comments are not loaded. Read those with
    `mcp__github__issue_read` (`get_comments`, `perPage` 100, and the next page while a page is full) and save them as

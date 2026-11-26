@@ -206,7 +206,7 @@ function checkPair(c, x, y) {
     // Allowed only in one epic (same parent or same title prefix) and when the newer one has no CLAIM or HANDOFF.
     const sameScope = (x.parent !== null && x.parent === y.parent) || (Boolean(ix?.prefix) && ix.prefix === taskId(y)?.prefix)
     const newer = c.facts.get(y.number)
-    const untouched = Boolean(c.loaded(y)) && !c.marked('claim', y) && !newer.claim && !newer.handoffs.length && !c.prsNaming(y.number).length
+    const untouched = Boolean(c.loaded(y)) && !c.marked('claim', y) && !newer.claim && !newer.handoffs.length && !c.prsNaming(y.number).length && !c.hasOpenPr(y)
     const act = sameScope && untouched ? 'allowed' : 'dispatcher'
     c.add('duplicate', [x.number, y.number], `${ref(x.number)} and ${ref(y.number)} have the same title.`, `Read both; if the bodies match, close {#${y.number}} as a duplicate of {#${x.number}} with a comment.`, act)
   } else if (sameId) {
@@ -340,6 +340,9 @@ export function analyze(snapshot, { today = new Date().toISOString(), staleDays 
     loaded: (i) => comments[i.number] || comments[String(i.number)],
     marked: (kind, i) => (markers[kind] || []).includes(i.number),
     // Merged PRs whose title or body says "Closes", "Fixes", "Resolves" or "Implements #n".
+    // Unknown (a snapshot without open_pulls) counts as having one. A comment that links a PR counts too.
+    hasOpenPr: (i) => !Array.isArray(snapshot.open_pulls) || snapshot.open_pulls.some((p) => new RegExp(`#${i.number}\\b`).test(`${p.title}\n${p.body || ''}`))
+      || (c.loaded(i) || []).some((x) => /\bPR #\d+|\/pull\/\d+/.test(x.body || '')),
     prsNaming: (n) => [...(snapshot.pulls || [])].filter((p) => new RegExp(`\\b(closes|fixes|resolves|implements)\\s+#${n}\\b`, 'i').test(`${p.title}\n${p.body || ''}`)).map((p) => p.number).sort((a, b) => a - b),
     scope: (i) => i.parent ?? taskId(i)?.prefix ?? null,
     add: (kind, issues, what, fix, act = 'dispatcher') => out.push({ kind, issues, what, fix, act })
@@ -467,8 +470,9 @@ export function fetchSnapshot({ repo = REPO, run = (args) => execFileSync('gh', 
   const r = `repo:${repo}`
   const issues = [...search(`${r} is:issue is:open`, run), ...search(`${r} is:issue is:closed`, run)]
   const pulls = search(`${r} is:pr is:merged`, run).map((p) => ({ number: p.number, title: p.title, body: p.body || '', merged_at: p.pull_request?.merged_at }))
+  const openPulls = search(`${r} is:pr is:open`, run).map((p) => ({ number: p.number, title: p.title, body: p.body || '' }))
   const mark = (word) => search(`${r} is:issue is:open ${word} in:comments`, run).map((i) => i.number)
-  return { fetched_at: new Date().toISOString(), repo, issues, pulls, markers: { release: mark('RELEASE'), claim: mark('CLAIM') }, comments: {} }
+  return { fetched_at: new Date().toISOString(), repo, issues, pulls, open_pulls: openPulls, markers: { release: mark('RELEASE'), claim: mark('CLAIM') }, comments: {} }
 }
 
 function main() {
