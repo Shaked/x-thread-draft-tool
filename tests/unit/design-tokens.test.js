@@ -89,6 +89,33 @@ export function lintCss(text, fileHasFocusVisible = /:focus-visible/.test(text))
   return [...broken].sort()
 }
 
+// Tailwind classes in the Rare UI components (src/ui/rare/). There is no Tailwind theme (src/styles/rare-kit.css),
+// so a value comes from a token: p-(--space-4), bg-(--color-surface), text-(length:--font-size-sm) or
+// [font-weight:var(--font-weight-semibold)]. Inside [ ] only relative values (%, cqw, fractions, var()) pass.
+const RARE_DIR = 'src/ui/rare/'
+const TW_SCALED = /^-?(p|px|py|ps|pe|pt|pb|m|mx|my|ms|me|mt|mb|gap|gap-x|gap-y|w|h|size|min-w|min-h|max-w|max-h|inset|inset-x|inset-y|top|bottom|start|end|text|bg|border|rounded(-[a-z]{1,2})?|shadow|font|leading|tracking|duration|delay|ease|z|ring|outline|stroke|fill|translate-x|translate-y|space-x|space-y)-[a-z0-9.]+$/
+const TW_STATIC = new Set(['w-full', 'h-full', 'size-full', 'w-max', 'border-0', 'bg-transparent', 'text-start', 'text-center', 'text-end', 'mt-auto', 'ms-auto', 'me-auto'])
+const TW_PHYSICAL = /^-?(left|right|ml|mr|pl|pr|border-[lr]|rounded-[lr]|rounded-(tl|tr|bl|br)|scroll-m[lr]|scroll-p[lr])-|^text-(left|right)$/
+
+function tailwindRules(js) {
+  const broken = new Set()
+  for (const [, , text] of js.matchAll(/(['"`])((?:\\.|(?!\1)[^\\])*)\1/g)) {
+    for (const cls of text.split(/\s+/).filter(Boolean)) {
+      const parts = cls.split(/:(?![^[(]*[\])])/)
+      const utility = parts.at(-1)
+      if (parts.slice(0, -1).includes('dark')) broken.add('tw-dark')
+      if (utility === 'outline-none') broken.add('tw-outline-none')
+      if (TW_PHYSICAL.test(utility)) broken.add('tw-physical')
+      if (TW_SCALED.test(utility) && !TW_STATIC.has(utility)) broken.add('tw-theme-value')
+      for (const [, inner] of cls.matchAll(/\[([^\]]+)\]/g)) {
+        const value = inner.replace(/_/g, ' ')
+        if (colourIn(value) || lengthIn(value)) broken.add('tw-arbitrary')
+      }
+    }
+  }
+  return broken
+}
+
 // Returns the rule ids a JS/JSX text breaks, for one file path (relative to the repo root).
 export function lintJs(text, file = '') {
   const js = stripJs(text)
@@ -110,6 +137,7 @@ export function lintJs(text, file = '') {
     const name = path.posix.basename(target, '.css')
     if (target.startsWith('src/ui/') && target !== 'src/ui/base.css' && file !== 'src/ui/' + name + '.jsx') broken.add('ui-css-import')
   }
+  if (file.startsWith(RARE_DIR)) for (const rule of tailwindRules(js)) broken.add(rule)
   return [...broken].sort()
 }
 
@@ -164,6 +192,14 @@ describe('token lint: self-check', () => {
     expect(lintJs('import "./Card.css"', 'src/ui/Card.jsx')).toEqual([])
     expect(lintJs('import "./ui/base.css"', 'src/main.jsx')).toEqual([])
     expect(lintJs('// <div style={{ color: "#fff" }} />\nconst a = 1', 'src/x.jsx')).toEqual([])
+  })
+
+  it('reports each Tailwind rule in a Rare UI file and nothing on a clean one', () => {
+    const file = 'src/ui/rare/X.jsx'
+    expect(lintJs('const a = <b className="bg-[#fff] dark:bg-(--color-bg) left-(--space-0) outline-none p-4" />', file)).toEqual(['tw-arbitrary', 'tw-dark', 'tw-outline-none', 'tw-physical', 'tw-theme-value'])
+    expect(lintJs('const a = <b className="h-[3px] text-sm" />', file)).toEqual(['tw-arbitrary', 'tw-theme-value'])
+    expect(lintJs('const a = <b className="p-(--space-4) text-(length:--font-size-sm) start-[13cqw] aspect-[4/3] w-full [color-scheme:dark] rtl:[clip-path:polygon(0_0,100%_50%,0_100%)]" />', file)).toEqual([])
+    expect(lintJs('const a = <b className="p-4 bg-[#fff]" />', 'src/components/X.jsx')).toEqual([])
   })
 })
 

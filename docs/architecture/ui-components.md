@@ -5,6 +5,8 @@ Pages only compose these and pass props. They take no `className`, and pages hav
 `tests/unit/ui-components.test.js` checks this file against `src/ui/`: every `## <Name>` below is a file in `src/ui/`, every
 file has a section, a `Status:` line (`built`, or `not built:` with a reason), a props table and an example.
 
+Some components have a second implementation behind the Components feature flag (`xt-kit`, `src/utils/skin.js`): real Rare UI components copied into `src/ui/rare/` (licence in `THIRD_PARTY_LICENSES/rare-ui.md`). They are styled only with Tailwind utilities that take token values (`src/styles/rare-kit.css`; the token lint checks their class strings) and load in their own chunk. The wrapper in `src/ui/` keeps our props, so pages do not change. Files in `src/ui/rare/` have no section of their own; their wrapper's section names them.
+
 ## Icon
 - File: `src/ui/Icon.jsx`
 - Status: built
@@ -396,3 +398,18 @@ file has a section, a `Status:` line (`built`, or `not built:` with a reason), a
 
 - States: none of its own. 48 px of room around the text.
 - Example: `<EmptyState title="No drafts yet." description="Create your first thread to get started." action={<Button variant="primary">Create your first draft</Button>} />`
+
+## ThemePicker
+- File: `src/ui/ThemePicker.jsx` (flag on: `src/ui/rare/ThemeSelector.jsx`, from Rare UI)
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `legend` | string | required | Shown above the choices; names the group. |
+| `value` | string | required | The chosen theme. |
+| `options` | `[{ value, label }]` | required | `value` is `light`, `dark` or `system`. |
+| `onChange` | function | required | Called with the new value. |
+
+- States: flag off (default): a `SegmentedControl` in a column. Flag on (`xt-kit` = `rare`, Feature flags > Components): Rare UI's theme selector, a 4:3 preview per theme drawn from the colour tokens in that scheme (`data-color-scope`), Match device split light and dark; radios with arrow keys (mirrored in right-to-left), Home and End; a 2 px accent ring on the chosen one. Loads in its own chunk; the segmented control shows until then.
+- Example: `<ThemePicker legend="Theme" value={value} options={[{ value: 'light', label: 'Light' }]} onChange={setValue} />`

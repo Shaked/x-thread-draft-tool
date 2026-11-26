@@ -1,0 +1,10 @@
+/*
+ * Tailwind for the Rare UI components in src/ui/rare/ (feature flag "Components", #406).
+ * Utilities only: no preflight and no Tailwind theme. A utility with a value exists only in the (--token) or
+ * [property:value] form, so every value comes from src/styles/tokens.css and follows the look (purple or
+ * data-skin='rare') and the theme (light-dark()). Not in a cascade layer, so a utility wins over the element
+ * resets in src/ui/base.css. Loaded with the lazy chunk of a Rare component only, so it costs nothing while the
+ * flag is off.
+ */
+@tailwind utilities source(none);
+@source '../ui/rare';

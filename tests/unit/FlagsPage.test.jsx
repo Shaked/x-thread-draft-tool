@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import FlagsPage from '../../src/pages/FlagsPage.jsx'
-import { SKIN_KEY } from '../../src/utils/skin.js'
+import { KIT_KEY, SKIN_KEY } from '../../src/utils/skin.js'
 
 describe('FlagsPage', () => {
   beforeEach(() => {
@@ -36,5 +36,20 @@ describe('FlagsPage', () => {
     expect(document.documentElement.dataset.skin).toBe('rare')
     expect(localStorage.getItem(SKIN_KEY)).toBe('rare')
     expect(screen.getByRole('radio', { name: 'Rare UI (black, orange)' }).checked).toBe(true)
+  })
+
+  it('switches to the Rare UI components and remembers it, apart from the look', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <FlagsPage />
+      </MemoryRouter>
+    )
+    expect(screen.getByRole('radio', { name: 'Current components' }).checked).toBe(true)
+    await user.click(screen.getByRole('radio', { name: 'Rare UI components' }))
+    expect(localStorage.getItem(KIT_KEY)).toBe('rare')
+    expect(screen.getByRole('radio', { name: 'Rare UI components' }).checked).toBe(true)
+    expect(document.documentElement.dataset.skin).toBeUndefined()
+    expect(screen.getByRole('link', { name: 'Rare UI' })).toHaveAttribute('href', 'https://rareui.com')
   })
 })
