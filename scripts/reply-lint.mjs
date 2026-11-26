@@ -90,7 +90,15 @@ function sections(lines) {
   return found
 }
 
-function checkTemplate(lines, force, add) {
+/** A "## Details" heading with nothing under it (no text and no fenced block) is left out. */
+function checkDetails(all, fencedLines, add) {
+  const details = all.find((s) => s.name.toLowerCase() === 'details')
+  if (!details || details.body.length) return
+  const next = all.find((s) => s.line > details.line)?.line ?? Infinity
+  if (!fencedLines.some((n) => n > details.line && n < next)) add(details.line, 'empty-details', 'leave out the "Details" heading when it is empty')
+}
+
+function checkTemplate(lines, force, add, fencedLines = []) {
   const all = sections(lines)
   const find = (name) => all.findIndex((s) => s.name.toLowerCase() === name.toLowerCase())
   const at = HEADINGS.map(find)
@@ -114,8 +122,7 @@ function checkTemplate(lines, force, add) {
       if (want > 0 && steps !== want) add(actions.line, 'steps', `TL;DR says ${want}, the list has ${steps} numbered steps`)
     }
   }
-  const details = all.find((s) => s.name.toLowerCase() === 'details')
-  if (details && details.body.length === 0) add(details.line, 'empty-details', 'leave out the "Details" heading when it is empty')
+  checkDetails(all, fencedLines, add)
   const done = all[at[4]]
   if (done && !/\bchecked\b/i.test(done.body.join(' '))) add(done.line, 'evidence', 'say "checked" or "not checked"')
 }
@@ -170,13 +177,14 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
   let headlineAt = 0 // the first non-blank prose line: the Telegram headline
   const prose = []
   let fenced = false
+  const fencedLines = [] // fenced content still counts as content when a section is checked for being empty
   let details = false // a changelog's "## Technical details" part is not checked (it may hold code and labels)
   text.split('\n').forEach((raw, i) => {
     const n = i + 1
     if (kind === 'changelog' && DETAILS_HEADING.test(raw)) details = true
     if (details) return
-    if (/^\s*(```|~~~)/.test(raw)) { fenced = !fenced; return }
-    if (fenced) return
+    if (/^\s*(```|~~~)/.test(raw)) { fenced = !fenced; fencedLines.push(n); return }
+    if (fenced) { fencedLines.push(n); return }
     prose.push({ text: raw, n })
     if (!headlineAt && raw.trim()) headlineAt = n
     // The net-lines line of a PR body ("Implements #273 Task R0") must stay in that exact form.
@@ -191,7 +199,7 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
     if (kind === 'reply' && LOOSE_LABEL.test(raw)) add(n, 'loose-label', 'use the "## " heading from the template, not a bold or plain label line')
     checkWords(raw, line, n, add, kind, headlineAt)
   })
-  if (kind === 'reply') checkTemplate(prose, template || findings.some((f) => f.rule === 'loose-label'), add)
+  if (kind === 'reply') checkTemplate(prose, template || findings.some((f) => f.rule === 'loose-label'), add, fencedLines)
   else checkShape(prose, kind, add)
   return findings.sort((a, b) => a.line - b.line)
 }

@@ -54,6 +54,11 @@ describe('reply-lint golden fixtures', () => {
     })
   })
 
+  it('a Details section that holds only a fenced block is not empty (Codex finding on #487)', () => {
+    const base = text('status-report', 'good-1.md')
+    expect(lint(`${base}\n## Details\n\`\`\`\nnpm run test:unit\n\`\`\`\n`, { template: true })).toEqual([])
+  })
+
   it('loose bold labels fail even without --template (a chat reply with no headings)', () => {
     const reply = '**Done:** shipped.\n**Not done:** the prompt.\n**Blocked on you:** nothing.\n'
     const rules = lint(reply).map((f) => f.rule)
