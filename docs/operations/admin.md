@@ -69,6 +69,8 @@ The check is `realSession` in `server/session.js`, used only by `server/admin/gu
 
 A delete confirm token is bound to its surface and its binding: the MCP grant on MCP, the browser session's `jti` on web (`bindOf` in `server/admin/confirm.js`). A token opens only on the surface that made it, and only in the session that made it. Another session's token, or a token from the other surface, answers 400 "confirm_token is not valid for this call. Run the dry run again."
 
+The browser pages are under `/admin` (#285): `src/pages/admin/` is one lazy chunk that is never precached (`tests/unit/admin-bundle.test.js` checks it). `isAdmin` in `src/utils/currentUser.js` is the one place the browser reads the role; the server still decides.
+
 ## What a suspended user sees
 
 - Every sign-in is refused. On the login page the user sees "This account is suspended." (`server/suspension.js`, `src/components/LoginPage.jsx`). The sign-in callback sends them to `/?suspended=1`, and they get no session cookie.

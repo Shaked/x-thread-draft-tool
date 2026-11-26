@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { lazy, Suspense, useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { authApi } from './utils/api'
-import { CurrentUserContext } from './utils/currentUser'
+import { CurrentUserContext, isAdmin } from './utils/currentUser'
 import LoginPage from './components/LoginPage'
 import DraftList from './components/DraftList'
 import DraftEditor from './pages/DraftEditor'
@@ -16,6 +16,9 @@ import { applySkin } from './utils/skin'
 import { clearCachedDrafts } from './utils/draftCache'
 import { ToastProvider } from './ui/Toast'
 import { ConfirmProvider } from './ui/Dialog'
+
+// The admin area is its own chunk that only an admin's browser asks for (#285). Keep this the only import of it.
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
 
 function App() {
   const [user, setUser] = useState(null)
@@ -91,6 +94,17 @@ function App() {
           />
           {/* Admin only (#368): for anyone else this path is unknown, so the catch-all below answers it. */}
           {user?.admin === true && <Route path="/changelog" element={<ChangelogPage />} />}
+          {/* Admin only (#482): for anyone else this path is unknown, so the catch-all below answers it. */}
+          {isAdmin(user) && (
+            <Route
+              path="/admin/*"
+              element={
+                <Suspense fallback={<div className="loading">Loading...</div>}>
+                  <AdminLayout />
+                </Suspense>
+              }
+            />
+          )}
           <Route
             path="/x-thread-preview/:token"
             element={<XThreadPreviewPage />}

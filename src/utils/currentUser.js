@@ -5,3 +5,6 @@ import { createContext, useContext } from 'react'
 export const CurrentUserContext = createContext(null)
 
 export const useCurrentUser = () => useContext(CurrentUserContext)
+
+// The one place that decides what the browser shows to the admin (#285). The server still answers 404 to everyone else.
+export const isAdmin = (user) => user?.role === 'admin'

@@ -40,7 +40,7 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | Admin status | `GET /admin/status` | `admin_status` | `no: the admin badge (Task 8) shows the same fact` | Admin only. Web surface (#283): the owner's browser session with `x-xt-admin: 1` answers every `/admin/*` route; the UI pages come in #285 and later |
 | Admin list users | `GET /admin/users` | `admin_list_users` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin user details | `GET /admin/users/:id` | `admin_get_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
-| Admin statistics | `GET /admin/stats` | `admin_stats` | `no: planned in #273 Tasks 11 to 14` | Admin only |
+| Admin statistics | `GET /admin/stats` | `admin_stats` | `/admin/*` | Admin only. The UI is a lazy chunk (#285); anyone else is sent to `/`, as for an unknown path |
 | Admin audit log | `GET /admin/audit` | `admin_audit_log` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin suspend user | `POST /admin/users/:id/suspend` | `admin_suspend_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin unsuspend user | `POST /admin/users/:id/unsuspend` | `admin_unsuspend_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
