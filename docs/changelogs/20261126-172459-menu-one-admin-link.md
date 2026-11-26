@@ -3,7 +3,7 @@
 - For the admin, the app menu now has one "Admin" link. The changelog moved out of Settings: open it from the admin menu.
 
 Area: Admin
-Link: https://github.com/Shaked/x-thread-draft-tool/pulls
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/556
 
 ## Technical details
 
