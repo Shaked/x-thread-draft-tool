@@ -281,7 +281,7 @@ describe('allowed fixes stay narrow', () => {
 })
 
 describe('reply-style check (#486)', () => {
-  const bad = 'HANDOFF #1 (x) - done\n\n**Done:** shipped.\n'
+  const bad = 'HANDOFF #1 (x) - done\n\n**Done:** shipped.\nCI is blocked.\n'
   const comment = (body, created) => ({ user: 'Shaked', author_association: 'OWNER', created_at: created, body })
   const ok = readFileSync(new URL('./fixtures/reply-lint/golden/handoff/good-1.md', import.meta.url), 'utf8')
 
@@ -290,7 +290,10 @@ describe('reply-style check (#486)', () => {
     const out = analyze(snap, { today: TODAY, knownTables: ['widget_rows'] }).filter((f) => f.kind === 'reply-style')
     expect(out).toHaveLength(1)
     expect(out[0].issues).toEqual([900])
-    expect(out[0].what).toContain('loose-label')
+    expect(out[0].what).toContain('`loose-label`')
+    // The report text passes the reply lint even when a rule name such as `blocked` is in it (Codex finding on #498).
+    const text = formatReport(out, { openCount: 1, today: TODAY, names: new Map() })
+    expect(lint(text).filter((f) => f.rule === 'blocked')).toEqual([])
     expect(out[0].what).toContain('/issues/900)')
   })
 

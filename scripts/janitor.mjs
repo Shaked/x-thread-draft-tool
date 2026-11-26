@@ -371,7 +371,7 @@ function checkReplyStyle(c, repo) {
     const rules = [...new Set(lint(h.body, { template: true }).map((f) => f.rule))]
     if (!rules.length) continue
     const url = h.html_url || `https://github.com/${repo}/issues/${h.issue}`
-    c.add('reply-style', [h.issue], `The HANDOFF on ${ref(h.issue)} breaks the reply-style rules: ${rules.join(', ')} ([comment](${url})).`, 'Run `npm run reply-lint -- --template` on it and post a corrected comment.', 'dispatcher')
+    c.add('reply-style', [h.issue], `The HANDOFF on ${ref(h.issue)} breaks the reply-style rules: ${rules.map((r) => `\`${r}\``).join(', ')} ([comment](${url})).`, 'Run `npm run reply-lint -- --template` on it and post a corrected comment.', 'dispatcher')
   }
 }
 
