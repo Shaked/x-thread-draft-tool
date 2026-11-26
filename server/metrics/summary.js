@@ -48,7 +48,7 @@ export function summaryParams(searchParams) {
 }
 
 function finding(area, text, extra = {}) {
-  return { area, text, value: null, unit: null, limit: null, baseline: null, over: false, since: null, count_over: null, link: null, ...extra }
+  return { area, text, value: null, unit: null, limit: null, baseline: null, over: false, since: null, count_over: null, link: null, ci: null, ...extra }
 }
 
 function speedFinding(events, base, link) {
@@ -76,6 +76,10 @@ function speedFinding(events, base, link) {
   })
 }
 
+// CI time and flaky retries for the page (#452). A flaky retry is a run that passed on a second or later attempt (id `<run>.<attempt>`).
+const flaky = (list) => list.filter((e) => e.status === 'success' && Number(String(e.id).split('.')[1]) > 1).length
+const ciTimes = (list) => list.filter((e) => e.ms !== null).map((e) => e.ms)
+
 function ciFinding(events, base, repo) {
   const runs = events.filter((e) => e.kind === 'run')
   const baseRuns = base.filter((e) => e.kind === 'run')
@@ -96,7 +100,11 @@ function ciFinding(events, base, repo) {
     text += ` Most failures: ${top} (${n}).`
     if (last.link) text += ` Last failure: ${last.link}`
   }
-  return finding('ci', text, { value: pct, unit: '%', baseline: basePct, link: last?.link ?? link })
+  const ci = {
+    median_ms: rank(ciTimes(runs), 0.5), p90_ms: rank(ciTimes(runs), 0.9), flaky: flaky(runs),
+    baseline_median_ms: rank(ciTimes(baseRuns), 0.5), baseline_p90_ms: rank(ciTimes(baseRuns), 0.9), baseline_flaky: flaky(baseRuns)
+  }
+  return finding('ci', text, { value: pct, unit: '%', baseline: basePct, link: last?.link ?? link, ci })
 }
 
 function deployFinding(events, base, repo) {
@@ -149,7 +157,7 @@ export async function summaryView({ window, repo }, now = Date.now()) {
   const from = now - windowMs
   const repoId = String(listedRepo(repo).repository_id)
   const { rows } = await query(
-    `select source, kind, name, status, ms, attrs, link, at from ops_events
+    `select source, kind, id, name, status, ms, attrs, link, at from ops_events
      where repo_id = $1 and at >= $2::timestamptz and at < $3::timestamptz
        and ((source = 'speed' and kind = 'merge') or (source = 'ci' and kind = 'run') or (source = 'deploy' and kind = 'deploy'))
      order by at`,

@@ -9,6 +9,7 @@ import Skeleton from '../../ui/Skeleton'
 import Stack from '../../ui/Stack'
 import Table from '../../ui/Table'
 import { adminApi } from '../../utils/api'
+import DeliverySection from './DeliverySection'
 
 const WINDOWS = [
   { value: '24h', label: '24 hours' },
@@ -200,6 +201,7 @@ export default function AdminMetricsPage() {
           rows={productRows}
         />
       </Section>
+      <DeliverySection />
     </Stack>
   )
 }

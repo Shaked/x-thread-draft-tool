@@ -83,6 +83,13 @@ export const adminApi = {
   },
   metricsSeries(name, window) {
     return request(`/admin/metrics/series?name=${name}&window=${window}`, { headers: { 'x-xt-admin': '1' } })
+  },
+  // The delivery section (#452): the summary lines and the newest delivery events (window is 24h or 7d).
+  metricsSummary(window) {
+    return request(`/admin/metrics/summary?window=${window}`, { headers: { 'x-xt-admin': '1' } })
+  },
+  metricsEvents(since) {
+    return request(`/admin/metrics/events?limit=20&since=${encodeURIComponent(since)}`, { headers: { 'x-xt-admin': '1' } })
   }
 }
 

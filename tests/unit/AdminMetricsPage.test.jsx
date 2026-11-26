@@ -21,6 +21,8 @@ function answer(me = {}) {
   return vi.fn(async (url) => {
     const path = String(url)
     if (path === '/api/auth/me') return { ok: true, json: async () => me }
+    if (path.startsWith('/api/admin/metrics/summary')) return { ok: true, json: async () => SUMMARY }
+    if (path.startsWith('/api/admin/metrics/events')) return { ok: true, json: async () => EVENTS }
     if (path.startsWith('/api/admin/metrics/series')) {
       const name = new URL(path, 'http://x').searchParams.get('name')
       if (name === 'requests') return { ok: true, json: async () => series('requests', [5, 9, 3], 'hour', [20, null, 30]) }
@@ -36,6 +38,22 @@ function answer(me = {}) {
     }
     return { ok: false, status: 404, json: async () => ({}) }
   })
+}
+
+const finding = (area, extra = {}) => ({ area, text: '', value: null, baseline: null, ci: null, ...extra })
+const SUMMARY = {
+  text: 'Metrics summary for Shaked/x-thread-draft-tool, last 24 hours.\n- CI checks: 4 runs, 1 failed (25 %). Last week 50 %.\nNothing is over its limit.',
+  findings: [
+    finding('speed', { value: 200, baseline: 120 }),
+    finding('ci', { value: 25, baseline: 50, ci: { median_ms: 120000, p90_ms: 300000, flaky: 1, baseline_median_ms: 90000, baseline_p90_ms: null, baseline_flaky: 0 } }),
+    finding('deploys', { value: 22, baseline: null })
+  ]
+}
+const EVENTS = {
+  events: [
+    { at: '2026-11-26T10:00:00.000Z', source: 'ci', kind: 'run', id: '1.2', name: 'Tests', status: 'failure', ms: 61000, link: 'https://github.com/x/y/actions/runs/1' },
+    { at: '2026-11-26T09:00:00.000Z', source: 'deploy', kind: 'deploy', id: 'd1', name: 'Production', status: 'success', ms: null, link: null }
+  ]
 }
 
 const open = () =>
@@ -80,13 +98,35 @@ describe('admin metrics page', () => {
     expect(chart.querySelectorAll('circle')).toHaveLength(5) // 3 requests + 2 p95 (the null is a gap)
   })
 
+  it('shows the delivery section: each number with last week, the events with links, and the history link', async () => {
+    const fetchMock = answer()
+    vi.stubGlobal('fetch', fetchMock)
+    open()
+    const section = within(await screen.findByRole('region', { name: 'Delivery and CI' }))
+    await section.findByText('CI time, median')
+    expect(section.getByText('2 min (last week 1 min 30 s)')).toBeInTheDocument()
+    expect(section.getByText('5 min (last week –)')).toBeInTheDocument()
+    expect(section.getByText('3 min 20 s (last week 2 min)')).toBeInTheDocument()
+    expect(section.getByText('22 s (last week –)')).toBeInTheDocument()
+    expect(section.getByText('25 % (last week 50 %)')).toBeInTheDocument()
+    expect(section.getByText('1 (last week 0)')).toBeInTheDocument()
+    const table = section.getByRole('table', { name: 'Delivery events, newest first' })
+    expect(within(table).getAllByRole('row')).toHaveLength(3)
+    expect(within(table).getByRole('link', { name: 'Open' })).toHaveAttribute('href', 'https://github.com/x/y/actions/runs/1')
+    expect(section.getByRole('link', { name: /speed-metrics workflow runs/ })).toHaveAttribute('href', expect.stringContaining('speed-metrics.yml'))
+    expect(fetchMock.mock.calls.find(([url]) => String(url).includes('/metrics/summary'))[1].headers['x-xt-admin']).toBe('1')
+    fireEvent.click(section.getByRole('radio', { name: '7 days' }))
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url) === '/api/admin/metrics/summary?window=7d')).toBe(true))
+  })
+
   it('loads the new window when the switch changes', async () => {
     const fetchMock = answer()
     vi.stubGlobal('fetch', fetchMock)
     open()
     await screen.findByText('5xx share')
-    fireEvent.click(screen.getByRole('radio', { name: '7 days' }))
-    expect(screen.getByRole('radio', { name: '7 days' })).toBeChecked() // the switch stays while the new window loads
+    const pageSwitch = within(screen.getByRole('group', { name: 'Time window' }))
+    fireEvent.click(pageSwitch.getByRole('radio', { name: '7 days' }))
+    expect(pageSwitch.getByRole('radio', { name: '7 days' })).toBeChecked() // the switch stays while the new window loads
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url) === '/api/admin/metrics?window=7d&by=total')).toBe(true))
   })
 
