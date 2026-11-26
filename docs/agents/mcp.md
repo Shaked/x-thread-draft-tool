@@ -128,7 +128,7 @@ client's current documentation. Check the app's own settings page if a step diff
 2. Create a connector, paste the URL, and choose OAuth for authentication.
 
 **Grok**
-1. Open grok.com/connectors and choose New Connector.
+1. Open `grok.com/connectors` and choose New Connector.
 2. Choose Custom, paste the URL, and complete any sign-in the page asks for.
 
 Not checked: these steps were not read from xAI's documentation. The page https://docs.x.ai/grok/connectors
