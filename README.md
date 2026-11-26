@@ -252,7 +252,7 @@ When a task changes behavior, contributors should update:
 
 ## License
 
-MIT, except the third-party files listed in THIRD_PARTY_LICENSES/, which keep their own licences.
+MIT (see [LICENSE](./LICENSE)), except the third-party files listed in THIRD_PARTY_LICENSES/, which keep their own licences.
 
 ## Credits
 

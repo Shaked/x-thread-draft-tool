@@ -29,11 +29,11 @@ Rules that come from the code:
 
 The browser app shows who is admin from `GET /api/auth/me`: `user.role` is `admin` or `user` for a browser session (#282, `roleOf` in `role.js`). The badge and the Admin menu section show only for `admin`. An API token caller gets no `role`, and `ADMIN_DISABLED=1` gives `user`.
 
-The changelog (`GET /api/changelog`, the `/changelog` page and the `changelog` key of `app_version`) is admin only: `requireAdminUser` in `server/admin/guard.js` calls `roleOf` in `role.js`; everyone else gets the 404 of an unknown path (#368).
+The changelog (`GET /api/changelog`, the `/admin/changelog` page and the `changelog` key of `app_version`) is admin only: `requireAdminUser` in `server/admin/guard.js` calls `roleOf` in `role.js`; everyone else gets the 404 of an unknown path (#368). The old `/changelog` page address redirects the admin to `/admin/changelog` (#484).
 
 ## The ten tools
 
-The admin connection sees the ten admin tools below. Nobody else sees any of them.
+The admin connection sees the twelve admin tools below. Nobody else sees any of them.
 
 | Tool | Arguments | REST route |
 |---|---|---|
@@ -44,6 +44,8 @@ The admin connection sees the ten admin tools below. Nobody else sees any of the
 | `admin_audit_log` | `limit` (1 to 100, default 50), `before` (ISO time) | `GET /api/admin/audit` |
 | `admin_metrics` | `window` (`1h`, `24h`, `7d`, `30d`, `90d`, `400d`; default `24h`), `by` (`route`, `op`, `caller`, `all`; default `route`), `route` (a route of the app or `unmatched`) | `GET /api/admin/metrics` |
 | `admin_metrics_series` | `name` (`requests`, `errors_5xx`, `errors_4xx`, `rate_limited`, `cold_starts`, `p50`, `p95`, `p99`, or one `metrics_product_daily` column), `window` (`24h`, `7d`, `30d`, `90d`, `400d`; default `7d`), `route` (request series only) | `GET /api/admin/metrics/series` |
+| `admin_list_flags` | none | `GET /api/admin/flags` |
+| `admin_set_flag` | `flag` (`look` or `components`), `value` (`default` or `rare`); own view only, audited, no confirm token | `POST /api/admin/flags` |
 | `admin_suspend_user` | `id`, `confirm_login` (the exact login, typed by you), `reason` (optional, 200 characters) | `POST /api/admin/users/:id/suspend` |
 | `admin_unsuspend_user` | `id`, `confirm_login` | `POST /api/admin/users/:id/unsuspend` |
 | `admin_delete_user` | `id`, `dry_run` (default true), `confirm_token`, `confirm_login` | `POST /api/admin/users/:id/delete` |
