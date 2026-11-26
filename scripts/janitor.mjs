@@ -255,10 +255,9 @@ function checkRefs(c, i, d) {
 
 const scopeOf = (i) => i.parent ?? taskId(i)?.prefix ?? null
 
-/** The one issue a bare task id ("M5") names, in the same epic or with the same title prefix; null when none or several. */
+/** The one issue a bare task id ("M5") names in the same epic (sameEpic); null when none or several. */
 export function resolveTaskId(all, i, id) {
-  const own = taskId(i)
-  const hits = all.filter((x) => x.number !== i.number && taskId(x)?.id === id && (scopeOf(x) === scopeOf(i) || (Boolean(own?.prefix) && taskId(x).prefix === own.prefix)))
+  const hits = all.filter((x) => x.number !== i.number && taskId(x)?.id === id && sameEpic(x, i))
   return hits.length === 1 ? hits[0].number : null
 }
 
@@ -390,7 +389,8 @@ export function order(snapshot) {
   const parsed = new Map(open.map((i) => [i.number, dependencies(i.body)]))
   // Numbers, plus task ids that name exactly one issue ("Depends on: M5").
   const edges = (i) => [...parsed.get(i.number).refs, ...parsed.get(i.number).named.map((id) => resolveTaskId(all, i, id))]
-  const need = new Map(open.map((i) => [i.number, [...new Set(edges(i))].filter((n) => set.has(n) && n !== i.number)]))
+  // A self-dependency stays in, so that task and the ones after it are left out like any other cycle.
+  const need = new Map(open.map((i) => [i.number, [...new Set(edges(i))].filter((n) => set.has(n))]))
   // "Goes before #n" on task a means #n waits for a.
   for (const [a, d] of parsed) for (const n of d.before) if (set.has(n) && n !== a && !need.get(n).includes(a)) need.get(n).push(a)
   const done = new Set()

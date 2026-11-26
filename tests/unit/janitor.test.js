@@ -187,6 +187,17 @@ describe('allowed fixes stay narrow', () => {
   const base = (issues, comments = {}) => ({ repo: 'example/repo', issues, pulls: [], open_pulls: [], markers: {}, comments })
   const issue = (number, title, extra = {}) => ({ number, title, state: 'open', labels: [{ name: 'task' }], body: '', updated_at: TODAY, ...extra })
 
+  it('does not resolve a task id across two parent epics', () => {
+    const snap = base([issue(1, 'E9 task A1: first', { parent: 7, body: 'Depends on A2.' }), issue(2, 'E9 task A2: second', { parent: 8 })])
+    expect(analyze(snap, { today: TODAY }).filter((f) => f.kind === 'missing-dependency')).toEqual([])
+    expect(order(snap).order).toEqual([1, 2])
+  })
+
+  it('leaves a self-dependent task and the tasks after it out of the order', () => {
+    const snap = base([issue(1, 'E9 task A1: self', { body: 'Depends on: #1.' }), issue(2, 'E9 task A2: after', { body: 'Depends on: #1.' }), issue(3, 'E9 task A3: free')])
+    expect(order(snap)).toEqual({ order: [3], left: [1, 2] })
+  })
+
   it('orders a dependency named by task id only', () => {
     const snap = base([issue(1, 'E9 task A1: first', { body: 'Depends on A2.' }), issue(2, 'E9 task A2: second task')])
     expect(order(snap).order).toEqual([2, 1])
