@@ -7,12 +7,12 @@
   min-inline-size: 0;
 }
 
-.ui-inline > .ui-field {
+.ui-inline:not(.ui-inline--equal) > .ui-field {
   flex: 1 1 var(--flex-min);
 }
 
 @media (width < 600px) {
-  .ui-inline > .ui-field {
+  .ui-inline:not(.ui-inline--equal) > .ui-field {
     flex-basis: 100%;
   }
 }

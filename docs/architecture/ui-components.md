@@ -135,7 +135,7 @@ Some components have a second implementation behind the Components feature flag 
 | `haspopup` | `menu` | | The button opens a menu: sets `aria-haspopup`. Used by `Menu`. |
 | `expanded` | boolean | | Whether that menu is open: sets `aria-expanded`. |
 | `controls` | string | | The `id` of the menu it opens: sets `aria-controls`. |
-| `ariaCurrent` | `page` | | Marks the link of the open page: sets `aria-current`; a ghost button gets the soft accent background (#551). |
+| `ariaCurrent` | `page` | | Marks the link of the open page: sets `aria-current`; a ghost button gets the soft accent background and an accent edge on the inline start (#551). |
 | `onClick` | function | | |
 
 - States: default, hover (only where hover exists), pressed (scale 0.98), focus-visible (the base focus ring), disabled (half opacity), loading, disabled with reason.
@@ -455,6 +455,7 @@ Some components have a second implementation behind the Components feature flag 
 | `rows` | object[] | required | One object per row, with the column keys. |
 
 - States: a real table from 768 px; below that each row is a card with a label and value line per cell.
+- A table wider than its column scrolls inside a focusable region named by the caption, never the page (#551).
 - Example: `<Table caption="Signups" columns={[{ key: 'day', label: 'Day' }, { key: 'n', label: 'Signups' }]} rows={rows} />`
 
 ## SideLayout
