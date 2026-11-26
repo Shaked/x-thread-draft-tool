@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import tailwindcss from '@tailwindcss/vite'
 import { readFileSync } from 'node:fs'
 
 // scripts/build-info.mjs writes this file first in `npm run build`; it is absent before the first build.
@@ -17,6 +18,7 @@ export default defineConfig({
   define: { __BUILD_INFO__: JSON.stringify(readBuildInfo()) },
   plugins: [
     react(),
+    tailwindcss(),
     VitePWA({
       // Avoid automatic reloads when the tab regains focus and a new SW is available.
       // The new worker takes over at once (skipWaiting + clientsClaim below). Without that, a

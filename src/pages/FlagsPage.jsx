@@ -5,11 +5,16 @@ import PageHeader from '../ui/PageHeader'
 import SegmentedControl from '../ui/SegmentedControl'
 import Section from '../ui/Section'
 import Stack from '../ui/Stack'
-import { getSkin, setSkin } from '../utils/skin'
+import { getKit, getSkin, setKit, setSkin } from '../utils/skin'
 
 const LOOKS = [
   { value: 'default', label: 'Current (purple)' },
   { value: 'rare', label: 'Rare UI (black, orange)' }
+]
+
+const KITS = [
+  { value: 'default', label: 'Current components' },
+  { value: 'rare', label: 'Rare UI components' }
 ]
 
 // Feature flags: switches that change what this browser shows. They are stored on this device only,
@@ -17,6 +22,8 @@ const LOOKS = [
 export default function FlagsPage() {
   const [look, setLook] = useState(getSkin)
   const choose = (next) => setLook(setSkin(next))
+  const [kit, setKitChoice] = useState(getKit)
+  const chooseKit = (next) => setKitChoice(setKit(next))
 
   return (
     <Page width="narrow">
@@ -25,13 +32,19 @@ export default function FlagsPage() {
         <Section title="Look" description="Colours, corner radius, shadows and motion for every page and component.">
           <Stack gap={4}>
             <SegmentedControl legend="Look" value={look} options={LOOKS} onChange={choose} />
+          </Stack>
+        </Section>
+        <Section title="Components" description="Use the real Rare UI component for the theme choice in the menu. It takes the colours of the look above.">
+          <Stack gap={4}>
+            <SegmentedControl legend="Components" value={kit} options={KITS} onChange={chooseKit} />
             <Banner tone="info" role="none">
               <p>
-                No Rare UI code is used. The colours and corners are inspired by the{' '}
+                The Rare UI look is inspired by the{' '}
                 <a href="https://rareui.com" target="_blank" rel="noreferrer">
                   Rare UI
                 </a>{' '}
-                project, linked here as credit. Light, dark and Hebrew right-to-left layouts work in both looks.
+                project, and the Rare UI components are copied from it under its licence (MIT with Commons Clause and
+                attribution); this link is the credit. Light, dark and Hebrew right-to-left layouts work with every choice.
               </p>
             </Banner>
           </Stack>

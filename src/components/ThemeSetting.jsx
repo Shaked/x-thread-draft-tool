@@ -1,19 +1,18 @@
 import { useState } from 'react'
 import { getTheme, setTheme, THEMES } from '../utils/theme'
-import SegmentedControl from '../ui/SegmentedControl'
+import ThemePicker from '../ui/ThemePicker'
 
 const LABELS = { light: 'Light', dark: 'Dark', system: 'Match device' }
 
-// The theme choice inside the menu drawer: one segment per theme, stacked.
+// The theme choice inside the menu drawer: one segment per theme, stacked (or Rare UI's theme selector, feature flag).
 export default function ThemeSetting() {
   const [value, setValue] = useState(getTheme)
 
   const choose = (next) => setValue(setTheme(next))
 
   return (
-    <SegmentedControl
+    <ThemePicker
       legend="Theme"
-      orientation="column"
       value={value}
       onChange={choose}
       options={THEMES.map((option) => ({ value: option, label: LABELS[option] }))}
