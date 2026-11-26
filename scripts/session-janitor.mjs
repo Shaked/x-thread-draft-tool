@@ -189,7 +189,7 @@ function checkStuck(c, s, issue) {
 
 function checkOrphan(c, s) {
   const n = titleIssue(s.title)
-  const named = n !== null ? `; its title names #${n}, which is not in the issue list` : '; no issue number in its title, no CLAIM or HANDOFF names it'
+  const named = n !== null ? `; its title names ${ref(n)}` : '; no issue number in its title, no CLAIM or HANDOFF names it'
   c.add('orphan-session', [s.id], null, `${state(s)}${named}.`, 'Read it: link it to its issue with a CLAIM, or archive it once it is completed.')
 }
 
@@ -379,12 +379,23 @@ export function needs(sessionsDoc, snapshot, comments = {}) {
 }
 
 const LABELS = new Map(KINDS)
+// One table cell: one line, and a "|" (from pass 1 text or an agent's words) cannot end the cell.
+const cell = (text) => String(text).replace(/\s+/g, ' ').replace(/\|/g, '/')
+// GitHub refuses a comment over 65 536 characters; above this the skill posts pass 1 as a second comment.
+export const COMMENT_MAX = 60000
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
 /** 3 to 6 words for every issue and pull request in the snapshot (open PRs too), keyed by number. */
 export function describeSnapshot(snapshot) {
   const names = describeAll(snapshot)
-  for (const p of snapshot.open_pulls || []) if (!names.has(p.number)) names.set(p.number, shortName({ title: p.title || '' }))
+  const issues = new Set((snapshot.issues || []).map((i) => i.number))
+  // A short PR title is padded with "pull request", not with the word "issue" that shortName adds.
+  for (const p of [...(snapshot.pulls || []), ...(snapshot.open_pulls || [])]) {
+    if (!issues.has(p.number)) names.set(p.number, shortName({ title: p.title || '' }).replace(/ issue$/, ' pull request'))
+  }
+  // A "|" in a title would break the Details table, and it is not a word: the name is made again without it.
+  for (const i of snapshot.issues || []) if (/\|/.test(i.title || '')) names.set(i.number, shortName({ title: i.title.replace(/\|/g, ' ') }))
+  for (const [n, words] of names) names.set(n, words.replace(/\|/g, ' ').replace(/\s+/g, ' '))
   return names
 }
 
@@ -423,8 +434,8 @@ export function formatSummary(findings, { counts, today, repo = REPO, names = ne
   if (owner.length) owner.forEach((f) => lines.push(`- ${x(f.evidence)}`))
   else lines.push('Nothing.')
   lines.push('', '## Done', `- Read ${plural(counts.sessions, 'session')} in ${plural(counts.pages, 'page')} (\`has_more\` false) and ${plural(counts.issues, 'issue')}, checked.`,
-    `- Checked the ${counts.inScope} sessions tagged \`pipeline\` or \`epic-<n>\` and their dispatcher; the others belong to other projects.`)
-  for (const a of applied) lines.push(`- ${x(ref(a.issue))}: ${a.what}, checked.`)
+    `- Checked ${plural(counts.inScope, 'session')} in scope (tagged \`pipeline\` or \`epic-<n>\`, with their dispatcher); the others belong to other projects.`)
+  for (const a of applied) lines.push(`- ${x(ref(a.issue))}: ${String(a.what).replace(/\s+/g, ' ')}, checked.`)
   if (!applied.length) lines.push('- No fix applied in this run.')
   lines.push('', '## Details', '### Findings')
   if (!findings.length) lines.push('No findings.')
@@ -433,7 +444,8 @@ export function formatSummary(findings, { counts, today, repo = REPO, names = ne
     for (const f of findings) {
       const sessions = f.sessions.length ? f.sessions.map(code).join(', ') : 'none'
       const issue = f.issue ? x(ref(f.issue)) : 'none'
-      lines.push(`| ${LABELS.get(f.kind)} | ${sessions} | ${issue} | ${x(f.evidence)} | ${x(f.action)} \`${f.act}\` |`)
+      const cells = [LABELS.get(f.kind), sessions, issue, x(f.evidence), `${x(f.action)} \`${f.act}\``].map(cell)
+      lines.push(`| ${cells.join(' | ')} |`)
     }
   }
   if (pass1.trim()) lines.push('', '### Pass 1 report (task janitor)', pass1.trim())
@@ -487,14 +499,16 @@ function main() {
     process.stdout.write(JSON.stringify(findings, null, 1) + '\n')
     return
   }
-  process.stdout.write(formatSummary(findings, {
+  const text = formatSummary(findings, {
     counts: summaryCounts(doc, snapshot),
     today,
     repo: snapshot.repo || REPO,
     names: describeSnapshot(snapshot),
     applied: opt('--applied') ? json(opt('--applied')) : [],
     pass1: opt('--pass1') ? readFileSync(opt('--pass1'), 'utf8') : ''
-  }))
+  })
+  process.stdout.write(text)
+  console.error(`summary: ${text.length} characters${text.length > COMMENT_MAX ? `, over ${COMMENT_MAX}: leave out --pass1 and post pass1.txt as a second comment` : ''}`)
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

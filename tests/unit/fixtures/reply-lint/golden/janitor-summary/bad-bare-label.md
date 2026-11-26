@@ -30,20 +30,20 @@ Nothing.
 
 ## Done
 - Read 14 sessions in 1 page (`has_more` false) and 13 issues, checked.
-- Checked the 13 sessions tagged `pipeline` or `epic-<n>` and their dispatcher; the others belong to other projects.
+- Checked 13 sessions in scope (tagged `pipeline` or `epic-<n>`, with their dispatcher); the others belong to other projects.
 - #101: closed as completed after reading its HANDOFF, checked.
 
 ## Details
 ### Findings
 | Kind | Session | Issue | Evidence | Proposed action |
 |---|---|---|---|---|
-| Done, issue open | `session_done` | #101 | session `completed`; the last HANDOFF says done and has RELEASE; PR #201 (Export button issue) is merged; matched by title and claim. | Close #101 as completed after reading its HANDOFF. `allowed` |
-| Done, issue open | `session_merged` | #102 (`E100` task `A2` import screen) | session `review_ready`; merged PR #202 (Import screen issue) names it; no done HANDOFF; matched by title. | Read the PRs and the issue: close it, or write in the issue what is left. `dispatcher` |
+| Done, issue open | `session_done` | #101 | session `completed`; the last HANDOFF says done and has RELEASE; PR #201 (Export button pull request) is merged; matched by title and claim. | Close #101 as completed after reading its HANDOFF. `allowed` |
+| Done, issue open | `session_merged` | #102 (`E100` task `A2` import screen) | session `review_ready`; merged PR #202 (Import screen pull request) names it; no done HANDOFF; matched by title. | Read the PRs and the issue: close it, or write in the issue what is left. `dispatcher` |
 | Done, no HANDOFF | `session_nohand` | #103 (`E100` task `A3` share link) | session `completed`; no HANDOFF comment; no open PR names it; matched by title. | Ask the session to post its HANDOFF with RELEASE. `dispatcher` |
 | Failed or needs input | `session_failed` | #104 (`E100` task `A4` undo stack) | session `failed`: its last turn failed; model `claude-haiku-5-5`; last: `npm ci failed / disk full`. | Resume: send "continue from your last step" once; failed twice, a new session with Sonnet on the same branch. `dispatcher` |
 | Failed or needs input | `session_asks` | #105 (`E100` task `A5` draft search) | session `blocked`, it asks: `pick the search ranking; my token [redacted] is in the log`. | Decide: read its last message and answer it; an owner-only matter goes to Shaked with the label `owner`. `dispatcher` |
-| Review-ready, PR open | `session_review` | #106 (`E100` task `A6` tag filter) | session `review_ready` for 6 hours; PR #206 (Tag filter issue): checks `red`, 1 open Codex thread. | Nudge it: fix the red checks and answer the Codex threads, then merge. `dispatcher` |
-| Review-ready, PR open | `session_paused` | #112 (`E100` task `B2` paused work) | session `review_ready` for 144 hours; PR #212 (Paused work issue): checks not read. | Nudge it to merge once Opus has judged the final head. `dispatcher` |
+| Review-ready, PR open | `session_review` | #106 (`E100` task `A6` tag filter) | session `review_ready` for 6 hours; PR #206 (Tag filter pull request): checks `red`, 1 open Codex thread. | Nudge it: fix the red checks and answer the Codex threads, then merge. `dispatcher` |
+| Review-ready, PR open | `session_paused` | #112 (`E100` task `B2` paused work) | session `review_ready` for 144 hours; PR #212 (Paused work pull request): checks not read. | Nudge it to merge once Opus has judged the final head. `dispatcher` |
 | Orphan session | `session_orphan` | none | session `working`; no issue number in its title, no CLAIM or HANDOFF names it. | Read it: link it to its issue with a CLAIM, or archive it once it is completed. `dispatcher` |
 | Orphan claim | `session_gone` | #107 (`E100` task `A7` theme switch) | #107 has a CLAIM with no RELEASE; its session is not in the dump (archived, gone, or left out): check it with `get_session` before a release. | Dispatcher watchdog: check the session with `get_session`, then resume it, start a new one, or release the claim. `dispatcher` |
 | Duplicate sessions | `session_dupa`, `session_dupb` | #108 (`E100` task `A8` word count) | 2 sessions match it: `working`, `working`. | Dispatcher: keep `session_dupa`, named in the live CLAIM; archive the others only once they are completed. `dispatcher` |

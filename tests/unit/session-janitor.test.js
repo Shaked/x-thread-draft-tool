@@ -243,6 +243,20 @@ describe('the templated summary', () => {
     expect(withOwner).toContain('You need to do 1 thing (below).')
   })
 
+  it('passes the lint for a title naming an unknown number and for titles with a pipe', () => {
+    const doc = edit('session_orphan', { title: 'Look at #999 ideas' })
+    const snap = { ...snapshot, issues: snapshot.issues.map((i) => (i.number === 109 || i.number === 110 ? { ...i, title: 'E100 task A9: print | view' } : i)) }
+    const result = analyzeSessions(doc, snap, { comments, pulls })
+    const text = formatSummary(result, { ...options, names: describeSnapshot(snap), applied: [{ issue: 101, what: 'closed | checked' }] })
+    expect(lint(text, { template: true })).toEqual([])
+    expect(text).toContain('#999 (not in the issue list)')
+    expect(text.split('\n').filter((l) => l.startsWith('| ') && l.includes('`session_')).every((l) => l.split(' | ').length === 5)).toBe(true)
+  })
+
+  it('pads a short PR title with "pull request"', () => {
+    expect(describeSnapshot(snapshot).get(201)).toBe('Export button pull request')
+  })
+
   it('puts the counts first, with every kind', () => {
     const top = text.split('## TL;DR')[0]
     expect(top).toContain('14 sessions read in 1 page, 13 in scope,')
