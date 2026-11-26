@@ -8,6 +8,7 @@ import { listBlobPrefix } from '../blob.js'
 import { deleteUser } from '../admin/delete-user.js'
 import { transaction } from '../db.js'
 import { HttpError, json, readJson, readOptionalJson } from '../http.js'
+import { listFlags, setFlag } from '../admin/flags.js'
 import { cached, metricsParams, metricsView, seriesParams, seriesView } from '../metrics/view.js'
 
 // Admin routes (plan A2). Each one is built with adminRoute, which refuses everyone but the admin.
@@ -254,5 +255,7 @@ export const adminRoutes = [
   adminRoute('GET', '/admin/stats', stats),
   adminRoute('GET', '/admin/audit', audit),
   adminRoute('GET', '/admin/metrics', metrics),
-  adminRoute('GET', '/admin/metrics/series', metricsSeries)
+  adminRoute('GET', '/admin/metrics/series', metricsSeries),
+  adminRoute('GET', '/admin/flags', listFlags),
+  adminRoute('POST', '/admin/flags', setFlag)
 ]

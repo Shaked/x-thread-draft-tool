@@ -5,6 +5,7 @@ import Page from '../../ui/Page'
 import PageHeader from '../../ui/PageHeader'
 import SideLayout from '../../ui/SideLayout'
 import Stack from '../../ui/Stack'
+import AdminFlagsPage from './AdminFlagsPage'
 import AdminStatsPage from './AdminStatsPage'
 import ChangelogPage from '../ChangelogPage'
 
@@ -12,7 +13,7 @@ import ChangelogPage from '../ChangelogPage'
 const ENTRIES = [
   { path: '', label: 'Statistics' },
   { path: 'metrics', label: 'Metrics', soon: true },
-  { path: 'flags', label: 'Feature flags', soon: true },
+  { path: 'flags', label: 'Feature flags', page: <AdminFlagsPage /> },
   { path: 'changelog', label: 'Changelog', page: <ChangelogPage /> },
   { path: 'users', label: 'Users', soon: true },
   { path: 'audit', label: 'Audit log', soon: true }

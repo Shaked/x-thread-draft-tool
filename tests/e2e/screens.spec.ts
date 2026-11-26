@@ -7,7 +7,7 @@
 // twice, and the second request hits the one-use share link and gets 410.
 // Writes test-results/screens/<width>/<name>.png for 390 px and 1280 px wide:
 // login, login-suspended, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens, apps, changelog,
-// flags (the Feature flags page, #406), dialog-delete, dialog-revoke, toast-copied (plan U5), consent-signed-out and consent (the OAuth approval pages, plan T3).
+// dialog-delete, dialog-revoke, toast-copied (plan U5), consent-signed-out and consent (the OAuth approval pages, plan T3).
 // Under 800 px wide, each shot also writes <name>-viewport.png: what is on the screen, with the fixed bar.
 //
 // Signed-in pages use a dev API token (POST /api/dev/token), sent as a bearer header on /api calls.
@@ -21,7 +21,7 @@ import path from 'node:path'
 const BASE = process.env.XT_BASE_URL ?? 'http://localhost:4173'
 const ORIGIN = new URL(BASE).origin
 const WIDTHS = [390, 1280]
-// XT_SKIN=rare takes the shots with the Rare UI look (feature flag, Settings > Feature flags) into test-results/screens-rare.
+// XT_SKIN=rare takes the shots with the Rare UI look (feature flag, admin only: Admin > Feature flags) into test-results/screens-rare.
 const SKIN = process.env.XT_SKIN === 'rare' ? 'rare' : null
 const OUT = path.join('test-results', SKIN ? `screens-${SKIN}` : 'screens')
 // The dev API checks the Origin of cookie POSTs against its own address; the preview (4173) is proxied to it.
@@ -80,6 +80,17 @@ async function shoot(
       }
       return route.continue()
     })
+  }
+  if (options.token && SKIN) {
+    // The look is the admin's (#483): answer as the admin with the requested look, as the UI audit does.
+    await context.route(`${ORIGIN}/api/auth/me`, async (route) => {
+      const res = await route.fetch({ headers: { ...route.request().headers(), authorization: `Bearer ${options.token}` } })
+      const body = await res.json()
+      return route.fulfill({ response: res, json: { ...body, user: body.user && { ...body.user, role: 'admin' } } })
+    })
+    await context.route(`${ORIGIN}/api/admin/flags`, (route) =>
+      route.fulfill({ json: { flags: [{ name: 'look', value: SKIN }, { name: 'components', value: 'default' }] } })
+    )
   }
   if (options.cookie) {
     // Creating a token needs a browser session (cookie), so POSTs go out with the API origin.
@@ -275,9 +286,6 @@ test.describe('screens', () => {
       const appsReady = (p: Page) => p.getByRole('heading', { name: 'Connected apps', level: 1 })
       await shoot(browser, width, 'apps', '/settings/apps', { token: owner, ready: appsReady })
       await shoot(browser, width, 'apps-dark', '/settings/apps', { token: owner, theme: 'dark', ready: appsReady })
-      const flagsReady = (p: Page) => p.getByRole('heading', { name: 'Feature flags', level: 1 })
-      await shoot(browser, width, 'flags', '/settings/flags', { token: owner, ready: flagsReady })
-      await shoot(browser, width, 'flags-dark', '/settings/flags', { token: owner, theme: 'dark', ready: flagsReady })
 
       // The changelog page (settings-menu.md Task 6): light at both widths, dark on phones.
       const changelogReady = (p: Page) => p.locator('article').first()

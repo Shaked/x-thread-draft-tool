@@ -1,13 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { applySkin, getKit, getSkin, KIT_KEY, setKit, setSkin, SKIN_KEY } from '../../src/utils/skin.js'
+import { readFileSync } from 'node:fs'
+import { allowFlags, forgetFlags, applySkin, getKit, getSkin, KIT_KEY, setKit, setSkin, SKIN_KEY } from '../../src/utils/skin.js'
 
 describe('skin (look feature flag)', () => {
   beforeEach(() => {
     localStorage.clear()
+    allowFlags(true)
     delete document.documentElement.dataset.skin
   })
   afterEach(() => {
     localStorage.clear()
+  })
+
+  it('ignores every stored value for a user who is not the admin (#483)', () => {
+    localStorage.setItem(SKIN_KEY, 'rare')
+    localStorage.setItem(KIT_KEY, 'rare')
+    expect(allowFlags(false)).toBe('default')
+    expect(document.documentElement.dataset.skin).toBe('default')
+    expect(getSkin()).toBe('default')
+    expect(getKit()).toBe('default')
+    expect(setSkin('rare')).toBe('default')
+    expect(setKit('rare')).toBe('default')
+    expect(localStorage.getItem(SKIN_KEY)).toBe('rare')
+    expect(allowFlags(true)).toBe('rare')
   })
 
   it('defaults to the current look', () => {
@@ -73,5 +88,18 @@ describe('skin (look feature flag)', () => {
       setKit('default')
     }
     expect(getKit()).toBe('default')
+  })
+
+  it('forgets the stored look, components and admin mark for a device whose user is not the admin (#483)', () => {
+    setSkin('rare')
+    setKit('rare')
+    expect(localStorage.getItem('xt-admin')).toBe('1')
+    forgetFlags()
+    expect([SKIN_KEY, KIT_KEY, 'xt-admin'].map((key) => localStorage.getItem(key))).toEqual([null, null, null])
+  })
+
+  it('index.html paints the stored look only on a device that last saw the admin (#483)', () => {
+    const html = readFileSync('index.html', 'utf8')
+    expect(html).toContain("localStorage.getItem('xt-admin') === '1' && localStorage.getItem('xt-skin') === 'rare'")
   })
 })

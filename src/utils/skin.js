@@ -4,9 +4,12 @@
 //   value before the first paint.
 // - Components ('xt-kit'): 'default' (our src/ui components) or 'rare' (some controls are the real Rare UI
 //   components from src/ui/rare/, which follow the look through the same tokens). Read when a wrapper renders.
+// Both flags are the admin's (#483): for anyone else a stored value is ignored and both read 'default'. The device
+// value is a copy of the admin account's flags (GET /api/admin/flags), kept so index.html can paint before the app loads.
 
 export const SKIN_KEY = 'xt-skin'
 export const KIT_KEY = 'xt-kit'
+const ADMIN_KEY = 'xt-admin'
 const SKINS = ['default', 'rare']
 const KITS = ['default', 'rare']
 
@@ -41,12 +44,34 @@ function storedChoice(key, values) {
   }
 }
 
+let allowed = false
 const skin = storedChoice(SKIN_KEY, SKINS)
 const kit = storedChoice(KIT_KEY, KITS)
 
-/** The current look, or 'default' when nothing valid is stored. */
+/** Says whether the signed-in user may use the flags (the admin only). Applies the look that follows from it. */
+export function allowFlags(isAdmin) {
+  allowed = isAdmin === true
+  // index.html paints the stored look only on a device that last saw the admin (#483).
+  try {
+    if (allowed) localStorage.setItem(ADMIN_KEY, '1')
+  } catch {
+    // Storage can be blocked; the look then waits for the app.
+  }
+  return applySkin()
+}
+
+/** Removes the stored look, components and admin mark: this device's user is not the admin. */
+export function forgetFlags() {
+  try {
+    for (const key of [SKIN_KEY, KIT_KEY, ADMIN_KEY]) localStorage.removeItem(key)
+  } catch {
+    // Storage can be blocked; nothing is stored then.
+  }
+}
+
+/** The current look, or 'default' when nothing valid is stored or the user is not the admin. */
 export function getSkin() {
-  return skin.get()
+  return allowed ? skin.get() : 'default'
 }
 
 /** Puts the skin on <html>. An unknown value falls back to 'default'. */
@@ -58,15 +83,16 @@ export function applySkin(value = getSkin()) {
 
 /** Saves and applies the look. Returns the skin that is now active. */
 export function setSkin(value) {
+  if (!allowed) return applySkin('default')
   return applySkin(skin.set(value))
 }
 
 /** The current components choice, or 'default' when nothing valid is stored. */
 export function getKit() {
-  return kit.get()
+  return allowed ? kit.get() : 'default'
 }
 
 /** Saves the components choice. Returns the choice that is now active; wrappers read it when they render. */
 export function setKit(value) {
-  return kit.set(value)
+  return allowed ? kit.set(value) : 'default'
 }
