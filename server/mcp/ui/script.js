@@ -2,6 +2,7 @@
 // compacting step. The 32 KB limit on a view (tests/api/mcp-ui.test.js) is kept by writing less, not by raising it:
 // Hebrew labels cost two bytes a letter, so each view carries only its own sections, without indentation or comment lines.
 import { labels } from './client.js'
+import { escapeForScript } from './origin.js'
 
 /**
  * The text with each line's indentation, full-line // comments and blank lines removed, and a line break dropped where it
@@ -33,9 +34,9 @@ function tighten(code) {
 }
 
 /** The source of the page's labels() with only these sections ('thread', 'drafts', 'share'). */
-export function labelsSource(sections) {
+function labelsSource(sections) {
   const all = labels()
-  return `function labels() { return ${JSON.stringify(Object.fromEntries(sections.map((name) => [name, all[name]])))} }`
+  return `function labels() { return ${escapeForScript(JSON.stringify(Object.fromEntries(sections.map((name) => [name, all[name]]))))} }`
 }
 
 /** The page script: the label sections, then each function's source, then the starter, compacted. */
