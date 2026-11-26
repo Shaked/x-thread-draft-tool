@@ -167,11 +167,11 @@ describe('REST: signed out and normal user get the unknown-path answer, the admi
       const admin = await answer({ cookie: adminCookie, headers: HEADER })
       if (row.adminSame) {
         expect(admin).toEqual(expected)
-      } else if (row.adminNot) {
-        expect(admin.text).not.toBe(expected.text)
       } else {
         // The handler ran: a read answers 200, a write with an empty body is refused by the handler (400).
+        // A row may name another status (a made-up user id is a handler 404): then the body must differ from the unknown-path body.
         expect(admin.status, `${key} as admin: ${admin.text}`).toBe(row.adminStatus ?? (r.method === 'GET' ? 200 : 400))
+        if (row.adminNot) expect(admin.text).not.toBe(expected.text)
       }
       note('rest', key, out.status, user.status, row.adminSame ? `${admin.status} (CI token only)` : admin.status)
     })
