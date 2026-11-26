@@ -8,13 +8,16 @@
 //   2. the CI runs created since the start of the UTC day WINDOW_DAYS ago, one page at a time. The list
 //      gives each run's latest attempt; the unique key (run id and attempt) keeps each attempt once, so a
 //      re-run that starts later is stored too (the window is the re-run limit: 3 days, see docs/operations);
+//      The list is read one UTC day at a time; a day answering fewer runs than its total_count is incomplete.
 //   3. merges (git), the deployments of those merges (deploy) and, for `speed: true` repos, the speed stages
-//      of each merge (speed-metrics.mjs measurePull and LIMITS);
+//      of each merge (speed-metrics.mjs measurePull and LIMITS). Speed rows wait SPEED_SETTLE_MS (2 hours) after
+//      the merge and until every run on the merge's head and merge commit has finished; until then none is written;
 //   4. counters for each finished UTC day of the window: runs that are not stored events (skipped,
-//      cancelled, unlisted, and stuck: running for over 24 hours). A day's counters are replaced whole,
-//      so only a complete listing sends them.
-// Stops cleanly when fewer than RATE_FLOOR API calls remain (the x-ratelimit-remaining header): it posts
-// the events it has and sends no counters and no cursor, so the next run repeats the window.
+//      cancelled, unlisted, and stuck: running for over 24 hours), a zero row for an empty day. A day's rows are
+//      replaced whole, so they are sent only when the listing and the CI events completed (`countable`).
+// Stops cleanly when fewer than RATE_FLOOR API calls remain (the x-ratelimit-remaining header), before the
+// request that would go below it. It posts the events it has; counters and cursor are sent only when `countable`;
+// a stop among the merges keeps them, because they depend only on the listing. The next run repeats the window.
 //
 // Flags: --dry-run --repo <owner/name>   print the batches (sorted JSON) and send nothing.
 // Env:   GITHUB_TOKEN (reads only), ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN (the

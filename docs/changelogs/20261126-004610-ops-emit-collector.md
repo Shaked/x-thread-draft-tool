@@ -2,6 +2,7 @@
 
 - Every 6 hours a scheduled workflow reads the last 3 days of CI runs, merges, deployments and speed stages from GitHub and sends them to the ops events route.
 - A run that is re-run within those 3 days is stored too. A re-run started later is not collected.
+- Speed rows wait 2 hours after a merge and until its runs have finished.
 - The workflow only reads; it writes nothing to GitHub and nothing shows the events yet.
 
 Area: Admin
