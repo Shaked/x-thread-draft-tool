@@ -196,7 +196,7 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
       seen.add(m[1])
       if (!described(line, m.index, m.index + m[0].length)) add(n, 'bare-label', `${m[1]}: add a link and 3 to 6 words saying what it is`)
     }
-    if (kind === 'reply' && LOOSE_LABEL.test(raw)) add(n, 'loose-label', 'use the "## " heading from the template, not a bold or plain label line')
+    if (kind === 'reply' && LOOSE_LABEL.test(raw)) add(n, 'loose-label', 'use the "## " heading from the template (for "Not done" or "Blocked", write a sentence under Done or Blocked on you)')
     checkWords(raw, line, n, add, kind, headlineAt)
   })
   if (kind === 'reply') checkTemplate(prose, template || findings.some((f) => f.rule === 'loose-label'), add, fencedLines)

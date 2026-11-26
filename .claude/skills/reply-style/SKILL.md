@@ -15,6 +15,8 @@ owner question uses one template below, follows the hard rules, and passes the l
 3. `What you need to do`, `Waiting for` and `Blocked on you` say "Nothing." when empty. `Done` always has content with "checked" or "not checked". Leave `Details` out when it is empty.
 4. Every label (`#279`, `Q1`) has a link and 3 to 6 words the first time. Never "unchanged" alone.
 5. Run `npm run reply-lint -- --template reply.md` and fix every finding before you send.
+   A session started with `REPLY_STYLE=owner` in its environment is also checked when the turn ends: the Stop hook
+   returns the failing rules and you rewrite the reply (setup: `docs/operations/reply-style.md`).
 
 ## Which template
 | You are writing | Template | Where it goes |
