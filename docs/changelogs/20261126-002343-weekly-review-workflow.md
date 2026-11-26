@@ -3,7 +3,7 @@
 - Once a week the repository checks outdated packages, security advisories, and client-matrix rows that have not been checked for over 30 days. It opens one issue only when something changed.
 
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/PENDING
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/468
 
 ## Technical details
 
