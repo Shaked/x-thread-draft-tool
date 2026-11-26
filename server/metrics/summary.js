@@ -105,10 +105,12 @@ function deployFinding(events, base, repo) {
   const link = `https://github.com/${repo}/deployments`
   if (rows.length === 0) return finding('deploys', 'Deploys: none to production in this window.', { link })
   const failed = rows.filter((e) => e.status !== 'success').length
-  const median = rank(rows.filter((e) => e.ms !== null).map((e) => e.ms), 0.5)
-  const baseMedian = rank(prod(base).filter((e) => e.ms !== null).map((e) => e.ms), 0.5)
+  // Only successful deploys went live: a failed one must not lower the time to live.
+  const timed = (list) => list.filter((e) => e.status === 'success' && e.ms !== null).map((e) => e.ms)
+  const median = rank(timed(rows), 0.5)
+  const baseMedian = rank(timed(prod(base)), 0.5)
   let text = `Deploys: ${rows.length} to production, ${failed === 0 ? 'none failed' : `${failed} failed`}.`
-  if (median !== null) text += ` Median ${duration(median)} from merge to live. Last week ${baseMedian === null ? 'no data' : duration(baseMedian)}.`
+  if (median !== null) text += ` Median ${duration(median)} from deploy start to live. Last week ${baseMedian === null ? 'no data' : duration(baseMedian)}.`
   return finding('deploys', text, {
     value: median === null ? null : Math.round(median / 1000), unit: 's',
     baseline: baseMedian === null ? null : Math.round(baseMedian / 1000), link

@@ -107,7 +107,7 @@ describe('GET /admin/metrics/summary', () => {
       '- CI checks: 4 runs, 1 failed (25 %). Last week 50 %. Most failures: Tests, step "Install Playwright browsers" (1). ' +
         'Last failure: https://github.com/Shaked/x-thread-draft-tool/actions/runs/1'
     )
-    expect(lines[3]).toBe('- Deploys: 2 to production, none failed. Median 22 s from merge to live. Last week no data.')
+    expect(lines[3]).toBe('- Deploys: 2 to production, none failed. Median 22 s from deploy start to live. Last week no data.')
     expect(lines[4]).toBe('- Production: 35 requests, 1 server errors. Slowest 5 %: too few requests to say.')
     expect(lines[5]).toMatch(/^- Database: \d+ MB of 1 GB \(\d+ %\)\.$/)
     expect(lines[6]).toBe('Nothing else is over its limit.')
@@ -148,6 +148,14 @@ describe('GET /admin/metrics/summary', () => {
     await event('dm', HOUR, { source: 'speed', kind: 'merge', name: 'total', status: 'ok', ms: 40000, attrs: { limit_ms: 90000 } })
     const { body } = await getJson('admin_metrics_summary', '/admin/metrics/summary')
     expect(body.findings[0]).toMatchObject({ over: false, value: 140, limit: 150 })
+  })
+
+  it('the deploy median counts successful deploys only', async () => {
+    await event('f1', 3 * HOUR, { source: 'deploy', kind: 'deploy', name: 'Production', status: 'failure', ms: 1000 })
+    await event('f2', 2 * HOUR, { source: 'deploy', kind: 'deploy', name: 'Production', status: 'failure', ms: 1000 })
+    await event('s1', HOUR, { source: 'deploy', kind: 'deploy', name: 'Production', status: 'success', ms: 60000 })
+    const { body } = await getJson('admin_metrics_summary', '/admin/metrics/summary')
+    expect(body.text).toContain('Deploys: 3 to production, 2 failed. Median 1 min from deploy start to live.')
   })
 
   it('has no data: every line still answers', async () => {
