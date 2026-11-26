@@ -77,11 +77,19 @@ describe('admin audit log page', () => {
     expect(screen.getByText('Filters the rows loaded on this page. No new request is sent.')).toBeInTheDocument()
   })
 
-  it('a filter with no matching loaded row says so', async () => {
+  it('the filter offers only the actions the server writes', async () => {
     vi.stubGlobal('fetch', answerWith(() => ROWS))
     renderPage()
     await screen.findByRole('table')
-    fireEvent.change(screen.getByLabelText('Action'), { target: { value: 'view_as_start' } })
+    const options = within(screen.getByLabelText('Action')).getAllByRole('option').map((option) => option.textContent)
+    expect(options).toEqual(['All actions', 'suspend_user', 'unsuspend_user', 'delete_user'])
+  })
+
+  it('a filter with no matching loaded row says so', async () => {
+    vi.stubGlobal('fetch', answerWith(() => [event(5, '2026-11-25T10:00:00.000Z', 'suspend_user')]))
+    renderPage()
+    await screen.findByRole('table')
+    fireEvent.change(screen.getByLabelText('Action'), { target: { value: 'delete_user' } })
     expect(await screen.findByText('No loaded row has this action.')).toBeInTheDocument()
   })
 
