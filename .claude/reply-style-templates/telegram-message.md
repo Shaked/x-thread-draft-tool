@@ -127,32 +127,39 @@ An agent reviews the commits since the last review and opens up to three PRs.
 ```
 
 ## 5. Metrics alert
-No workflow sends this kind yet. Task O7 of the observability plan adds it as the kind `metrics`, with three alerts:
-errors, slow and capacity (`docs/plans/observability.md`, section 6). One line per alert that fired, at most three.
+No workflow sends this kind yet. Task O7 of the observability plan (#338) adds it as the kind `metrics`, in the Alert
+shape of section 6: one message per alert that fired (errors, slow or capacity). The headline links to the metrics page.
+The number line gives the value in plain words, the window, the limit, how much over and since when (UTC). The likely
+cause line is always there. Only the capacity alert on the Neon free plan adds a `Needs you:` line, and it names the
+plan limit that is near and the step to take. Order: headline, number line, likely cause line, then `Needs you:`.
 
 ```text
-🚨 **<app name>** · [Metrics alert: <the alerts that fired, in words>](<production url>/admin/metrics)
-<Alert>: <the value, in plain words>, in the last <window>. The limit is <limit>.   [one line per alert]
-Needs you: open the metrics page and find the route with the errors or the slow answers.
+🚨 **<app name>** · [Metrics alert: <the alert that fired, in words>](<production url>/admin/metrics)
+<Alert>: <the value, in plain words>, in the last <window>. The limit is <limit> (<n> % over), since <UTC date and time>.
+Likely cause: <one cause and its evidence>.   [or: "Likely cause: not known yet."]
+Needs you: <the plan limit that is near, and the step to take>.   [only for the capacity alert on the Neon free plan]
 ```
 
 Example:
 ```text
 🚨 **Thread Draft** · [Metrics alert: slow answers](https://x-thread-draft-tool.vercel.app/admin/metrics)
-Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms.
-Needs you: open the metrics page and find the route with the errors or the slow answers.
+Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms (38 % over), since 2026-11-25 09:00 UTC.
+Likely cause: not known yet.
 ```
 
-## 6. Alert (speed budget)
-Sent by the speed check (`scripts/speed-metrics.mjs`, task M7 of plan #439). The per-merge run sends it once when a
+## 6. Alert shape (kinds `speed` and `metrics`)
+Sent by the speed check (`scripts/speed-metrics.mjs`, task M7 of plan #439) as kind `speed`. The per-merge run sends it once when a
 streak of production merges over a limit starts, and again only after the stages have been within their limits for
 24 hours. The headline links to the gate issue, or to the run. Four lines at most: the headline, the number, the likely
-cause, and at most two links. There is no action line: an alert that needs nothing from the owner has none.
+cause, and at most two links. The one other line is `Needs you:`, and only when the owner must act: `speed` never has one,
+so its message has no action line. The `metrics` kind (section 5) uses this same shape; its capacity alert adds `Needs you:`,
+which makes five lines.
 
 ```text
 🐢 **<app name>** · [<what is over, in plain words>](<gate issue, or run, url>)
 This merge took <time> in <stage>. The limit is <limit> (<n> % over), since <UTC date and time> (<n> in a row).
 Likely cause: <one cause and its evidence>.   [or: "Likely cause: not known yet."]
+Needs you: <the one action>.   [only when the owner must act: the metrics capacity alert; the speed kind never has this line]
 [<Speed table>](<run url>) · [What the stages mean](<docs url>)
 ```
 
