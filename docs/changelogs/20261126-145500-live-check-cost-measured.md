@@ -3,7 +3,7 @@
 - The docs now list what one open editor tab costs in database time, transfer and compute hours.
 
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/543
 
 ## Technical details
 
