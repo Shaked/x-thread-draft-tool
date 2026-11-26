@@ -277,9 +277,10 @@ Draft <id>, version <v>, <n> posts, <k> over 280, <m> images. Editor: <editor ur
   `^Draft [0-9a-f-]{36}, version \d+, \d+ posts?, \d+ over 280, \d+ images?\. Editor: https://\S+/draft/[0-9a-f-]{36}\. .+$`
 - `<hint>` is one fixed sentence per tool group (`<v>`, `<i>` and `<c>` are numbers):
   - after `create_*` and `get_draft`: "To change a post, call update_post with this id, the post's id from posts, and version <v>."
-  - after `update_post`, `add_post`, `move_post`, `remove_post`: "Saved. Do not show the whole draft again: say in one line what changed and quote only the changed posts, if any." (the "after the edit" text of section 2.4; when #405 adds a changes view, it may add "The view shows what changed.")
+  - after `update_post`, `add_post`, `move_post`, `remove_post`: "Saved. Say in one line what changed; quote only the changed posts, not the whole draft." (a shorter form of the "after the edit" text of section 2.4, so a 25-post edit result stays under 4000 bytes, #390; when #405 adds a changes view, it may add "The view shows what changed.")
   - after `update_draft`: "Saved. Say in one line what changed; if no card shows the thread, quote the changed posts."
   - after an image tool: "Saved. Post <i> has <c> of 4 images. Say this in one line."
+  - after an image tool that names no post (a replace, a remove by url): "Saved. Say in one line which images changed; the draft has <m> images in all."; after an upload that is in no post yet: "Saved. The image is uploaded, not in a post yet. Say this in one line."
   - after `get_draft_outline`: "Call get_draft for the text, or update_post to change a post."
   The exact wording is in task 4. When #354 ships live updates, no hint needs to change.
 - The editor link is in the line because `add_image_from_url` returns the image's URL in `url`, not

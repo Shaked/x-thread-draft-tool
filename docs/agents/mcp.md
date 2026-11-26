@@ -199,6 +199,12 @@ parts only or drops `_meta`, and it reports its size even when the app never ans
 (#352: Grok showed an empty grey box). How Grok loads views is not checked; the browser test uses a fake
 host that does what we could not rule out (`tests/e2e/mcp-grok-view.spec.ts`).
 
+Every successful result of a tool that reads or changes one draft (`get_draft`, `get_draft_outline`, `create_draft`,
+`create_thread_from_text`, `update_draft`, `duplicate_draft`, `add_post`, `update_post`, `remove_post`, `move_post`,
+`add_image_from_url`, `remove_image`) ends with one state line (#390): `Draft <id>, version <v>, <n> posts, <k> over 280,
+<m> images. Editor: <link>.` and one fixed next-step sentence. It holds no title, post text or image url, and errors
+(including a stale-version 412) and `export_draft` have none. `get_draft` also has `post_count`.
+
 - The app may ask you once before it shows a view. Nothing is shown without that answer.
 - A view reads only the data in the tool result. It makes no network request of its own, and it loads
   images only from our image host (the Blob store). Its only call to the server is "View thread" in the
