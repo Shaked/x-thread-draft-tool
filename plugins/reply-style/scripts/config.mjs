@@ -3,7 +3,7 @@
 // A missing file or key means the default. A broken file throws ConfigError, which names the key and the file.
 // Node 20, no dependencies. The only file read is in loadConfig; everything else is pure.
 //
-// Where the file is, in order: `file` when given; else $CLAUDE_PROJECT_DIR/.claude/agent-kit.json when that
+// Where the file is, in order: `file` when given (a missing file is an error, never the defaults); else $CLAUDE_PROJECT_DIR/.claude/agent-kit.json when that
 // variable is set; else the first such file walking up from `cwd`, stopping at the folder that has `.git`.
 
 import { readFileSync, statSync } from 'node:fs'
@@ -125,7 +125,8 @@ export function loadConfig({ cwd = process.cwd(), env = process.env, file } = {}
   if (file) {
     const path = resolve(cwd, file)
     const text = readOptional(path)
-    return text === null ? buildConfig({}) : parseFile(text, path)
+    if (text === null) throw new ConfigError(`${path} does not exist (named with --config)`)
+    return parseFile(text, path)
   }
   if (env.CLAUDE_PROJECT_DIR) {
     const path = join(env.CLAUDE_PROJECT_DIR, RELATIVE)

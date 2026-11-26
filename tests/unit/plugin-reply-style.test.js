@@ -100,6 +100,14 @@ describe('config', () => {
     })
   })
 
+  it('--config naming a file that does not exist exits 2 and names the path', () => {
+    const missing = join(makeDir(), 'nope.json')
+    expect(() => loadConfig({ file: missing })).toThrow(/nope\.json does not exist/)
+    const run = spawnSync('node', [LINT, '--config', missing, join(GOLDEN, 'status-report', 'good-1.md')], { encoding: 'utf8' })
+    expect(run.status).toBe(2)
+    expect(run.stderr).toContain(missing)
+  })
+
   it('humans decide which "blocked on" names are a person', () => {
     const kim = loadConfig({ cwd: makeDir({ '.claude/agent-kit.json': { 'reply-style': { humans: ['Kim'] } } }), env: {} })
     expect(lint('Blocked on Kim for the review.', {}, kim)).toEqual([])
@@ -124,11 +132,12 @@ describe('config', () => {
     expect(rules(lint('Blocked on Josés build.', {}, cfg))).toEqual(['blocked'])
   })
 
-  it('an allowLines pattern skips a long line', () => {
+  it('an allowLines pattern skips the label check, but a long line is still long (the old lint did the same)', () => {
     const long = `Implements #12 Task 3 ${'word '.repeat(40)}`
     const allow = loadConfig({ cwd: makeDir({ '.claude/agent-kit.json': { 'reply-style': { allowLines: ['^Implements #\\d+ Task '] } } }), env: {} })
     expect(rules(lint(long, {}, DEFAULT_CONFIG))).toEqual(['bare-label', 'long-line'])
-    expect(lint(long, {}, allow)).toEqual([])
+    expect(rules(lint(long, {}, allow))).toEqual(['long-line'])
+    expect(lint('Implements #12 Task 3', {}, allow)).toEqual([])
   })
 
   it('maxLineLength sets the long-line rule', () => {
@@ -235,7 +244,7 @@ describe('Stop hook', () => {
     })
     expect(run.status).toBe(0)
     expect(run.stdout).toBe('')
-    expect(run.stderr).toContain('reply-style: config ignored:')
+    expect(run.stderr).toContain('reply-style: check skipped, config broken:')
   })
 })
 
