@@ -52,6 +52,18 @@ describe('test budget', () => {
     expect(problems[0]).toContain(`limit ${TOTAL_LIMIT_MS} ms`)
   })
 
+  it('names the slowest files when the total is over', () => {
+    const durations = [
+      { file: 'tests/api/a.test.js', ms: 900 },
+      { file: 'tests/api/b.test.js', ms: 800 },
+      { file: 'tests/api/c.test.js', ms: 700 },
+      { file: 'tests/api/d.test.js', ms: 600 }
+    ]
+    const [problem] = violations(durations, TOTAL_LIMIT_MS + 1)
+    expect(problem).toContain('slowest: tests/api/a.test.js 900 ms, tests/api/b.test.js 800 ms, tests/api/c.test.js 700 ms')
+    expect(problem).not.toContain('d.test.js')
+  })
+
   it('reads --shard=n/m and rejects anything else', () => {
     expect(parseShard([])).toBeNull()
     expect(parseShard(['--other'])).toBeNull()
