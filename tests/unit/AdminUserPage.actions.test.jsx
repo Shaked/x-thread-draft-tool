@@ -123,6 +123,35 @@ describe('admin user actions', () => {
     }
   })
 
+  it('keeps the dialog open while a request is pending, so a refusal is always shown', async () => {
+    let release
+    const gate = new Promise((resolve) => { release = resolve })
+    const fetchMock = vi.fn(async (url, init = {}) => {
+      if ((init.method ?? 'GET') === 'GET') return { ok: true, status: 200, json: async () => ({ user: BASE }) }
+      await gate
+      return { ok: false, status: 429, json: async () => ({ error: 'Admin limit reached: at most 30 of these actions per hour.' }) }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={[`/admin/users/${ID}`]}>
+          <Routes><Route path="/admin/*" element={<AdminLayout />} /></Routes>
+        </MemoryRouter>
+      </ToastProvider>
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Suspend' }))
+    type('ada')
+    fireEvent.click(screen.getAllByRole('button', { name: 'Suspend' }).at(-1))
+    const cancel = await screen.findByRole('button', { name: 'Cancel' })
+    expect(cancel).toBeDisabled()
+    fireEvent.click(cancel)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    release()
+    expect(await screen.findByText('Admin limit reached: at most 30 of these actions per hour.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel' })).not.toBeDisabled()
+  })
+
   it('delete is two steps: the dry run shows the counts, and only the typed login sends the real call with the token', async () => {
     const path = `POST /api/admin/users/${ID}/delete`
     const fetchMock = mount({ ...BASE, suspended_at: OLD }, { [path]: [200, DRY] })

@@ -20,7 +20,7 @@ export default function ConfirmLoginDialog({ title, description, user, confirmLa
       title={title}
       description={description}
       actions={[
-        { label: 'Cancel', variant: 'secondary', onClick: onClose, autoFocus: true },
+        { label: 'Cancel', variant: 'secondary', onClick: onClose, autoFocus: true, disabled: busy },
         {
           label: confirmLabel,
           variant: tone,
