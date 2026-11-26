@@ -279,3 +279,24 @@ describe('allowed fixes stay narrow', () => {
     expect(act(base(pair, { 2: [{ created_at: TODAY, body: 'Started in PR #9' }] }))).toBe('dispatcher')
   })
 })
+
+describe('reply-style check (#486)', () => {
+  const bad = 'HANDOFF #1 (x) - done\n\n**Done:** shipped.\n'
+  const comment = (body, created) => ({ user: 'Shaked', author_association: 'OWNER', created_at: created, body })
+  const ok = readFileSync(new URL('./fixtures/reply-lint/golden/handoff/good-1.md', import.meta.url), 'utf8')
+
+  it('reports a failing HANDOFF with its rules and a link, and passes a good one', () => {
+    const snap = { ...snapshot, comments: { 900: [comment(bad, '2026-11-25T10:00:00Z')], 901: [comment(ok, '2026-11-25T11:00:00Z')] } }
+    const out = analyze(snap, { today: TODAY, knownTables: ['widget_rows'] }).filter((f) => f.kind === 'reply-style')
+    expect(out).toHaveLength(1)
+    expect(out[0].issues).toEqual([900])
+    expect(out[0].what).toContain('loose-label')
+    expect(out[0].what).toContain('/issues/900)')
+  })
+
+  it('looks only at the newest ten HANDOFF comments', () => {
+    const many = Array.from({ length: 12 }, (_, k) => comment(bad, `2026-11-${String(10 + k).padStart(2, '0')}T10:00:00Z`))
+    const snap = { ...snapshot, comments: { 902: many } }
+    expect(analyze(snap, { today: TODAY }).filter((f) => f.kind === 'reply-style')).toHaveLength(10)
+  })
+})

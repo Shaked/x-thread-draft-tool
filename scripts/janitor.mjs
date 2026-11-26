@@ -14,12 +14,15 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
+import { lint } from './reply-lint.mjs'
 
 export const REPO = 'Shaked/x-thread-draft-tool'
 export const STALE_DAYS = 14
 export const CLAIM_STALE_HOURS = 3
 export const SUB_ISSUE_LIMIT = 100
 export const NEAR_LIMIT = 90
+// The janitor lints this many of the newest HANDOFF comments with the reply-style rules (#486).
+export const REPLY_STYLE_LAST = 10
 // A name shared by more open issues than this is common (for example `drafts`), not an overlap.
 export const RARE_NAME_MAX = 4
 export const SIMILAR_TITLE = 0.6
@@ -355,6 +358,23 @@ function checkStale(c, i) {
   else c.add('held', [i.number], `${ref(i.number)} is labelled ${tags} and names no owner question.`, 'Say in the issue what it waits for.')
 }
 
+/** Lints the newest HANDOFF comments of every issue whose comments are loaded; reports each failure with its link. */
+function checkReplyStyle(c, repo) {
+  const handoffs = []
+  for (const [issue, list] of Object.entries(c.comments)) {
+    for (const x of list || []) {
+      if (/^HANDOFF\b/.test(x.body || '') && (TRUSTED.has(x.author_association) || x.user === repo.split('/')[0])) handoffs.push({ issue: Number(issue), ...x })
+    }
+  }
+  handoffs.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+  for (const h of handoffs.slice(0, REPLY_STYLE_LAST)) {
+    const rules = [...new Set(lint(h.body, { template: true }).map((f) => f.rule))]
+    if (!rules.length) continue
+    const url = h.html_url || `https://github.com/${repo}/issues/${h.issue}`
+    c.add('reply-style', [h.issue], `The HANDOFF on ${ref(h.issue)} breaks the reply-style rules: ${rules.join(', ')} ([comment](${url})).`, 'Run `npm run reply-lint -- --template` on it and post a corrected comment.', 'dispatcher')
+  }
+}
+
 /** Every check. Returns findings: { kind, issues, what, fix, act } with act = allowed | dispatcher | owner. */
 export function analyze(snapshot, { today = new Date().toISOString(), staleDays = STALE_DAYS, knownTables = [] } = {}) {
   const all = (snapshot.issues || []).map(normalize)
@@ -371,6 +391,7 @@ export function analyze(snapshot, { today = new Date().toISOString(), staleDays 
     byNum: new Map(all.map((i) => [i.number, i])),
     pulls: new Map((snapshot.pulls || []).map((p) => [p.number, p])),
     deps: new Map(open.map((i) => [i.number, dependencies(i.body)])),
+    comments,
     loaded: (i) => comments[i.number] || comments[String(i.number)],
     marked: (kind, i) => (markers[kind] || []).includes(i.number),
     // Unknown (a snapshot without open_pulls) counts as having one. A comment that links a PR counts too.
@@ -393,6 +414,7 @@ export function analyze(snapshot, { today = new Date().toISOString(), staleDays 
     checkStale(c, i)
     checkLabels(c, i)
   }
+  checkReplyStyle(c, String(snapshot.repo || REPO))
   for (const i of open.filter((x) => x.subIssues >= NEAR_LIMIT)) {
     c.add('limit', [i.number], `${ref(i.number)} has ${i.subIssues} of ${SUB_ISSUE_LIMIT} sub-issues.`, i.subIssues >= SUB_ISSUE_LIMIT ? 'New tasks go to the follow-up epic.' : 'Plan a follow-up epic.')
   }
@@ -432,7 +454,8 @@ const SECTIONS = [
   ['Dependencies', ['dependency', 'missing-dependency', 'cycle', 'waiting']],
   ['Stale and orphaned', ['stale', 'orphan', 'claim', 'held']],
   ['Limits', ['limit']],
-  ['Labels', ['labels']]
+  ['Labels', ['labels']],
+  ['Reply style', ['reply-style']]
 ]
 
 /** 3 to 6 words for every issue and merged pull request in the snapshot, keyed by number. */

@@ -24,3 +24,10 @@ so a reply makes sense without the agent's context. Owner request of 2026-11-21,
   `tests/unit/fixtures/reply-lint/golden/<kind>/`. Each kind has `good-*.md` files that pass and
   `bad-<rule>.md` files that fail for the rule the test names. A kind without fixtures fails the test.
   The rules `loose-label` (a `**Done:**` line instead of the heading) and `empty-details` came from that issue.
+- Agent comments on GitHub (#486): `.github/workflows/reply-lint-comments.yml` runs `scripts/reply-lint-comment.mjs` on each new
+  or edited comment that ends with the Claude Code footer and starts with `HANDOFF`, `Decision` or a question. A failure turns the
+  run red and adds the label `reply-style-fail` to the issue or PR. Why a label: a check run attaches to a commit, so it cannot
+  show on a tracker issue; the label is visible there and the janitor reports it. The job lints only the comment that triggered it,
+  so old comments do not turn it red.
+- Janitor (#486): `scripts/janitor.mjs report` lints the newest 10 HANDOFF comments in the `--comments` file and lists each
+  failure with its link under "Reply style".
