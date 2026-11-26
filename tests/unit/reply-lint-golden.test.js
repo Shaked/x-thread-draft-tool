@@ -19,7 +19,7 @@ const WANT = {
   'owner-question': { 'bad-letter-options': 'option-letters', 'bad-loose-label': ['loose-label', 'headings'], 'bad-missing-heading': 'headings', 'bad-blocked-machine': 'blocked' },
   'owner-action': { 'bad-loose-label': ['loose-label', 'headings'], 'bad-steps-count': 'steps', 'bad-slop': 'slop' },
   incident: { 'bad-loose-label': ['loose-label', 'headings'], 'bad-emoji': 'emoji', 'bad-missing-heading': 'headings' },
-  telegram: { 'bad-no-emoji-headline': 'shape', 'bad-empty-section': 'empty-section', 'bad-too-long': 'shape' },
+  telegram: { 'bad-no-emoji-headline': 'shape', 'bad-empty-section': 'empty-section', 'bad-too-long': 'shape', 'bad-no-app-name': 'app-name' },
   changelog: { 'bad-label': 'internal-label', 'bad-area': 'shape', 'bad-no-title': 'shape' },
   'janitor-summary': { 'bad-missing-heading': 'headings', 'bad-bare-label': 'bare-label' }
 }

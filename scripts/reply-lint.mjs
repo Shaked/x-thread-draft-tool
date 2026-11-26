@@ -19,7 +19,8 @@
 //   tldr, steps     TL;DR is 2 to 3 lines and says if the owner must act; the step count matches
 //   evidence        the Done section says "checked" or "not checked"
 //   --kind=changelog: a "# " title, then 1 to 5 lines; no label and no code span anywhere (shape, internal-label)
-//   --kind=telegram:  the headline in bold on line 1, at most 5 lines (shape)
+//   --kind=telegram:  line 1 is the emoji, the app name in bold, " · " and the headline; at most 5 lines (shape).
+//                     A message without the app name fails (issue #504). `--app=<name>` also requires that exact name.
 // Fenced code blocks and `inline code` are not checked.
 
 import { readFileSync } from 'node:fs'
@@ -147,8 +148,16 @@ function checkWords(raw, line, n, add, kind = 'reply', headlineAt = 1) {
   if (slop) add(n, 'slop', `filler phrase "${slop[1]}"`)
 }
 
+/** Line 1 of a Telegram message: the emoji, the app name in bold, " · " and the headline (issue #504). */
+function checkIdentity(first, add, app) {
+  const identity = first.match(/^(?:\p{Extended_Pictographic}\uFE0F? )?\*\*([^*]+)\*\* · \S/u)
+  if (!identity) add(1, 'app-name', 'line 1 is the emoji, the app name in bold, " · " and the headline')
+  else if (!/^\p{Extended_Pictographic}/u.test(first)) add(1, 'shape', 'the headline starts with its emoji')
+  else if (app && identity[1] !== app) add(1, 'app-name', `the app name in bold must be "${app}"`)
+}
+
 /** Shape of a changelog entry or a Telegram message (the two kinds that are not replies). */
-function checkShape(lines, kind, add) {
+function checkShape(lines, kind, add, app = '') {
   const body = lines.filter(({ text }) => text.trim())
   const first = body[0]?.text.trim() || ''
   if (kind === 'changelog') {
@@ -163,14 +172,13 @@ function checkShape(lines, kind, add) {
     if (link.length !== 1) add(link[1]?.n ?? 1, 'shape', 'write one "Link:" line with the pull request address')
     else if (!/^Link: https:\/\/\S+$/.test(link[0].text.trim())) add(link[0].n, 'shape', 'Link must start with https://')
   } else {
-    if (!/^(?:\p{Extended_Pictographic}\uFE0F? )?\*\*[^*]+\*\*$/u.test(first)) add(1, 'shape', 'start with an emoji and the headline in bold on its own line')
-    else if (!/^\p{Extended_Pictographic}/u.test(first)) add(1, 'shape', 'the headline starts with its emoji')
+    checkIdentity(first, add, app)
     if (body.length > 5) add(1, 'shape', 'a Telegram message has at most 5 lines')
   }
 }
 
 /** Returns findings for one reply: [{ line, rule, message }]. `kind` is reply, changelog or telegram. */
-export function lint(text, { template = false, kind = 'reply' } = {}) {
+export function lint(text, { template = false, kind = 'reply', app = '' } = {}) {
   const findings = []
   const add = (line, rule, message) => findings.push({ line, rule, message })
   const seen = new Set()
@@ -200,7 +208,7 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
     checkWords(raw, line, n, add, kind, headlineAt)
   })
   if (kind === 'reply') checkTemplate(prose, template || findings.some((f) => f.rule === 'loose-label'), add, fencedLines)
-  else checkShape(prose, kind, add)
+  else checkShape(prose, kind, add, app)
   return findings.sort((a, b) => a.line - b.line)
 }
 
@@ -211,7 +219,8 @@ function main() {
   if (!['reply', 'changelog', 'telegram'].includes(kind)) throw new Error(`unknown --kind=${kind}`)
   const file = args.find((a) => !a.startsWith('--'))
   const text = readFileSync(file ?? 0, 'utf8')
-  const findings = lint(text, { template, kind })
+  const app = args.find((a) => a.startsWith('--app='))?.slice(6) || ''
+  const findings = lint(text, { template, kind, app })
   for (const f of findings) console.log(`line ${f.line}: ${f.rule}: ${f.message}`)
   console.log(findings.length ? `reply-lint: ${findings.length} finding(s)` : 'reply-lint: OK')
   if (findings.length) process.exit(1)

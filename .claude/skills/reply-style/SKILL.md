@@ -55,7 +55,7 @@ Apply `pstack-unslop` and `pstack-technical-writing` to both.
   do or see, not how it was built.
 - **Telegram message (target format):** the script sends these forms (issue #463).
   The template is Markdown; the script turns it into HTML. One message per event, at most 5 lines.
-  Line 1 is one emoji, then the headline in bold, linked, saying what happened. Then the item, one
+  Line 1 is one emoji, then the app name in bold, ` · ` and the headline, linked, saying what happened (issue #504). Then the item, one
   fact when the kind has one, `Needs you:` with one action (left out when nothing is needed), and other links.
   Never a secret, a login name, draft text or log output (`docs/operations/telegram.md`).
 - Check them with `npm run reply-lint -- --kind=changelog <file>` or `--kind=telegram <file>`.

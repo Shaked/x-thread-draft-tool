@@ -46,14 +46,14 @@ describe('buildMessage: the four kinds', () => {
     const msg = buildMessage('live', { sha: SHA, title: 'Fix the thing' })
     expect(msg.html).toBe(
       [
-        `✅ <b><a href="${PROD_URL}">Production is live and tested</a></b>`,
+        `✅ <b>Thread Draft</b> · <a href="${PROD_URL}">Production is live and tested</a>`,
         '<code>a11392e</code> Fix the thing',
         `<a href="${PROD_URL}">Open production</a> · <a href="${COMMIT_URL}">Commit a11392e</a>`,
       ].join('\n'),
     )
     expect(msg.plain).toBe(
       [
-        `✅ Production is live and tested: ${PROD_URL}`,
+        `✅ Thread Draft · Production is live and tested: ${PROD_URL}`,
         'a11392e Fix the thing',
         `Open production: ${PROD_URL} · Commit a11392e: ${COMMIT_URL}`,
       ].join('\n'),
@@ -66,7 +66,7 @@ describe('buildMessage: the four kinds', () => {
     const msg = buildMessage('failed', { sha: SHA, title: 'Fix the thing', runUrl: RUN_URL })
     expect(msg.html).toBe(
       [
-        `🚨 <b><a href="${RUN_URL}">Production smoke test failed</a></b>`,
+        `🚨 <b>Thread Draft</b> · <a href="${RUN_URL}">Production smoke test failed</a>`,
         '<code>a11392e</code> Fix the thing',
         'Production runs this commit, and its smoke test failed or did not run.',
         'Needs you: open the run and read the first failed step.',
@@ -79,7 +79,7 @@ describe('buildMessage: the four kinds', () => {
     const msg = buildMessage('preview', { title: 'Try the drafts', url: PR_URL })
     expect(msg.html).toBe(
       [
-        `👀 <b><a href="${PREVIEW_URL}">Try it on preview</a></b>`,
+        `👀 <b>Thread Draft</b> · <a href="${PREVIEW_URL}">Try it on preview</a>`,
         'Try the drafts',
         'Needs you: try the change on preview.',
         `<a href="${PR_URL}">PR #12 on GitHub</a>`,
@@ -98,12 +98,12 @@ describe('buildMessage: the four kinds', () => {
   it('owner: needs you, with the issue link', () => {
     const msg = buildMessage('owner', { title: 'Pick a colour', url: ISSUE_URL })
     expect(msg.html).toBe(
-      [`🙋 <b><a href="${ISSUE_URL}">An issue needs you</a></b>`, 'Pick a colour', 'Needs you: open it and answer or do what it asks.'].join('\n'),
+      [`🙋 <b>Thread Draft</b> · <a href="${ISSUE_URL}">An issue needs you</a>`, 'Pick a colour', 'Needs you: open it and answer or do what it asks.'].join('\n'),
     )
     expect(msg.plain).toBe(
-      [`🙋 An issue needs you: ${ISSUE_URL}`, 'Pick a colour', 'Needs you: open it and answer or do what it asks.'].join('\n'),
+      [`🙋 Thread Draft · An issue needs you: ${ISSUE_URL}`, 'Pick a colour', 'Needs you: open it and answer or do what it asks.'].join('\n'),
     )
-    expect(buildMessage('owner', { title: 'T', url: PR_URL }).html.split('\n')[0]).toBe(`🙋 <b><a href="${PR_URL}">A PR needs you</a></b>`)
+    expect(buildMessage('owner', { title: 'T', url: PR_URL }).html.split('\n')[0]).toBe(`🙋 <b>Thread Draft</b> · <a href="${PR_URL}">A PR needs you</a>`)
   })
 
   it('returns null for an unknown kind', () => {
@@ -122,10 +122,10 @@ describe('buildMessage: cleanup review (epic #255, task C3)', () => {
     const msg = buildMessage('cleanup', { title: 'Remove duplicate tests', url: PR_URL, body: PR_BODY })
     const needs = 'Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR.'
     expect(msg.html).toBe(
-      [`🧹 <b><a href="${PR_URL}">Cleanup review ready</a></b>`, 'Remove duplicate tests', 'What it removes: Drop two duplicate parser tests', needs].join('\n'),
+      [`🧹 <b>Thread Draft</b> · <a href="${PR_URL}">Cleanup review ready</a>`, 'Remove duplicate tests', 'What it removes: Drop two duplicate parser tests', needs].join('\n'),
     )
     expect(msg.plain).toBe(
-      [`🧹 Cleanup review ready: ${PR_URL}`, 'Remove duplicate tests', 'What it removes: Drop two duplicate parser tests', needs].join('\n'),
+      [`🧹 Thread Draft · Cleanup review ready: ${PR_URL}`, 'Remove duplicate tests', 'What it removes: Drop two duplicate parser tests', needs].join('\n'),
     )
   })
 
@@ -159,8 +159,8 @@ describe('buildMessage: cleanup review (epic #255, task C3)', () => {
   it('cleanup-started: the headline links to the issue, then the title and what the agent does', () => {
     const msg = buildMessage('cleanup-started', { title: 'Cleanup review 2026-11-20', url: ISSUE_URL, body: 'Summary: ignored' })
     const nothing = 'An agent reviews the commits since the last review and opens up to three PRs.'
-    expect(msg.html).toBe([`🧹 <b><a href="${ISSUE_URL}">Cleanup review started</a></b>`, 'Cleanup review 2026-11-20', nothing].join('\n'))
-    expect(msg.plain).toBe([`🧹 Cleanup review started: ${ISSUE_URL}`, 'Cleanup review 2026-11-20', nothing].join('\n'))
+    expect(msg.html).toBe([`🧹 <b>Thread Draft</b> · <a href="${ISSUE_URL}">Cleanup review started</a>`, 'Cleanup review 2026-11-20', nothing].join('\n'))
+    expect(msg.plain).toBe([`🧹 Thread Draft · Cleanup review started: ${ISSUE_URL}`, 'Cleanup review 2026-11-20', nothing].join('\n'))
   })
 
   it('summaryLine reads only the first line, after "Summary:"', () => {
@@ -349,13 +349,13 @@ describe('speed alert shape (task M7, #446)', () => {
   it('is the golden text: emoji and headline with the gate link, number, cause, two links', () => {
     const msg = buildMessage('speed', data)
     expect(msg.html).toBe([
-      '🐢 <b><a href="https://github.com/owner/repo/issues/9">Delivery is slower than its limit: CI checks and the total</a></b>',
+      '🐢 <b>Thread Draft</b> · <a href="https://github.com/owner/repo/issues/9">Delivery is slower than its limit: CI checks and the total</a>',
       'This merge took 3 min 38 s in CI checks. The limit is 2 min 30 s (45 % over), since 2026-11-24 14:10 UTC (7 in a row).',
       'Likely cause: Fonts took 1 min 10 s against a usual 20 s.',
       '<a href="https://github.com/owner/repo/actions/runs/42">Speed table</a> · <a href="https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions">What the stages mean</a>',
     ].join('\n'))
     expect(msg.plain).toBe([
-      '🐢 Delivery is slower than its limit: CI checks and the total: https://github.com/owner/repo/issues/9',
+      '🐢 Thread Draft · Delivery is slower than its limit: CI checks and the total: https://github.com/owner/repo/issues/9',
       'This merge took 3 min 38 s in CI checks. The limit is 2 min 30 s (45 % over), since 2026-11-24 14:10 UTC (7 in a row).',
       'Likely cause: Fonts took 1 min 10 s against a usual 20 s.',
       'Speed table: https://github.com/owner/repo/actions/runs/42 · What the stages mean: https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions',
@@ -371,12 +371,12 @@ describe('speed alert shape (task M7, #446)', () => {
 
   it('keeps at most two links, and drops a link that is not https', () => {
     const msg = buildMessage('speed', { ...data, url: 'http://example.com', links: [...data.links, ['Third', 'https://x.example']] })
-    expect(msg.html.split('\n')[0]).toBe('🐢 <b>Delivery is slower than its limit: CI checks and the total</b>')
+    expect(msg.html.split('\n')[0]).toBe('🐢 <b>Thread Draft</b> · Delivery is slower than its limit: CI checks and the total')
     expect(msg.html.split('\n').at(-1)).not.toContain('Third')
   })
 
   it('escapes the headline', () => {
     const msg = buildMessage('speed', { ...data, headline: 'Smoke <b>', causeLine: 'Likely cause: not known yet.' })
-    expect(msg.html.startsWith('🐢 <b><a href="https://github.com/owner/repo/issues/9">Smoke &lt;b&gt;</a></b>')).toBe(true)
+    expect(msg.html.startsWith('🐢 <b>Thread Draft</b> · <a href="https://github.com/owner/repo/issues/9">Smoke &lt;b&gt;</a>')).toBe(true)
   })
 })
