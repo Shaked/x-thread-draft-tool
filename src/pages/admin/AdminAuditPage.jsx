@@ -15,7 +15,8 @@ import { adminApi } from '../../utils/api'
 // (a created_at); "Older" sends the last loaded row's time. A short page is the last one.
 const PAGE = 50
 
-const ACTIONS = ['suspend_user', 'unsuspend_user', 'delete_user', 'view_as_start', 'view_as_end']
+// The actions the server writes today. view_as_start and view_as_end join this list with Task 16 (#273).
+const ACTIONS = ['suspend_user', 'unsuspend_user', 'delete_user']
 const FILTER_OPTIONS = [{ value: 'all', label: 'All actions' }, ...ACTIONS.map((action) => ({ value: action, label: action }))]
 
 const COLUMNS = [

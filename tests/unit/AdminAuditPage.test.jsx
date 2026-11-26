@@ -100,6 +100,20 @@ describe('admin audit log page', () => {
     expect(older).toBe(`/api/admin/audit?limit=50&before=${encodeURIComponent(last)}`)
   })
 
+  it('a short page is the last one: no Older button', async () => {
+    vi.stubGlobal('fetch', answerWith(() => ROWS))
+    renderPage()
+    await screen.findByRole('table')
+    expect(screen.queryByRole('button', { name: 'Older' })).toBeNull()
+  })
+
+  it('shows an error when older rows do not load', async () => {
+    vi.stubGlobal('fetch', answerWith((path) => (path.includes('before=') ? new Error('down') : FULL_PAGE)))
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Older' }))
+    expect(await screen.findByText('Could not load older rows.')).toBeInTheDocument()
+  })
+
   it('details show as plain text, never as HTML', async () => {
     vi.stubGlobal('fetch', answerWith(() => ROWS))
     const { container } = renderPage()
