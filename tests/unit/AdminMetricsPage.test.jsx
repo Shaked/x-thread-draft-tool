@@ -112,7 +112,7 @@ describe('admin metrics page', () => {
     expect(section.getByText('25 % (last week 0 %)')).toBeInTheDocument()
     const table = section.getByRole('table', { name: 'Delivery events, newest first' })
     expect(within(table).getAllByRole('row')).toHaveLength(3)
-    expect(within(table).getByRole('link', { name: 'Open' })).toHaveAttribute('href', 'https://github.com/x/y/actions/runs/1')
+    expect(within(table).getByRole('link', { name: 'Open Tests run' })).toHaveAttribute('href', 'https://github.com/x/y/actions/runs/1')
     expect(section.getByRole('link', { name: /speed-metrics workflow runs/ })).toHaveAttribute('href', expect.stringContaining('speed-metrics.yml'))
     expect(fetchMock.mock.calls.find(([url]) => String(url).includes('/metrics/summary'))[1].headers['x-xt-admin']).toBe('1')
     fireEvent.click(section.getByRole('radio', { name: '7 days' }))

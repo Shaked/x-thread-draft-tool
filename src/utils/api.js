@@ -89,7 +89,7 @@ export const adminApi = {
     return request(`/admin/metrics/summary?window=${window}`, { headers: { 'x-xt-admin': '1' } })
   },
   metricsEvents(since) {
-    return request(`/admin/metrics/events?limit=20&since=${encodeURIComponent(since)}`, { headers: { 'x-xt-admin': '1' } })
+    return request(`/admin/metrics/events?limit=100&since=${encodeURIComponent(since)}`, { headers: { 'x-xt-admin': '1' } })
   }
 }
 
