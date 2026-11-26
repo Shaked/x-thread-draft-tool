@@ -1,0 +1,98 @@
+name: Weekly review
+
+# Weekly improvement review, deterministic part (epic #273, task #295). No model, no tokens.
+# Runs on a weekly schedule (Mondays, 05:23 UTC) and by hand. It collects the signals in
+# scripts/weekly-review-check.mjs and compares them with the fingerprint of the newest `weekly` issue.
+# Only when the fingerprint changed and no `weekly` issue is open, it opens ONE issue (labels task and
+# weekly) and sends one Telegram line. Otherwise it does nothing. Rules: docs/operations/weekly-review.md.
+#
+# Manual runs: `dry_run` (default false = do the real thing); true only prints what would happen.
+#
+# Safety: `contents: read` and `issues: write`, no tag, no push. The checkout keeps no token in .git.
+# The only secrets are the two Telegram ones. The Telegram step never fails the job.
+
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only print what would happen (no issue, no Telegram). Off = real run.'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: weekly-review
+  cancel-in-progress: false
+
+jobs:
+  review:
+    name: Weekly review check
+    # Only the default branch can write. A manual run on another branch only prints (dry_run true).
+    if: inputs.dry_run == true || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies (no scripts) for npm outdated and npm audit
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Read the newest weekly issue and count open ones
+        id: state
+        env:
+          RUNNER_TMP_DIR: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          gh issue list --repo "$REPO" --label weekly --state all --limit 1 --json body --jq '.[0].body // ""' > "$RUNNER_TMP_DIR/last-weekly.md"
+          OPEN=$(gh issue list --repo "$REPO" --label weekly --state open --json number --jq 'length')
+          echo "open=$OPEN" >> "$GITHUB_OUTPUT"
+          echo "open weekly issues $OPEN"
+
+      - name: Decide (no model)
+        id: plan
+        env:
+          LAST_BODY_FILE: ${{ runner.temp }}/last-weekly.md
+          OPEN_WEEKLY: ${{ steps.state.outputs.open }}
+          BODY_FILE: ${{ runner.temp }}/weekly-body.md
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        run: node scripts/weekly-review-check.mjs
+
+      - name: Open the weekly issue
+        id: issue
+        if: steps.plan.outputs.action == 'create' && inputs.dry_run != true
+        env:
+          TITLE: ${{ steps.plan.outputs.title }}
+          BODY_FILE: ${{ runner.temp }}/weekly-body.md
+        run: |
+          set -euo pipefail
+          # Labels first: `task` exists; `weekly` is created on the first run.
+          gh label create weekly --repo "$REPO" --force --description "Weekly improvement review" --color 0e8a16
+          URL=$(gh issue create --repo "$REPO" --title "$TITLE" --body-file "$BODY_FILE" --label task --label weekly)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "opened $URL"
+
+      - name: "Telegram: one line about the new issue"
+        if: steps.plan.outputs.action == 'create' && inputs.dry_run != true && steps.issue.outcome == 'success'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ISSUE_TITLE: ${{ steps.plan.outputs.title }}
+          ISSUE_URL: ${{ steps.issue.outputs.url }}
+        run: node scripts/weekly-review-check.mjs notify

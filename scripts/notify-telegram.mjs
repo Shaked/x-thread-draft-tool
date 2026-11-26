@@ -9,6 +9,7 @@
 //   owner            the repository owner added the label owner: needs you
 //   cleanup          a PR got the label cleanup-pr (epic #255, task C3): review the cleanup PR
 //   cleanup-started  the daily workflow opened a cleanup review issue
+//   weekly-started   the weekly workflow opened a weekly review issue (epic #273, task #295)
 //   speed            a stage's p90 is over its limit (speed-metrics.mjs, task #310 of epic #273); not in the template yet
 //
 // CLI (the workflows pass every value through environment variables, never inside the shell text):
@@ -91,10 +92,17 @@ function speedMessage(data) {
   return { html: html.join('\n'), plain: plain.join('\n') }
 }
 
+// The "started" kinds: a headline that links to the issue, the title, and one line of what happens next.
+const STARTED = {
+  'cleanup-started': ['Cleanup review started', 'Nothing needed. An agent reviews the commits since the last review and opens up to three PRs.'],
+  'weekly-started': ['Weekly review started', 'Nothing needed. An agent checks the signals and opens up to three PRs; owner items get the label owner.'],
+}
+
 // Returns { html, plain } for a kind, or null for an unknown kind. The first link is the headline's,
 // so Telegram's link preview is drawn from it.
 export function buildMessage(kind, data = {}) {
   const title = clip(data.title || '(no title)')
+  if (STARTED[kind]) return message([STARTED[kind][0], data.url], [text(title), text(STARTED[kind][1])])
   const sha = String(data.sha || '').slice(0, 7)
   const pr = String(data.url || '').match(/\/pull\/(\d+)$/)?.[1]
   const summary = summaryLine(data.body)
@@ -130,11 +138,6 @@ export function buildMessage(kind, data = {}) {
           ...(summary ? [text(`What it removes: ${summary}`)] : []),
           text('Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR.'),
         ],
-      )
-    case 'cleanup-started':
-      return message(
-        ['Cleanup review started', data.url],
-        [text(title), text('Nothing needed. An agent reviews the commits since the last review and opens up to three PRs.')],
       )
     case 'speed':
       return speedMessage(data)

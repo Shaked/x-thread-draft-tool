@@ -6,6 +6,7 @@ Code:
 - `scripts/notify-telegram.mjs`: builds the text and sends it.
 - `scripts/notify-label.mjs`: decides when a label sends a message.
 - `scripts/cleanup-review-check.mjs`: sends the "Cleanup review started" message when the daily workflow opens an issue.
+- `scripts/weekly-review-check.mjs`: sends the "Weekly review started" message when the weekly workflow opens an issue (task #295).
 - `.github/workflows/smoke-deployed.yml`: the two production kinds, after the deployed smoke test.
 - `.github/workflows/notify-labels.yml`: the three label kinds.
 - `.github/workflows/cleanup-review-daily.yml`: starts the cleanup message (see `docs/operations/cleanup-review.md`).
@@ -24,6 +25,7 @@ The script sends the forms in `.claude/skills/reply-style/templates/telegram-mes
 | Needs you | An issue needs you, or A PR needs you (the item) | The label `owner` is added to an issue or a pull request, by the repository owner's account. | none |
 | Cleanup review ready | Cleanup review ready (the PR) | A pull request gets the label `cleanup-pr`, added by the repository owner's account. The same label on an issue sends nothing. | none |
 | Cleanup review started | Cleanup review started (the issue) | The daily workflow opens a cleanup review issue. | none |
+| Weekly review started | Weekly review started (the issue) | The weekly workflow (`weekly-review.yml`, task #295) opens a weekly review issue, because a signal changed and no `weekly` issue is open. | none |
 | Speed budget over limit | Speed over the budget: <stages> (no emoji; the headline is the link) | A manual run of `speed-metrics.yml` (input `last`) finds a stage whose p90 is over its limit (`docs/plans/speed.md` section 1). Lines of numbers: the window (the last N merged PRs and the date of the oldest), then one line per stage over its limit with its p90, limit and usual (median) value, then "Nothing needed: this check only warns." The link opens the run, whose summary has the stage table. The per-merge check after a production smoke run sends nothing. | The headline (the run) |
 
 What a message looks like (the forms in the template):
@@ -50,6 +52,7 @@ Bold is the headline, and the headline is the link. English only: the owner read
 | Needs you | **An issue needs you**, or **A PR needs you**<br>Changelog entries and Telegram messages follow the writing templates<br>Needs you: open it and answer or do what it asks. |
 | Cleanup review ready | **Cleanup review ready**<br>Remove duplicate tests<br>What it removes: two parser tests that check the same thing.<br>Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR. |
 | Cleanup review started | **Cleanup review started**<br>Cleanup review 2026-11-25<br>Nothing needed. An agent reviews the commits since the last review and opens up to three PRs. |
+| Weekly review started | **Weekly review started**<br>Weekly review 2026-11-30<br>Nothing needed. An agent checks the signals and opens up to three PRs; owner items get the label owner. |
 | Metrics alert | **Metrics alert: slow answers**<br>Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms.<br>Needs you: open the metrics page and find the route with the errors or the slow answers. |
 
 Notes:
