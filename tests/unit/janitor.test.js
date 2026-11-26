@@ -187,6 +187,13 @@ describe('allowed fixes stay narrow', () => {
   const base = (issues, comments = {}) => ({ repo: 'example/repo', issues, pulls: [], open_pulls: [], markers: {}, comments })
   const issue = (number, title, extra = {}) => ({ number, title, state: 'open', labels: [{ name: 'task' }], body: '', updated_at: TODAY, ...extra })
 
+  it('ignores dependency keywords inside code spans, and reads Q task ids', () => {
+    expect(dependencies('Write the line as `Depends on A2` in the body.')).toMatchObject({ refs: [], named: [] })
+    expect(dependencies('Example: `Goes before #3`.').before).toEqual([])
+    const snap = base([issue(1, 'E9 task A1: first', { parent: 7, body: 'Depends on Q1.' }), issue(2, 'E9 task Q1: prerequisite', { parent: 7 })])
+    expect(order(snap).order).toEqual([2, 1])
+  })
+
   it('keeps a split-task suffix: "L1 (b)" resolves to the split task, not to L1', () => {
     expect(dependencies('Depends on L1 (b).').named).toEqual(['L1 (b)'])
     const snap = base([

@@ -97,12 +97,12 @@ function dependencyClause(rest, refs, named) {
   // Task ids named without a number, outside parentheses: "Depends on: M5 (see #439)" names M5; "C2 (#418)" has its number.
   let bare = text.replace(/\b[A-Z]{1,2}\d+[a-z]?\s*\(#\d+[^)]*\)/g, ' ')
   // A split-task suffix is part of the id, as taskId() reads it: "L1 (b)" is not "L1".
-  bare = bare.replace(/(?<![\w-])([A-PR-Z]{1,2}\d+[a-z]?)\s*\(([a-z]\d?)\)/g, (_, id, part) => {
+  bare = bare.replace(/(?<![\w-])([A-Z]{1,2}\d+[a-z]?)\s*\(([a-z]\d?)\)/g, (_, id, part) => {
     named.add(`${id} (${part})`)
     return ' '
   })
   bare = bare.replace(/\([^)]*\)/g, ' ').replace(/#\d+/g, ' ')
-  for (const m of bare.matchAll(/(?<![\w-])([A-PR-Z]{1,2}\d+[a-z]?)(?![\w-])/g)) named.add(m[1])
+  for (const m of bare.matchAll(/(?<![\w-])([A-Z]{1,2}\d+[a-z]?)(?![\w-])/g)) named.add(m[1])
 }
 
 /** Issue numbers on "Depends on", "Blocked by" and "starts after" lines. A "PR #n" or "see #n" is not a dependency. */
@@ -110,7 +110,8 @@ export function dependencies(body) {
   const refs = new Set()
   const named = new Set()
   const before = new Set()
-  for (const line of body.split('\n')) {
+  // Code spans are masked first, so a quoted example ("`Depends on A2`") never adds a dependency.
+  for (const line of body.split('\n').map((l) => l.replace(/`[^`]*`/g, (m) => ' '.repeat(m.length)))) {
     // "Goes before #n" only at the start of a clause, and never after "not", "until" or "start".
     for (const m of line.matchAll(/(?:^|[.;]\s+)(?:goes\s+)?before\s+#(\d+)/gi)) {
       if (!NEGATION.test(line.slice(Math.max(0, m.index - 20), m.index + m[0].length))) before.add(Number(m[1]))
