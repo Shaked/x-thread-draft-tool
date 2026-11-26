@@ -14,7 +14,8 @@ import { storeRemoteImage } from './images.js'
 const MAX_IMAGES = 4
 const PUBLISHED_ERROR = 'This draft is published. Duplicate it to edit.'
 const IMAGE_NOT_FOUND = 'Image not found in this draft. Its posts and image urls are in get_draft_outline.'
-const MAX_ATTEMPTS = 8
+// A write loses a round to any other write of the draft. Parallel image adds make at most 4 writes per post (#367).
+const attemptsFor = (posts) => Math.max(8, 4 * posts.length + 1)
 const POST_NOT_FOUND = 'Post not found in this draft'
 const REMOVE_IMAGE_ARGS = 'Give url to remove one image, or post_id to remove every image of that post.'
 
@@ -76,7 +77,24 @@ async function editPosts(request, id, plan, { expected = ifMatchOf(request) } = 
       res[DRAFT_BEFORE] = { ...draft, posts }
       return res
     }
-    if (isDeepStrictEqual(planned.posts, draft.posts)) return answer(draft, planned.extra)
+    // Files that no draft uses any more are deleted after the write. An error here never undoes a saved edit.
+    const cleanUp = async () => {
+      try {
+        const owned = (planned.removedImages ?? []).filter((url) => isOwnedBlobUrl(url, session.uid))
+        const used = await usedImageUrls(query, session.uid, owned, null)
+        const doomed = owned.filter((url) => !used.has(url))
+        if (doomed.length) await deleteBlobUrls(doomed)
+        return doomed.length
+      } catch (err) {
+        console.error('[draft-edits] file cleanup failed', err)
+        return 0
+      }
+    }
+    if (isDeepStrictEqual(planned.posts, draft.posts)) {
+      // A replay writes nothing, but still deletes the file a first call may have left behind.
+      const deleted = await cleanUp()
+      return answer(draft, { ...planned.extra, ...(planned.countDeleted ? { deleted } : {}) })
+    }
     if (!preconditionHolds(expected, draft.version)) return staleResponse(draft)
     const { rows: saved } = await query(
       `update drafts set posts = $3::jsonb, version = version + 1, updated_at = now()
@@ -86,14 +104,11 @@ async function editPosts(request, id, plan, { expected = ifMatchOf(request) } = 
     )
     if (!saved[0]) {
       // Another write landed between the read and this UPDATE. Read again; the loop ends in a 412 or the new plan.
-      if (attempt >= MAX_ATTEMPTS) return staleResponse(draft)
+      if (attempt >= attemptsFor(posts)) return staleResponse(draft)
       continue
     }
-    const owned = (planned.removedImages ?? []).filter((url) => isOwnedBlobUrl(url, session.uid))
-    const used = await usedImageUrls(query, session.uid, owned, null)
-    const doomed = owned.filter((url) => !used.has(url))
-    if (doomed.length) await deleteBlobUrls(doomed)
-    return answer(saved[0], { ...planned.extra, ...(planned.countDeleted ? { deleted: doomed.length } : {}) })
+    const deleted = await cleanUp()
+    return answer(saved[0], { ...planned.extra, ...(planned.countDeleted ? { deleted } : {}) })
   }
 }
 

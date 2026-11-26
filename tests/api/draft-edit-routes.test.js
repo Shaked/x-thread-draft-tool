@@ -144,6 +144,16 @@ describe('POST /drafts/:id/images', () => {
     expect(deleteBlobUrls).toHaveBeenCalledWith([img('1').url])
   })
 
+  it('nine parallel adds on three posts all land, with no If-Match', async () => {
+    const fresh = await db.insertDraft(alice.id, { posts: ['x', 'y', 'z'].map((id) => ({ id, text: id, images: [], embeddedTweet: null })) })
+    const calls = Array.from({ length: 9 }, (_, n) =>
+      route(apiRequest(`/api/drafts/${fresh.id}/images`, { method: 'POST', body: { url: `https://example.com/${n}.png`, post_id: 'xyz'[n % 3] }, cookie }))
+    )
+    expect((await Promise.all(calls)).map((res) => res.status)).toEqual(Array(9).fill(200))
+    const { posts } = (await db.pg.query('select posts from drafts where id = $1', [fresh.id])).rows[0]
+    expect(posts.map((post) => post.images.length)).toEqual([3, 3, 3])
+  })
+
   it('deletes the new file when the write fails (stale version), and keeps the old one', async () => {
     const res = await send('POST', '/images', { url: 'https://example.com/n.png', replace: img('1').url }, { ifMatch: '"9"' })
     expect(res.status).toBe(412)
@@ -167,6 +177,16 @@ describe('DELETE /drafts/:id/images', () => {
     const all = await send('DELETE', '/images', { post_id: 'a' })
     expect(await all.json()).toMatchObject({ removed: 1, deleted: 1 })
     expect(urls((await stored()).posts[0])).toEqual([])
+  })
+
+  it('a post with no images answers removed 0 and deleted 0, and a repeat of a removal still cleans up the file', async () => {
+    const empty = await send('DELETE', '/images', { post_id: 'b' })
+    expect(await empty.json()).toMatchObject({ removed: 0, deleted: 0 })
+    await db.pg.query("update drafts set posts = jsonb_set(posts, '{0,images}', '[]') where id = $1", [draft.id])
+    deleteBlobUrls.mockClear()
+    const again = await send('DELETE', '/images', { url: img('1').url })
+    expect(await again.json()).toMatchObject({ removed: 1, deleted: 1 })
+    expect(deleteBlobUrls).toHaveBeenCalledWith([img('1').url])
   })
 
   it('needs exactly one of url and post_id (422)', async () => {
