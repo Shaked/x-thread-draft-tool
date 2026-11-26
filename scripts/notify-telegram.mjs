@@ -12,7 +12,7 @@
 //   cleanup-started  the daily workflow opened a cleanup review issue
 //   weekly-started   the weekly workflow opened a weekly review issue (epic #273, task #295)
 //   speed            a stage is over its limit: the Alert shape (speed-metrics.mjs, tasks #310 and #446)
-//   metrics          a metrics alert (errors, slow, capacity): the Alert shape, linked to /admin/metrics (task #338)
+//   metrics          a metrics alert (errors, slow or capacity): the Alert shape, linked to /admin/metrics, task #338
 //
 // CLI (the workflows pass every value through environment variables, never inside the shell text):
 //   NOTIFY_KIND, NOTIFY_SHA, NOTIFY_TITLE, NOTIFY_URL, NOTIFY_RUN_URL, NOTIFY_PREVIEW_URL,
