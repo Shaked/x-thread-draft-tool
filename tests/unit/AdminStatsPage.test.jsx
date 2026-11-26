@@ -72,16 +72,17 @@ describe('admin shell', () => {
     expect(screen.getByRole('link', { name: 'Changelog' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('shows Coming soon for a page that is not built yet', async () => {
-    vi.stubGlobal('fetch', answer({}))
+  it('opens the users page from the menu', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url) => (String(url) === '/api/admin/users' ? { ok: true, json: async () => ({ users: [], next_cursor: null }) } : { ok: false, status: 404, json: async () => ({}) })))
     render(
-      <MemoryRouter initialEntries={['/admin/audit']}>
+      <MemoryRouter initialEntries={['/admin/users']}>
         <Routes>
           <Route path="/admin/*" element={<AdminLayout />} />
         </Routes>
       </MemoryRouter>
     )
-    expect(await screen.findByText('Coming soon.')).toBeInTheDocument()
+    expect(await screen.findByText('No users match.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Users' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('shows an error with a retry when the numbers do not load', async () => {

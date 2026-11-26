@@ -119,7 +119,7 @@ export default function AdminUsersPage() {
       )}
       {state.status === 'ready' && (
         <>
-          {state.users.length === 0 ? <p>No users match.</p> : <Table caption="Users" columns={COLUMNS} rows={state.users.map(rowOf)} />}
+          {state.users.length === 0 ? <p>No users match.</p> : <Table caption="Users" columns={COLUMNS} rows={state.users.map(rowOf)} rowKey={(row) => row.id} />}
           {state.next && (
             <Button variant="secondary" disabled={more} onClick={() => { setMore(true); load(state.next) }}>
               Load more
