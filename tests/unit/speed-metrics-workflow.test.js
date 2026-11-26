@@ -14,9 +14,11 @@ describe('speed metrics workflow', () => {
     expect(WORKFLOW).not.toMatch(/^\s*-\s*cron:/m)
   })
 
-  it('has exactly the read permissions of the plan, and no write scope', () => {
+  it('has the read permissions of the plan, and one write: the gate issue (task M7)', () => {
     expect(WORKFLOW).toMatch(/^permissions:\n\s+contents: read\n\s+actions: read\n\s+pull-requests: read\n\s+deployments: read\n/m)
-    expect(WORKFLOW).not.toMatch(/write/)
+    // Exactly one write scope, and it is issues: the per-merge gate (plan #439, section 6).
+    expect(WORKFLOW.match(/: write\b/g)).toHaveLength(1)
+    expect(WORKFLOW).toMatch(/^\s+issues: write$/m)
     expect(WORKFLOW).not.toMatch(/id-token/)
   })
 

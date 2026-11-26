@@ -80,6 +80,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NOTIFY_KIND: live
           DEPLOY_SHA: ${{ github.event.deployment.sha }}
+          NOTIFY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           title="$(git log -1 --format=%s "$DEPLOY_SHA" 2>/dev/null)"
           NOTIFY_SHA="$DEPLOY_SHA" NOTIFY_TITLE="${title:-(title not found)}" node scripts/notify-telegram.mjs

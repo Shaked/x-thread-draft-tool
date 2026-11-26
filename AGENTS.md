@@ -12,6 +12,7 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 - One session does one task: claim, build, ship, post the Handoff comment, end. The CLAIM template is in the queue issue; the HANDOFF template is in the `reply-style` skill.
 - Record every decision Shaked makes in the epic, with the date. "continue" is not an approval.
 - An open issue labelled `cleanup` is an eligible task of the Daily cleanup review epic (#255): executor Opus, at most one per day, and the session never merges. Rules: `docs/operations/cleanup-review.md`.
+- An open issue labelled `weekly` is a task of the weekly improvement review: executor Opus, at most one per week; rules in `docs/operations/weekly-review.md`.
 
 ### Rules
 - Check a fact before you state it; otherwise write "not checked".
