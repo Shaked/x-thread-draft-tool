@@ -102,7 +102,7 @@ const STARTED = {
 // so Telegram's link preview is drawn from it.
 export function buildMessage(kind, data = {}) {
   const title = clip(data.title || '(no title)')
-  if (STARTED[kind]) return message([STARTED[kind][0], data.url], [text(title), text(STARTED[kind][1])])
+  if (Object.hasOwn(STARTED, kind)) return message([STARTED[kind][0], data.url], [text(title), text(STARTED[kind][1])])
   const sha = String(data.sha || '').slice(0, 7)
   const pr = String(data.url || '').match(/\/pull\/(\d+)$/)?.[1]
   const summary = summaryLine(data.body)

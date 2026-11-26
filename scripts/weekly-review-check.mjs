@@ -130,7 +130,8 @@ export function parseWorkflowNodeVersions(files) {
 
 // Reads the facts from the last issue body: the JSON block, but only when its hash matches the marker.
 export function readLastFacts(body) {
-  const text = String(body || '')
+  // GitHub's web editor saves CRLF line endings after an edit (for example a ticked checkbox).
+  const text = String(body || '').replace(/\r\n/g, '\n')
   const mark = FINGERPRINT_MARK.exec(text)
   const block = /```json\n([\s\S]*?)\n```/.exec(text)
   if (!mark || !block) return null
@@ -142,10 +143,26 @@ export function readLastFacts(body) {
   }
 }
 
+// A marker whose facts cannot be trusted, plus a source that cannot be read now: nothing to compare.
+function cannotCompare(lastBody, trusted, unreadable) {
+  const hasMarker = FINGERPRINT_MARK.test(String(lastBody || '').replace(/\r\n/g, '\n'))
+  return hasMarker && !trusted && unreadable.length > 0
+}
+
+function openedWithinWeek(lastCreatedAt, now) {
+  const created = Date.parse(lastCreatedAt)
+  return Number.isFinite(created) && now.getTime() - created < WEEK_MS
+}
+
 // Decides the action. `current` maps each source to its value, or null when it could not be read.
 export function planWeeklyReview({ current, lastBody = '', openWeekly = 0, lastCreatedAt = '', now = new Date(), date = '', template = '' }) {
-  const last = readLastFacts(lastBody) || {}
+  const trusted = readLastFacts(lastBody)
+  const last = trusted || {}
   const unreadable = Object.keys(current).filter((k) => current[k] === null)
+  // A marker whose facts cannot be trusted, plus a source that cannot be read now: no way to compare, so nothing opens.
+  if (cannotCompare(lastBody, trusted, unreadable)) {
+    return { action: 'nochange', fingerprint: '', unreadable, message: 'last review cannot be read and a source is unreadable: nothing to compare' }
+  }
   // A source that cannot be read keeps its last value, so it never changes the fingerprint.
   const facts = {}
   for (const key of Object.keys(current)) {
@@ -162,8 +179,7 @@ export function planWeeklyReview({ current, lastBody = '', openWeekly = 0, lastC
     return { action: 'nochange', fingerprint, unreadable, message: 'nothing changed since the last weekly review' }
   }
   const message = `changed: fingerprint ${fingerprint.slice(0, 12)}` + (unreadable.length ? `, unreadable: ${unreadable.join(', ')}` : '')
-  const created = Date.parse(lastCreatedAt)
-  if (Number.isFinite(created) && now.getTime() - created < WEEK_MS) {
+  if (openedWithinWeek(lastCreatedAt, now)) {
     return { action: 'this-week', fingerprint, unreadable, facts, message: 'changed, but a weekly issue was opened within the last 7 days' }
   }
   if (openWeekly > 0) return { action: 'still-open', fingerprint, unreadable, facts, message: 'changed, but a weekly issue is still open' }

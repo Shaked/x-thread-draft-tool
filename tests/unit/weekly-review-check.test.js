@@ -180,6 +180,17 @@ describe('planWeeklyReview', () => {
     expect(planWeeklyReview({ current: none, lastBody: '', openWeekly: 0 }).action).toBe('nochange')
   })
 
+  it('a CRLF last body (saved by GitHub after an edit) is read like the LF one', () => {
+    const last = buildBody({ facts: FULL, fingerprint: fingerprintOf(FULL) }).replace(/\n/g, '\r\n')
+    expect(readLastFacts(last)).toEqual(FULL)
+    expect(planWeeklyReview({ current: { ...FULL, audit: null }, lastBody: last, openWeekly: 0 }).action).toBe('nochange')
+  })
+
+  it('an untrusted last body with an unreadable source now never opens an issue', () => {
+    const last = buildBody({ facts: FULL, fingerprint: fingerprintOf(FULL) }).replace('"telegramApi": "9.2"', '"telegramApi": "0.0"')
+    expect(planWeeklyReview({ current: { ...FULL, audit: null }, lastBody: last, openWeekly: 0 }).action).toBe('nochange')
+  })
+
   it('a last body whose facts do not match its marker is ignored (it cannot be trusted)', () => {
     const forged = buildBody({ facts: FULL, fingerprint: fingerprintOf(FULL) }).replace('"telegramApi": "9.2"', '"telegramApi": "0.0"')
     expect(readLastFacts(forged)).toBeNull()

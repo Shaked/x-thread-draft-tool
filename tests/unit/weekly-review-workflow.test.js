@@ -46,8 +46,11 @@ describe('weekly review workflow', () => {
     expect(WORKFLOW).toMatch(/--label task --label weekly/)
   })
 
-  it('the Telegram step never fails the job', () => {
-    expect(WORKFLOW).toMatch(/notify-telegram|weekly-review-check\.mjs notify/)
-    expect(WORKFLOW).not.toMatch(/TELEGRAM[^\n]*exit 1/)
+  it('the Telegram step never fails the job, structurally (continue-on-error on that step)', () => {
+    const lines = WORKFLOW.split('\n')
+    const at = lines.findIndex((l) => /name: "Telegram: one line about the new issue"/.test(l))
+    expect(at).toBeGreaterThan(-1)
+    const step = lines.slice(at, at + 8)
+    expect(step.some((l) => /^\s+continue-on-error:\s*true\s*$/.test(l))).toBe(true)
   })
 })
