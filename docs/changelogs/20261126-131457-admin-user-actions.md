@@ -1,0 +1,1 @@
+Admin user page: Suspend, Unsuspend and Delete user buttons with a typed-login confirmation dialog (#287). Delete is a dry run, then the typed login and the confirm token. Same routes and guards as MCP; server messages shown as is.

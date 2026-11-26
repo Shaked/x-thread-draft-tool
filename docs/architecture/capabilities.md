@@ -41,9 +41,9 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | Admin user details | `GET /admin/users/:id` | `admin_get_user` | `users/:id` | Admin only. Tokens and apps without secrets (#286) |
 | Admin statistics | `GET /admin/stats` | `admin_stats` | `/admin/*` | Admin only. The UI is a lazy chunk (#285); anyone else is sent to `/`, as for an unknown path |
 | Admin audit log | `GET /admin/audit` | `admin_audit_log` | `/admin/*` | Admin only. The page (#288) reads the same route, 50 rows at a time; its action filter works on the rows loaded |
-| Admin suspend user | `POST /admin/users/:id/suspend` | `admin_suspend_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
-| Admin unsuspend user | `POST /admin/users/:id/unsuspend` | `admin_unsuspend_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
-| Admin delete user | `POST /admin/users/:id/delete` | `admin_delete_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
+| Admin suspend user | `POST /admin/users/:id/suspend` | `admin_suspend_user` | `users/:id` | Admin only. Suspend button and dialog (#287): the dialog names the user id and the effect, and the button enables on the exact typed login. Optional reason |
+| Admin unsuspend user | `POST /admin/users/:id/unsuspend` | `admin_unsuspend_user` | `users/:id` | Admin only. Unsuspend button and dialog (#287), same typed login |
+| Admin delete user | `POST /admin/users/:id/delete` | `admin_delete_user` | `users/:id` | Admin only. Delete user (#287): offered 10 minutes after the suspension; step 1 is the dry run with the counts, step 2 the typed login and the confirm token, kept only in page state |
 | Admin metrics | `GET /admin/metrics` | `admin_metrics` | `/admin/*` | Admin only (#335): counts and percentiles by route, op, caller or total |
 | Admin feature flags | `GET /admin/flags`, `POST /admin/flags` | `admin_list_flags`, `admin_set_flag` | `/admin/*` | Admin only (#483). The Rare UI look and components (#406), saved on the admin's own account (`users.ui_flags`) and copied to the device as `xt-skin` and `xt-kit`; a normal user always gets the default look and `/settings/flags` is gone. A change touches only the admin's own view, so it needs no confirm token; it writes one audit row (`set_flag`) |
 | Admin metrics history | `GET /admin/metrics/series` | `admin_metrics_series` | `/admin/*` | Admin only (#335): points per hour or day |
