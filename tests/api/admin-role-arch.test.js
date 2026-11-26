@@ -19,10 +19,14 @@ const ROLE = 'server/admin/role.js'
 const GENERATED_CHANGELOG = 'server/generated/changelog.js'
 const SOURCE_EXTENSION = /\.(js|jsx|mjs|cjs|ts|tsx)$/
 
-// Who may import role.js. server/session.js is on the list on purpose (#283: realSession decides the web admin before any
-// database query). Task 8 adds server/routes/auth.js in its own PR and changes this list there.
+// Who may import role.js. server/routes/auth.js (Task 8, #282) and server/session.js (#283: realSession decides the web admin
+// before any database query) are on the list on purpose, each added in its own PR.
 const ROLE_IMPORTERS = (file) =>
-  file === 'server/mcp/tools.js' || file === 'server/routes/oauth.js' || file === 'server/session.js' || file.startsWith('server/admin/')
+  file === 'server/mcp/tools.js' ||
+  file === 'server/routes/oauth.js' ||
+  file === 'server/routes/auth.js' ||
+  file === 'server/session.js' ||
+  file.startsWith('server/admin/')
 
 /** The admin identity names: the id itself, the list and the check. Any other module that uses one decides admin by itself. */
 const IDENTITY_NAMES = /\bisAdminGithubId\b|\bADMIN_GITHUB_IDS\b|\b960015\b/g
