@@ -128,6 +128,8 @@ export default function AdminMetricsPage() {
   }
   const tools = state.ops.metrics.filter((m) => m.group.op.startsWith('tool:'))
   const points = state.requests.points
+  // The p95 line is joined to the requests points by time, so two cached answers a minute apart cannot misalign.
+  const p95At = new Map(state.p95.points.map((p) => [p.at, p.value]))
   // Each product series is matched by its UTC day, so a series cached a minute earlier cannot shift the rows.
   const byDay = state.product.map((s) => new Map(s.points.map((p) => [p.at.slice(0, 10), p.value])))
   const days = [...new Set(byDay.flatMap((m) => [...m.keys()]))].sort().reverse()
@@ -167,7 +169,7 @@ export default function AdminMetricsPage() {
               key: 'p95',
               label: 'p95',
               unit: 'ms',
-              values: state.p95.points.map((p) => p.value)
+              values: points.map((p) => p95At.get(p.at) ?? null)
             }
           ]}
         />
