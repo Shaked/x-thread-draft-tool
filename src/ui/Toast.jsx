@@ -7,13 +7,13 @@ import './Toast.css'
 const TOAST_MS = 4000
 const ToastContext = createContext(null)
 
-// Rare UI's toast (feature flag "Components", src/utils/skin.js). Its chunk loads when the provider mounts with the
-// flag on, or at the first toast after the flag is switched on. Until it is mounted, toasts show as they always did.
+// Rare UI's toast (the default; the admin's "Components" off switch, src/utils/skin.js, gives the old toast). Its chunk loads when
+// the provider mounts, or at the first toast after the admin switches it back on. Until it is mounted, toasts show the old way.
 const loadRareToast = () => import('./rare/Toast.jsx')
 
 // Shows one toast at a time at the bottom of the screen, above the phone bar. It goes away after 4 s; a danger
 // toast stays until it is closed. The two live regions are mounted empty at start (the toast inside gets its role when it shows), so the first message is announced.
-// With the Components flag on, the Rare UI stack shows the message instead, once it is mounted (src/ui/rare/Toast.jsx).
+// With Rare UI (the default), the Rare stack shows the message instead, once it is mounted (src/ui/rare/Toast.jsx).
 // The provider sits above the routes, so a toast survives a navigation.
 export function ToastProvider({ children }) {
   const [current, setCurrent] = useState(null)

@@ -9,17 +9,22 @@ import { useToast } from '../../ui/Toast'
 import { adminApi } from '../../utils/api'
 import { setKit, setSkin } from '../../utils/skin'
 
+// Rare UI is the default for everyone; this page is the admin's off switch. Other users always get Rare UI (#406).
 const LOOKS = [
-  { value: 'default', label: 'Current (purple)' },
-  { value: 'rare', label: 'Rare UI (black, orange)' }
+  { value: 'rare', label: 'Rare UI (everyone)' },
+  { value: 'default', label: 'Old look, purple (only you)' }
 ]
 
 const KITS = [
-  { value: 'default', label: 'Current components' },
-  { value: 'rare', label: 'Rare UI components' }
+  { value: 'rare', label: 'Rare UI components (everyone)' },
+  { value: 'default', label: 'Old components (only you)' }
 ]
 
-const valueOf = (flags, name) => flags.find((flag) => flag.name === name)?.value ?? 'default'
+// The value this account has, else the server's default for the flag (Rare UI).
+const valueOf = (flags, name) => {
+  const flag = flags.find((item) => item.name === name)
+  return flag?.value ?? flag?.default ?? 'rare'
+}
 
 // Feature flags of the admin's account (#483), the same as GET and POST /api/admin/flags and the admin_list_flags and
 // admin_set_flag tools. The choice is saved on the account and copied to this device, so the look paints before the app loads.
@@ -75,10 +80,10 @@ export default function AdminFlagsPage() {
   return (
     <Stack gap={8}>
       {failed && <Banner tone="danger" role="alert">{failed}</Banner>}
-      <Section title="Look" headingLevel={2} description="Colours, corner radius, shadows and motion for every page and component. Only you see it.">
+      <Section title="Look" headingLevel={2} description="Colours, corner radius, shadows and motion for every page and component. Everyone else always sees Rare UI; the purple look is only for your account.">
         <SegmentedControl legend="Look" value={valueOf(state.flags, 'look')} options={LOOKS} onChange={choose('look', setSkin)} />
       </Section>
-      <Section title="Components" headingLevel={2} description="Use the real Rare UI components for the theme choice in the menu, Delete draft in the list and the character count. They take the colours of the look above.">
+      <Section title="Components" headingLevel={2} description="The real Rare UI components for the theme choice in the menu, Delete draft in the list, the character count and the toast. Everyone else always sees them; the old components are only for your account. They take the colours of the look above.">
         <Stack gap={4}>
           <SegmentedControl legend="Components" value={valueOf(state.flags, 'components')} options={KITS} onChange={choose('components', setKit)} />
           <Banner tone="info" role="none">

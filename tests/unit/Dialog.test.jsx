@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
 import Dialog, { ConfirmProvider, useConfirm } from '../../src/ui/Dialog.jsx'
 import { ToastProvider, useToast } from '../../src/ui/Toast.jsx'
+import { useOldLook } from './helpers/useOldLook.js'
 
 function Host({ onResult }) {
   const confirm = useConfirm()
@@ -135,6 +136,8 @@ describe('Toast', () => {
   }
 
   it('hides a success toast after 4 s; a danger toast stays until closed', async () => {
+    // The old toast's timing; the Rare UI toast (default) has its own tests in rare-toast.test.jsx and loads late here.
+    useOldLook()
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(

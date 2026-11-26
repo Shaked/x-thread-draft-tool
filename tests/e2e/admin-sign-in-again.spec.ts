@@ -41,7 +41,8 @@ test('saving a feature flag with an old sign-in opens the pop-up, signs in, save
       }
     })
     await page.goto(`${BASE}/admin/flags`)
-    await page.getByText('Rare UI (black, orange)', { exact: true }).click()
+    // Rare UI is the default (#406), so the change that saves is the admin's off switch: the old look.
+    await page.getByText('Old look, purple (only you)', { exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Sign in again to save' })
     await expect(dialog).toBeVisible()
     await expect(page.locator('body')).not.toContainText('Could not save the flag')

@@ -23,7 +23,8 @@ const OUT = path.join('test-results', 'ui-audit')
 
 // Pages under audit. A page joins when its migration PR lands (plan section 5, rules for every migration PR).
 // `drafts` are seeded for that page's user (the draft list with rows, one Hebrew title for the RTL pass).
-const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare'; kit?: 'rare' }[] = [
+// skin and kit: 'default' (the old look and components) is the admin's off switch (#406); nothing else is seeded.
+const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default' }[] = [
   { name: 'about', path: '/about' },
   { name: 'flags', path: '/admin/flags' },
   { name: 'changelog', path: '/admin/changelog' },
@@ -57,21 +58,24 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
       }
     ]
   },
-  // The optional Rare UI look (feature flag, #406): the same checks with xt-skin=rare on the new page and two main pages.
-  { name: 'flags-rare', path: '/admin/flags', skin: 'rare' },
+  // Rare UI is the default for everyone (#406). The admin's off switch is audited here: the old look (xt-skin=default) and
+  // the old components (xt-kit=default) on the flags page and two main pages. Every other case above is Rare UI.
+  { name: 'flags-old', path: '/admin/flags', skin: 'default', kit: 'default' },
   {
-    name: 'drafts-rare',
+    name: 'drafts-old',
     path: '/',
-    skin: 'rare',
+    skin: 'default',
+    kit: 'default',
     drafts: [
       { title: 'שרשור לדוגמה', posts: [{ id: 'h1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] },
       { title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }
     ]
   },
   {
-    name: 'editor-rare',
+    name: 'editor-old',
     path: '/draft/:first',
-    skin: 'rare',
+    skin: 'default',
+    kit: 'default',
     drafts: [
       {
         title: 'Editor audit',
@@ -82,25 +86,18 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
       }
     ]
   },
-  // The real Rare UI components (feature flag "Components", #406): the theme selector in the open menu, with the
-  // purple look and with the Rare UI look; Delete draft in the list, with both looks.
-  { name: 'drafts-menu-kit', path: '/', menu: true, kit: 'rare', drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }] },
-  { name: 'drafts-menu-kit-rare', path: '/', menu: true, kit: 'rare', skin: 'rare', drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }] },
+  // The theme selector in the open menu, with Rare UI (the default): the menu case with no seeds.
+  { name: 'drafts-menu-kit', path: '/', menu: true, drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }] },
+  // The same menu with the old look and the old components (the admin's off switch).
+  { name: 'drafts-menu-old', path: '/', menu: true, skin: 'default', kit: 'default', drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }] },
   {
-    name: 'drafts-kit',
+    name: 'drafts-kit-old',
     path: '/',
-    kit: 'rare',
+    kit: 'default',
     drafts: [
       { title: 'שרשור לדוגמה', posts: [{ id: 'h1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] },
       { title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }
     ]
-  },
-  {
-    name: 'drafts-kit-rare',
-    path: '/',
-    kit: 'rare',
-    skin: 'rare',
-    drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }]
   },
   // The app menu open for the admin, on the admin area: one Admin link, the admin menu behind it (#551).
   { name: 'admin-menu', path: '/admin', menu: true },
@@ -212,7 +209,7 @@ const DELIVERY_EVENTS = {
   events: [{ at: '2026-11-26T10:00:00.000Z', source: 'ci', kind: 'run', id: '1.2', name: 'Tests', status: 'failure', ms: 61000, link: 'https://github.com/x/y/actions/runs/1' }]
 }
 
-async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare'; kit?: 'rare' } = {}) {
+async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default' } = {}) {
   const phone = c.width < 800
   const context: BrowserContext = await browser.newContext({
     viewport: { width: c.width, height: phone ? 844 : 800 },
@@ -231,7 +228,7 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
       return route.fulfill({ json: HEBREW_CHANGELOG })
     }
     // The admin pages and the Rare UI flags (admin only, #483) need the admin's browser session (a bearer token never passes):
-    // answer the calls they make. The flags answer from the seeded skin and kit, as the account would.
+    // answer the calls they make. The flags answer from the seeded skin and kit (absent: Rare UI, the default), as the account would.
     if (asAdmin) {
       const url = new URL(route.request().url())
       if (url.pathname === '/api/auth/me') {
@@ -251,7 +248,7 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
       if (url.pathname === '/api/admin/metrics/summary') return route.fulfill({ json: DELIVERY_SUMMARY })
       if (url.pathname === '/api/admin/metrics/events') return route.fulfill({ json: { events: url.searchParams.get('source') === 'ci' ? DELIVERY_EVENTS.events : [] } })
       if (url.pathname === '/api/admin/flags') {
-        const flag = (name: string, value?: string) => ({ name, value: value ?? 'default', values: ['default', 'rare'], default: 'default', meaning: '' })
+        const flag = (name: string, value?: string) => ({ name, value: value ?? 'rare', values: ['rare', 'default'], default: 'rare', meaning: '' })
         return route.fulfill({ json: { flags: [flag('look', extra.skin), flag('components', extra.kit)] } })
       }
     }
@@ -284,7 +281,8 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
     await page.waitForTimeout(300)
   }
   // A Rare UI component loads in its own chunk: wait until it has replaced the current one.
-  if (extra.kit) await expect(page.locator('[class*="ui-rare-"]').first()).toBeVisible()
+  // Rare UI is the default: a page with the menu open or with drafts shows a Rare component (not on the old-components cases).
+  if (extra.kit !== 'default' && (extra.menu || extra.drafts?.length)) await expect(page.locator('[class*="ui-rare-"]').first()).toBeVisible()
   return { context, page }
 }
 
@@ -392,7 +390,7 @@ test.describe('UI audit', () => {
             expect(await smallTargets(page), 'targets under 44 x 44').toEqual([])
           }
 
-          expect(await scaleAndColourProblems(page, undefined, pageInfo.skin ? RADIUS_PX_RARE : RADIUS_PX), 'ui- elements off the scale or the theme colours').toEqual([])
+          expect(await scaleAndColourProblems(page, undefined, pageInfo.skin === 'default' ? RADIUS_PX : RADIUS_PX_RARE), 'ui- elements off the scale or the theme colours').toEqual([])
 
           // A field in a column is as tall as its label, control and help: no empty band under it (#551, the users search).
           expect(await tallFields(page), 'fields taller than their content').toEqual([])
@@ -419,12 +417,12 @@ test.describe('UI audit', () => {
     }
   }
 
-  // The confirm dialog (plan task U5): delete asks on the draft list. Checks the dialog on its own (the list behind it is
+  // The confirm dialog of the old delete control (plan task U5; the admin's Components switch is off, as Rare UI is the default): delete asks on the draft list. Checks the dialog on its own (the list behind it is
   // not migrated yet): scale and colours, axe, 44 px buttons on phones, then the keyboard (focus on Cancel, Tab stays inside,
   // Escape closes, focus returns to the opener). The draft title is Hebrew, so the RTL pass shows real Hebrew text.
   for (const c of CASES) {
     test(`delete dialog at ${c.name}`, async ({ browser, request }) => {
-      const { context, page } = await openPage(browser, request, '/', c, { heading: 'Your Threads', drafts: [{ title: 'שרשור לדוגמה', posts: [{ id: 'h1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] }] })
+      const { context, page } = await openPage(browser, request, '/', c, { heading: 'Your Threads', kit: 'default', drafts: [{ title: 'שרשור לדוגמה', posts: [{ id: 'h1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] }] })
       try {
         const opener = page.getByRole('button', { name: 'Delete draft' }).first()
         await opener.click()
@@ -470,7 +468,7 @@ test.describe('UI audit', () => {
   // choices are 44 px on phones, scale and colours, axe, then Escape keeps the draft and gives focus back.
   for (const c of CASES) {
     test(`rare delete button at ${c.name}`, async ({ browser, request }) => {
-      const { context, page } = await openPage(browser, request, '/', c, { kit: 'rare', drafts: [{ title: 'שרשור לדוגמה', posts: [{ id: 'h1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] }] })
+      const { context, page } = await openPage(browser, request, '/', c, { drafts: [{ title: 'שרשור לדוגמה', posts: [{ id: 'h1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] }] })
       try {
         const opener = page.getByRole('button', { name: 'Delete draft', expanded: false }).first()
         await opener.click()
@@ -501,7 +499,7 @@ test.describe('UI audit', () => {
   // left to right; scale and colours, axe, no horizontal scroll.
   for (const c of CASES) {
     test(`rare counter at ${c.name}`, async ({ browser, request }) => {
-      const { context, page } = await openPage(browser, request, '/draft/:first', c, { kit: 'rare', drafts: [{ title: 'מונה לדוגמה', posts: [{ id: 'k1', text: 'א'.repeat(290), images: [], embeddedTweet: null }] }] })
+      const { context, page } = await openPage(browser, request, '/draft/:first', c, { drafts: [{ title: 'מונה לדוגמה', posts: [{ id: 'k1', text: 'א'.repeat(290), images: [], embeddedTweet: null }] }] })
       try {
         const counter = page.locator('.ui-rare-counter').first()
         await expect(counter).toBeVisible()
@@ -526,7 +524,7 @@ test.describe('UI audit', () => {
   // bottom half of the screen; role=alert; scale and colours, axe, and the Hebrew draft in right-to-left at 390 px.
   for (const c of CASES) {
     test(`rare toast at ${c.name}`, async ({ browser, request }) => {
-      const { context, page } = await openPage(browser, request, '/draft/:first', c, { kit: 'rare', drafts: [{ title: 'הודעה לדוגמה', posts: [{ id: 't1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] }] })
+      const { context, page } = await openPage(browser, request, '/draft/:first', c, { drafts: [{ title: 'הודעה לדוגמה', posts: [{ id: 't1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] }] })
       try {
         await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('refused')) } }))
         await page.getByRole('button', { name: 'Export', exact: true }).click()

@@ -144,7 +144,7 @@ for (const size of SIZES) {
         await page.goto(`${BASE}/`)
         await page.getByRole('heading', { name: 'Your Threads' }).waitFor()
         await openMenu(page)
-        await drawer(page).getByText('Dark', { exact: true }).click()
+        await drawer(page).getByRole('radio', { name: 'Dark' }).click()
         await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
         await drawer(page).getByRole('link', { name: 'API tokens' }).click()
         await expect(page).toHaveURL(/\/settings\/tokens$/)

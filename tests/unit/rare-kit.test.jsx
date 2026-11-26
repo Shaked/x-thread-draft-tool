@@ -5,7 +5,8 @@ import { MemoryRouter } from 'react-router-dom'
 import DeleteButton from '../../src/ui/DeleteButton.jsx'
 import { ConfirmProvider } from '../../src/ui/Dialog.jsx'
 import ThemePicker from '../../src/ui/ThemePicker.jsx'
-import { allowFlags, KIT_KEY } from '../../src/utils/skin.js'
+import { allowFlags } from '../../src/utils/skin.js'
+import { useOldLook } from './helpers/useOldLook.js'
 
 // The Rare UI components behind the "Components" feature flag (#406), through their src/ui wrappers.
 const THEMES = [
@@ -54,13 +55,13 @@ describe('Rare UI components (feature flag)', () => {
   })
 
   it('ThemePicker shows the segmented control with the flag off', () => {
+    useOldLook()
     render(<ThemePicker legend="Theme" value="dark" options={THEMES} onChange={() => {}} />)
     expect(screen.getByRole('group', { name: 'Theme' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked()
   })
 
   it('ThemePicker shows Rare UI previews with the flag on; click and arrow keys choose', async () => {
-    localStorage.setItem(KIT_KEY, 'rare')
     const onChange = vi.fn()
     const user = userEvent.setup()
     render(<ThemePicker legend="Theme" value="dark" options={THEMES} onChange={onChange} />)
@@ -76,6 +77,7 @@ describe('Rare UI components (feature flag)', () => {
   })
 
   it('DeleteButton asks with the dialog with the flag off', async () => {
+    useOldLook()
     const onConfirm = vi.fn()
     const user = userEvent.setup()
     renderDelete(onConfirm)
@@ -86,7 +88,6 @@ describe('Rare UI components (feature flag)', () => {
   })
 
   it('DeleteButton opens the Rare UI panel with the flag on: Cancel first, Escape keeps, yes deletes', async () => {
-    localStorage.setItem(KIT_KEY, 'rare')
     const onConfirm = vi.fn()
     const user = userEvent.setup()
     renderDelete(onConfirm)
@@ -106,7 +107,6 @@ describe('Rare UI components (feature flag)', () => {
     await act(async () => {})
   })
   it('DeleteButton with the flag on waits for the delete: busy, then Deleted only after it succeeds', async () => {
-    localStorage.setItem(KIT_KEY, 'rare')
     const request = pending()
     const onConfirm = vi.fn(() => request.promise)
     const user = userEvent.setup()
@@ -127,7 +127,6 @@ describe('Rare UI components (feature flag)', () => {
   })
 
   it('DeleteButton with the flag on goes back to idle when the delete fails, and can try again', async () => {
-    localStorage.setItem(KIT_KEY, 'rare')
     const onConfirm = vi.fn().mockResolvedValueOnce(false).mockRejectedValueOnce(new Error('offline'))
     const user = userEvent.setup()
     renderDelete(onConfirm)
@@ -144,7 +143,6 @@ describe('Rare UI components (feature flag)', () => {
   })
 
   it('DeleteButton with the flag on deletes once for a double press on yes', async () => {
-    localStorage.setItem(KIT_KEY, 'rare')
     const onConfirm = vi.fn(() => pending().promise)
     const user = userEvent.setup()
     renderDelete(onConfirm)
@@ -155,7 +153,6 @@ describe('Rare UI components (feature flag)', () => {
   })
 
   it('DeleteButton with the flag on does not update after it is removed during the delete', async () => {
-    localStorage.setItem(KIT_KEY, 'rare')
     const request = pending()
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
     const user = userEvent.setup()

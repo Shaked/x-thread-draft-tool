@@ -27,6 +27,7 @@ A modern web app for composing, managing, and exporting Twitter/X threads with c
 - **Copy to clipboard** - With or without numbering
 
 ### User Experience
+- Look: Rare UI for everyone (black and white in light mode, orange in dark mode). The admin can switch the look and the components back to the old purple ones on `/admin/flags`; other users always see Rare UI.
 - **PWA support** - Install as mobile app
 - **Mobile responsive** - Works on all devices
 - **GitHub OAuth** - Simple authentication
