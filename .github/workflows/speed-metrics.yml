@@ -28,6 +28,8 @@ permissions:
   issues: write
 
 # One group for every run: two merges must not read the gate issue at the same time (task M7, #446).
+# Known limit: GitHub keeps one pending run per group, so a newer run can replace a waiting one. A merge whose run is
+# replaced gets no gate step and no alert for that merge; the next over-limit merge reads the gate and keeps the streak.
 concurrency:
   group: speed-metrics
   cancel-in-progress: false

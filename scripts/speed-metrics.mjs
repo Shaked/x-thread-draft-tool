@@ -430,7 +430,9 @@ export function readGate(body) {
 // count already stored in the gate, so the reported start does not move forward.
 export function streakFields(prev, streak) {
   const start = minDate(streak.map((r) => r.merged_at))
-  if (prev?.active && prev.since) return { since: Date.parse(prev.since) < Date.parse(start) ? prev.since : start, count: Math.max(prev.count, streak.length) }
+  // Keep the stored start only for the same streak: the gate is not clear, and the window ran out before the streak did.
+  const same = prev?.active && !prev.clearSince && prev.since && streak.length >= GATE_WINDOW
+  if (same) return { since: Date.parse(prev.since) < Date.parse(start) ? prev.since : start, count: Math.max(prev.count, streak.length) }
   return { since: start, count: streak.length }
 }
 

@@ -15,6 +15,8 @@ import {
   overLimit,
   readGate,
   run,
+  GATE_TITLE,
+  streakFields,
   streakOf,
   summarize,
 } from '../../scripts/speed-metrics.mjs'
@@ -428,11 +430,41 @@ describe('the gate: streak, cause and state (task M7, #446)', () => {
 })
 
 describe('the gate keeps a streak that is longer than its window (task M7, #446)', () => {
-  it('an active gate keeps its earlier start and count when the window only reaches part of the streak', async () => {
-    const earlier = { active: true, since: '2026-11-01T08:00:00Z', count: 12, clearSince: null }
-    resetGate({ number: 900, html_url: 'https://github.com/owner/repo/issues/900', body: `x\n<!-- speed-gate ${JSON.stringify(earlier)} -->` })
-    await run(['--merge', M[101], '--out', mkdtempSync(join(tmpdir(), 'speed-'))], {}, { api: fakeApi(), now: NOW, log: () => {}, notifyImpl: async () => 'skipped' })
-    const body = gate.updated.at(-1)
-    expect(readGate(body)).toMatchObject({ active: true, since: '2026-11-01T08:00:00Z', count: 12 })
+  it('a streak that reaches the window keeps the earlier start and count of the same streak', async () => {
+    const prev = { active: true, since: '2026-11-01T08:00:00Z', count: 52, clearSince: null }
+    const window = Array.from({ length: 40 }, (_, i) => ({ merged_at: new Date(Date.parse('2026-11-25T00:00:00Z') - i * 3600000).toISOString(), kind: 'code', stages: { vercel: {} } }))
+    expect(streakFields(prev, window)).toEqual({ since: '2026-11-01T08:00:00Z', count: 52 })
+    // A streak that ends inside the window is measured in full, so its own start is used.
+    expect(streakFields(prev, window.slice(0, 3)).since).toBe(window[2].merged_at)
+  })
+})
+
+describe('the gate: streak reset and lookups (task M7, #446)', () => {
+  const streakRec = (n, at) => ({ number: n, kind: 'code', merged_at: at, head_sha: 'h' + n, merge_sha: 'm' + n, stages: { ci: { running: 120 }, vercel: { running: 20 } }, total: 150 })
+
+  it('a gate that went clear starts a new streak: the old start and count are not kept', () => {
+    const prev = { active: true, since: '2026-11-24T14:10:00Z', count: 7, clearSince: '2026-11-25T10:00:00Z' }
+    expect(streakFields(prev, [streakRec(9, '2026-11-26T08:00:00Z')])).toEqual({ since: '2026-11-26T08:00:00Z', count: 1 })
+  })
+
+  it('an unclear streak shorter than the window still counts from its own start', () => {
+    const prev = { active: true, since: '2026-11-20T08:00:00Z', count: 7, clearSince: null }
+    expect(streakFields(prev, [streakRec(9, '2026-11-26T08:00:00Z')])).toEqual({ since: '2026-11-26T08:00:00Z', count: 1 })
+  })
+
+  it('a broken gate marker reads as no state', () => {
+    expect(readGate('<!-- speed-gate {bad} -->')).toBeNull()
+  })
+
+  it('finds the gate issue on page 2 of the open task issues', async () => {
+    const gateIssue = { number: 77, title: GATE_TITLE, body: 'b', html_url: 'https://github.com/owner/repo/issues/77' }
+    const filler = Array.from({ length: 100 }, (_, i) => ({ number: 1000 + i, title: 'other', body: '' }))
+    const fetchImpl = async (url) => {
+      const page = Number(new URL(url).searchParams.get('page'))
+      const list = page === 1 ? filler : [gateIssue]
+      return { ok: true, status: 200, json: async () => list }
+    }
+    const api = githubApi({ token: 'test-token', repo: 'owner/repo', fetchImpl })
+    expect((await api.openGateIssue())?.number).toBe(77)
   })
 })
