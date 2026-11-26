@@ -123,7 +123,8 @@ export function dependencies(body) {
   })
   for (const line of lines.map((l) => l.replace(/`[^`]*`/g, (m) => ' '.repeat(m.length)))) {
     // "Goes before #n" only at the start of a clause, and never after "not", "until" or "start".
-    for (const m of line.matchAll(/(?:^|[.;]\s+)(?:goes\s+)?before\s+#(\d+)/gi)) {
+    // A clause starts at the line start (after a list marker such as "- " or "1. "), or after "." or ";".
+    for (const m of line.matchAll(/(?:^\s*(?:[-*+]\s+|\d+\.\s+)?|[.;]\s+)(?:goes\s+)?before\s+#(\d+)/gi)) {
       if (!NEGATION.test(line.slice(Math.max(0, m.index - 20), m.index + m[0].length))) before.add(Number(m[1]))
     }
     for (const m of line.matchAll(/\b(depends on|blocked by|starts after)\b/gi)) {

@@ -233,6 +233,13 @@ describe('allowed fixes stay narrow', () => {
     expect(order(snap)).toEqual({ order: [2, 1, 3], left: [] })
   })
 
+  it('reads "Goes before #n" in a Markdown list item', () => {
+    expect(dependencies('- Goes before #10.').before).toEqual([10])
+    expect(dependencies('  1. Before #11 starts.').before).toEqual([11])
+    const snap = base([issue(10, 'E9 task A1: ten'), issue(20, 'E9 task A2: twenty', { body: '## Order\n- Goes before #10.' })])
+    expect(order(snap).order).toEqual([20, 10])
+  })
+
   it('puts a task that says "Goes before #n" ahead of #n in the order', () => {
     const snap = base([issue(10, 'E9 task A1: ten'), issue(20, 'E9 task A2: twenty', { body: 'Goes before #10.' })])
     expect(order(snap).order).toEqual([20, 10])
