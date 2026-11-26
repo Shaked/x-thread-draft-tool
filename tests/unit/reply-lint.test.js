@@ -84,5 +84,11 @@ describe('reply-lint rules', () => {
     expect(rules('**[Production is live](https://x.test)**\nT', { kind: 'telegram' })).toEqual(['shape'])
     expect(rules('✅ **[Production is live](https://x.test)**\nT\nNothing needed.', { kind: 'telegram' })).toEqual(['empty-section'])
     expect(rules('✅ **[Production is live](https://x.test)**\nT 🎉', { kind: 'telegram' })).toEqual(['emoji'])
+    // A real title that starts with "None" or "Nothing" is not an empty section.
+    for (const title of ['None of the drafts are lost on reload', 'Nothing breaks when offline', 'Nothing lost after reload']) {
+      expect(rules(`🙋 **[An issue needs you](https://x.test)**\n${title}`, { kind: 'telegram' }), title).toEqual([])
+    }
+    // The headline is the first prose line, even after a fenced block.
+    expect(rules('```\nx\n```\n✅ **[P](https://x.test)**\nT', { kind: 'telegram' })).toEqual([])
   })
 })

@@ -86,6 +86,7 @@ const commitLine = (sha, title) =>
 // The shape of the template: a bold headline that links to the main page, the body lines, then the
 // other links on one line, separated by " · ". The headline's link is the first link of the message.
 function message(kind, [label, url], body, links = []) {
+  if (!EMOJI[kind]) throw new Error(`no emoji for the kind ${kind}`)
   const html = [`${EMOJI[kind]} <b>${linkHtml(label, url)}</b>`, ...body.map((line) => line.html)]
   const plain = [`${EMOJI[kind]} ${linkPlain(label, url)}`, ...body.map((line) => line.plain)]
   if (links.length) {

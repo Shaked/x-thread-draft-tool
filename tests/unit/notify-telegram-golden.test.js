@@ -130,13 +130,15 @@ describe('Telegram golden messages (#463)', () => {
     for (const kind of SENDER_KINDS) expect(buildMessage(kind, { title: 'T', url: PR }), kind).not.toBeNull()
     // Every kind a workflow or script sends is one the sender builds.
     const callers = ['.github/workflows/smoke-deployed.yml', '.github/workflows/notify-labels.yml', 'scripts/notify-label.mjs', 'scripts/cleanup-review-check.mjs', 'scripts/speed-metrics.mjs']
+    let seen = 0
     for (const file of callers) {
       const text = readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8')
-      for (const m of text.matchAll(/(?:NOTIFY_KIND:|kind:|buildMessage\()\s*['"]?([a-z][a-z-]*)['"]?/g)) {
-        if (['live', 'failed', 'preview', 'owner', 'cleanup', 'cleanup-started', 'speed'].includes(m[1]) || !/^[a-z-]+$/.test(m[1])) continue
-        if (/NOTIFY_KIND/.test(m[0])) expect(SENDER_KINDS, `${file}: ${m[1]}`).toContain(m[1])
+      for (const m of text.matchAll(/(?:NOTIFY_KIND:\s*|\{ kind: '|buildMessage\(')([a-z][a-z-]*)/g)) {
+        seen += 1
+        expect(SENDER_KINDS, `${file}: ${m[1]}`).toContain(m[1])
       }
     }
+    expect(seen).toBeGreaterThanOrEqual(6)
   })
 
   for (const kind of KINDS) {

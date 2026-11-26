@@ -41,7 +41,7 @@ const BLOCK_ON_HUMAN = /^\s+(?:on|by)\s+(?:you|your|Shaked|the owner)\b/i
 const WAITING_HUMAN = /\bwaiting\s+(?:on|for)\s*:?\s+(?:you|your|Shaked|the owner)\b/i
 const EMOJI = /\p{Extended_Pictographic}/u
 /** A section line that only says there is nothing: "Nothing needed.", "None", "Waiting for: nothing". Telegram messages never have one. */
-export const EMPTY_SECTION = /^(?:[^:]{0,40}:\s*)?(?:nothing(?: needed)?|none|n\/a)\b[^.]{0,40}\.?$/i
+export const EMPTY_SECTION = /^(?:[^:]{0,40}:\s*)?(?:nothing(?: needed)?(?: from you)?|none|n\/a)\.?$/i
 const SLOP = /\b(delve[sd]?|seamless(?:ly)?|leverag(?:e|es|ed|ing)|game[- ]changer|rest assured|it'?s worth noting|i hope this helps|great question|needless to say|in conclusion)\b/i
 const ACT = /\b(Nothing needed from you|You need to do (\d+|one|two|three|four|five) things?)\b/i
 const NUMBERS = { one: 1, two: 2, three: 3, four: 4, five: 5 }
@@ -161,7 +161,7 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
   const findings = []
   const add = (line, rule, message) => findings.push({ line, rule, message })
   const seen = new Set()
-  const headlineAt = text.split('\n').findIndex((l) => l.trim()) + 1
+  let headlineAt = 0 // the first non-blank prose line: the Telegram headline
   const prose = []
   let fenced = false
   let details = false // a changelog's "## Technical details" part is not checked (it may hold code and labels)
@@ -172,6 +172,7 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
     if (/^\s*(```|~~~)/.test(raw)) { fenced = !fenced; return }
     if (fenced) return
     prose.push({ text: raw, n })
+    if (!headlineAt && raw.trim()) headlineAt = n
     // The net-lines line of a PR body ("Implements #273 Task R0") must stay in that exact form.
     const line = /^Implements #\d+ Task /.test(raw) ? '' : visible(raw)
     if (kind === 'changelog' && (LABEL.test(line) || /`/.test(raw))) add(n, 'internal-label', 'plain words only: no issue numbers, task ids or code')
