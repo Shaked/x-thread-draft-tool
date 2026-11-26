@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -211,5 +211,20 @@ describe('comment lint wrapper with a broken settings file', () => {
     expect(agent.status).toBe(2)
     expect(agent.stderr).not.toMatch(/^\s+at /m)
     rmSync(dir, { recursive: true, force: true })
+  })
+})
+
+describe('skill links', () => {
+  it('every relative markdown link in a project skill points at a file that exists', () => {
+    const skills = new URL('../../.claude/skills/', import.meta.url)
+    for (const d of readdirSync(skills, { withFileTypes: true })) {
+      if (!d.isDirectory() && !d.isSymbolicLink()) continue
+      const file = new URL(`${d.name}/SKILL.md`, skills)
+      let text
+      try { text = readFileSync(file, 'utf8') } catch { continue }
+      for (const m of text.matchAll(/\]\((?!https?:|#|mailto:)([^)\s#]+)(?:#[^)]*)?\)/g)) {
+        expect(existsSync(new URL(m[1], file)), `${d.name}/SKILL.md links to ${m[1]}`).toBe(true)
+      }
+    }
   })
 })

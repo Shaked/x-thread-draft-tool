@@ -6,6 +6,7 @@
 - The status report, handoff and skill say that a "Waiting for" item for an agent session shows its session link (rule `session-link`).
 - The skill lists every rule by name; its lines are under 160 characters.
 - Golden fixtures cover every lint rule, including the changelog and Telegram shapes. A test lists the rules and fails when one has no failing fixture.
+- The handoff template's `RELEASE` note says when to keep the line. The skill says what to run when `${CLAUDE_PLUGIN_ROOT}` is not filled in.
 - `examples/` holds two GitHub workflows to copy: lint a PR body, lint agent comments.
 
 ## 0.2.2

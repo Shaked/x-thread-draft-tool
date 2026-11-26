@@ -24,8 +24,9 @@ owner question uses one template below, follows the hard rules, and passes the l
    `[#<n> <3 to 6 words>](<issue link>) · [session](https://claude.ai/code/session_<id>)` (rule `session-link`).
    The link has the shape the commit attribution uses. Whether it opens in the Claude app is not checked.
 6. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/reply-lint.mjs" --template reply.md` and fix every finding before you send.
-   The script is `scripts/reply-lint.mjs` in the plugin folder, two folders above this file. When this text shows
-   `${CLAUDE_PLUGIN_ROOT}` unfilled, use that path, or the project's own command if it names one.
+   The script is `scripts/reply-lint.mjs` in the plugin folder. When this text shows `${CLAUDE_PLUGIN_ROOT}` unfilled
+   (the skill is used from a project folder), use the project's own lint command, which its agent rules or package
+   scripts name, or the plugin folder's `scripts/reply-lint.mjs`.
    A session started with `REPLY_STYLE=owner` in its environment is also checked when the turn ends: the Stop hook
    returns the failing rules and you rewrite the reply.
 7. The lint rules, by name, so that each one is on this list: `bare-label`, `option-letters`, `unchanged`, `blocked`,

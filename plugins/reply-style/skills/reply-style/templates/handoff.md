@@ -32,7 +32,7 @@ Nothing.
 - Decisions (dated): <who decided what, and when>.
 - Next session needs to know: <one line each>.
 
-<Last line, only when your task queue uses claims; leave it out otherwise:>
+<Delete this line. Keep the next line, RELEASE, only when your task queue uses claims; it comes after Details.>
 RELEASE
 
 ---

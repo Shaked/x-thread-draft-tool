@@ -62,6 +62,6 @@ so a reply makes sense without the agent's context. Owner request of 2026-11-21,
   failure with its link under "Reply style".
 - Session links and tested templates (#521): a `Waiting for` item that names a session carries its session link next to the task link
   (`[session](https://claude.ai/code/session_<id>)`), enforced by the rule `session-link`; opening the link in the Claude app is not checked.
-  The skill section "Adding or changing a template" requires a lint rule, golden fixtures and a "Before you send" entry, and
+  The rule "Adding or changing a template or a rule" above requires a lint rule, golden fixtures and a "Before you send" entry, and
   `tests/unit/reply-lint-golden.test.js` fails when a template has no fixtures or a rule has no failing fixture. The Stop hook and the
   comment lint both call `lint()`, so they cover every new rule; `tests/unit/reply-style-stop.test.js` checks `session-link` through the hook.

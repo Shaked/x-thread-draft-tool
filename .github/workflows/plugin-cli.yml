@@ -8,6 +8,7 @@ on:
     paths:
       - 'plugins/**'
       - '.claude-plugin/**'
+      - 'scripts/plugin-cli-check.mjs'
       - '.github/workflows/plugin-cli.yml'
 
 permissions:

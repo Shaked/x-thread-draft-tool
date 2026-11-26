@@ -2,7 +2,7 @@ name: Reply lint (agent comments)
 
 # Lints each new or edited issue or PR comment that ends with the Claude Code footer and starts with
 # HANDOFF, Decision or a question. A failing comment turns this run red and adds the label
-# `reply-style-fail` to the issue or PR; the task janitor reports the label. A check run cannot sit on an
+# `reply-style-fail` to the issue or PR; your own tooling can report the label. A check run cannot sit on an
 # issue (checks attach to commits), so the label is the visible mark on the tracker.
 # Example for the reply-style plugin: copy this file to .github/workflows/ and set REPLY_STYLE_PLUGIN (below) to the
 # folder that holds the plugin, for example a copy of plugins/reply-style/ committed in your repository.
