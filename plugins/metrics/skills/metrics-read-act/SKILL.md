@@ -12,7 +12,7 @@ Use it when you are asked "is anything wrong?", or when an alert from the metric
    `.claude/agent-kit.json`. Use `repo` below. When this text shows `${CLAUDE_PLUGIN_ROOT}` unfilled, the script is
    `scripts/metrics-config.mjs` two folders above this file.
 1. You need the admin tools of the service (`admin_metrics_summary`, `admin_metrics_events`) and the GitHub tools
-   (`get_job_logs`, `actions_run_trigger`, `issue_write`). A tool you do not have is "not checked": say so in the
+   (`get_job_logs`, `actions_run_trigger`, `list_issues`, `issue_write`, `add_issue_comment`). A tool you do not have is "not checked": say so in the
    report and stop. Do not read the admin API with a browser or a guessed token.
 
 ## 1. Read the summary
@@ -38,11 +38,13 @@ How to read it:
   there is one, last week's value, and since when it is over.
 - "1 in 10 ... or more" is the 90th percentile. "Slowest 5 %" is the 95th. Both are nearest-rank values.
 - The last line says whether anything is over its limit.
-- The same facts come as `findings`: `area`, `value`, `unit`, `limit`, `baseline` (last week), `over`, `since`,
-  `count_over`, `link`. Use them for the numbers you copy into an issue, not your own arithmetic.
+- The same facts come as `findings`: `area`, `text`, `value`, `unit`, `limit`, `baseline` (last week), `over`, `since`,
+  `count_over`, `link`. Use them for the numbers you copy into an issue, not your own arithmetic. A `link` that starts
+  with `/` is relative to `siteUrl`: write it in full before it goes into an issue.
 
 If line 1 says the events are old or none: start the workflow its link names, once, with `actions_run_trigger`
-(`method: run_workflow`, `ref` the default branch). End your turn and read again when it has finished. Do not loop
+(`method: run_workflow`, `owner` and `repo` from `repo`, `workflow_id` the file name in
+the link, `ref` the default branch). End your turn and read again when it has finished. Do not loop
 or sleep. If the events are still old after a finished run, that is itself the problem: open an issue that says the
 collector stores nothing, with the run link.
 
@@ -63,7 +65,8 @@ These margins are this skill's own. They keep one flaky run from opening an issu
 other margins, and then they win. When nothing is a problem, report that with the time you checked and stop. Open no issue.
 
 ## 3. Find the cause
-For each problem, call `admin_metrics_events`, newest first, with `since` set to the window start and `limit` 20:
+For each problem, call `admin_metrics_events`, newest first, with `since` set to the window start and `limit` 20.
+It has no `repo` filter, so keep only rows whose `link` starts with `https://github.com/<repo>/`:
 
 | Area | Filters |
 |---|---|
@@ -87,8 +90,9 @@ Name exactly one cause, with its evidence, from this list:
 | unknown | none of the above fits. Say what you checked |
 
 ## 4. Act
-- Search the open issues for the same area first. If one is open, add a comment with today's numbers. Do not open a second.
-- Otherwise open one issue with `issue_write`, written from `templates/finding-issue.md` and checked with
+- Look through the open issues (`list_issues`) for the same area first.
+  If one is open, add a comment (`add_issue_comment`) with today's numbers. Do not open a second.
+- Otherwise open one issue with `issue_write` (`method: create`), written from `templates/finding-issue.md` and checked with
   `node "${CLAUDE_PLUGIN_ROOT}/scripts/finding-check.mjs" <file>`. One issue per area.
 - Never change a limit, a margin or what is measured, and never skip, disable or quarantine a test, to make a number pass.
 - Follow the project's own agent rules (for example `AGENTS.md`) for who diagnoses and who fixes. Without such rules,

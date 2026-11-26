@@ -69,7 +69,7 @@ describe('golden config fixtures (sample project acme/sample-app)', () => {
 })
 
 const FINDINGS = join(PLUGIN, 'fixtures', 'finding')
-// The rule each bad finding fixture must fail for, and only that rule.
+// The rules each bad finding fixture must fail for, and only those.
 const WANT_FINDING = { 'bad-headings.md': ['headings', 'links'], 'bad-numbers.md': ['numbers'], 'bad-cause.md': ['cause'], 'bad-limit.md': ['limit'], 'bad-links.md': ['links'] }
 
 describe('finding issue template, golden fixtures', () => {
@@ -77,9 +77,17 @@ describe('finding issue template, golden fixtures', () => {
     expect(readdirSync(FINDINGS).filter((f) => f.startsWith('bad-')).sort()).toEqual(Object.keys(WANT_FINDING).sort())
     expect(readdirSync(FINDINGS).filter((f) => f.startsWith('good-')).length).toBeGreaterThan(0)
   })
-  it('every template of every skill has a fixture folder', () => {
-    const templates = readdirSync(join(SKILLS, 'metrics-read-act', 'templates'))
-    expect(templates).toEqual(['finding-issue.md'])
+  it('the one template has a fixture folder with a good and a bad fixture', () => {
+    expect(readdirSync(join(SKILLS, 'metrics-read-act', 'templates'))).toEqual(['finding-issue.md'])
+    expect(readdirSync(FINDINGS).some((f) => f.startsWith('good-'))).toBe(true)
+    expect(readdirSync(FINDINGS).some((f) => f.startsWith('bad-'))).toBe(true)
+  })
+  it('the command line exits 2 for a missing file and for no argument', () => {
+    const script = join(PLUGIN, 'scripts', 'finding-check.mjs')
+    expect(spawnSync('node', [script, join(FINDINGS, 'nope.md')], { encoding: 'utf8' }).status).toBe(2)
+    expect(spawnSync('node', [script], { encoding: 'utf8' }).status).toBe(2)
+    expect(spawnSync('node', [script, join(FINDINGS, 'good-1.md')], { encoding: 'utf8' }).status).toBe(0)
+    expect(spawnSync('node', [script, join(FINDINGS, 'bad-limit.md')], { encoding: 'utf8' }).status).toBe(1)
   })
   for (const f of readdirSync(FINDINGS)) {
     it(f, () => {

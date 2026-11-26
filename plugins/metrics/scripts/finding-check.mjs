@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks the body of a finding issue against templates/finding-issue.md. Node 20, no dependencies.
-// Usage: node finding-check.mjs <file>   Exit 0 when it passes, 1 with one finding per line.
+// Usage: node finding-check.mjs <file>   Exit 0 when it passes, 1 with one finding per line, 2 for wrong usage or an unreadable file.
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
@@ -32,7 +32,14 @@ export function main(argv = process.argv.slice(2)) {
     console.error('usage: finding-check.mjs <file>')
     return 2
   }
-  const findings = check(readFileSync(argv[0], 'utf8'))
+  let text
+  try {
+    text = readFileSync(argv[0], 'utf8')
+  } catch (error) {
+    console.error(`finding-check: cannot read ${argv[0]} (${error.code || error.message})`)
+    return 2
+  }
+  const findings = check(text)
   for (const f of findings) console.log(`${f.rule}: ${f.message}`)
   console.log(findings.length ? `finding-check: ${findings.length} finding(s)` : 'finding-check: OK')
   return findings.length ? 1 : 0
