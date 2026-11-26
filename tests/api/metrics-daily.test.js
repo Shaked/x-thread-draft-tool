@@ -133,6 +133,19 @@ describe('runDailyStep: the hourly move', () => {
     expect(row.buckets[64]).toBe(65 * 5)
   })
 
+  it('adds to a day already in metrics_daily when a later run moves more hours of it', async () => {
+    await hourlyRow('2026-11-01T00:00:00Z', 2, { max: 7, ms: 10 })
+    await runDailyStep({ now: NOW })
+    await hourlyRow('2026-11-01T05:00:00Z', 3, { max: 9, ms: 20 })
+    await runDailyStep({ now: NOW })
+    const row = (await query("select n, max_ms, sum_ms, buckets from metrics_daily where day = '2026-11-01'")).rows[0]
+    expect(row.n).toBe(5)
+    expect(row.max_ms).toBe(9)
+    expect(row.sum_ms).toBe(10 * 2 + 20 * 3)
+    expect(row.buckets[0]).toBe(5)
+    expect(row.buckets[64]).toBe(65 * 5)
+  })
+
   it('a second run moves nothing and does not count twice', async () => {
     await hourlyRow('2026-11-01T00:00:00Z', 2)
     await runDailyStep({ now: NOW })

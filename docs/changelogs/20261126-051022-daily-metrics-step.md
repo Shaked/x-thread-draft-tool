@@ -1,6 +1,6 @@
 # Old metrics rows are cleaned up every day
 
-- Each day the metrics job totals yesterday's numbers and moves older hourly counts into daily totals.
+- Every few hours the metrics job totals yesterday's numbers once and moves older hourly counts into daily totals.
 - Old event records are deleted after 14 days, and old counts after 400 days.
 - Only old metric rows are removed; no user data changes.
 
