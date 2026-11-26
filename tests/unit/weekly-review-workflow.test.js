@@ -35,7 +35,7 @@ describe('weekly review workflow', () => {
 
   it('the speed step gets no Telegram secret, so it can never send a message', () => {
     const lines = WORKFLOW.split('\n')
-    const at = lines.findIndex((l) => /name: Measure the speed of the last 7 days/.test(l))
+    const at = lines.findIndex((l) => /name: "Measure the speed of the last 7 days/.test(l))
     expect(at).toBeGreaterThan(-1)
     const end = lines.findIndex((l, i) => i > at && /^\s{6}- name:/.test(l))
     const step = lines.slice(at, end)
@@ -49,8 +49,16 @@ describe('weekly review workflow', () => {
     expect(WORKFLOW).toMatch(/name: speed-metrics-weekly/)
   })
 
-  it('the baseline is a successful run on the default branch only, and a dry run never uploads one', () => {
-    expect(WORKFLOW).toMatch(/gh run list[^\n]*--branch "\$DEFAULT_BRANCH"[^\n]*--status success/)
+  it('every step name is valid YAML: a name with ": " in it is quoted (an unquoted one breaks the whole workflow)', () => {
+    for (const line of WORKFLOW.split('\n')) {
+      const m = /^\s*-?\s*name:\s*(.*)$/.exec(line)
+      if (!m || m[1].startsWith('"') || m[1].startsWith("'")) continue
+      expect(m[1], line).not.toMatch(/: /)
+    }
+  })
+
+  it('the baseline is a successful scheduled run on the default branch only, and a dry run never uploads one', () => {
+    expect(WORKFLOW).toMatch(/gh run list[^\n]*--branch "\$DEFAULT_BRANCH"[^\n]*--event schedule[^\n]*--status success/)
     expect(WORKFLOW).toMatch(/DEFAULT_BRANCH: \$\{\{ github\.event\.repository\.default_branch \}\}/)
     const lines = WORKFLOW.split('\n')
     const at = lines.findIndex((l) => /name: Upload the speed metrics of the week/.test(l))

@@ -317,6 +317,26 @@ describe('speed signal (task S7, #315): booleans per stage, seconds never in the
     expect(plan.body).not.toContain('| Kind | Stage | p90 |')
   })
 
+  it('a speed flag that clears, with nothing else changed, opens nothing (the review reports slowdowns only)', () => {
+    const overFacts = { ...FULL, speed: speedFacts(speedDoc({ ciOver: true })) }
+    const last = buildBody({ facts: overFacts, fingerprint: fingerprintOf(overFacts) })
+    const plan = planWeeklyReview({ current: { ...FULL, speed: speedFacts(speedDoc()) }, lastBody: last, openWeekly: 0 })
+    expect(plan.action).toBe('nochange')
+  })
+
+  it('a speed flag that clears together with another change still opens the review', () => {
+    const overFacts = { ...FULL, speed: speedFacts(speedDoc({ ciOver: true })) }
+    const last = buildBody({ facts: overFacts, fingerprint: fingerprintOf(overFacts) })
+    const plan = planWeeklyReview({ current: { ...FULL, telegramApi: '9.3', speed: speedFacts(speedDoc()) }, lastBody: last, openWeekly: 0 })
+    expect(plan.action).toBe('create')
+  })
+
+  it('a new speed flag opens the review', () => {
+    const last = buildBody({ facts: FULL, fingerprint: fingerprintOf(FULL) })
+    const plan = planWeeklyReview({ current: { ...FULL, speed: speedFacts(speedDoc({ ciOver: true })) }, lastBody: last, openWeekly: 0 })
+    expect(plan.action).toBe('create')
+  })
+
   it('the live speed fetcher: no SPEED_FILE, or a malformed file, is unreadable (null), never "no flags"', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'speed-fetch-'))
     const bad = join(dir, 'speed.json')
