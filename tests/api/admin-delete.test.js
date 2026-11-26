@@ -376,21 +376,21 @@ describe('web admin safety (#284)', () => {
     expect(new Set(surfaceOf(carol.id))).toEqual(new Set(['mcp']))
   })
 
-  it('a web write needs a sign-in from the last 12 hours; a read does not (O6 default)', async () => {
+  it('a web write needs a sign-in from the last 7 days (6 days passes, 8 days is refused); a read does not (#552)', async () => {
     const alice = await target('alice', 20)
-    const sessionAt = (hoursAgo) =>
-      new SignJWT({ uid: admin.id, gh: '960015', login: 'shaked', jti: `old-${hoursAgo}` })
+    const sessionAt = (daysAgo) =>
+      new SignJWT({ uid: admin.id, gh: '960015', login: 'shaked', jti: `old-${daysAgo}` })
         .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt(Math.floor(Date.now() / 1000) - hoursAgo * 3600)
+        .setIssuedAt(Math.floor(Date.now() / 1000) - daysAgo * 86400)
         .setExpirationTime('30d')
         .sign(secretKey())
         .then((t) => `xt_session=${t}`)
-    const fresh = await sessionAt(11)
-    const stale = await sessionAt(13)
+    const fresh = await sessionAt(6)
+    const stale = await sessionAt(8)
     expect((await webCall(fresh, alice.id, {})).status).toBe(200)
     const refused = await webCall(stale, alice.id, {})
     expect(refused.status).toBe(403)
-    expect((await refused.json()).error).toBe('Sign in again: admin changes on the web need a sign-in from the last 12 hours.')
+    expect(await refused.json()).toEqual({ error: 'Sign in again: admin changes on the web need a sign-in from the last 7 days.', code: 'sign_in_again' })
     const read = await route(apiRequest(`/api/admin/users/${alice.id}`, { cookie: stale, headers: WEB }))
     expect(read.status).toBe(200)
   })

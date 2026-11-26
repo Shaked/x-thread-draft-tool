@@ -8,6 +8,7 @@ import { authenticate, clearSessionCookie, createSession, readSession, revokeSes
 
 const STATE_COOKIE = 'xt_oauth_state'
 const RETURN_COOKIE = 'xt_oauth_return'
+const POPUP_COOKIE = 'xt_oauth_popup'
 
 /** Only the MCP consent page may be a post-sign-in destination (plan 7.5, item 9): no scheme, no `//`. */
 export function safeReturnTo(value) {
@@ -41,7 +42,7 @@ function redirect(location, cookies = []) {
 async function login({ request, url }) {
   const host = request.headers.get('x-forwarded-host') ?? url.host
   if (host !== new URL(appOrigin()).host) {
-    return redirect(`${appOrigin()}/api/auth/login`)
+    return redirect(`${appOrigin()}/api/auth/login${url.searchParams.get('popup') === '1' ? '?popup=1' : ''}`)
   }
   const state = crypto.randomUUID()
   const returnTo = safeReturnTo(url.searchParams.get('return_to'))
@@ -53,6 +54,8 @@ async function login({ request, url }) {
   })
   const cookies = [cookie(STATE_COOKIE, state, { maxAge: 600 })]
   if (returnTo) cookies.push(cookie(RETURN_COOKIE, returnTo, { maxAge: 600 }))
+  // `popup=1`: the admin pages open the sign-in in a pop-up (#552). The callback then answers a page that closes the pop-up.
+  if (url.searchParams.get('popup') === '1') cookies.push(cookie(POPUP_COOKIE, '1', { maxAge: 600 }))
   return redirect(`https://github.com/login/oauth/authorize?${params}`, cookies)
 }
 
@@ -94,13 +97,30 @@ async function callback({ request, url }) {
   }
 
   const token = await createSession(user)
-  const returnTo = safeReturnTo(parseCookies(request)[RETURN_COOKIE])
+  const cookies = parseCookies(request)
+  if (cookies[POPUP_COOKIE] === '1') {
+    return new Response(POPUP_DONE_PAGE, {
+      status: 200,
+      headers: new Headers([
+        ['content-type', 'text/html; charset=utf-8'],
+        ['cache-control', 'no-store'],
+        ['set-cookie', sessionCookie(token)],
+        ['set-cookie', cookie(STATE_COOKIE, '', { maxAge: 0 })],
+        ['set-cookie', cookie(RETURN_COOKIE, '', { maxAge: 0 })],
+        ['set-cookie', cookie(POPUP_COOKIE, '', { maxAge: 0 })]
+      ])
+    })
+  }
+  const returnTo = safeReturnTo(cookies[RETURN_COOKIE])
   return redirect(`${appOrigin()}${returnTo ?? '/'}`, [
     sessionCookie(token),
     cookie(STATE_COOKIE, '', { maxAge: 0 }),
     cookie(RETURN_COOKIE, '', { maxAge: 0 })
   ])
 }
+
+// The page a sign-in pop-up lands on: it tells the page that opened it and closes itself. No script source but this inline one is needed.
+const POPUP_DONE_PAGE = `<!doctype html><meta charset="utf-8"><title>Signed in</title><p>Signed in. You can close this window.</p><script>try{window.opener&&window.opener.postMessage({type:'xt-signed-in'},location.origin)}catch(e){}window.close()</script>`
 
 /** GET /api/auth/me: cookie session or bearer token. `user` is null when signed out. */
 async function me({ request }) {

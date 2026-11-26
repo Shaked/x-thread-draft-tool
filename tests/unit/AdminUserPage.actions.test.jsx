@@ -75,7 +75,7 @@ describe('admin user actions', () => {
 
   it('shows the server message of a refusal (409, 403, 429) inside the dialog and keeps it open', async () => {
     const path = `POST /api/admin/users/${ID}/suspend`
-    for (const [status, message] of [[403, 'Sign in again: admin changes on the web need a sign-in from the last 12 hours.'], [429, 'Admin limit reached: at most 30 of these actions per hour.'], [409, 'A deletion of this user is running. Try again in a few minutes.']]) {
+    for (const [status, message] of [[403, 'This account cannot be suspended.'], [429, 'Admin limit reached: at most 30 of these actions per hour.'], [409, 'A deletion of this user is running. Try again in a few minutes.']]) {
       const fetchMock = mount(BASE, { [path]: [status, { error: message }] })
       fireEvent.click(await screen.findByRole('button', { name: 'Suspend' }))
       type('ada')
@@ -85,6 +85,31 @@ describe('admin user actions', () => {
       expect(posts(fetchMock)).toHaveLength(1)
       cleanup()
     }
+  })
+
+  it('suspend with an old sign-in opens the sign-in pop-up, then suspends once by itself and a toast says so (#552)', async () => {
+    const path = `POST /api/admin/users/${ID}/suspend`
+    let calls = 0
+    const fetchMock = mount(BASE, {})
+    const base = fetchMock.getMockImplementation()
+    fetchMock.mockImplementation(async (url, init = {}) => {
+      if (`${init.method ?? 'GET'} ${url}` !== path) return base(url, init)
+      calls += 1
+      return calls === 1
+        ? { ok: false, status: 403, json: async () => ({ error: 'Sign in again: admin changes on the web need a sign-in from the last 7 days.', code: 'sign_in_again' }) }
+        : { ok: true, status: 200, json: async () => ({ user: { ...BASE, suspended_at: OLD }, changed: true }) }
+    })
+    const popup = { closed: false }
+    vi.stubGlobal('open', vi.fn(() => popup))
+    fireEvent.click(await screen.findByRole('button', { name: 'Suspend' }))
+    type('ada')
+    fireEvent.click(screen.getAllByRole('button', { name: 'Suspend' }).at(-1))
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in with GitHub' }))
+    expect(document.body.textContent).not.toMatch(/Sign in again: admin changes/)
+    popup.closed = true
+    expect(await screen.findByText('Suspended ada.')).toBeInTheDocument()
+    expect(posts(fetchMock)).toHaveLength(2)
+    expect(JSON.parse(posts(fetchMock)[1][1].body)).toEqual({ confirm_login: 'ada' })
   })
 
   it('unsuspend needs the exact login too', async () => {

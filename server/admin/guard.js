@@ -27,9 +27,12 @@ export function adminField(caller) {
 
 const GUARDED = new WeakSet()
 
-// Owner decision O6 (default, #284): a web admin change (any method but GET) needs a browser sign-in from this window.
+// A web admin change (any method but GET) needs a browser sign-in from this window. Owner decision (#552, 2026-11-26):
+// 7 days, not the 12 hours of #284, because a short window made the owner sign in again in the middle of a flag change.
 // Reads are not limited, and MCP has no such rule (Shaked, 2026-11-20). `iat` is the sign-in time: sessions are issued only at sign-in.
-const WEB_WRITE_MAX_AGE_SECONDS = 12 * 60 * 60
+// An old sign-in answers 403 with the code `sign_in_again`; the browser opens the sign-in pop-up and repeats the call once.
+export const WEB_WRITE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
+export const SIGN_IN_AGAIN_CODE = 'sign_in_again'
 
 function signedInRecently(admin) {
   return typeof admin.iat === 'number' && Date.now() / 1000 - admin.iat <= WEB_WRITE_MAX_AGE_SECONDS
@@ -83,7 +86,7 @@ export function adminRoute(method, path, handler) {
   const guarded = async (ctx) => {
     const admin = await requireAdmin(ctx.request, routeKey)
     if (admin.surface === 'web' && method !== 'GET' && !signedInRecently(admin)) {
-      throw new HttpError(403, `Sign in again: admin changes on the web need a sign-in from the last ${WEB_WRITE_MAX_AGE_SECONDS / 3600} hours.`)
+      throw new HttpError(403, `Sign in again: admin changes on the web need a sign-in from the last ${WEB_WRITE_MAX_AGE_SECONDS / 86400} days.`, SIGN_IN_AGAIN_CODE)
     }
     // A web call counts once, in the same per-minute row as an MCP admin tool call (the MCP surface counts in server/mcp/server.js).
     if (admin.surface === 'web' && !(await withinToolRate(admin.uid))) throw new HttpError(429, RATE_LIMIT_MESSAGE)

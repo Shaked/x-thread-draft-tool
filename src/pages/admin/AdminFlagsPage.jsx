@@ -5,6 +5,7 @@ import SegmentedControl from '../../ui/SegmentedControl'
 import Section from '../../ui/Section'
 import Skeleton from '../../ui/Skeleton'
 import Stack from '../../ui/Stack'
+import { useToast } from '../../ui/Toast'
 import { adminApi } from '../../utils/api'
 import { setKit, setSkin } from '../../utils/skin'
 
@@ -25,6 +26,7 @@ const valueOf = (flags, name) => flags.find((flag) => flag.name === name)?.value
 export default function AdminFlagsPage() {
   const [state, setState] = useState({ status: 'loading', flags: [] })
   const [failed, setFailed] = useState('')
+  const toast = useToast()
 
   const load = () =>
     adminApi
@@ -48,6 +50,7 @@ export default function AdminFlagsPage() {
       .then((flags) => {
         apply(valueOf(flags, name))
         setState({ status: 'ready', flags })
+        toast({ message: 'Flag saved.' })
       })
       .catch((err) => setFailed(err.message || 'Could not save the flag.'))
   }

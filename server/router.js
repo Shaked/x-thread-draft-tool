@@ -123,7 +123,7 @@ async function dispatch(request) {
     return await match.handler({ request, url, path, params })
   } catch (err) {
     noteError(err)
-    if (err instanceof HttpError) return error(err.status, err.message)
+    if (err instanceof HttpError) return error(err.status, err.message, err.code)
     console.error('[api] unhandled error', err)
     return error(500, 'Server error')
   }

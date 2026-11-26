@@ -26,6 +26,7 @@ async function request(path, { method = 'GET', body, headers = {}, keepalive = f
   if (!response.ok) {
     const error = new Error(data.error || `HTTP ${response.status}`)
     error.status = response.status
+    error.code = data.code
     // A 412 carries the current `version` and `draft` (nothing was written), so the editor can show them.
     error.version = data.version
     error.draft = data.draft
@@ -37,6 +38,32 @@ async function request(path, { method = 'GET', body, headers = {}, keepalive = f
 
 // The admin routes (#283) answer only the admin's browser session that sends this header; the server decides.
 const PAGE_SIZE = 50
+
+// An admin write whose browser sign-in is older than the server window answers 403 `sign_in_again` (#552). The admin shell
+// registers `askSignIn` (the sign-in pop-up); the call is then repeated once. Reads are never refused for this.
+let askSignIn = null
+export function setAdminSignInHandler(handler) {
+  askSignIn = handler
+  return () => {
+    if (askSignIn === handler) askSignIn = null
+  }
+}
+
+async function adminWrite(path, body) {
+  const send = () => request(path, { method: 'POST', body, headers: { 'x-xt-admin': '1' } })
+  try {
+    return await send()
+  } catch (err) {
+    if (err.code !== 'sign_in_again' || askSignIn === null) throw err
+    const signedIn = await askSignIn()
+    if (!signedIn) {
+      const cancelled = new Error('You did not sign in, so nothing changed.')
+      cancelled.code = 'sign_in_cancelled'
+      throw cancelled
+    }
+    return send()
+  }
+}
 
 export const adminApi = {
   stats() {
@@ -55,16 +82,16 @@ export const adminApi = {
   },
   // Suspend, unsuspend and delete (#287). Each needs the typed login; delete is a dry run, then the real call with the token.
   suspend(id, confirmLogin, reason) {
-    return request(`/admin/users/${encodeURIComponent(id)}/suspend`, { method: 'POST', body: { confirm_login: confirmLogin, ...(reason ? { reason } : {}) }, headers: { 'x-xt-admin': '1' } })
+    return adminWrite(`/admin/users/${encodeURIComponent(id)}/suspend`, { confirm_login: confirmLogin, ...(reason ? { reason } : {}) })
   },
   unsuspend(id, confirmLogin) {
-    return request(`/admin/users/${encodeURIComponent(id)}/unsuspend`, { method: 'POST', body: { confirm_login: confirmLogin }, headers: { 'x-xt-admin': '1' } })
+    return adminWrite(`/admin/users/${encodeURIComponent(id)}/unsuspend`, { confirm_login: confirmLogin })
   },
   deleteDryRun(id) {
-    return request(`/admin/users/${encodeURIComponent(id)}/delete`, { method: 'POST', body: { dry_run: true }, headers: { 'x-xt-admin': '1' } })
+    return adminWrite(`/admin/users/${encodeURIComponent(id)}/delete`, { dry_run: true })
   },
   deleteUser(id, confirmToken, confirmLogin) {
-    return request(`/admin/users/${encodeURIComponent(id)}/delete`, { method: 'POST', body: { dry_run: false, confirm_token: confirmToken, confirm_login: confirmLogin }, headers: { 'x-xt-admin': '1' } })
+    return adminWrite(`/admin/users/${encodeURIComponent(id)}/delete`, { dry_run: false, confirm_token: confirmToken, confirm_login: confirmLogin })
   },
   audit(before) {
     const query = before ? `&before=${encodeURIComponent(before)}` : ''
@@ -74,7 +101,7 @@ export const adminApi = {
     return request('/admin/flags', { headers: { 'x-xt-admin': '1' } }).then((data) => data.flags)
   },
   setFlag(name, value) {
-    return request('/admin/flags', { method: 'POST', body: { name, value }, headers: { 'x-xt-admin': '1' } }).then((data) => data.flags)
+    return adminWrite('/admin/flags', { name, value }).then((data) => data.flags)
   },
 
   // The metrics views (#337): `by` is route, op or total; a series is requests, p95 or a product column.
