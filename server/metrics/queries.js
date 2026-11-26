@@ -9,7 +9,8 @@ export const DIMENSIONS = {
   route: ['route'],
   op: ['op'],
   caller: ['caller'],
-  all: ['route', 'op', 'caller']
+  all: ['route', 'op', 'caller'],
+  total: ['total'] // one group for the whole window: the summary row of the admin page (#337)
 }
 
 /** Columns of metrics_product_daily that a series may name. The rolling ones are read at taken_at. */
@@ -35,9 +36,9 @@ export async function groupRows({ by, from, day, route }) {
   }
   const sql = `
 with src as (
-  select route, op, caller, ${SOURCE} from metrics_hourly where hour >= $1::timestamptz${filter}
+  select route, op, caller, 'all'::text as total, ${SOURCE} from metrics_hourly where hour >= $1::timestamptz${filter}
   union all
-  select route, op, caller, ${SOURCE} from metrics_daily where day >= $2::date${filter}
+  select route, op, caller, 'all'::text as total, ${SOURCE} from metrics_daily where day >= $2::date${filter}
 ),
 grouped as (
   select ${dims},

@@ -295,7 +295,7 @@ Two capabilities, each on all three surfaces (AGENTS.md rule), each with its own
 
 - Admin only, through `adminRoute` and the guard. The tools are in `ADMIN_TOOLS`, hidden from everyone
   else, and each tool may reach only its own route (the per-route binding of #298).
-- `GET /api/admin/metrics?window=1h|24h|7d|30d|90d|400d&by=route|op|caller|all&route=<route key>`:
+- `GET /api/admin/metrics?window=1h|24h|7d|30d|90d|400d&by=route|op|caller|all|total&route=<route key>`:
   one entry per group, sorted by `count`, at most 200 entries. `1h` is the current UTC hour so far; the
   other windows end at the read time. `route` must be a key of `ROUTES` or `unmatched`, else 400, so the
   60 s cache stays small.

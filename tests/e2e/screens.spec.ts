@@ -292,6 +292,11 @@ test.describe('screens', () => {
       await shoot(browser, width, 'changelog', '/admin/changelog', { cookie: adminCookie!, ready: changelogReady })
       await shoot(browser, width, 'changelog-dark', '/admin/changelog', { cookie: adminCookie!, theme: 'dark', ready: changelogReady })
 
+      // The admin metrics page (#337): light and dark at both widths.
+      const metricsReady = (p: Page) => p.getByRole('heading', { name: 'All routes' })
+      await shoot(browser, width, 'admin-metrics', '/admin/metrics', { cookie: adminCookie!, ready: metricsReady })
+      await shoot(browser, width, 'admin-metrics-dark', '/admin/metrics', { cookie: adminCookie!, theme: 'dark', ready: metricsReady })
+
       // The About page (plan U2): light and dark at both widths. Ready once the server's version has loaded.
       const aboutReady = (p: Page) => p.getByRole('heading', { name: 'About', level: 1 })
       const aboutLoaded = async (p: Page) => {

@@ -44,9 +44,9 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | Admin suspend user | `POST /admin/users/:id/suspend` | `admin_suspend_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin unsuspend user | `POST /admin/users/:id/unsuspend` | `admin_unsuspend_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin delete user | `POST /admin/users/:id/delete` | `admin_delete_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
-| Admin metrics | `GET /admin/metrics` | `admin_metrics` | `no: planned in #331 Task 6` | Admin only (#335): counts and percentiles by route, op or caller |
+| Admin metrics | `GET /admin/metrics` | `admin_metrics` | `/admin/*` | Admin only (#335): counts and percentiles by route, op, caller or total |
 | Admin feature flags | `GET /admin/flags`, `POST /admin/flags` | `admin_list_flags`, `admin_set_flag` | `/admin/*` | Admin only (#483). The Rare UI look and components (#406), saved on the admin's own account (`users.ui_flags`) and copied to the device as `xt-skin` and `xt-kit`; a normal user always gets the default look and `/settings/flags` is gone. A change touches only the admin's own view, so it needs no confirm token; it writes one audit row (`set_flag`) |
-| Admin metrics history | `GET /admin/metrics/series` | `admin_metrics_series` | `no: planned in #331 Task 6` | Admin only (#335): points per hour or day |
+| Admin metrics history | `GET /admin/metrics/series` | `admin_metrics_series` | `/admin/*` | Admin only (#335): points per hour or day |
 
 ## Infrastructure
 
