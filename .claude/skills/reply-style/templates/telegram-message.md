@@ -1,6 +1,6 @@
 # Telegram message templates
 
-Six kinds, one shape. `scripts/notify-telegram.mjs` sends these forms. The owner reads English, so the messages are
+Eight kinds, one shape. `scripts/notify-telegram.mjs` sends these forms. The owner reads English, so the messages are
 English only. The owner decided on 2026-11-25 (issue #463): every headline starts with its emoji, and a section with
 nothing to say is left out. The owner decided on 2026-11-26 (issue #504): the channel is shared with other apps, so
 every message names its app.
@@ -13,11 +13,11 @@ every message names its app.
 5. Other links, separated by ` · `. Leave the line out when there is no other link.
 
 Rules:
-- At most 5 lines. One emoji, at the start of the headline: ✅ production live, 🚨 production failed, 👀 try on preview, 🙋 needs you, 🧹 cleanup, 🐢 speed. Bold is only for the app name.
+- At most 5 lines. One emoji, at the start of line 1: ✅ production live, 🚨 production failed, 👀 try on preview, 🙋 needs you, 🧹 cleanup, 🐢 speed. Bold is only for the app name.
 - Never write "Nothing needed", "None" or an empty section.
 - The same words every time: production, preview, PR, issue, smoke test, run, deploy.
 - A title is cut to 120 characters, then escaped. A link that is not `https://` becomes plain text.
-- Every message names its app on line 1. `<app name>` below is that name, for example `Thread Draft`. `npm run reply-lint -- --kind=telegram` fails a message without it.
+- Every message names its app on line 1. `<app name>` below is that name, for example `Thread Draft`. `npm run reply-lint -- --kind=telegram` fails a message whose line 1 has no bold name followed by ` · `; add `--app=<name>` to require that exact name.
 - Never a secret, a login name, draft text, a PR body (except its `Summary:` line) or log output.
 - `<...>` marks a value. `[only when ...]` marks a line the script leaves out when it has no value.
 

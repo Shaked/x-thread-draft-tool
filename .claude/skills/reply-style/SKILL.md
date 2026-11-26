@@ -24,6 +24,7 @@ owner question uses one template below, follows the hard rules, and passes the l
 | A task shipped, or a dispatcher pass ended | [`status-report`](templates/status-report.md) | Chat reply to Shaked |
 | One decision only Shaked can make | [`owner-question`](templates/owner-question.md) | A comment on the epic; one question per comment |
 | A task session ends | [`handoff`](templates/handoff.md) | A comment on the task issue, last |
+| A janitor run (`/janitor`) | [`janitor-summary`](templates/janitor-summary.md) | A comment on #497 (Janitor reports tracker issue); written by `scripts/session-janitor.mjs report` |
 | A step Shaked must do by hand | [`owner-action`](templates/owner-action.md) | Chat reply, and a comment on the issue it unblocks |
 | Something failed (CI, deploy, production, a session) | [`incident`](templates/incident.md) | Chat reply, and a comment on the issue or PR |
 | Anything else to Shaked: a reminder, a progress note, an answer to his question | [`status-report`](templates/status-report.md) | Chat reply, or a comment where he asked |

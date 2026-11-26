@@ -11,9 +11,9 @@ Code:
 - `.github/workflows/cleanup-review-daily.yml`: starts the cleanup message (see `docs/operations/cleanup-review.md`).
 - `.github/workflows/speed-metrics.yml`: the speed kind, from a manual run of the speed metrics (epic #273, task #310) and from the per-merge run after a production smoke test (task M7 of plan #439).
 
-## The six kinds
+## The eight kinds
 
-The script sends the forms in `.claude/skills/reply-style/templates/telegram-message.md` (task #369, step 7). Line 1 of every message is the emoji, the app name in bold and the headline (issue #504). Each headline starts with one emoji (✅ live, 🚨 failed, 👀 preview, 🙋 needs you, 🧹 cleanup, 🐢 speed) and no section says "nothing". Each kind has a golden test in `tests/unit/notify-telegram-golden.test.js`. "The messages" below shows each one.
+The script sends the forms in `.claude/skills/reply-style/templates/telegram-message.md` (task #369, step 7). Line 1 of every message is the emoji, the app name in bold and the headline (issue #504). Each message starts with one emoji (✅ live, 🚨 failed, 👀 preview, 🙋 needs you, 🧹 cleanup, 🐢 speed) and no section says "nothing". Each kind has a golden test in `tests/unit/notify-telegram-golden.test.js`. "The messages" below shows each one.
 
 
 | Kind | Headline (it is the link) | When it is sent | Other links |
@@ -73,7 +73,7 @@ The channel is shared with other apps, so every message says which app it is abo
 | `TELEGRAM_APP_SITE_URL` | Production address | the Thread Draft production site |
 | `TELEGRAM_APP_PREVIEW_URL` | Preview address | the Thread Draft preview site |
 
-A value that is not `https://` is ignored. No workflow sets them yet, so this app's messages use the defaults. `npm run reply-lint -- --kind=telegram --app=<name> <file>` fails a message whose line 1 lacks the bold app name. The golden tests (`tests/unit/notify-telegram-golden.test.js`) build every kind for Thread Draft and for a second fixture app, "Recipe Box".
+A value that is not `https://` is ignored. No workflow sets them yet, so this app's messages use the defaults. `npm run reply-lint -- --kind=telegram --app=<name> <file>` fails a message whose line 1 has no bold name followed by ` · `, and a name other than `<name>`. The golden tests (`tests/unit/notify-telegram-golden.test.js`) build every kind for Thread Draft and for a second fixture app, "Recipe Box".
 
 ## The two secrets, and how to set them
 

@@ -5,7 +5,7 @@
 // message fits Telegram's limit, and special characters are escaped for parse mode HTML.
 import { readFileSync } from 'node:fs'
 import { describe, it, expect, vi } from 'vitest'
-import { buildMessage, notify, appFromEnv, escapeHtml as escapeForHtml, EMOJI, KINDS as SENDER_KINDS, DEFAULT_APP } from '../../scripts/notify-telegram.mjs'
+import { buildMessage, notify, appFromEnv, messageFromEnv, escapeHtml as escapeForHtml, EMOJI, KINDS as SENDER_KINDS, DEFAULT_APP } from '../../scripts/notify-telegram.mjs'
 import { lint, EMPTY_SECTION } from '../../scripts/reply-lint.mjs'
 
 // Two apps (issue #504): the real one, and a fixture with a different name and different addresses, to prove
@@ -162,7 +162,7 @@ describe('Telegram golden messages (#463, #504)', () => {
     expect(KINDS.slice().sort()).toEqual(SENDER_KINDS.slice().sort())
     for (const kind of SENDER_KINDS) expect(buildMessage(kind, { title: 'T', url: `${DEFAULT_APP.repoUrl}/pull/12` }), kind).not.toBeNull()
     // Every kind a workflow or script sends is one the sender builds.
-    const callers = ['.github/workflows/smoke-deployed.yml', '.github/workflows/notify-labels.yml', 'scripts/notify-label.mjs', 'scripts/cleanup-review-check.mjs', 'scripts/speed-metrics.mjs']
+    const callers = ['.github/workflows/smoke-deployed.yml', '.github/workflows/notify-labels.yml', 'scripts/notify-label.mjs', 'scripts/cleanup-review-check.mjs', 'scripts/weekly-review-check.mjs', 'scripts/speed-metrics.mjs']
     let seen = 0
     for (const file of callers) {
       const text = readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8')
@@ -190,6 +190,14 @@ describe('Telegram golden messages (#463, #504)', () => {
     const env = { TELEGRAM_APP_NAME: ' Recipe Box ', TELEGRAM_APP_REPO_URL: APPS[1].repoUrl, TELEGRAM_APP_SITE_URL: 'http://not-https', TELEGRAM_APP_PREVIEW_URL: APPS[1].previewUrl }
     expect(appFromEnv(env)).toEqual({ ...APPS[1], siteUrl: DEFAULT_APP.siteUrl })
     expect(appFromEnv({ TELEGRAM_APP_NAME: 'x'.repeat(500) }).name).toHaveLength(40)
+    // A name stays on one line and holds no bold marker, so line 1 is still one line.
+    expect(appFromEnv({ TELEGRAM_APP_NAME: 'A\nB *C*\t' }).name).toBe('A B C')
+  })
+
+  it('messageFromEnv reads the app from the env it is given, not from process.env', () => {
+    const env = { NOTIFY_KIND: 'owner', NOTIFY_TITLE: 'T', NOTIFY_URL: `${APPS[1].repoUrl}/issues/1`, TELEGRAM_APP_NAME: 'Recipe Box' }
+    expect(messageFromEnv(env).html.split('\n')[0]).toBe(`🙋 <b>Recipe Box</b> · <a href="${APPS[1].repoUrl}/issues/1">An issue needs you</a>`)
+    expect(messageFromEnv({ ...env, TELEGRAM_APP_NAME: '' }).html).toContain('<b>Thread Draft</b>')
   })
 
   for (const app of APPS) {

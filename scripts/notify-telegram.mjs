@@ -76,7 +76,8 @@ export function safeUrl(url) {
 // The app identity for one message: the defaults, then the environment. A name is cut to MAX_APP_NAME;
 // an address that is not https:// is ignored.
 export function appFromEnv(env = process.env) {
-  const name = clip(String(env.TELEGRAM_APP_NAME || '').trim(), MAX_APP_NAME)
+  // One line, no bold markers: a newline or * would break line 1 or the lint.
+  const name = clip(String(env.TELEGRAM_APP_NAME || '').replace(/[\p{C}*]/gu, ' ').replace(/\s+/g, ' ').trim(), MAX_APP_NAME)
   return {
     name: name || DEFAULT_APP.name,
     repoUrl: safeUrl(env.TELEGRAM_APP_REPO_URL) || DEFAULT_APP.repoUrl,
@@ -227,7 +228,7 @@ export function messageFromEnv(env = {}) {
     url: env.NOTIFY_URL,
     runUrl: env.NOTIFY_RUN_URL,
     previewUrl: env.NOTIFY_PREVIEW_URL,
-  })
+  }, appFromEnv(env))
 }
 
 // True when a 400 answer says Telegram could not parse the HTML. Reads the body once; never throws.
