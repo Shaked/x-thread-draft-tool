@@ -15,9 +15,8 @@
 //   4. counters for each finished UTC day of the window: runs that are not stored events (skipped,
 //      cancelled, unlisted, and stuck: running for over 24 hours), a zero row for an empty day. A day's rows are
 //      replaced whole, so they are sent only when the listing and the CI events completed (`countable`).
-// Stops cleanly when fewer than RATE_FLOOR API calls remain (the x-ratelimit-remaining header), before the
-// request that would go below it. It posts the events it has; counters and cursor are sent only when `countable`;
-// a stop among the merges keeps them, because they depend only on the listing. The next run repeats the window.
+// Stops cleanly once fewer than RATE_FLOOR API calls remain (the x-ratelimit-remaining header of the last answer). It posts the events it has; counters and cursor are sent only when `countable`;
+// a stop among the merges keeps them, because they depend only on the listing and the CI events. The next run repeats the window.
 //
 // Flags: --dry-run --repo <owner/name>   print the batches (sorted JSON) and send nothing.
 // Env:   GITHUB_TOKEN (reads only), ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN (the
