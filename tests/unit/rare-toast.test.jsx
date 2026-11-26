@@ -127,4 +127,18 @@ describe('Toast (Rare UI, feature flag)', () => {
     expect(document.querySelector('.ui-toast--danger')).not.toBeNull()
     await waitFor(() => expect(card()).toBeNull())
   })
+
+  it('hides a success message by itself after 4 s, with Rare UI (the default)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    localStorage.setItem(KIT_KEY, 'rare')
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderWith({ message: 'Thread copied!', tone: 'success' })
+    await waitFor(() => expect(stack()).not.toBeNull())
+    await user.click(screen.getByRole('button', { name: 'Ask' }))
+    await waitFor(() => expect(card()).not.toBeNull())
+    act(() => vi.advanceTimersByTime(3000))
+    expect(card()).not.toBeNull()
+    act(() => vi.advanceTimersByTime(2000))
+    await waitFor(() => expect(card()).toBeNull())
+  })
 })
