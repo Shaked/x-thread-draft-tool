@@ -4,7 +4,7 @@
 - It asks the same question as before, and Escape keeps the draft.
 
 Area: Design
-Link: https://github.com/Shaked/x-thread-draft-tool/pulls
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/494
 
 ## Technical details
 
