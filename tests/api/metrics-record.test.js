@@ -135,7 +135,14 @@ describe('MCP calls', () => {
 
 describe('rate limit', () => {
   it('the 121st tools/call in a minute is a rate-limited answer and counts once in n_429 for its tool', async () => {
-    for (let i = 0; i < 121; i += 1) await route(mcpCall('list_drafts'))
+    // The limit counts per calendar minute (date_trunc in server/mcp/rate.js). Freeze the clock at the last
+    // second of a minute so the 121 calls can never cross the boundary, whatever the wall clock says.
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-26T10:43:59.900Z') })
+    try {
+      for (let i = 0; i < 121; i += 1) await route(mcpCall('list_drafts'))
+    } finally {
+      vi.useRealTimers()
+    }
     await flushMetrics()
     const [row] = (await rows()).filter((r) => r.op === 'tool:list_drafts')
     expect(count(row)).toBe(121)
