@@ -240,6 +240,22 @@ describe('messageFromEnv', () => {
     expect(msg.html).toContain(`href="${RUN_URL}"`)
   })
 
+  it('builds a metrics alert from the environment: the headline links /admin/metrics of the app named in the environment', () => {
+    const env = {
+      NOTIFY_KIND: 'metrics',
+      NOTIFY_HEADLINE: 'Metrics alert: the database is nearly full',
+      NOTIFY_NUMBER_LINE: 'Capacity: the database is 701 MB. The limit is 700 MB (0 % over), since 2026-11-26 12:30 UTC.',
+      NOTIFY_CAUSE_LINE: 'Likely cause: not known yet.',
+      NOTIFY_ACTION_LINE: 'Needs you: open the page, then free space or decide on the Neon plan.',
+      TELEGRAM_APP_NAME: 'Recipe Box',
+      TELEGRAM_APP_SITE_URL: 'https://recipe-box.example.com',
+    }
+    const lines = messageFromEnv(env).html.split('\n')
+    expect(lines).toHaveLength(4)
+    expect(lines[0]).toBe('🚨 <b>Recipe Box</b> · <a href="https://recipe-box.example.com/admin/metrics">Metrics alert: the database is nearly full</a>')
+    expect(lines[3]).toBe('Needs you: open the page, then free space or decide on the Neon plan.')
+  })
+
   it('returns null for an unknown kind', () => {
     expect(messageFromEnv({ NOTIFY_KIND: '' })).toBeNull()
   })

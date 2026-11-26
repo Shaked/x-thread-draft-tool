@@ -3,6 +3,7 @@
 // missing, moves old hourly rows into the daily table, and deletes metric rows past their retention:
 // metrics_daily (400 days), ops_events (14 days) and ops_daily (400 days). No user table changes.
 import { transaction } from '../db.js'
+import { runAlerts } from './alerts.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const HOURLY_KEPT_MS = 14 * DAY_MS
@@ -14,7 +15,7 @@ const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10)
 const iso = (ms) => new Date(ms).toISOString()
 
 /** Database size in bytes. Shared with O7's alert A3 and the summary's Database line. */
-async function dbSizeBytes(q) {
+export async function dbSizeBytes(q) {
   const { rows } = await q('select pg_database_size(current_database())::bigint as bytes')
   return Number(rows[0].bytes)
 }
@@ -97,14 +98,15 @@ select (select count(*)::int from moved) as moved, (select count(*)::int from in
 
 /**
  * The daily step. `now` is the run time (a test passes its own). Returns counts only:
- * { product_day_written, hourly_moved, daily_deleted, ops_events_deleted, ops_daily_deleted }.
+ * { product_day_written, hourly_moved, daily_deleted, ops_events_deleted, ops_daily_deleted, alerts }, where alerts
+ * holds the alerts that are new this run (O7, #338).
  */
 export async function runDailyStep({ now = Date.now() } = {}) {
   const startOfToday = Date.parse(`${utcDay(now)}T00:00:00.000Z`)
   const yesterdayStart = startOfToday - DAY_MS
   const rolling = now - startOfToday <= ROLLING_GRACE_MS
   return transaction(async (q) => {
-    const dbBytes = rolling ? await dbSizeBytes(q) : null
+    const dbBytes = await dbSizeBytes(q)
     const product = await q(PRODUCT_SQL, [
       utcDay(yesterdayStart),
       iso(now),
@@ -131,7 +133,8 @@ export async function runDailyStep({ now = Date.now() } = {}) {
       hourly_moved: moved.rows[0].moved,
       daily_deleted: daily.rows[0].n,
       ops_events_deleted: events.rows[0].n,
-      ops_daily_deleted: counters.rows[0].n
+      ops_daily_deleted: counters.rows[0].n,
+      alerts: await runAlerts(q, { now, dbBytes })
     }
   })
 }

@@ -53,6 +53,9 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # O7 (#338): the alerts that are new this run, as JSON, for the `alerts` job. Counts and plain words only.
+    outputs:
+      alerts: ${{ steps.daily.outputs.alerts }}
     # Job-level permissions replace the workflow's: this job needs only the OIDC token and read access to the code.
     permissions:
       id-token: write
@@ -65,10 +68,50 @@ jobs:
 
       # The token is requested for the daily audience and passed in a header only; the response is counts.
       - name: Run the daily step
+        id: daily
         env:
           OPS_BASE_URL: https://x-thread-draft-tool.vercel.app
         run: |
           set -euo pipefail
           token="$(curl -fsS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=x-thread-draft-tool-ops-daily-production" | jq -er '.value')"
           echo "::add-mask::${token}"
-          curl -fsS -X POST -H "Authorization: Bearer ${token}" "${OPS_BASE_URL}/api/ops/metrics-daily" | jq -c .
+          result="$(curl -fsS -X POST -H "Authorization: Bearer ${token}" "${OPS_BASE_URL}/api/ops/metrics-daily")"
+          jq -c . <<<"${result}"
+          echo "alerts=$(jq -c '.alerts // []' <<<"${result}")" >> "${GITHUB_OUTPUT}"
+
+  # O7 (#338): one Telegram message per alert that is new. A separate job, so the job that holds the OIDC token
+  # holds no secret. Every value goes in through the environment, never inside the shell text.
+  alerts:
+    name: Telegram alerts
+    needs: daily
+    if: github.ref == 'refs/heads/main' && needs.daily.outputs.alerts != '' && needs.daily.outputs.alerts != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      - name: Send one message per new alert
+        env:
+          ALERTS: ${{ needs.daily.outputs.alerts }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NOTIFY_KIND: metrics
+        run: |
+          set -euo pipefail
+          while IFS= read -r alert; do
+            NOTIFY_HEADLINE="$(jq -r '.headline' <<<"${alert}")" \
+            NOTIFY_NUMBER_LINE="$(jq -r '.numberLine' <<<"${alert}")" \
+            NOTIFY_CAUSE_LINE="$(jq -r '.causeLine' <<<"${alert}")" \
+            NOTIFY_ACTION_LINE="$(jq -r '.actionLine' <<<"${alert}")" \
+            node scripts/notify-telegram.mjs
+          done < <(jq -c '.[]' <<<"${ALERTS}")
