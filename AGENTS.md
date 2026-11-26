@@ -16,6 +16,7 @@ JSON API with a personal API token. Start at `/llms.txt` or `/api/openapi.json`;
 
 ### Rules
 - Check a fact before you state it; otherwise write "not checked".
+- UI work: read `ui-debug` first (`.claude/skills/ui-debug/SKILL.md`; `/ui-debug`).
 - Smallest change that does the job. One task per PR, on its own branch from the latest `main`.
 - Never commit with `--no-verify`. Never skip, disable or weaken a test. Never print or commit a secret.
 - Never sleep-poll. Schedule one wake-up and end the turn.
