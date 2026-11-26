@@ -144,6 +144,9 @@
     rgb(0 0 0 / 0) 0%, rgb(0 0 0 / 0.06) 5.5%, rgb(0 0 0 / 0.5) 11%, rgb(0 0 0 / 0.94) 16.5%, rgb(0 0 0) 22%,
     rgb(0 0 0) 78%, rgb(0 0 0 / 0.94) 83.5%, rgb(0 0 0 / 0.5) 89%, rgb(0 0 0 / 0.06) 94.5%, rgb(0 0 0 / 0) 100%);
 
+  /* Toast stack (Rare UI, feature flag "Components"): its bottom edge, above the phone bar (--bar-space is 0 where there is no bar). */
+  --toast-inset: calc(var(--bar-space, 0px) + var(--space-3));
+
   /* Layers */
   --z-raised: 1;             /* inside one component, e.g. the row link overlay */
   --z-sticky: 100;

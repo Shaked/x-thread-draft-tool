@@ -520,4 +520,41 @@ test.describe('UI audit', () => {
       }
     })
   }
+
+  // Rare UI's toast (feature flag "Components", #406): a refused copy from the Export menu shows the danger toast. It
+  // stays until its close button is pressed; the close button is 44 px and visible on a phone; the stack sits in the
+  // bottom half of the screen; role=alert; scale and colours, axe, and the Hebrew draft in right-to-left at 390 px.
+  for (const c of CASES) {
+    test(`rare toast at ${c.name}`, async ({ browser, request }) => {
+      const { context, page } = await openPage(browser, request, '/draft/:first', c, { kit: 'rare', drafts: [{ title: 'הודעה לדוגמה', posts: [{ id: 't1', text: 'טקסט בעברית', images: [], embeddedTweet: null }] }] })
+      try {
+        await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('refused')) } }))
+        await page.getByRole('button', { name: 'Export', exact: true }).click()
+        await page.getByRole('menuitem', { name: 'Copy thread' }).click()
+        const toast = page.locator('.ui-rare-toast')
+        await expect(toast).toBeVisible()
+        // toBeVisible() counts opacity 0 as visible: the stack's own item must be fully opaque, so the toast can be seen
+        await expect.poll(() => toast.evaluate((el) => getComputedStyle(el.closest('[data-sonner-toast]')).opacity), 'toast faded out').toBe('1')
+        await expect(toast).toHaveAttribute('role', 'alert')
+        await expect(toast).toContainText('Failed to copy to clipboard')
+        const close = toast.getByRole('button', { name: 'Close message' })
+        await expect(close).toBeVisible()
+        const box = await close.boundingBox()
+        expect(box && box.width >= 44 && box.height >= 44, 'close button under 44 x 44').toBe(true)
+        const bottom = await toast.evaluate((el) => ({ bottom: el.getBoundingClientRect().bottom, top: el.getBoundingClientRect().top, height: window.innerHeight }))
+        expect(bottom.bottom, 'toast below the screen middle and inside the screen').toBeGreaterThan(bottom.height / 2)
+        expect(bottom.bottom, 'toast under the bottom edge').toBeLessThanOrEqual(bottom.height)
+        if (c.width < 800) expect(await smallTargets(page), 'targets under 44 x 44').toEqual([])
+        expect(await scaleAndColourProblems(page, '.ui-rare-toast, .ui-rare-toast [class*="ui-"]'), 'toast off the scale or the theme colours').toEqual([])
+        const axe = await new AxeBuilder({ page }).include('.ui-rare-toast').withTags(AXE_TAGS).disableRules(AXE_DISABLED).analyze()
+        const serious = axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)
+        expect(serious, 'axe serious or critical in the toast').toEqual([])
+        await page.screenshot({ path: path.join(OUT, `rare-toast-${c.name}.png`) })
+        await close.click()
+        await expect(toast).toHaveCount(0)
+      } finally {
+        await context.close()
+      }
+    })
+  }
 })
