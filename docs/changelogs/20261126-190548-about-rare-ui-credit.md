@@ -3,7 +3,7 @@
 - The About page has a Credits section, in English and in Hebrew, with a link to Rare UI (rareui.com).
 
 Area: Design
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/TBD
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/564
 
 ## Technical details
 
