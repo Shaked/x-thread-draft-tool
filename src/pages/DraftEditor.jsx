@@ -17,6 +17,7 @@ import Badge from '../ui/Badge'
 import Banner from '../ui/Banner'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
+import { idsFromTheirs, mergeDraftEdits } from '../utils/draftMerge'
 import PageHeader from '../ui/PageHeader'
 import Stack from '../ui/Stack'
 
@@ -87,6 +88,13 @@ export default function DraftEditor({ user }) {
     const previous = copyTextRef.current
     return previous && previous !== current ? `${previous}\n\n---\n\n${current}` : current
   }
+  // #474: a 412 where the other app changed other posts is merged, then saved once. Counts the merges, so a save queued
+  // before one (it holds text from before the merge) never runs after it. The flag is set until the merged save works:
+  // a 412 of that save shows the banner, never a second merge.
+  const mergeEpochRef = useRef(0)
+  const mergedPendingRef = useRef(false)
+  const [mergeNoteAt, setMergeNoteAt] = useState(null)
+  const mergeRef = useRef(null)
   // Saves run one at a time, so a save never sends the version an earlier save of this editor just replaced.
   const saveChainRef = useRef(Promise.resolve())
   // Saves in flight (the live check waits for none). The draft as last rendered (the live check compares it).
@@ -139,11 +147,41 @@ export default function DraftEditor({ user }) {
     loadDraft()
   }, [id, user])
 
+  // The merge of #474: my copy and the other app's copy changed different posts. Returns false when they did not
+  // (the banner shows then). On true the merged draft is in the editor and the next autosave sends it, with their version.
+  const mergeAfter412 = err => {
+    const version = err.version ?? err.draft?.version
+    const mine = draftRef.current
+    if (mergedPendingRef.current || !mine || !err.draft || !Number.isInteger(version) || !(version > versionRef.current)) return false
+    const base = JSON.parse(lastSavedRef.current)
+    const theirs = normalizeDraft(err.draft)
+    const merged = mergeDraftEdits(base, mine, theirs)
+    if (!merged) return false
+    mergeEpochRef.current += 1
+    versionRef.current = version
+    lastSavedRef.current = JSON.stringify(theirs)
+    const changesToSave = JSON.stringify(merged) !== lastSavedRef.current
+    mergedPendingRef.current = changesToSave
+    // My text stays in this browser until the merged save works.
+    if (changesToSave) idbSet(mineKeyOf(id), keptFor(plainText(mine))).catch(() => {})
+    setDraft(merged)
+    idbSet(`draft-${id}`, err.draft).catch(() => {})
+    setHighlighted(idsFromTheirs(base, theirs, merged))
+    setMergeNoteAt(Date.now())
+    if (!changesToSave) setSynced(true)
+    return true
+  }
+
+  useEffect(() => {
+    mergeRef.current = mergeAfter412
+  })
+
   const saveDraft = useCallback(
     async (draftToSave, immediate = false, keepalive = false) => {
       // No save while another app's change is waiting for the user's choice.
       if (!user || conflictRef.current) return false
 
+      const epochAtCall = mergeEpochRef.current
       const enqueue = fn => {
         const run = saveChainRef.current.then(fn)
         saveChainRef.current = run.catch(() => {})
@@ -153,6 +191,7 @@ export default function DraftEditor({ user }) {
       const saveFn = async () => {
         // A save queued before a conflict must not send anything once the conflict is open.
         if (conflictRef.current) return false
+        if (epochAtCall !== mergeEpochRef.current) return false
         savingCountRef.current += 1
         try {
           setSaving(true)
@@ -165,6 +204,7 @@ export default function DraftEditor({ user }) {
             { keepalive }
           )
           versionRef.current = saved?.version ?? versionRef.current
+          mergedPendingRef.current = false
 
           lastSavedRef.current = JSON.stringify(draftToSave)
           setSynced(true)
@@ -177,7 +217,10 @@ export default function DraftEditor({ user }) {
         } catch (err) {
           console.error('Save error:', err)
           if (err.status === 412) {
-            // Nothing was written. Stop saving and let the user choose (see the banner).
+            // Nothing was written. Another app changed other posts: merge and save once (#474).
+            if (mergeRef.current?.(err)) return false
+            mergedPendingRef.current = false
+            // Otherwise stop saving and let the user choose (see the banner).
             conflictRef.current = true
             setConflict({ version: err.version ?? err.draft?.version, theirs: err.draft })
             idbSet(mineKeyOf(id), keptFor(plainText(draftToSave))).catch(() => {})
@@ -209,6 +252,12 @@ export default function DraftEditor({ user }) {
     },
     [id, user]
   )
+
+  useEffect(() => {
+    if (mergeNoteAt === null) return undefined
+    const timer = setTimeout(() => setMergeNoteAt(null), 6000)
+    return () => clearTimeout(timer)
+  }, [mergeNoteAt])
 
   useEffect(() => {
     if (!draft) return
@@ -465,6 +514,10 @@ export default function DraftEditor({ user }) {
             )}
 
             <ThreadComposer posts={draft.posts} onPostsChange={handlePostsChange} highlightIds={highlighted} />
+
+            {mergeNoteAt !== null && !conflict && (
+              <Banner tone="info">Changes from another app were added. Your edits are kept.</Banner>
+            )}
 
             {conflict && (
               <Banner

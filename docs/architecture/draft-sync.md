@@ -38,11 +38,19 @@ The tools do not retry for the caller, with one exception: `add_image_from_url` 
 
 - The editor loads the draft once, then keeps the version from each read and each save.
 - It saves only after a real edit. An untouched draft makes no save, including on page unload (#361).
-- On `412` it stops saving and shows a banner: "This draft changed in another app while you were editing."
+- On `412` the editor compares per post id: the copy it last read or saved (base), my copy, and the draft in the `412` answer (theirs).
+  `src/utils/draftMerge.js` decides. It merges, and saves once with `If-Match` of their version, only when all of these hold:
+  - the two sides changed different posts (a removal counts as a change of that post; the same change on the same post still counts);
+  - at most one side changed the title;
+  - at most one side added, removed or moved posts (that side's order is used).
+  After a merge it shows for 6 s: "Changes from another app were added. Your edits are kept." The posts that came from the other app are highlighted.
+  The user's text is also kept in this browser until the merged save works, so closing the page during the merge loses nothing.
+- Any other `412` stops saving and shows the banner: "This draft changed in another app while you were editing."
   - **Show their changes**: keeps your text in a read-only box with a Copy button, then shows the saved draft.
   - **Keep mine**: saves your text as a new version on top of theirs.
-- End-to-end check with two writers (an API call as the AI app, the browser as the user, the same post): `tests/e2e/draft-conflict-banner.spec.ts` (#474). The banner shows, the AI text stays stored, and the user's text is in the copy box.
-- Not built yet: automatic merge when the two sides changed different posts. Every `412` shows the banner.
+- If the merged save itself gets `412`, the banner shows (no second merge, so a busy AI app can not loop the editor). Nothing is lost: the text is in the editor and kept in this browser.
+- A save that was queued before a merge never runs after it, because it holds text from before the merge.
+- End-to-end checks with two writers (an API call as the AI app, the browser as the user): `tests/e2e/draft-conflict-banner.spec.ts` (#474). Same post: the banner shows, the AI text stays stored, the user's text is in the copy box. Different posts: both texts are stored, with the note and no banner.
 
 ## Live updates (the 304 check)
 
