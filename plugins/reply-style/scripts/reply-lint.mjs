@@ -63,8 +63,9 @@ function ruleSet(config) {
   const rs = config.replyStyle
   const humans = rs.humans.length ? rs.humans.map(escapeRe).join('|') : '(?!)'
   return {
-    blockOnHuman: new RegExp(`^\\s+(?:on|by)\\s+(?:${humans})\\b`, 'i'),
-    waitingHuman: new RegExp(`\\bwaiting\\s+(?:on|for)\\s*:?\\s+(?:${humans})\\b`, 'i'),
+    // The name ends where no letter, digit or underscore follows, in any script (\b only knows ASCII: "José", "נועה").
+    blockOnHuman: new RegExp(`^\\s+(?:on|by)\\s+(?:${humans})(?![\\p{L}\\p{N}_])`, 'iu'),
+    waitingHuman: new RegExp(`\\bwaiting\\s+(?:on|for)\\s*:?\\s+(?:${humans})(?![\\p{L}\\p{N}_])`, 'iu'),
     maxLine: rs.maxLineLength,
     allowLines: rs.allowLines.map((pattern) => new RegExp(pattern)),
     areas: rs.changelogAreas,

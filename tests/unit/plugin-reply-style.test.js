@@ -115,6 +115,15 @@ describe('config', () => {
     }
   })
 
+  it('human names in any script end at a non-letter (Codex finding on PR 524)', () => {
+    const cfg = loadConfig({ cwd: makeDir({ '.claude/agent-kit.json': { 'reply-style': { humans: ['José', 'נועה', '李明'] } } }), env: {} })
+    for (const name of ['José', 'נועה', '李明']) {
+      expect(lint(`Blocked on ${name} for approval.`, {}, cfg), name).toEqual([])
+      expect(rules(lint(`Waiting for ${name} to approve.`, {}, cfg)), name).toEqual(['waiting-human'])
+    }
+    expect(rules(lint('Blocked on Josés build.', {}, cfg))).toEqual(['blocked'])
+  })
+
   it('an allowLines pattern skips a long line', () => {
     const long = `Implements #12 Task 3 ${'word '.repeat(40)}`
     const allow = loadConfig({ cwd: makeDir({ '.claude/agent-kit.json': { 'reply-style': { allowLines: ['^Implements #\\d+ Task '] } } }), env: {} })
