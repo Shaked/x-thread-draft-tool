@@ -12,6 +12,7 @@ import { threadRoutes } from './routes/threads.js'
 import { openapiRoutes } from './routes/openapi.js'
 import { mcpUiRoutes } from './routes/mcp-ui.js'
 import { oauthRoutes } from './routes/oauth.js'
+import { opsRoutes } from './routes/ops.js'
 import { versionRoutes } from './version.js'
 import { changelogRoutes } from './changelog.js'
 import { handleMcp } from './mcp/server.js'
@@ -38,6 +39,7 @@ export const ROUTES = [
   ...tokenRoutes,
   ...threadRoutes,
   ...oauthRoutes,
+  ...opsRoutes,
   ...openapiRoutes,
   ...mcpUiRoutes,
   ...versionRoutes,

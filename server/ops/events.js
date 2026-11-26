@@ -46,7 +46,7 @@ const KIND_RULES = {
 }
 
 /** False for NUL bytes and lone surrogates: Postgres refuses both in text and jsonb. */
-function isPlainText(value) {
+export function isPlainText(value) {
   return !value.includes('\u0000') && !/[\ud800-\udbff](?![\udc00-\udfff])|(?:^|[^\ud800-\udbff])[\udc00-\udfff]/.test(value)
 }
 
