@@ -11,6 +11,7 @@ describe('agent comment lint (CI job)', () => {
     expect(agentCommentKind(`HANDOFF #1 (x) - done${FOOTER}`)).toBe('handoff')
     expect(agentCommentKind(`Decision 2026-11-26: keep it${FOOTER}`)).toBe('decision')
     expect(agentCommentKind(`Should drafts save on pause?${FOOTER}`)).toBe('question')
+    expect(agentCommentKind(`## TL;DR\nOne question for you: x.${FOOTER}`)).toBe('templated')
     expect(agentCommentKind('HANDOFF #1 (x) - done, but no footer')).toBeNull()
     expect(agentCommentKind(`Thanks, merged.${FOOTER}`)).toBeNull()
     expect(agentCommentKind('')).toBeNull()
@@ -20,6 +21,12 @@ describe('agent comment lint (CI job)', () => {
     expect(lintComment(golden('handoff/good-1.md'))).toEqual([])
     const bad = `HANDOFF #1 (x) - done\n\n**Done:** shipped.\n**Blocked on you:** nothing.${FOOTER}`
     expect(lintComment(bad).map((f) => f.rule)).toContain('loose-label')
+  })
+
+  it('lints an owner question written with the template, so it cannot bypass the job', () => {
+    const bad = golden('owner-question/bad-loose-label.md').trimEnd() + FOOTER
+    expect(lintComment(bad).map((f) => f.rule)).toContain('loose-label')
+    expect(lintComment(golden('owner-question/good-1.md').trimEnd() + FOOTER)).toEqual([])
   })
 
   it('does not lint a comment that is not an agent comment', () => {
