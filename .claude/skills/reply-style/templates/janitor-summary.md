@@ -37,7 +37,9 @@ Nothing.
 ### Findings
 | Kind | Session | Issue | Evidence | Proposed action |
 |---|---|---|---|---|
-| <Kind label> | `<session id>` | #<n> (<issue, 3 to 6 words>) | <evidence> | <proposed action> `<allowed, dispatcher or owner>` |
+| <Kind label> | [`<session id>`](https://claude.ai/code/<session id>) | [#<n> (<issue, 3 to 6 words>)](<issue link>) | <evidence> | <proposed action> `<allowed, dispatcher or owner>` |
 
 ### Pass 1 report (task janitor)
+For a duplicate pair, the `duplicate-issue` row above wins over the fix written below.
+
 <The output of `node scripts/janitor.mjs report`, when the run includes it.>

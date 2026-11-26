@@ -277,6 +277,13 @@ describe('the templated summary', () => {
     expect(findings.find((f) => f.kind === 'duplicate-issue').act).toBe('dispatcher')
   })
 
+  it('links the session and the issue on every finding row', () => {
+    const rows = text.split('\n').filter((l) => l.startsWith('| ') && l.includes('`session_'))
+    expect(rows.length).toBe(findings.length)
+    for (const row of rows) expect(row).toMatch(/\]\(https:\/\/claude\.ai\/code\/session_\w+\)/)
+    expect(rows.filter((r) => !r.includes('| none |')).every((r) => /\]\(https:\/\/github\.com\/example\/repo\/issues\/\d+\)/.test(r))).toBe(true)
+  })
+
   it('pads a short PR title with "pull request"', () => {
     expect(describeSnapshot(snapshot).get(201)).toBe('Export button pull request')
     const snap = { ...snapshot, pulls: [{ number: 301, title: 'Fix login issue now', body: '' }] }

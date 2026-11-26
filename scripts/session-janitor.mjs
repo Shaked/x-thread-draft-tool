@@ -461,13 +461,17 @@ export function formatSummary(findings, { counts, today, repo = REPO, names = ne
   else {
     lines.push('| Kind | Session | Issue | Evidence | Proposed action |', '|---|---|---|---|---|')
     for (const f of findings) {
-      const sessions = f.sessions.length ? f.sessions.map(code).join(', ') : 'none'
-      const issue = f.issue ? x(ref(f.issue)) : 'none'
+      // Both links on every row: the Claude session and the issue open with one click.
+      const sessions = f.sessions.length ? f.sessions.map((id) => `[${code(id)}](https://claude.ai/code/${id})`).join(', ') : 'none'
+      const issue = f.issue ? `[${x(ref(f.issue))}](https://github.com/${repo}/issues/${f.issue})` : 'none'
       const cells = [LABELS.get(f.kind), sessions, issue, x(f.evidence), `${x(f.action)} \`${f.act}\``].map(cell)
       lines.push(`| ${cells.join(' | ')} |`)
     }
   }
-  if (pass1.trim()) lines.push('', '### Pass 1 report (task janitor)', pass1.trim())
+  if (pass1.trim()) {
+    lines.push('', '### Pass 1 report (task janitor)',
+      'For a duplicate pair, the `duplicate-issue` row above wins over the fix written below.', '', pass1.trim())
+  }
   return lines.join('\n') + '\n'
 }
 
