@@ -4,4 +4,4 @@
 - Every reply template and lint rule now has a test, so a new one cannot ship without fixtures.
 
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/523
