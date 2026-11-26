@@ -31,5 +31,11 @@
       "pstack-technical-writing",
       "pstack-bro"
     ]
+  },
+  "metrics": {
+    "app": "X Thread Draft Tool",
+    "repo": "Shaked/x-thread-draft-tool",
+    "siteUrl": "https://x-thread-draft-tool.vercel.app",
+    "ingestUrl": "https://x-thread-draft-tool.vercel.app/api/ops/events"
   }
 }

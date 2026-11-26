@@ -1,0 +1,1 @@
+{ "metrics": { "app": 7, "repo": "acme/sample-app", "siteUrl": "https://sample-app.example.com", "ingestUrl": "https://sample-app.example.com/api/ops/events" } }

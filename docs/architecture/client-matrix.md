@@ -56,6 +56,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Thread view after an edit | view:thread | renders_ui_views | 2026-11-25 |
 | Image operations | tools | none | 2026-11-25 |
 | Agent plugin: reply-style | docs/plans/plugin-marketplace.md | none | 2026-11-26 |
+| Agent plugin: metrics | docs/plans/central-metrics.md | none | 2026-11-26 |
 | Connect guide | docs/agents/mcp.md | none | 2026-11-21 |
 
 ## Language: en
@@ -80,6 +81,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Thread view after an edit | built: tests/api/mcp-edit-result.test.js | built: tests/api/mcp-edit-result.test.js | not checked | built: tests/api/mcp-edit-result.test.js | not checked | not checked | not checked | not checked |
 | Image operations | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js | built: tests/api/mcp-images-parity.test.js |
 | Agent plugin: reply-style | built: tests/unit/plugin-reply-style.test.js | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | not checked | no: a Claude Code plugin only | no: a Claude Code plugin only |
+| Agent plugin: metrics | built: tests/unit/plugin-metrics.test.js | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | not checked | no: a Claude Code plugin only | no: a Claude Code plugin only |
 | Connect guide | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | no: the guide has no Grok steps (#372) | built: docs/agents/mcp.md | built: docs/agents/mcp.md | no: no steps for other MCP clients (#372) |
 
 ## Language: he
@@ -104,6 +106,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Thread view after an edit | built: tests/api/mcp-edit-result.test.js, tests/unit/mcp-ui-thread.test.js | built: tests/unit/mcp-ui-thread.test.js | not checked | built: tests/unit/mcp-ui-thread.test.js | not checked | not checked | not checked | not checked |
 | Image operations | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) | no: no Hebrew words for these operations (#414) |
 | Agent plugin: reply-style | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only |
+| Agent plugin: metrics | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only |
 | Connect guide | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) | no: the guide is English only (#372) |
 
 The thread tools add the thread as markdown after the JSON (#356): its labels are English and read by the assistant; the Hebrew post text in it stays unchanged. In Hebrew, "built" for a view means Hebrew post text shows unchanged and right to left (`dir="auto"`); the labels around it are the separate View labels row (#371): every label and button of the three views has an English and a Hebrew text, and in Hebrew the page gets `lang="he"` and `dir="rtl"`. Tool titles: MCP gives each tool one title and no language field, so Hebrew trigger words go in the description instead.
