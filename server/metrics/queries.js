@@ -34,7 +34,8 @@ export async function groupRows({ by, from, day, route, to = null }) {
     params.push(route)
     filter = ` and route = $${params.length}`
   }
-  // `to` (the end of the last hour wanted) lets the summary read the 7 days before a window with the same query.
+  // `to` (the end of the last hour wanted) bounds the hourly rows only, so the summary can read the days before a window.
+  // Daily rows are whole days: a caller must not ask for a range that reaches them.
   let until = ''
   if (to !== null) {
     params.push(to)

@@ -66,9 +66,9 @@ function speedFinding(events, base, link) {
   const over = value > limit
   const overs = rows.filter((e) => e.status === 'over')
   const since = over && overs.length ? overs[0].at : null
-  let text = `Speed: 1 in 10 merges took ${duration(value)} or more from push to tested production. Limit ${duration(limit)}.`
+  let text = `Speed: 1 in 10 ${limit < SPEED_LIMIT_MS ? 'docs-only ' : ''}merges took ${duration(value)} or more from push to tested production. Limit ${duration(limit)}.`
   text += baseValue === null ? ' Last week: no data.' : ` Last week ${duration(baseValue)}.`
-  if (since !== null) text += ` Over since ${utc(since)} (${overs.length} merges).`
+  if (since !== null) text += ` Over since ${utc(since)} (${overs.length} ${overs.length === 1 ? 'merge' : 'merges'}).`
   return finding('speed', text, {
     value: Math.round(value / 1000), unit: 's', limit: Math.round(limit / 1000),
     baseline: baseValue === null ? null : Math.round(baseValue / 1000),
@@ -130,7 +130,7 @@ async function productionFinding(windowName, now, windowMs) {
   const current = view.metrics[0]
   const link = '/admin/metrics'
   if (!current) return finding('production', 'Production: no requests in this window.', { link })
-  let text = `Production: ${count(current.count)} requests, ${count(current.errors['5xx'])} server errors.`
+  let text = `Production: ${count(current.count)} requests, ${count(current.errors['5xx'])} server ${current.errors['5xx'] === 1 ? 'error' : 'errors'}.`
   const baseP95 = before.metrics[0]?.p95 ?? null
   if (current.p95 === null) text += ' Slowest 5 %: too few requests to say.'
   else text += ` Slowest 5 %: ${duration(current.p95)} or more. Last week ${baseP95 === null ? 'no data' : duration(baseP95)}.`

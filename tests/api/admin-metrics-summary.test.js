@@ -108,7 +108,7 @@ describe('GET /admin/metrics/summary', () => {
         'Last failure: https://github.com/Shaked/x-thread-draft-tool/actions/runs/1'
     )
     expect(lines[3]).toBe('- Deploys: 2 to production, none failed. Median 22 s from deploy start to live. Last week no data.')
-    expect(lines[4]).toBe('- Production: 35 requests, 1 server errors. Slowest 5 %: too few requests to say.')
+    expect(lines[4]).toBe('- Production: 35 requests, 1 server error. Slowest 5 %: too few requests to say.')
     expect(lines[5]).toMatch(/^- Database: \d+ MB of 1 GB \(\d+ %\)\.$/)
     expect(lines[6]).toBe('Nothing else is over its limit.')
     expect(body.findings.map((f) => f.area)).toEqual(['speed', 'ci', 'deploys', 'production', 'database'])
@@ -164,7 +164,7 @@ describe('GET /admin/metrics/summary', () => {
       [iso(hourOf(now) - 5 * DAY), literal(oneHot(8).map((v) => v * 300))]
     )
     const week = (await getJson('admin_metrics_summary', '/admin/metrics/summary?window=7d')).body
-    expect(week.text).toMatch(/Production: 335 requests, 1 server errors\. Slowest 5 %: 8 ms or more\. Last week no data\./)
+    expect(week.text).toMatch(/Production: 335 requests, 1 server error\. Slowest 5 %: 8 ms or more\. Last week no data\./)
   })
 
   it('has no data: every line still answers', async () => {
@@ -184,7 +184,7 @@ describe('GET /admin/metrics/summary', () => {
   it('the Production numbers equal GET /admin/metrics for the same window', async () => {
     const summary = (await getJson('admin_metrics_summary', '/admin/metrics/summary?window=24h')).body
     const metrics = (await getJson('admin_metrics', '/admin/metrics?window=24h&by=total')).body.metrics[0]
-    expect(summary.text).toContain(`Production: ${metrics.count} requests, ${metrics.errors['5xx']} server errors.`)
+    expect(summary.text).toContain(`Production: ${metrics.count} requests, ${metrics.errors['5xx']} server error.`)
     expect(metrics).toMatchObject({ count: 35, errors: { '5xx': 1 } })
   })
 
