@@ -389,6 +389,12 @@ for (const size of SIZES) {
         expect(await overflows(page)).toBe(false)
 
         // The last entry is not covered by the bottom bar once the page is scrolled to its end.
+        // An entry with no Area sits in the closed "Earlier changes" fold of its day: a reader opens the fold to see it,
+        // so the check opens it too (a closed fold is not on screen and would make this check meaningless).
+        await entries.last().evaluate((el) => {
+          const fold = el.closest('details')
+          if (fold) fold.open = true
+        })
         await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
         const clear = await entries.last().evaluate((el) => {
           const r = el.getBoundingClientRect()
