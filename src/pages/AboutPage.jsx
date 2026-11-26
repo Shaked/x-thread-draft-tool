@@ -111,7 +111,7 @@ export default function AboutPage() {
         {/* Attribution required by the Rare UI licence (THIRD_PARTY_LICENSES/rare-ui.md): a visible link to rareui.com. */}
         <Section title="Credits">
           <Stack gap={3}>
-            <p lang="en">
+            <p lang="en" dir="ltr">
               The look and some components come from{' '}
               <a href="https://rareui.com" target="_blank" rel="noreferrer">
                 Rare UI (rareui.com)

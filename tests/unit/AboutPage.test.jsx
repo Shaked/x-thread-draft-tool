@@ -112,6 +112,7 @@ describe('AboutPage', () => {
     const en = container.querySelector('p[lang="en"]')
     const he = container.querySelector('p[lang="he"]')
     expect(en).toHaveAttribute('lang', 'en')
+    expect(en).toHaveAttribute('dir', 'ltr')
     expect(en).toContainElement(links[0])
     expect(en).toHaveTextContent('MIT + Commons Clause License Condition v1.0 + Attribution')
     expect(he).toHaveAttribute('dir', 'rtl')
