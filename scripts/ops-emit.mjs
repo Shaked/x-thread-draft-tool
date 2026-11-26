@@ -170,7 +170,7 @@ export function speedEvents(record, link) {
       at: record.merged_at,
       name: stage,
       status,
-      ms: sec * 1000,
+      ms: sec * 1000 <= MAX_MS ? sec * 1000 : null, // the same ingest limit as the git and CI durations
       attrs,
       link
     })

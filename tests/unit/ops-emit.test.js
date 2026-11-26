@@ -129,6 +129,16 @@ describe('ops-emit: mapping', () => {
     expect(events['speed/merge/sha-m1:merge_wait'].attrs).toEqual({ pr: 10 })
   })
 
+  it('a speed stage above the ingest limit is sent as a null duration, not refused', () => {
+    const rows = speedEvents(
+      { number: 12, kind: 'code', merge_sha: 'sha-long', merged_at: '2026-11-25T10:07:30Z', stages: { ci: null, merge: { running: 0, wait: 3e9 / 1000 }, vercel: null, smoke: null }, total: null },
+      'https://github.com/Shaked/x-thread-draft-tool/pull/12',
+    )
+    const wait = rows.find((r) => r.name === 'merge_wait')
+    expect(wait.ms).toBeNull()
+    expect(validateBatch({ v: 1, repo_id: REPO.repository_id, events: rows }, { now: NOW }).refused).toEqual([])
+  })
+
   it('a docs-only merge gets ci and total speed rows and no vercel or smoke row', () => {
     const rows = speedEvents(
       { number: 11, kind: 'docs', merge_sha: 'sha-m2', merged_at: '2026-11-24T12:00:00Z', stages: { ci: { running: 60, queue: 5 }, merge: { running: 0, wait: 2935 }, vercel: null, smoke: null }, total: 60 },
