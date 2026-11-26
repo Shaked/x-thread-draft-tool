@@ -68,6 +68,7 @@ describe('add_image_from_url', () => {
     const added = await tool('add_image_from_url', { draftId: draft.id, url: 'https://example.com/n.png', postId: 'p1', position: 1 })
     expect(added.error).toBeNull()
     expect((await urlsOf(draft.id))[0]).toEqual([added.data.url, own('a'), own('b')])
+    expect(added.parts.at(-1)).toMatch(/, 3 images\. Editor: \S+\. Saved\. Post 1 has 3 of 4 images\. Say this in one line\.$/) // #390 (Codex review)
     const late = await tool('add_image_from_url', { draftId: draft.id, url: 'https://example.com/m.png', postId: 'p1', position: 5 })
     expect(late.error).toMatch(/position must be from 1 to 4/)
     expect(putBlob).toHaveBeenCalledTimes(1)

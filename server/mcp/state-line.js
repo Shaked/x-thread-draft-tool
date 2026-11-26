@@ -35,17 +35,18 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 export function stateLine(draft, tool, origin, { postId } = {}) {
   const group = GROUP[tool]
   if (!group || !draft?.id) return null
-  const stats = 'over_limit_count' in draft ? draft : outline(draft)
+  // An outline (the write results, get_draft_outline) already has the per-post counts; a full draft row does not.
+  const summary = 'over_limit_count' in draft ? draft : outline(draft)
   const posts = Array.isArray(draft.posts) ? draft.posts : []
-  const count = stats.post_count ?? posts.length
-  const images = plural(stats.image_count ?? 0, 'image')
-  const imagePost = group === 'image' && postId !== undefined ? outline(draft).posts.find((post) => post.id === postId) : undefined
+  const count = summary.post_count ?? posts.length
+  const images = plural(summary.image_count ?? 0, 'image')
+  const imagePost = group === 'image' && postId !== undefined ? summary.posts.find((post) => post.id === postId) : undefined
   const hints = {
-    read: `To change a post, call update_post with this id, the post's id from posts, and version ${stats.version}.`,
+    read: `To change a post, call update_post with this id, the post's id from posts, and version ${summary.version}.`,
     outline: OUTLINE_HINT,
     rewrite: REWRITE_HINT,
     edit: EDIT_HINT,
     image: imagePost ? `Saved. Post ${imagePost.index} has ${imagePost.image_count} of ${IMAGE_LIMIT} images. Say this in one line.` : IMAGE_ELSEWHERE_HINT(images)
   }
-  return `Draft ${draft.id}, version ${stats.version}, ${plural(count, 'post')}, ${stats.over_limit_count} over 280, ${images}. Editor: ${origin}/draft/${draft.id}. ${hints[group]}`
+  return `Draft ${draft.id}, version ${summary.version}, ${plural(count, 'post')}, ${summary.over_limit_count} over 280, ${images}. Editor: ${origin}/draft/${draft.id}. ${hints[group]}`
 }
