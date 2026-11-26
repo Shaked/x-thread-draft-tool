@@ -9,7 +9,7 @@
 //   owner            the repository owner added the label owner: needs you
 //   cleanup          a PR got the label cleanup-pr (epic #255, task C3): review the cleanup PR
 //   cleanup-started  the daily workflow opened a cleanup review issue
-//   speed            a stage's p90 is over its limit (speed-metrics.mjs, task #310 of epic #273); not in the template yet
+//   speed            a stage is over its limit: the Alert shape (speed-metrics.mjs, tasks #310 and #446)
 //
 // CLI (the workflows pass every value through environment variables, never inside the shell text):
 //   NOTIFY_KIND, NOTIFY_SHA, NOTIFY_TITLE, NOTIFY_URL, NOTIFY_RUN_URL, NOTIFY_PREVIEW_URL,
@@ -25,8 +25,6 @@ export const PREVIEW_URL = 'https://x-thread-draft-tool-preview.vercel.app'
 // Titles are cut before escaping, so a tag is never cut in half. Escaping can grow a title up to
 // six times, so the longest message stays far under Telegram's 4096-character limit.
 export const MAX_TITLE = 120
-
-const SPEED_HEADLINE = 'Speed budget over limit'
 
 // Escapes the three characters Telegram HTML needs, plus the double quote for attribute values.
 export function escapeHtml(value) {
@@ -81,14 +79,12 @@ function message([label, url], body, links = []) {
   return { html: html.join('\n'), plain: plain.join('\n') }
 }
 
-// Speed budget: the headline links to the run page (its summary holds the stage table), then the
-// window, one line per stage over its p90 limit, and a line saying nothing is needed.
-function speedMessage(data) {
-  const headline = clip(data.title || SPEED_HEADLINE)
-  const body = [data.window, ...(data.lines || []), 'Nothing needed: this check only warns.'].filter(Boolean)
-  const html = [`<b>${linkHtml(headline, data.url)}</b>`, ...body.map(escapeHtml)]
-  const plain = [linkPlain(headline, data.url), ...body]
-  return { html: html.join('\n'), plain: plain.join('\n') }
+// Alert shape (task M7, plan #439 section 6): the headline (what is over, in plain words) links to the
+// gate issue or the run; then the number, the likely cause, what to do; then at most two links.
+function alertMessage(data) {
+  const headline = clip(data.headline || 'Delivery is slower than its limit')
+  const body = [data.numberLine, data.causeLine, data.actionLine].filter(Boolean).map(text)
+  return message([headline, data.url], body, (data.links || []).slice(0, 2))
 }
 
 // Returns { html, plain } for a kind, or null for an unknown kind. The first link is the headline's,
@@ -137,7 +133,7 @@ export function buildMessage(kind, data = {}) {
         [text(title), text('Nothing needed. An agent reviews the commits since the last review and opens up to three PRs.')],
       )
     case 'speed':
-      return speedMessage(data)
+      return alertMessage(data)
     default:
       return null
   }

@@ -1,10 +1,11 @@
 name: Speed metrics
 
 # Epic #273, task S5 (#310); plan docs/plans/speed.md sections 4 and 5.
-# Per merge: after a production smoke run, measures that merge (CI, merge wait, Vercel, smoke) and
-# warns in the log for each stage over its p90 limit. Warn only: this run never fails for speed.
+# Per merge: after a production smoke run, measures that merge (CI, merge wait, Vercel, smoke), warns in the log for
+# each stage over its limit, and runs the gate: one gate issue, and one Telegram alert when a streak starts (task M7, #446).
+# Never fails for speed.
 # By hand (`last`): measures the most recent merged pull requests, keeps the artifact, and sends one
-# Telegram line when a stage's p90 is over its limit.
+# Telegram alert when a stage's p90 is over its limit.
 
 on:
   workflow_dispatch:
@@ -23,6 +24,8 @@ permissions:
   actions: read
   pull-requests: read
   deployments: read
+  # The only write: the per-merge gate issue (task M7, #446). Nothing else is written.
+  issues: write
 
 concurrency:
   group: speed-metrics-${{ github.event.workflow_run.head_sha || github.run_id }}
@@ -53,6 +56,9 @@ jobs:
       # No `npm ci`: scripts/speed-metrics.mjs imports only node: modules and repository files.
       - name: Measure the merge
         if: github.event_name == 'workflow_run'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: node scripts/speed-metrics.mjs --merge "$MERGE_SHA" --out speed-metrics
 
       - name: Measure the last merged pull requests
