@@ -36,7 +36,7 @@ Run servers in the background and stop them when you finish. Never point these t
 
 ## 5. Errors and failures
 The script records, per route, console errors, uncaught page errors and requests that failed or answered 4xx or 5xx, and fails the case on any of them. It also fails on sideways scroll and on a blank page, and warns about touch targets under 44 px on phones.
-- A request that is expected, for example a 401 while signed out, is allowed by name: `--allow "401 /api/auth/me"`. Browser lines such as "Failed to load resource" are covered by the request record, so allowing the request is enough. Never allow something to make a run green without saying why in the PR.
+- A request that is expected, for example a 401 while signed out, is allowed by name: `--allow "401 /api/auth/me"`. Browser lines such as "Failed to load resource" are covered by the request record, so allowing the request is enough for those lines. The app's own console errors still fail the case. Never allow something to make a run green without saying why in the PR.
 - Fix the cause of an error. Do not hide the message.
 
 ## 6. Audits that already run in CI
@@ -55,7 +55,7 @@ For more, write a short Playwright script and use `page.evaluate` with `getBound
 
 ## 8. Stale tab after a deploy
 After a deploy, an open tab still asks for script files of the old build. Those files are gone, and a host that rewrites unknown paths to the page answers `200 text/html`. The dynamic import fails. A page without an error boundary goes blank.
-`node scripts/ui-shot.mjs --routes /<lazy route> --stale-chunk` loads the entry, answers every later script file with the page, then moves to the route. The browser's own module-load errors are expected in this mode and are not counted. Pass means a visible message or alert and a reload button; a blank page fails.
+`node scripts/ui-shot.mjs --routes /<lazy route> --stale-chunk` loads the entry, answers every later script file with the page, then moves to the route. The browser's own module-load errors are expected in this mode and are not counted. Pass means a visible alert with text and a visible reload button; a blank page fails.
 
 ## 9. Before and after, and what goes in the PR
 - Take "before" shots first: `--out docs/screenshots/<task>/before`. After the fix: `--out docs/screenshots/<task>/after`. Same routes, widths, themes and languages.

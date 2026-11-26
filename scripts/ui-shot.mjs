@@ -193,7 +193,15 @@ async function measure(page, inspect) {
           return { box: { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }, styles: Object.fromEntries(props.map((p) => [p, s.getPropertyValue(p)])) }
         })
       : null
-    const recovery = !!document.querySelector('[role=alert]') || [...document.querySelectorAll('button, a')].some((el) => /reload|try again|refresh/i.test(el.textContent || ''))
+    // Recovery needs a visible message (an alert with text) and a visible, enabled reload control.
+    const visible = (el) => {
+      const r = el.getBoundingClientRect()
+      const st = getComputedStyle(el)
+      return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none'
+    }
+    const message = [...document.querySelectorAll('[role=alert]')].some((el) => visible(el) && (el.textContent || '').trim() !== '')
+    const control = [...document.querySelectorAll('button, a[href]')].some((el) => visible(el) && !el.disabled && /reload|try again|refresh/i.test(el.textContent || ''))
+    const recovery = message && control
     return { recovery, overflowX, blank: text === '' && controls === 0, smallTargets: small.slice(0, 50), inspected }
   }, { inspect, props: STYLE_PROPS })
 }
@@ -226,8 +234,8 @@ async function runCase(browser, c, opts, origin, apiOrigin) {
     })
     const entry = { route: c.route, width: c.width, theme: c.theme, lang: c.lang, user: opts.user, stale: opts.staleChunk, file: c.file, consoleErrors: [], pageErrors: [], failedRequests: [] }
     const page = await context.newPage()
-    page.on('console', (m) => { if (m.type() === 'error' && !/^Failed to load resource/.test(m.text())) entry.consoleErrors.push(m.text().slice(0, 300)) })
-    page.on('pageerror', (e) => entry.pageErrors.push(String(e.message || e).slice(0, 300)))
+    page.on('console', (m) => { if (m.type() === 'error' && !/^Failed to load resource/.test(m.text())) entry.consoleErrors.push(m.text().split('\n')[0].slice(0, 300)) })
+    page.on('pageerror', (e) => entry.pageErrors.push(String(e.message || e).split('\n')[0].slice(0, 300)))
     page.on('requestfailed', (r) => entry.failedRequests.push({ status: 'failed', method: r.method(), path: new URL(r.url()).pathname }))
     page.on('response', (r) => { if (r.status() >= 400) entry.failedRequests.push({ status: r.status(), method: r.request().method(), path: new URL(r.url()).pathname }) })
     await page.addInitScript(([theme, lang]) => {
@@ -247,9 +255,9 @@ async function runCase(browser, c, opts, origin, apiOrigin) {
     }
     Object.assign(entry, await measure(page, opts.inspect))
     await page.screenshot({ path: path.join(opts.out, c.file), fullPage: true })
-    if (opts.trace) await context.tracing.stop({ path: path.join(opts.out, `trace-${c.file.replace(/\.png$/, '')}.zip`) })
     return entry
   } finally {
+    if (opts.trace) await context.tracing.stop({ path: path.join(opts.out, `trace-${c.file.replace(/\.png$/, '')}.zip`) }).catch(() => {})
     await context.close()
   }
 }
@@ -270,7 +278,7 @@ async function main() {
         entries.push(await runCase(browser, c, opts, origin, apiOrigin))
       } catch (error) {
         // One case failing keeps the others: it becomes a problem in the report.
-        entries.push({ route: c.route, width: c.width, theme: c.theme, lang: c.lang, user: opts.user, stale: false, file: c.file, consoleErrors: [], pageErrors: [`case did not finish: ${String(error.message).split('\n')[0]}`], failedRequests: [], overflowX: 0, blank: false, smallTargets: [] })
+        entries.push({ route: c.route, width: c.width, theme: c.theme, lang: c.lang, user: opts.user, stale: opts.staleChunk, file: c.file, consoleErrors: [], pageErrors: [`case did not finish: ${String(error.message).split('\n')[0]}`], failedRequests: [], overflowX: 0, blank: false, smallTargets: [] })
       }
     }
   } finally {
