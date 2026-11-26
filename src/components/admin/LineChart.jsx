@@ -28,6 +28,7 @@ export default function LineChart({ title, series, firstLabel, lastLabel }) {
       </figcaption>
       <div className="line-chart__plot" dir="ltr">
         <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} className="line-chart__svg">
+          <desc>{series.map((s) => `${s.label}: ${s.values.map((v) => v ?? 'none').join(', ')}`).join('. ')}</desc>
           <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} className="line-chart__axis" />
           {series.map((s, index) => {
             const max = Math.max(0, ...s.values.filter((v) => v !== null)) || 1

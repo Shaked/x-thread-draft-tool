@@ -11,10 +11,10 @@ const group = (route, op, count, p95) => ({
   p50: 8.4, p90: 15.9, p95, p99: null, p99_9: null
 })
 
-const series = (name, values, grain = 'hour') => ({
+const series = (name, values, grain = 'hour', p95 = []) => ({
   name,
   grain,
-  points: values.map((value, i) => ({ at: `2026-11-2${i}T10:00:00Z`, value }))
+  points: values.map((value, i) => ({ at: `2026-11-2${i}T10:00:00Z`, value, p95: p95[i] ?? null }))
 })
 
 function answer(me = {}) {
@@ -23,8 +23,7 @@ function answer(me = {}) {
     if (path === '/api/auth/me') return { ok: true, json: async () => me }
     if (path.startsWith('/api/admin/metrics/series')) {
       const name = new URL(path, 'http://x').searchParams.get('name')
-      if (name === 'requests') return { ok: true, json: async () => series('requests', [5, 9, 3]) }
-      if (name === 'p95') return { ok: true, json: async () => series('p95', [20, null, 30]) }
+      if (name === 'requests') return { ok: true, json: async () => series('requests', [5, 9, 3], 'hour', [20, null, 30]) }
       return { ok: true, json: async () => series(name, [1, null, 4], 'day') }
     }
     if (path.startsWith('/api/admin/metrics')) {
