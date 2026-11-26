@@ -28,6 +28,7 @@ owner question uses one template below, follows the hard rules, and passes the l
 | A step Shaked must do by hand | [`owner-action`](templates/owner-action.md) | Chat reply, and a comment on the issue it unblocks |
 | Something failed (CI, deploy, production, a session) | [`incident`](templates/incident.md) | Chat reply, and a comment on the issue or PR |
 | Anything else to Shaked: a reminder, a progress note, an answer to his question | [`status-report`](templates/status-report.md) | Chat reply, or a comment where he asked |
+| The status of all work: tickets, PRs, sessions, whether Shaked is needed | [`status-board`](templates/status-board.md) | Chat reply to `/status`, or a comment on the "Status board" issue; made by `scripts/status-board.mjs` |
 | A changelog file for a PR | [`changelog-entry`](templates/changelog-entry.md) | `docs/changelogs/<UTC YYYYMMDD-HHMMSS>-<slug>.md`; the app shows it to users |
 | The text of a Telegram notice | [`telegram-message`](templates/telegram-message.md) | Target format: `scripts/notify-telegram.mjs` sends the old text until task #369 changes it |
 

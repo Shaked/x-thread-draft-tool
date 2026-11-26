@@ -137,6 +137,36 @@ For pass 2 findings the agent running the janitor does not resume, message or ar
 failed session, answering a blocked one, nudging a merge and archiving a completed one are the dispatcher's
 (#154, queue and dispatcher rules): the summary lists them under `Waiting for`.
 
+## Status board
+`/status` (`.claude/commands/status.md`, #499 (status board template command)) prints every work item on one page in the
+[`status-board`](../reply-style/templates/status-board.md) template: ticket, PR and checks, Claude session and state, whether
+Shaked is needed, the next step and who does it. `scripts/status-board.mjs` is read-only, offline, deterministic and has no model;
+it reuses the pass 2 matching (`context()` in `scripts/session-janitor.mjs`) and its findings for the next step.
+
+1. `node scripts/janitor.mjs fetch > snapshot.json`: the pass 1 snapshot.
+2. `sessions.json` as in pass 2, step 1. `node scripts/status-board.mjs need sessions.json snapshot.json` lists the comments
+   (every open issue that has any) and PRs to read; save `comments.json` (add `html_url` to each comment) and `pulls.json` as in pass 2.
+3. `node scripts/status-board.mjs board sessions.json snapshot.json --comments comments.json --pulls pulls.json --since <last board>`.
+   Without `--since`, Done keeps the last 24 hours. Run `npm run reply-lint -- --template` on the output.
+
+Groups, first match wins: Needs you, Stuck (failed, waits for an answer, or a dispatcher step from pass 2), Running, Waiting for CI
+or review, Done since the last board (rows older than 24 hours drop out), Held (`held` or `parked`). Epics and trackers (`dispatch`,
+`janitor`, `tracker`, the manual tests issue #430 (manual tests for Shaked)) are one line each; an owner step on an epic or a
+tracker (not #430) is also a Needs you row. A session with no issue that asks for a decision is a Needs you row too.
+
+Owner needed is `yes` only by these rules, on an open issue (agent comments end with either Claude Code footer):
+| Rule | When | Answered when |
+|---|---|---|
+| `question` | An agent comment (Claude Code footer) whose first line ends with `?`, or whose TL;DR starts with "One question for you" | A later comment by Shaked's login without the footer (not a collaborator) |
+| `label` | The label `owner`, without `parked` (a parked owner task is Held: Shaked parked it) | The label is removed |
+| `handoff` | The last HANDOFF has a `## Blocked on you` that is not "Nothing" | A later comment by Shaked's login without the footer (not a collaborator) |
+| `needs-action` | A matched session, updated in the last 3 days and not completed or working, has a `needs_action` that asks: decide, choose, approve, your call, which option, pick one (not "nothing for the owner", not a reviewer approval such as "Opus approval") | The session moves on |
+
+The exact words are the first code span under the comment's `What you need to do`, or after "reply". Manual tests (`## N. title`
+in #430 and its agent comments, with no later comment by Shaked that names the title) are listed as optional: they never count
+as Needs you and never make the board red. Tests: `tests/unit/status-board.test.js`; the golden board is
+`tests/unit/fixtures/reply-lint/golden/status-board/good-1.md`. The standing issue for posted boards is titled "Status board".
+
 ## Phase 2: run it by itself (design only)
 Shaked asked for a run after about 10 new tasks, as a second phase (#458, 2026-11-25). Three options, checked
 against `AGENTS.md` and the dispatcher rules in #154 (queue and dispatcher rules) on 2026-11-25:
