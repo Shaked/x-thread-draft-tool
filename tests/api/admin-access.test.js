@@ -66,7 +66,7 @@ const MCP_ROWS = {
   admin_delete_user: { id: NIL, confirm_login: 'nobody' }
 }
 
-const isAdminRoute = (r) => r.path === '/admin' || r.path.startsWith('/admin/') || r.adminOnly === true || r.path.startsWith('/ops/')
+const isAdminRoute = (r) => r.admin === true || r.path === '/admin' || r.path.startsWith('/admin/') || r.adminOnly === true || r.path.startsWith('/ops/')
 const adminRoutes = ROUTES.filter(isAdminRoute)
 const pages = adminPages()
 
@@ -119,11 +119,11 @@ describe('the access table has a row for every admin route, tool and page', () =
 
   it('every route that uses requireAdminUser is adminOnly, and every file that names it is known', async () => {
     const serverFiles = (dir) => readdirSync(join(ROOT, dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? serverFiles(`${dir}/${e.name}`) : e.name.endsWith('.js') ? [`${dir}/${e.name}`] : []))
-    const users = serverFiles('server').filter((f) => f !== 'server/admin/guard.js' && readSrc(f).includes('requireAdminUser'))
+    const users = serverFiles('server').filter((f) => f !== 'server/admin/guard.js' && !f.startsWith('server/generated/') && /requireAdminUser|adminPathOpen/.test(readSrc(f)))
     // A new file here must add its routes to REST_ROWS and mark them adminOnly (so openapi.json leaves them out), then be added to this list.
-    expect(users).toEqual(['server/changelog.js'])
+    expect(users).toEqual(['server/changelog.js', 'server/router.js'])
     // Whatever the path or the import name: a handler that calls the guard is an admin route.
-    const guarded = ROUTES.filter((r) => String(r.handler).includes('requireAdminUser'))
+    const guarded = ROUTES.filter((r) => /requireAdminUser|adminPathOpen/.test(String(r.handler)))
     expect(guarded.length).toBeGreaterThan(0)
     expect(guarded.filter((r) => r.adminOnly !== true).map((r) => `${r.method} ${r.path}`)).toEqual([])
     // Every route of a file that names the guard is adminOnly too (a second route there is not left out by mistake).
@@ -150,6 +150,10 @@ describe('the access table has a row for every admin route, tool and page', () =
     // Paths match without case in React Router, and the admin shell may be mounted at any path: both count.
     const addresses = [...app.matchAll(/['"](\/admin[^'"]*|\/changelog[^'"]*)['"]/gi), ...[...app.matchAll(/<AdminLayout\b/g)].map((m) => Object.assign(['', '<AdminLayout />'], { index: m.index }))]
     expect(addresses.length).toBeGreaterThan(2)
+    // The shell has one lazy import and one use, so no alias or second lazy import of an admin page can hide a route from the scan.
+    expect(app.match(/pages\/admin/g)?.length, 'src/App.jsx may import pages/admin once (the lazy AdminLayout)').toBe(1)
+    // Three names: the const, its import path and the one <AdminLayout />.
+    expect(app.match(/\bAdminLayout\b/g)?.length, 'src/App.jsx may name AdminLayout only in the lazy import and one <AdminLayout />').toBe(3)
     for (const m of addresses) {
       const before = app.slice(0, m.index)
       const gate = before.lastIndexOf('isAdmin(user) &&')

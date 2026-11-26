@@ -14,9 +14,13 @@ export function adminPages() {
   const app = readSrc('src/App.jsx')
   // Every admin address written in App.jsx (any attribute order, any quote, any case), and the path of every route that mounts AdminLayout.
   const written = [...app.matchAll(/['"](\/admin[^'"]*|\/changelog[^'"]*)['"]/gi)].map((m) => m[1].replace(/\/\*$/, ''))
+  // The path of the <Route> element that mounts the shell, in either attribute order (from its opening <Route to the next <Route).
   const mounts = [...app.matchAll(/<AdminLayout\b/g)].map((m) => {
-    const before = [...app.slice(0, m.index).matchAll(/path=['"]([^'"]+)['"]/g)].at(-1)
-    return before ? before[1].replace(/\/\*$/, '') : '(no path)'
+    const start = app.lastIndexOf('<Route', m.index)
+    const next = app.indexOf('<Route', m.index)
+    const tag = app.slice(start, next === -1 ? app.length : next)
+    const path = /path=['"]([^'"]+)['"]/.exec(tag)
+    return path ? path[1].replace(/\/\*$/, '') : `(AdminLayout without a path near index ${m.index})`
   })
   const gated = [...written, ...mounts]
   return [...new Set([...gated, ...entries, ...own])].sort()
