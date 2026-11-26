@@ -33,7 +33,7 @@ import { ConfigError, DEFAULT_CONFIG, loadConfig } from './config.mjs'
 
 export { DEFAULT_CONFIG }
 
-const HEADINGS = ['TL;DR', 'What you need to do', 'Waiting for', 'Blocked on you', 'Done']
+export const HEADINGS = ['TL;DR', 'What you need to do', 'Waiting for', 'Blocked on you', 'Done']
 const LABEL = /(?<![\w#/])(#\d+|[A-Z]\d+(?:\.\d+)?)(?!\w)/g
 const IS_LABEL = /^(#\d+|[A-Z]\d+(?:\.\d+)?)$/
 // Checked on the raw line with quotes and backticks around one capital letter removed.
@@ -50,7 +50,7 @@ const BLOCK_WORD = /\bblock(?:ed|ing|er|ers|s)?\b/gi
 const LOOSE_LABEL = /^\s*(?:(?:[-*+>]|\d+\.)\s+)*(?:\*\*|__|\*|_)?(?:TL;DR|What you need to do|Waiting for|Blocked on you|Blocked|Not done|Done|Details)(?:\s*:(?:\*\*|__|\*|_)?|(?:\*\*|__|\*|_)\s*:?)(?:\s|$)/i
 const EMOJI = /\p{Extended_Pictographic}/u
 /** A section line that only says there is nothing: "Nothing needed.", "None", "Waiting for: nothing". Telegram messages never have one. */
-const EMPTY_SECTION = /^(?:[^:]{0,40}:\s*)?(?:nothing(?: needed)?(?: from you)?|none|n\/a)\.?$/i
+export const EMPTY_SECTION = /^(?:[^:]{0,40}:\s*)?(?:nothing(?: needed)?(?: from you)?|none|n\/a)\.?$/i
 const SLOP = /\b(delve[sd]?|seamless(?:ly)?|leverag(?:e|es|ed|ing)|game[- ]changer|rest assured|it'?s worth noting|i hope this helps|great question|needless to say|in conclusion)\b/i
 const ACT = /\b(Nothing needed from you|You need to do (\d+|one|two|three|four|five) things?)\b/i
 const NUMBERS = { one: 1, two: 2, three: 3, four: 4, five: 5 }
@@ -160,7 +160,7 @@ function checkWords(raw, line, n, add, rules, kind = 'reply', headlineAt = 1) {
     add(n, 'long-line', `over ${rules.maxLine} characters`)
   }
   // A Telegram headline (line 1) starts with one emoji; every other line and kind has none.
-  const headlineEmoji = kind === 'telegram' && n === headlineAt && /^\p{Extended_Pictographic}️? \S/u.test(line) && !EMOJI.test(line.replace(/^\p{Extended_Pictographic}️?/u, ''))
+  const headlineEmoji = kind === 'telegram' && n === headlineAt && /^\p{Extended_Pictographic}\uFE0F? \S/u.test(line) && !EMOJI.test(line.replace(/^\p{Extended_Pictographic}\uFE0F?/u, ''))
   if (EMOJI.test(line) && !headlineEmoji) add(n, 'emoji', kind === 'telegram' ? 'one emoji, at the start of the headline only' : 'no emoji')
   if (kind === 'telegram' && EMPTY_SECTION.test(line.trim())) add(n, 'empty-section', 'leave out a section with nothing to say')
   const slop = SLOP.exec(line)
@@ -169,7 +169,7 @@ function checkWords(raw, line, n, add, rules, kind = 'reply', headlineAt = 1) {
 
 /** Line 1 of a Telegram message: the emoji, the app name in bold, " · " and the headline. */
 function checkIdentity(first, add, app) {
-  const identity = first.match(/^(?:\p{Extended_Pictographic}️? )?\*\*([^*]+)\*\* · \S/u)
+  const identity = first.match(/^(?:\p{Extended_Pictographic}\uFE0F? )?\*\*([^*]+)\*\* · \S/u)
   if (!identity) add(1, 'app-name', 'line 1 is the emoji, the app name in bold, " · " and the headline')
   else if (!/^\p{Extended_Pictographic}/u.test(first)) add(1, 'shape', 'the headline starts with its emoji')
   else if (app && identity[1] !== app) add(1, 'app-name', `the app name in bold must be "${app}"`)

@@ -19,8 +19,9 @@ owner question uses one template below, follows the hard rules, and passes the l
 2. No loose bold or plain labels such as `**Done:**`, `Not done:` or `Blocked on you:`. Use the `##` heading.
 3. `What you need to do`, `Waiting for` and `Blocked on you` say "Nothing." when empty. `Done` always has content with "checked" or "not checked". Leave `Details` out when it is empty.
 4. Every label (`#12`, `Q1`) has a link and 3 to 6 words the first time. Never "unchanged" alone.
-5. Run `node ../../scripts/reply-lint.mjs --template reply.md` (the plugin's `scripts/reply-lint.mjs`, two folders
-   above this file) and fix every finding before you send. A session started with `REPLY_STYLE=owner` in its
+5. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/reply-lint.mjs" --template reply.md` and fix every finding before you
+   send. The script is `scripts/reply-lint.mjs` in the plugin folder, two folders above this file; when this text
+   shows `${CLAUDE_PLUGIN_ROOT}` unfilled, use that path, or the project's own command if it names one. A session started with `REPLY_STYLE=owner` in its
    environment is also checked when the turn ends: the Stop hook returns the failing rules and you rewrite the reply.
 
 ## Which template
@@ -115,8 +116,8 @@ Then run the lint. It flags bare labels, letter options, "unchanged", "blocked" 
 non-human, "waiting for you", long lines, emoji, filler phrases, and missing or reordered headings:
 
 ```sh
-node ../../scripts/reply-lint.mjs reply.md              # a templated reply (headings are checked)
-node ../../scripts/reply-lint.mjs --template reply.md   # force the heading checks
+node "${CLAUDE_PLUGIN_ROOT}/scripts/reply-lint.mjs" reply.md              # a templated reply (headings are checked)
+node "${CLAUDE_PLUGIN_ROOT}/scripts/reply-lint.mjs" --template reply.md   # force the heading checks
 ```
 
 Fix every finding, then post.

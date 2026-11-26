@@ -124,8 +124,10 @@ The only copy of each plugin's files is under `plugins/<name>/`. This repo reads
   wrapper re-exports the functions and calls the plugin's exported `main()` when it is run itself. A subprocess
   test runs `node scripts/reply-lint.mjs` on a bad fixture and expects exit 1 and the findings.
 - Settings: this repo's values live in `.claude/agent-kit.json` (4.3).
-- Skill text names its scripts relative to the skill folder (`../../scripts/reply-lint.mjs`), not with
-  `${CLAUDE_PLUGIN_ROOT}`: that variable is not set when the skill loads as a project skill through the symlink.
+- Skill text names its scripts as `${CLAUDE_PLUGIN_ROOT}/scripts/...`, which Claude Code fills in for a plugin skill,
+  and says where the script is (two folders above the skill file) for when the text shows it unfilled, as it does
+  for a project skill through the symlink. A relative `../../scripts` path would not work: agents run commands
+  from the project root. This repo's agents keep using `npm run reply-lint`.
 
 Why not install the plugin in this repo: most sessions here are cloud sessions, and the docs say they do not add a
 repository's `extraKnownMarketplaces`; a local-path marketplace entry holds an absolute path; and an installed copy
