@@ -119,7 +119,9 @@ function checkWaitingSessions(waiting, add) {
   for (const item of items) {
     const raw = item.lines.join(' ')
     // A link's text (an issue or PR title) can hold the word "session"; only words outside links name a session.
-    if (SESSION_WORD.test(raw.replace(/\[[^\]]*\]\([^)\s]*\)/g, '')) && !SESSION_LINK.test(raw)) {
+    // A link whose text says "session" or a session id stays, so a link to the wrong place is still found.
+    const forWord = raw.replace(/\[([^\]]*)\]\([^)\s]*\)/g, (link, text) => (/^`?(?:sessions?|session_[\w-]+)`?$/i.test(text.trim()) ? link : ''))
+    if (SESSION_WORD.test(forWord) && !SESSION_LINK.test(raw)) {
       add(item.line, 'session-link', `"${item.lines[0].trim().slice(0, 50)}" names a session: add its session link next to the task link, [session](https://claude.ai/code/session_<id>)`)
     }
   }

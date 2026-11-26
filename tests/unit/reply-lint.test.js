@@ -116,3 +116,21 @@ describe('session-link rule edge cases (Opus review of #523)', () => {
     expect(f.line).toBe(10)
   })
 })
+
+describe('session-link rule: a link that says session must have the session address (Opus re-review of #523)', () => {
+  const reply = (item) => `## TL;DR\nA task ran.\nNothing needed from you.\n\n## What you need to do\nNothing.\n\n## Waiting for\n${item}\n\n## Blocked on you\nNothing.\n\n## Done\n- Checked.\n`
+  const task = '[#5 tag filter issue](https://example.com/issues/5)'
+  it.each([
+    'https://claude.ai/code/01abc',
+    'https://github.com/o/r/issues/5',
+    'https://claude.ai/chat/session_01A'
+  ])('flags [session](%s)', (url) => {
+    expect(lint(reply(`- ${task} · [session](${url}): works.`), { template: true }).map((f) => f.rule)).toContain('session-link')
+  })
+  it('flags a session id as link text that points elsewhere', () => {
+    expect(lint(reply(`- ${task} · [\`session_01abc\`](https://example.com): works.`), { template: true }).map((f) => f.rule)).toContain('session-link')
+  })
+  it('passes the right session link', () => {
+    expect(lint(reply(`- ${task} · [session](https://claude.ai/code/session_01abc): works.`), { template: true }).map((f) => f.rule)).not.toContain('session-link')
+  })
+})
