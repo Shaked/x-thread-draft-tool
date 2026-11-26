@@ -5,11 +5,11 @@ One criterion: how little must change in our tokens and components to get nice c
 This file records the measurements. The owner picks the direction on #558. Nothing on `main` changed for this.
 
 Measured by Opus on 2026-11-26. Spikes were built outside the repo (`/home/user/bakeoff/spike`, not committed).
-Spike A copies `src/ui` from `main` at `e9df6aa`, before PR 513 (Rare UI toast) merged, so A shows our own toast.
+Spike A copies `src/ui` from `main` at `9c45a94`, which includes PR 513 (Rare UI toast).
 
 ## Candidates
 - **A. Our own `src/ui`**, the Rare look by tokens (`data-skin="rare"`, PR 455), plus the Rare UI components already
-  ported in #406 (theme selector, delete button, counter; `kit=rare`).
+  ported in #406 (theme selector, delete button, counter, toast; `kit=rare`).
 - **B. Radix Themes** 3.3.0 (styled components on CSS variables, no Tailwind).
 - **C. Mantine** 8.3.18 (components themed with CSS variables, no Tailwind). Mantine 9 needs React 19.2 (see below).
 - **D. shadcn/ui** `new-york-v4` sources (Radix based) on Tailwind 4.3.5: the base Rare UI is built on.
@@ -29,12 +29,14 @@ plus one alias file that maps our tokens onto the kit's variables.
 - **44 px targets:** every visible button, link, input and radio at 390 px under 44 px high or wide.
 - **Reduced motion:** the dialog's computed animation and transition time with `prefers-reduced-motion: reduce`.
 - **Focus:** keyboard: focus "Delete draft", Enter, Escape; focus must return to "Delete draft".
-- **Screenshots:** 96 shots (4 kits, 3 screens, 390 and 1280 px, light and dark, English and Hebrew) at device scale 2,
-  joined per variant into 24 sheets in `docs/screenshots/ui-bakeoff/` (390 px sheets at half size, 1280 px at 3/8).
-  The `ui-debug` skill (#551) is not merged yet, so this used the same Playwright approach with the pre-installed Chromium.
+- **Screenshots:** the `ui-debug` skill's `scripts/ui-shot.mjs` (#560, merged as PR 561), signed out, at device scale 2:
+  96 cases (4 kits, 3 screens, 390 and 1280 px, light and dark, English and Hebrew), 0 failures (no console error, failed
+  request, sideways scroll or blank page) and 4 warnings (B's text input, below). The shots are joined per variant into
+  24 sheets in `docs/screenshots/ui-bakeoff/` (390 px sheets at half size, 1280 px at 3/8).
+  Size, axe, reduced motion and focus used my own Playwright scripts with the pre-installed Chromium (the steps above).
 - **Vendor facts:** the vendor sites (`www.radix-ui.com`, `mantine.dev`, `ui.shadcn.com`, `react-spectrum.adobe.com`,
   `base-ui.com`) did not resolve from this session. Facts below come from each vendor's own GitHub repository
-  (docs sources), from the npm registry, and from the installed package, all read on 2026-11-26:
+  (docs sources and `LICENSE` files), from the npm registry, and from the installed package, all read on 2026-11-26:
   `shadcn-ui/ui` at `0e5b2e6` (2026-11-25), `radix-ui/website` at `402e749` (2026-10-07),
   `radix-ui/themes` at `1faff10` (2026-04-11), `mantinedev/mantine` at `8f2ae60` (2026-11-23).
   Open issue counts: GitHub search, 2026-11-26.
@@ -42,19 +44,19 @@ plus one alias file that maps our tokens onto the kit's variables.
 ## Scoring table
 | Row | A: our `src/ui` | B: Radix Themes | C: Mantine | D: shadcn/ui |
 |---|---|---|---|---|
-| Token alias effort | 0 new lines: the Rare skin is 26 declarations in `tokens.css`, merged in PR 455 | 46 lines, 92 variables, plus 10 of our names redefined by the kit | 35 lines, 69 variables, plus 9 lines of theme code and 2 `aria-label` props | 38 lines, 41 variables, plus 9 changed lines in 6 copied component files |
+| Token alias effort | 0 new lines: the Rare skin is 26 declarations in `tokens.css`, merged in PR 455 | 46 lines, 92 variables, plus 10 of our names redefined by the kit | 35 lines, 74 variables, plus 9 lines of theme code and 2 `aria-label` props | 38 lines, 41 variables, plus 9 changed lines in 6 copied component files |
 | What cannot be mapped | nothing | 12-step grey and accent scales collapse onto our 5 surfaces (a selected segment was invisible until 1 more line); heights only through internal `rt-` class names | 10-step `dark-*` and `gray-*` palettes collapse; filled button text is set inline by JS, so it needs theme code; colour functions in JS cannot read CSS variables | `dark:` variants need a custom variant for `data-theme` (4 lines); Tailwind's own `--color-accent` means a hover grey, ours the brand |
-| Name clashes with our tokens | none | `--space-1` to `--space-8` (24, 32, 48 px for 5, 6, 8), `--radius-full`, `--color-surface`, `--color-overlay`, set on `.radix-themes`, so they win inside it | none (all `--mantine-*`) | `--color-accent`, `--color-border`, `--radius-md`, `--font-sans`, `--font-mono` in Tailwind's theme layer; our unlayered tokens win |
+| Name clashes with our tokens | none | 10: `--space-1` to `--space-8` (5, 6 and 8 are 24, 32 and 48 px there), `--radius-full`, `--color-surface`, `--color-overlay`, set on `.radix-themes`, so they win inside it | none (all `--mantine-*`) | `--color-accent`, `--color-border`, `--radius-md`, `--font-sans`, `--font-mono` in Tailwind's theme layer; our unlayered tokens win |
 | React 18 | yes | yes (peer 16.8 to 19) | 8.x only; 9.0 needs React 19.2 | written for React 19: focus did not return to "Delete draft" after Escape |
 | Hebrew right to left | yes (logical properties, token lint) | no RTL page in its docs; its CSS has no logical properties; segmented control stays left to right in Hebrew | documented (`DirectionProvider`); correct in the screenshots | the CLI converts classes at install (`rtl: true`); by hand here: 3 classes; correct in the screenshots |
 | Dark and light | yes, `light-dark()` tokens | yes through the alias | yes through the alias (127 dark-scheme selectors read `dark-*`) | yes through the alias plus the custom `dark` variant |
 | Reduced motion | yes (dialog 0 s) | yes (dialog animation none) | no by default (`respectReducedMotion: false`); 1 line fixes it | no (dialog still 0.2 s); 1 rule fixes it |
-| First load, drafts page (gzip) | 68.9 kB without the Rare components; 117.1 kB with them | 132.9 kB | 98.1 kB | 95.8 kB |
-| Added over React 18 | 23.9 kB, router included (11.3 kB over React and router); the Rare components add 48.2 kB more (`motion` 43.0 kB) | 87.9 kB (CSS 58.2 kB) | 53.1 kB (CSS 12.4 kB) | 50.8 kB (CSS 7.4 kB) |
-| Lazy loading | Rare parts lazy, but the delete button is on the drafts list, so `motion` loads there | JS tree-shaken; all component CSS is one file | per-component CSS files and tree-shaken JS | Tailwind emits only used classes; JS per component |
+| First load, drafts page (gzip) | 69.2 kB without the Rare components; 128.8 kB with them | 132.9 kB | 98.1 kB | 95.8 kB |
+| Added over React 18 | 24.2 kB, router included (11.6 kB over React and router); the Rare components add 59.7 kB more (`motion` 44.1 kB, toast 10.2 kB) | 87.9 kB (CSS 58.2 kB) | 53.1 kB (CSS 12.4 kB) | 50.8 kB (CSS 7.4 kB) |
+| Lazy loading | Rare parts lazy, but the toast is on every page and the delete button on the drafts list, so `motion` loads on every page | JS tree-shaken; all component CSS is one file | per-component CSS files and tree-shaken JS | Tailwind emits only used classes; JS per component |
 | axe (16 runs) | 0 violations | 0 violations | 0 after fixes; before: white text on the orange dark accent, 2 unnamed close buttons | 0 violations |
 | 44 px targets at 390 px | pass | 32 to 40 px by default; 5 override rules; the text input is 42 px inside its 44 px frame | 28 to 42 px by default; 3 override rules | 36 to 40 px by default; 4 height edits in the copied source |
-| Licence and credit | ours; Rare UI parts: MIT + Commons Clause + Attribution, visible link to rareui.com | MIT, keep the notice | MIT, keep the notice | MIT, keep the notice; `class-variance-authority` Apache-2.0, `lucide-react` ISC |
+| Licence and credit | ours; Rare UI parts: MIT + Commons Clause + Attribution, a visible link to rareui.com (quoted below) | MIT (quoted below) | MIT (quoted below) | MIT (quoted below); `class-variance-authority` Apache-2.0, `lucide-react` ISC (npm) |
 | Build tools | none new (Tailwind utilities only, already on `main` for the Rare parts) | none | none for its CSS; its docs ask for PostCSS to write our own CSS with its mixins | Tailwind 4 theme and reset for the whole app, `tw-animate-css`, `shadcn` |
 | Our 30 `src/ui` components it replaces | none (it is them) | 18; no toast (used Radix Primitives' toast and 2 rules), no date picker, no charts | about 20, toast included; date picker and charts are extra packages | 18, toast, empty state and field included; date picker and charts in the registry |
 | Last release, open issues | ours | 3.3.0 on 2026-01-31, last commit 2026-04-11, 156 open | 9.8.2 on 2026-11-20 (8.x last 8.3.18 on 2026-03-17), 20 open | CLI 4.23.1 on 2026-11-25, last commit 2026-11-25, 751 open |
@@ -76,13 +78,18 @@ Each sheet shows A, B, C and D side by side for one variant. All 24 are in `docs
 ### A. Our own `src/ui`
 - The Rare look on every page needs no new token line: every page already uses `src/ui`, and the Rare skin is 26
   token declarations (PR 455). The open work is the default switch, which #406 is doing.
-- The Rare components cost the most bytes: with the Components flag on, the drafts page loads 48.2 kB more (checked),
-  43.0 kB of it `motion`, because the Rare delete button is on that page. The #406 decision of 2026-11-26 sets
-  30 kB as the point to report and propose a fix. A CSS-only delete-button animation would remove `motion` from it.
+- The Rare components cost the most bytes: with the Components flag on, the drafts page loads 59.7 kB more (checked):
+  `motion` 44.1 kB, the Rare toast (`sonner`) 10.2 kB, the delete button 2.4 kB and their Tailwind CSS 2.9 kB.
+  The Rare toast, delete button and counter all import `motion`, and the toast sits on every page, so `motion` loads on
+  every page. The #406 decision of 2026-11-26 sets 30 kB as the point to report and propose a fix.
+- In the dialog screen at 390 px, the toast covers the dialog's Cancel button: the toast layer (`--z-toast`, 600) is above
+  the dialog layer (`--z-dialog`, 500). In the app a toast usually follows a closed dialog; the overlap is still possible.
 
 ### B. Radix Themes
-- Ten of our token names are redefined on `.radix-themes` with other values: `--space-5`, `--space-6` and `--space-8`
-  are 24, 32 and 48 px there and 20, 24 and 32 px in ours. Our components inside a Radix `Theme` would change size.
+- Ten of our token names are redefined on `.radix-themes`. `--space-5`, `--space-6` and `--space-8` are 24, 32 and 48 px
+  there and 20, 24 and 32 px in ours; `--space-1` to `--space-4` match only at its default scaling; `--color-surface`,
+  `--color-overlay` and `--radius-full` mean other things. Our components inside a Radix `Theme` would change size.
+  Its 3 `--font-weight-*` names are the same values as ours.
 - The segmented control stays left to right in Hebrew, and at 390 px "Match device" is cut off in English (checked).
 - Its CSS is the largest: 58.2 kB gzip with the lean imports its release notes document (84.8 kB with `styles.css`).
 - The last release is 10 months old (2026-01-31).
@@ -103,7 +110,7 @@ Each sheet shows A, B, C and D side by side for one variant. All 24 are in `docs
 ### E. Headless primitives (described, not built)
 | | Radix Primitives (`radix-ui`) | React Aria Components | Base UI (`@base-ui/react`) |
 |---|---|---|---|
-| Licence | MIT (checked, repository) | Apache-2.0: keep the licence and notice (checked, repository) | MIT (checked, repository) |
+| Licence | MIT (checked, `LICENSE` in `radix-ui/primitives`) | Apache-2.0 (checked, `LICENSE` in `adobe/react-spectrum`): section 4 asks to give "a copy of this License" and to "retain ... all copyright, patent, trademark, and attribution notices" | MIT (checked, `LICENSE` in `mui/base-ui`) |
 | React 18 | yes, peer 16.8 to 19 (checked, npm) | yes, peer 16.8 to 19 (checked, npm) | yes, peer 17 to 19 (checked, npm) |
 | Right to left | `Direction` provider documented (checked, `radix-ui/website`) | not checked | not checked |
 | Last release, open issues | 1.8.1 on 2026-10-12, 145 open | 1.22.1 on 2026-10-09, 555 open (`adobe/react-spectrum`) | 1.9.0 on 2026-10-09, 357 open |
@@ -112,13 +119,25 @@ Each sheet shows A, B, C and D side by side for one variant. All 24 are in `docs
 They bring behaviour only (focus, keys, positioning), so token effort is zero: our CSS styles them. They fit A as the
 engine for a future menu, popover or date picker, not as a new look.
 
+## Licences (quoted)
+- Radix Themes (`LICENSE` in the installed package 3.3.0), Mantine (`LICENSE` in `mantinedev/mantine`) and shadcn/ui
+  (`LICENSE.md` in `shadcn-ui/ui`) are the MIT licence. Each grants: "Permission is hereby granted, free of charge, to
+  any person obtaining a copy of this software ..." on one condition: "The above copyright notice and this permission
+  notice shall be included in all copies or substantial portions of the Software." Credit: the notice goes under
+  `THIRD_PARTY_LICENSES/`; no visible link is needed.
+- Rare UI (quoted on [#406](https://github.com/Shaked/x-thread-draft-tool/issues/406)): "Any project that ships any part of the Software must credit Rare UI
+  with a visible link to https://rareui.com", and the Commons Clause forbids selling the components themselves.
+- No candidate needs payment, an account or an API key (checked: npm packages and source copies only).
+
 ## Recommendation
 **A, our own `src/ui` with the Rare look by tokens**, because it is the only option with zero new token lines and it
 already reaches every page. Cheapest path to the Rare look on every page by default:
 1. Make `data-skin="rare"` the default (the #406 common part: the admin switch stays).
-2. Keep the Rare components that are cheap (theme selector 1.7 kB, counter 1.2 kB, both lazy, plus 2.7 kB of shared
-   Tailwind CSS), and give the delete button a CSS animation so `motion` (43.0 kB) leaves the drafts page.
-3. Use a headless primitive (E) only when we build a component we lack, such as a date picker.
+2. Keep the Rare components, but replace `motion` in the three that import it (delete button, counter, toast) with
+   CSS animations, so `motion` (44.1 kB) leaves every page. The theme selector (1.7 kB) has no `motion`. The size after
+   that change is not measured.
+3. Put the toast layer under the dialog layer, or hold a toast while a dialog is open.
+4. Use a headless primitive (E) only when we build a component we lack, such as a date picker.
 
 **Fallback, if the owner wants a full ready-made kit:** D, shadcn/ui, because it maps with the fewest variables and is
 the base of Rare UI. It needs React 19 (or `forwardRef` patches), Tailwind's theme across the app, and a page-by-page
@@ -128,7 +147,7 @@ fixes in JS theme code).
 ## What happens to the merged Rare UI work (PRs 455, 471, 494, 501, 513)
 | Choice | PR 455 Rare look (tokens) | PRs 471, 494, 501, 513 (theme selector, delete button, counter, toast) |
 |---|---|---|
-| A (recommended) | becomes the default for everyone | stay; 494 gets a CSS animation instead of `motion`; Tailwind stays limited to `src/ui/rare/` |
+| A (recommended) | becomes the default for everyone | stay; 494, 501 and 513 get CSS animations instead of `motion`; Tailwind stays limited to `src/ui/rare/` |
 | D shadcn/ui | stays: the alias feeds shadcn's variables | stay and fit better (same base); later re-copied closer to upstream once Tailwind's theme is global |
 | B Radix Themes | stays, but needs the `--xt-*` second names to survive the clashes | stay as islands next to Radix; two systems to keep |
 | C Mantine | stays: the alias feeds `--mantine-*` | stay as islands; Tailwind and `motion` remain only for them |
@@ -140,7 +159,7 @@ The full files the measurements used. The spike sources are not committed.
 
 ```css
 /* Spike B alias: our tokens (src/styles/tokens.css, data-skin="rare") onto Radix Themes 3.3 variables. */
-/* Radix Themes defines 13 names that we also use, with other values, on .radix-themes. Ours are read here under a */
+/* Radix Themes redefines 10 of our names on .radix-themes (--space-1 to --space-8, --radius-full, --color-surface, --color-overlay). Ours are read here under a */
 /* second name first, so the alias can still reach them. */
 :root { --xt-surface: var(--color-surface); --xt-overlay: var(--color-overlay); }
 .radix-themes {
@@ -303,6 +322,6 @@ const mantineTheme = createTheme({
 ```
 
 Source edits in the copied files: `h-9` and `h-10` to `h-(--control-h-sm)` and `h-(--control-h-md)` in `button`, `input`
-and `toggle`; `border-l-0`, `rounded-l-md` and `rounded-r-md` to logical classes in `toggle-group`; `next-themes`
+and `toggle`; `border-l-0`, `first:border-l`, `rounded-l-md` and `rounded-r-md` to logical classes in `toggle-group`; `next-themes`
 replaced by our theme in `sonner`; 2 import paths.
 </details>
