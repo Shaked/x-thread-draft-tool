@@ -246,7 +246,7 @@ export function main(argv = process.argv.slice(2)) {
   const app = argv.find((a) => a.startsWith('--app='))?.slice(6) || ''
   const configAt = argv.indexOf('--config')
   const configFile = configAt === -1 ? undefined : argv[configAt + 1]
-  const file = argv.find((a, i) => !a.startsWith('--') && i !== configAt + 1)
+  const file = argv.find((a, i) => !a.startsWith('--') && (configAt === -1 || i !== configAt + 1))
   let config
   try {
     config = loadConfig({ file: configFile })

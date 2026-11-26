@@ -166,6 +166,22 @@ describe('command-line lint', () => {
     expect(run.stdout).toContain('unchanged')
   })
 
+  it('reads the file named as the only argument, not stdin (Codex finding on PR 524)', () => {
+    const cwd = makeDir()
+    const bad = join(GOLDEN, 'status-report', 'bad-unchanged.md')
+    const run = spawnSync(process.execPath, [LINT, bad], { cwd, env: envWith(), encoding: 'utf8', input: '' })
+    expect(run.status).toBe(1)
+    expect(run.stdout).toContain('unchanged')
+  })
+
+  it('reads the file after a --config value', () => {
+    const cwd = makeDir({ 'cfg.json': { owner: 'Sam' } })
+    const bad = join(GOLDEN, 'status-report', 'bad-unchanged.md')
+    const run = spawnSync(process.execPath, [LINT, '--config', join(cwd, 'cfg.json'), bad], { cwd, env: envWith(), encoding: 'utf8', input: '' })
+    expect(run.status).toBe(1)
+    expect(run.stdout).toContain('unchanged')
+  })
+
   it('exits 2 and names the key when the config file is broken', () => {
     const cwd = makeDir({ '.claude/agent-kit.json': { 'reply-style': { maxLineLength: 'x' } } })
     const good = join(GOLDEN, 'status-report', 'good-1.md')
