@@ -16,7 +16,7 @@ import { opsRoutes } from './routes/ops.js'
 import { versionRoutes } from './version.js'
 import { changelogRoutes } from './changelog.js'
 import { handleMcp } from './mcp/server.js'
-import { measured, setRoute } from './perf.js'
+import { measured, noteError, setRoute } from './perf.js'
 import { afterRequest } from './metrics/record.js'
 
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE'])
@@ -120,6 +120,7 @@ async function dispatch(request) {
     const params = Object.fromEntries(match.names.map((name, i) => [name, decodeURIComponent(values[i])]))
     return await match.handler({ request, url, path, params })
   } catch (err) {
+    noteError(err)
     if (err instanceof HttpError) return error(err.status, err.message)
     console.error('[api] unhandled error', err)
     return error(500, 'Server error')
