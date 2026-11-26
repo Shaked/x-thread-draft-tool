@@ -20,6 +20,9 @@ const DAY_MS = 24 * HOUR_MS
 const BASELINE_MS = 7 * DAY_MS
 
 const iso = (ms) => new Date(ms).toISOString()
+// Windows are whole hourly buckets: the current hour and the (n - 1) hours before it.
+const floorHour = (ms) => Math.floor(ms / HOUR_MS) * HOUR_MS
+const since = (ms, hours) => floorHour(ms) - (hours - 1) * HOUR_MS
 const utc = (ms) => `${iso(ms).slice(0, 16).replace('T', ' ')} UTC`
 const over = (value, limit) => `${Math.round(((value - limit) / limit) * 100)} %`
 const pct = (x) => `${+(x * 100).toFixed(x < 0.1 ? 1 : 0)} %`
@@ -56,12 +59,13 @@ async function p95(q, from, to) {
 
 // A1: 5xx at least 2 % of requests and at least 10 of them, in the last 6 hours.
 async function errors(q, now) {
-  const to = now + HOUR_MS
-  const cur = await totals(q, now - LIMITS.errorsWindowH * HOUR_MS, to)
+  const to = floorHour(now) + HOUR_MS
+  const from = since(now, LIMITS.errorsWindowH)
+  const cur = await totals(q, from, to)
   if (!(cur.e >= LIMITS.errorsMin && cur.e / cur.n >= LIMITS.errorsRate)) return null
-  const before = await totals(q, now - BASELINE_MS, now - LIMITS.errorsWindowH * HOUR_MS)
+  const before = await totals(q, from - BASELINE_MS, from)
   const usual = before.n > 0 ? pct(before.e / before.n) : 'not known'
-  const top = await topRoute(q, 'n_5xx', now - LIMITS.errorsWindowH * HOUR_MS, to)
+  const top = await topRoute(q, 'n_5xx', from, to)
   const rate = cur.e / cur.n
   return {
     kind: 'errors',
@@ -76,12 +80,13 @@ async function errors(q, now) {
 
 // A2: p95 of all API routes over 1 000 ms with at least 200 samples, in the last 24 hours.
 async function slow(q, now) {
-  const from = now - LIMITS.slowWindowH * HOUR_MS
-  const cur = await p95(q, from, now + HOUR_MS)
+  const from = since(now, LIMITS.slowWindowH)
+  const to = floorHour(now) + HOUR_MS
+  const cur = await p95(q, from, to)
   if (cur.p95 === null || !(cur.p95 > LIMITS.slowP95Ms)) return null
-  const before = await p95(q, now - BASELINE_MS, from)
+  const before = await p95(q, from - BASELINE_MS, from)
   const usual = before.p95 === null ? 'not known' : `${Math.round(before.p95)} ms`
-  const top = await topRoute(q, 'sum_ms', from, now + HOUR_MS)
+  const top = await topRoute(q, 'sum_ms', from, to)
   return {
     kind: 'slow',
     headline: 'Metrics alert: slow answers',
@@ -95,13 +100,15 @@ async function slow(q, now) {
 
 // A3: the database over 700 MB, or n_429 over 100 in 24 hours, or ops_events over 100 000 rows.
 async function capacity(q, now, dbBytes) {
-  const from = now - DAY_MS
-  const { r } = await totals(q, from, now + HOUR_MS)
+  const from = since(now, 24)
+  const to = floorHour(now) + HOUR_MS
+  const { r } = await totals(q, from, to)
   const { rows } = await q('select count(*)::bigint as n from ops_events')
   const opsRows = Number(rows[0].n)
   const needs = 'Needs you: open the page, then free space or decide on the Neon plan.'
   if (dbBytes > LIMITS.capacityBytes) {
-    const usual = await q('select db_bytes from metrics_product_daily where db_bytes is not null order by day desc limit 1')
+    // Before this run: the daily step may just have written today's row with the current size.
+    const usual = await q('select db_bytes from metrics_product_daily where db_bytes is not null and taken_at < $1::timestamptz order by day desc limit 1', [iso(now)])
     const last = usual.rows[0] ? mb(Number(usual.rows[0].db_bytes)) : 'not known'
     return {
       kind: 'capacity',
@@ -114,9 +121,9 @@ async function capacity(q, now, dbBytes) {
     }
   }
   if (r > LIMITS.capacity429) {
-    const prev = await totals(q, now - BASELINE_MS, from)
+    const prev = await totals(q, from - BASELINE_MS + DAY_MS, from)
     const usual = prev.n > 0 ? `${Math.round(prev.r / 6)}` : 'not known'
-    const top = await topRoute(q, 'n_429', from, now + HOUR_MS)
+    const top = await topRoute(q, 'n_429', from, to)
     return {
       kind: 'capacity',
       headline: 'Metrics alert: many requests were refused',

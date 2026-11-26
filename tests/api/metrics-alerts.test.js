@@ -114,17 +114,24 @@ describe('A3 capacity: database over 700 MB, n_429 over 100 in 24 hours, ops_eve
 })
 
 describe('one problem, one message', () => {
-  it('a second run does not return the alert again; a clear day resets it', async () => {
+  it('an alert that keeps firing for 48 hours is returned once', async () => {
+    // A row in every window, so the alert fires on every run.
+    const results = []
+    for (let h = 0; h <= 48; h += 6) {
+      await row({ hour: new Date(Math.floor((NOW + h * 3600e3) / 3600e3) * 3600e3).toISOString(), n: 500, e: 50 })
+      results.push(kinds(await run({ now: NOW + h * 3600e3 })))
+    }
+    expect(results[0]).toEqual(['errors'])
+    expect(results.slice(1).flat()).toEqual([])
+  })
+
+  it('a clear day resets it', async () => {
     await row({ n: 500, e: 50 })
     expect(kinds(await run())).toEqual(['errors'])
-    expect(await run({ now: NOW + 6 * 3600e3 })).toEqual([])
-    expect(await run({ now: NOW + 12 * 3600e3 })).toEqual([])
-    // Not firing for 24 hours, then it fires again: a new message.
     await db.pg.exec('delete from metrics_hourly;')
     expect(await run({ now: NOW + 30 * 3600e3 })).toEqual([])
     await row({ hour: '2026-11-27T21:00:00Z', n: 500, e: 50 })
     expect(kinds(await run({ now: NOW + 36 * 3600e3 }))).toEqual(['errors'])
-    expect(await run({ now: NOW + 40 * 3600e3 })).toEqual([])
   })
 
   it('does not send again when the alert comes back inside 24 hours', async () => {
@@ -132,7 +139,7 @@ describe('one problem, one message', () => {
     expect(kinds(await run())).toHaveLength(1)
     await db.pg.exec('delete from metrics_hourly;')
     await run({ now: NOW + 6 * 3600e3 })
-    await row({ hour: '2026-11-26T17:00:00Z', n: 500, e: 50 })
+    await row({ hour: '2026-11-26T19:00:00Z', n: 500, e: 50 })
     expect(await run({ now: NOW + 8 * 3600e3 })).toEqual([])
   })
 

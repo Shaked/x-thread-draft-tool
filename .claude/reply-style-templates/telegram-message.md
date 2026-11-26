@@ -152,7 +152,7 @@ Next: no new message for this alert until it has been clear for 24 hours.
 Sent by the speed check (`scripts/speed-metrics.mjs`, task M7 of plan #439) as kind `speed`. The per-merge run sends it once when a
 streak of production merges over a limit starts, and again only after the stages have been within their limits for
 24 hours. The headline links to the gate issue, or to the run. Four lines at most: the headline, the number, the likely
-cause, and at most two links. The one other line is `Needs you:`, and only when the owner must act: `speed` never has one,
+cause, and at most two links. The one other line says what happens next: `Needs you:` when the owner must act, and for the `metrics` errors and slow alerts `Next: ...`. `speed` never has one,
 so its message has no action line. The `metrics` kind (section 5) uses this same shape; its capacity alert adds `Needs you:`,
 which makes five lines.
 

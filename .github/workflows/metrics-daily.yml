@@ -107,11 +107,14 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NOTIFY_KIND: metrics
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          # A failed send must not stop the next alert: keep going, then fail the job so the run is red.
+          failed=0
           while IFS= read -r alert; do
             NOTIFY_HEADLINE="$(jq -r '.headline' <<<"${alert}")" \
             NOTIFY_NUMBER_LINE="$(jq -r '.numberLine' <<<"${alert}")" \
             NOTIFY_CAUSE_LINE="$(jq -r '.causeLine' <<<"${alert}")" \
             NOTIFY_ACTION_LINE="$(jq -r '.actionLine' <<<"${alert}")" \
-            node scripts/notify-telegram.mjs
+            node scripts/notify-telegram.mjs || failed=1
           done < <(jq -c '.[]' <<<"${ALERTS}")
+          exit "${failed}"

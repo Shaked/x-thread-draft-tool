@@ -14,7 +14,7 @@ Code:
 
 ## The nine kinds
 
-The script sends the forms in `.claude/reply-style-templates/telegram-message.md` (task #369, step 7). Line 1 of every message is the emoji, the app name in bold and the headline (issue #504). Each message starts with one emoji (✅ live, 🚨 failed, 👀 preview, 🙋 needs you, 🧹 cleanup, 🐢 speed) and no section says "nothing". Each kind has a golden test in `tests/unit/notify-telegram-golden.test.js`. "The messages" below shows each one.
+The script sends the forms in `.claude/reply-style-templates/telegram-message.md` (task #369, step 7). Line 1 of every message is the emoji, the app name in bold and the headline (issue #504). Each message starts with one emoji (✅ live, 🚨 failed or metrics alert, 👀 preview, 🙋 needs you, 🧹 cleanup, 🐢 speed) and no section says "nothing". Each kind has a golden test in `tests/unit/notify-telegram-golden.test.js`. "The messages" below shows each one.
 
 
 | Kind | Headline (it is the link) | When it is sent | Other links |
