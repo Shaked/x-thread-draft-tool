@@ -1,5 +1,7 @@
 # Connect an AI app with MCP
 
+Hebrew version: [mcp.he.md](./mcp.he.md). It has the connection steps, disconnect and troubleshooting in Hebrew.
+
 X Thread Draft Tool has an MCP connector at `https://x-thread-draft-tool.vercel.app/api/mcp`.
 An AI app that supports MCP can read and change your drafts through it. You approve the
 connection once, on the sign-in page, and you can disconnect it at any time. Drafts are private:
@@ -124,6 +126,15 @@ client's current documentation. Check the app's own settings page if a step diff
 **ChatGPT**
 1. Turn on Developer mode in the settings.
 2. Create a connector, paste the URL, and choose OAuth for authentication.
+
+**Grok**
+1. Open `grok.com/connectors` and choose New Connector.
+2. Choose Custom, paste the URL, and complete any sign-in the page asks for.
+
+Not checked: these steps were not read from xAI's documentation. The page https://docs.x.ai/grok/connectors
+could not be opened from the build environment on 2026-11-26, so the steps come from search results only.
+Check them in the Grok app before you rely on them; the manual test is item 5 of
+[#430](https://github.com/Shaked/x-thread-draft-tool/issues/430).
 
 ## Make your AI app save threads as drafts
 

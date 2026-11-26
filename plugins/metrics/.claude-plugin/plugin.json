@@ -1,0 +1,8 @@
+{
+  "name": "metrics",
+  "version": "0.1.0",
+  "description": "Skills for a central metrics service: how a repository joins it, with a config script.",
+  "author": { "name": "Shaked" },
+  "license": "MIT",
+  "network": { "hosts": [] }
+}

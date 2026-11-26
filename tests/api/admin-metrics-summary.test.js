@@ -117,6 +117,18 @@ describe('GET /admin/metrics/summary', () => {
     expect(body.events_until).toBe(iso(now - HOUR + 60000))
   })
 
+  it('gives CI time and flaky retries with last week, for the page (#452)', async () => {
+    await run('1.1', 4 * HOUR, 'success', { ms: 60000 })
+    await run('2.2', 3 * HOUR, 'success', { ms: 120000 }) // passed on its second attempt: flaky
+    await run('3.1', 2 * HOUR, 'failure', { ms: 300000 })
+    await run('4.1', 3 * DAY, 'success', { ms: 90000 })
+    const { body } = await getJson('admin_metrics_summary', '/admin/metrics/summary')
+    expect(body.findings.find((f) => f.area === 'ci').ci).toEqual({
+      median_ms: 120000, p90_ms: 300000, flaky_pct: 33, baseline_median_ms: 90000, baseline_p90_ms: 90000, baseline_flaky_pct: 0
+    })
+    expect(body.findings.find((f) => f.area === 'speed').ci).toBeNull()
+  })
+
   it('says "Nothing is over its limit." when it is true', async () => {
     await merge('m1', HOUR, 100000, 'ok')
     const { body } = await getJson('admin_metrics_summary', '/admin/metrics/summary?window=7d')
