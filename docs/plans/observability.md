@@ -15,6 +15,8 @@ The admin sees it on one page, one REST route pair and two MCP tools. Three aler
 
 CI, Git, deploy and production error events, and the agent's plain-English summary, are added by
 `docs/plans/central-metrics.md` (#439), on top of this plan.
+Where the two plans overlap, the decision record in section 9 of that file (2026-11-26, #458) wins: it names
+which table, route, tool and file each task uses.
 
 ## 1. What we can read today, for free
 
