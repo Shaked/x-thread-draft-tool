@@ -3,7 +3,7 @@
 - Every Telegram message now starts with its emoji, the app name in bold and the headline, so a channel shared with another app stays clear.
 
 Area: Admin
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/505
 
 ## Technical details
 
