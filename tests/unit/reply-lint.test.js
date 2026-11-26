@@ -73,7 +73,7 @@ describe('reply-lint rules', () => {
     expect(rules('# Faster saves\n- A draft opens sooner.\nArea: Speed\nLink: https://x.test/pull/2\nArea: Docs\n', { kind: 'changelog' })).toEqual(['shape'])
     // Labels and code below the heading are not checked.
     expect(rules(entry('Speed', 'https://x.test/pull/2', '\n## Technical details\n\nFixed T7 in `server/x.js`.\n'), { kind: 'changelog' })).toEqual([])
-    // Every example message in the template (six kinds, eight forms) passes the Telegram lint.
+    // Every example message in the template (six kinds, eight forms, the speed alert among them) passes the Telegram lint.
     const examples = [...templates('telegram-message.md').matchAll(/^Example:\n```text\n([\s\S]*?)```$/gm)].map((m) => m[1])
     expect(examples).toHaveLength(8)
     for (const message of examples) {

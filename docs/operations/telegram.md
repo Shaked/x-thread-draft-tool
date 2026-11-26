@@ -9,7 +9,7 @@ Code:
 - `.github/workflows/smoke-deployed.yml`: the two production kinds, after the deployed smoke test.
 - `.github/workflows/notify-labels.yml`: the three label kinds.
 - `.github/workflows/cleanup-review-daily.yml`: starts the cleanup message (see `docs/operations/cleanup-review.md`).
-- `.github/workflows/speed-metrics.yml`: the speed kind, from a manual run of the speed metrics (epic #273, task #310). The per-merge check sends nothing.
+- `.github/workflows/speed-metrics.yml`: the speed kind, from a manual run of the speed metrics (epic #273, task #310) and from the per-merge run after a production smoke test (task M7 of plan #439).
 
 ## The six kinds
 
@@ -24,7 +24,7 @@ The script sends the forms in `.claude/skills/reply-style/templates/telegram-mes
 | Needs you | An issue needs you, or A PR needs you (the item) | The label `owner` is added to an issue or a pull request, by the repository owner's account. | none |
 | Cleanup review ready | Cleanup review ready (the PR) | A pull request gets the label `cleanup-pr`, added by the repository owner's account. The same label on an issue sends nothing. | none |
 | Cleanup review started | Cleanup review started (the issue) | The daily workflow opens a cleanup review issue. | none |
-| Speed budget over limit | Speed over the budget: <stages> (the headline is the link) | A manual run of `speed-metrics.yml` (input `last`) finds a stage whose p90 is over its limit (`docs/plans/speed.md` section 1). Lines of numbers: the window (the last N merged PRs and the date of the oldest), then one line per stage over its limit with its p90, limit and usual (median) value. The link opens the run, whose summary has the stage table. The per-merge check after a production smoke run sends nothing. | The headline (the run) |
+| 🐢 Delivery is slower than its limit: <stages> (plain stage names) | The per-merge run after a production merge, when a stage is over its limit: the first merge of a streak over a limit. Again only after the stages have been within their limits for 24 hours. A manual run of `speed-metrics.yml` (input `last`) sends it when a stage's p90 is over its limit. | The Alert shape (template section 6): "This merge took 2 min 49 s in CI checks. The limit is ..., since <UTC time> (N in a row)." Then the likely cause, or "not known yet". Links: the speed table and the stage definitions. No action line. | The gate issue (the per-merge run) or the run (manual) |
 
 What a message looks like (the forms in the template):
 - Line 1: the headline in bold. It is the link (in the HTML version; the plain-text fallback shows the link as `label: url`).
@@ -57,7 +57,7 @@ Notes:
 - The "What it removes" line (cleanup ready) comes from the `Summary:` line of the PR body. `scripts/notify-label.mjs` passes the body for the `cleanup-pr` label only, so it shows there.
 - The "What changed" line (try-preview) never shows: the preview label does not pass the body, and `messageFromEnv` does not read it. This was already true before task #369.
 - The production passed message links the site, the commit and the run. `smoke-deployed.yml` passes `NOTIFY_RUN_URL` for both production kinds. A commit id that is not 7 to 40 hex characters shows only the title, with no commit link.
-- The speed kind follows the same rules: an emoji, and no "nothing needed" line.
+- The speed kind uses the Alert shape (template section 6): an emoji, and no action line. The per-merge run also opens or updates one gate issue, labelled `task`, titled "Speed gate: delivery is over its limit"; its body holds the state the next run reads back.
 - No workflow sends a metrics alert yet. Task O7 of `docs/plans/observability.md` adds the kind `metrics` and uses its form in the template.
 
 ## The two secrets, and how to set them
@@ -101,7 +101,8 @@ Open the Actions run. The step log is the proof. A green check does not prove a 
 
 - Production kinds: workflow "Smoke test (deployed)", job "Smoke test", step "Telegram: production is live and tested" or "Telegram: production smoke failed".
 - Label kinds: workflow "Notify labels (Telegram)", job "Telegram label notice", step "Send the label notice".
-- Speed kind: workflow "Speed metrics", job "Speed metrics", step "Measure the last merged pull requests" (the manual run only).
+- Speed kind, manual: workflow "Speed metrics", job "Speed metrics", step "Measure the last merged pull requests".
+- Speed kind, per merge: the same workflow, step "Measure the merge" (it needs the two Telegram secrets, and `issues: write` for the gate issue).
 
 Read the last line of the step:
 

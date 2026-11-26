@@ -100,20 +100,23 @@ const GOLDEN = {
   },
   speed: {
     data: {
-      title: 'Speed over the budget: CI',
+      headline: 'Delivery is slower than its limit: CI checks',
       url: RUN,
-      window: 'The last 50 merged pull requests, merged since 2026-11-02.',
-      lines: ['Product code CI: p90 99 s, limit 90 s, usual 90 s'],
+      numberLine: 'This merge took 2 min 49 s in CI checks. The limit is 1 min 30 s (88 % over), since 2026-11-24 14:10 UTC (7 in a row).',
+      causeLine: 'Likely cause: Fonts took 1 min 10 s against a usual 40 s.',
+      links: [['Speed table', RUN]],
     },
     html: [
-      `🐢 <b><a href="${RUN}">Speed over the budget: CI</a></b>`,
-      'The last 50 merged pull requests, merged since 2026-11-02.',
-      'Product code CI: p90 99 s, limit 90 s, usual 90 s',
+      `🐢 <b><a href="${RUN}">Delivery is slower than its limit: CI checks</a></b>`,
+      'This merge took 2 min 49 s in CI checks. The limit is 1 min 30 s (88 % over), since 2026-11-24 14:10 UTC (7 in a row).',
+      'Likely cause: Fonts took 1 min 10 s against a usual 40 s.',
+      `<a href="${RUN}">Speed table</a>`,
     ],
     plain: [
-      `🐢 Speed over the budget: CI: ${RUN}`,
-      'The last 50 merged pull requests, merged since 2026-11-02.',
-      'Product code CI: p90 99 s, limit 90 s, usual 90 s',
+      `🐢 Delivery is slower than its limit: CI checks: ${RUN}`,
+      'This merge took 2 min 49 s in CI checks. The limit is 1 min 30 s (88 % over), since 2026-11-24 14:10 UTC (7 in a row).',
+      'Likely cause: Fonts took 1 min 10 s against a usual 40 s.',
+      `Speed table: ${RUN}`,
     ],
   },
 }

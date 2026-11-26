@@ -13,8 +13,9 @@
 // Stages: (a) CI, (b) merge wait, (c) Vercel, (d) smoke. Running time and queue time are kept apart;
 // the queue is reported but is not part of the target. Output is deterministic: keys sorted, whole
 // seconds, pull requests sorted by number, no timestamps.
-// --merge warns (one ::warning:: per stage over its p90 limit) and never fails for speed.
-// --last sends one Telegram line when a stage's p90 is over its limit.
+// --merge warns (one ::warning:: per stage over its limit), never fails for speed, and runs the per-merge gate:
+//   one gate issue, and one Telegram alert when a streak over a limit starts (task M7, #446).
+// --last sends one Telegram alert when a stage's p90 is over its limit.
 
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -195,26 +196,6 @@ export function overLimit(record) {
     .map((stage) => ({ stage, value: values[stage], limit: lim[stage] }))
 }
 
-// Stage labels over their limit in any kind of a summary.
-export function overNames(summary) {
-  const names = new Set()
-  for (const kind of Object.keys(summary)) for (const stage of STAT_STAGES) if (summary[kind][stage]?.over) names.add(STAGE_LABEL[stage])
-  return [...names]
-}
-
-// One line per stage over its limit, with the same p90, limit and median the check uses.
-const KIND_LABEL = { code: 'Product code', docs: 'Docs-only' }
-export function overLines(summary) {
-  const lines = []
-  for (const kind of Object.keys(summary)) {
-    for (const stage of STAT_STAGES) {
-      const st = summary[kind][stage]
-      if (st?.over) lines.push(`${KIND_LABEL[kind]} ${STAGE_LABEL[stage]}: p90 ${st.p90} s, limit ${st.limit} s, usual ${st.median} s`)
-    }
-  }
-  return lines
-}
-
 const signed = (d) => (d > 0 ? `+${d} s` : d < 0 ? `${d} s` : '0 s')
 const cell = (v) => (v === null || v === undefined ? '-' : `${v} s`)
 
@@ -248,6 +229,12 @@ export function githubApi({ token, repo, fetchImpl = fetch }) {
     if (!res.ok) throw new Error(`GitHub API ${res.status} for ${path.split('?')[0]}`)
     return res.json()
   }
+  // Writes are used only by the per-merge gate (issues: write). The token is never printed.
+  async function send(method, path, payload) {
+    const res = await fetchImpl(`${base}${path}`, { method, headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!res.ok) throw new Error(`GitHub API ${res.status} for ${path.split('?')[0]}`)
+    return res.json()
+  }
   return {
     // Merged pull requests, newest merge first: the `count` newest, or every one merged since sinceMs.
     // Pages come in updated_at order, and a merge is never later than its last update. So paging stops
@@ -268,6 +255,29 @@ export function githubApi({ token, repo, fetchImpl = fetch }) {
       }
       out.sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))
       return count ? out.slice(0, count) : out
+    },
+    async jobsForRun(runId) {
+      return (await get(`/actions/runs/${runId}/jobs?per_page=100`)).jobs ?? []
+    },
+    // The open speed gate issue (label task, the title below), or null.
+    async openGateIssue() {
+      // Every page: the repository has more open task issues than one page holds.
+      for (let page = 1; page <= 20; page++) {
+        const list = await get(`/issues?state=open&labels=task&per_page=100&page=${page}`)
+        const found = list.find((issue) => !issue.pull_request && issue.title === GATE_TITLE)
+        if (found || list.length < 100) return found ?? null
+      }
+      return null
+    },
+    async createGateIssue(body) {
+      return send('POST', '/issues', { title: GATE_TITLE, body, labels: ['task'] })
+    },
+    async updateGateBody(number, body) {
+      return send('PATCH', `/issues/${number}`, { body })
+    },
+    async closeGate(number, comment) {
+      await send('POST', `/issues/${number}/comments`, { body: comment })
+      return send('PATCH', `/issues/${number}`, { state: 'closed', state_reason: 'completed' })
     },
     async pullForMergeSha(sha) {
       const list = await get(`/commits/${sha}/pulls?per_page=10`)
@@ -324,23 +334,182 @@ async function pullsFor(opts, client, now) {
   return { mode: `last ${n}`, pulls: await client.recentMergedPulls({ count: n }) }
 }
 
-// A per-merge run warns in the log for each stage over its limit. A manual run sends one Telegram line.
-async function alert(opts, prs, summary, env, { log, notifyImpl }) {
+// Plain words for the stages (the Telegram alert and the gate issue; the table keeps STAGE_LABEL).
+const PLAIN_STAGE = { ci: 'CI checks', merge_wait: 'merge wait', vercel: 'deploy', smoke: 'smoke test', total: 'the total' }
+export const GATE_TITLE = 'Speed gate: delivery is over its limit'
+const DAY_MS = 86400000
+// Merges measured for a streak: docs-only merges use up part of it. A streak longer than this keeps its stored start.
+const GATE_WINDOW = 40
+const SPEED_DOC = 'docs/plans/speed.md#1-definitions'
+const FOOTER = '---\n_Generated by [Claude Code](https://claude.ai/code)_'
+
+// "3 min 38 s", or "47 s" under a minute.
+export function secsText(s) {
+  const m = Math.floor(s / 60)
+  return m ? `${m} min ${s % 60} s` : `${s} s`
+}
+// "2026-11-24 14:10 UTC".
+export const utcText = (iso) => `${new Date(Date.parse(iso)).toISOString().slice(0, 16).replace('T', ' ')} UTC`
+// "CI checks and the total", "deploy".
+export function plainList(names) {
+  return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+const pct = (value, limit) => Math.round((value / limit - 1) * 100)
+
+// The stage furthest over its limit, by how many times its limit it is.
+export function worstOver(record) {
+  return [...overLimit(record)].sort((a, b) => b.value / b.limit - a.value / a.limit)[0] ?? null
+}
+
+// The streak: production merges, newest first, counted back from the merge `from` while each is over a limit.
+// Stops at the first one within its limits.
+export function streakOf(records, from) {
+  const upTo = Date.parse(from.merged_at)
+  const code = records
+    .filter((r) => r.kind === 'code' && r.stages.vercel && Date.parse(r.merged_at) <= upTo)
+    .sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))
+  const streak = []
+  for (const r of code) {
+    if (overLimit(r).length === 0) break
+    streak.push(r)
+  }
+  return streak
+}
+
+// Likely cause for CI: the step of the newest merge's Tests run that is furthest above its median over the streak.
+// Null when there is no step to compare (one run, or no step above its usual time).
+export async function ciCause(record, recent, api) {
+  const stepSecs = []
+  const compare = [record, ...recent.filter((r) => r.kind === 'code' && r.head_sha !== record.head_sha)].slice(0, 20)
+  for (const r of compare) {
+    const tests = earliest((await api.runsForSha(r.head_sha)).filter((run) => run.name === 'Tests'))
+    if (!tests) continue
+    const byName = new Map()
+    for (const job of await api.jobsForRun(tests.id)) {
+      for (const step of job.steps ?? []) {
+        if (step.started_at && step.completed_at) byName.set(step.name, (byName.get(step.name) ?? 0) + secs(step.started_at, step.completed_at))
+      }
+    }
+    stepSecs.push({ sha: r.head_sha, byName })
+  }
+  const newest = stepSecs.find((x) => x.sha === record.head_sha)?.byName
+  if (!newest || stepSecs.length < 2) return null
+  let best = null
+  for (const [name, value] of newest) {
+    const usual = median(stepSecs.map((x) => x.byName.get(name)).filter((v) => v !== undefined))
+    const above = value - usual
+    if (above > 0 && (!best || above > best.above)) best = { name, value, usual, above }
+  }
+  return best ? `${best.name} took ${secsText(best.value)} against a usual ${secsText(best.usual)}` : null
+}
+
+// The gate issue body. Its last line holds the state the next run reads back; nothing else is stored.
+export function gateBody(state, lines) {
+  return [
+    `Delivery is over its limit since ${utcText(state.since)} (${state.count} in a row).`,
+    '',
+    ...lines.map((line) => `- ${line}`),
+    '',
+    'A diagnosis is written on this issue (AGENTS.md speed rule), then a fix PR follows.',
+    '',
+    FOOTER,
+    '',
+    `<!-- speed-gate ${JSON.stringify(state)} -->`,
+  ].join('\n')
+}
+export function readGate(body) {
+  const m = String(body || '').match(/<!-- speed-gate (\{.*\}) -->/)
+  try {
+    return m ? JSON.parse(m[1]) : null
+  } catch {
+    return null
+  }
+}
+
+// The streak start and count. The window holds GATE_WINDOW merges: a streak that reaches it keeps the start and
+// count already stored in the gate, so the reported start does not move forward.
+export function streakFields(prev, streak, truncated) {
+  const start = minDate(streak.map((r) => r.merged_at))
+  // Keep the stored start only for the same streak: the gate is not clear, and the window ran out before the streak did.
+  const same = prev?.active && !prev.clearSince && prev.since && truncated
+  if (same) return { since: Date.parse(prev.since) < Date.parse(start) ? prev.since : start, count: Math.max(prev.count, streak.length) }
+  return { since: start, count: streak.length }
+}
+
+// The per-merge gate, after a production merge with a streak over a limit (it sends once per streak).
+// Opens or updates the gate issue. Closes it after 24 hours within the limits. Returns the message to send, or null.
+export async function gateStep({ record, streak, recent, api, now, runUrl, docsUrl }) {
+  const gate = await api.openGateIssue()
+  const prev = gate ? readGate(gate.body) : null
+  const state = prev ?? { active: false, since: null, count: 0, clearSince: null }
+  const worst = worstOver(record)
+  if (worst) {
+    const cause = worst.stage === 'ci' ? await ciCause(record, recent, api) : null
+    const sendNow = !state.active
+    state.active = true
+    state.clearSince = null
+    // The window ran out while every code merge in it was over its limit: the streak may go on past the window.
+    const truncated = recent.length >= GATE_WINDOW && streak.length === recent.filter((r) => r.kind === 'code' && r.stages.vercel).length
+    Object.assign(state, streakFields(prev, streak, truncated))
+    const lines = overLimit(record).map((o) => `${PLAIN_STAGE[o.stage]}: ${secsText(o.value)}, limit ${secsText(o.limit)}`)
+    const body = gateBody(state, lines)
+    const issue = gate ? await api.updateGateBody(gate.number, body) : await api.createGateIssue(body)
+    const url = issue?.html_url ?? gate?.html_url ?? runUrl
+    if (!sendNow) return null
+    const names = plainList(overLimit(record).map((o) => PLAIN_STAGE[o.stage]))
+    return buildMessage('speed', {
+      headline: `Delivery is slower than its limit: ${names}`,
+      url,
+      numberLine: `This merge took ${secsText(worst.value)} in ${PLAIN_STAGE[worst.stage]}. The limit is ${secsText(worst.limit)} (${pct(worst.value, worst.limit)} % over), since ${utcText(state.since)} (${state.count} in a row).`,
+      causeLine: cause ? `Likely cause: ${cause}.` : 'Likely cause: not known yet.',
+      links: [['Speed table', runUrl], ['What the stages mean', docsUrl]],
+    })
+  }
+  if (gate && state.active) {
+    state.clearSince ??= new Date(now).toISOString()
+    if (now - Date.parse(state.clearSince) >= DAY_MS) {
+      await api.closeGate(gate.number, `Within the limits for 24 hours since ${utcText(state.clearSince)}. Closing this gate.\n\n${FOOTER}`)
+    } else {
+      await api.updateGateBody(gate.number, gateBody(state, [`Within the limits since ${utcText(state.clearSince)}.`]))
+    }
+  }
+  return null
+}
+
+// The manual run (--last): one message for the stages over their p90 limit, from the summary.
+function manualAlert(summary, prs, runUrl, docsUrl) {
+  const first = ['code', 'docs'].flatMap((kind) => STAT_STAGES.map((stage) => ({ kind, stage, st: summary[kind][stage] }))).find((x) => x.st?.over)
+  if (!first) return null
+  const over = ['code', 'docs'].flatMap((kind) => STAT_STAGES.filter((stage) => summary[kind][stage]?.over).map((stage) => PLAIN_STAGE[stage]))
+  const since = minDate(prs.map((pr) => pr.merged_at))
+  return buildMessage('speed', {
+    headline: `Delivery is slower than its limit: ${plainList([...new Set(over)])}`,
+    url: runUrl,
+    numberLine: `1 in 10 merges took ${secsText(first.st.p90)} or more in ${PLAIN_STAGE[first.stage]}. The limit is ${secsText(first.st.limit)} (${pct(first.st.p90, first.st.limit)} % over), in the last ${prs.length} merges since ${utcText(since)}.`,
+    causeLine: 'Likely cause: not known yet.',
+    links: [['What the stages mean', docsUrl]],
+  })
+}
+
+// Per-merge: warns in the log for each stage over its limit, then runs the gate.
+// Manual (--last): sends one Telegram message when a stage's p90 is over its limit.
+async function alert(opts, prs, summary, env, { log, notifyImpl, api, now }) {
+  const server = env.GITHUB_SERVER_URL || 'https://github.com'
+  const runUrl = `${server}/${env.GITHUB_REPOSITORY || ''}/actions/runs/${env.GITHUB_RUN_ID || ''}`
+  const docsUrl = `${server}/${env.GITHUB_REPOSITORY || ''}/blob/main/${SPEED_DOC}`
+  const send = (message) => (message ? notifyImpl({ token: env.TELEGRAM_BOT_TOKEN || '', chatId: env.TELEGRAM_CHAT_ID || '', ...message, log }) : null)
   if (opts.merge !== undefined) {
     for (const pr of prs) {
       for (const o of overLimit(pr)) {
         log(`::warning title=Speed budget::#${pr.number} ${STAGE_LABEL[o.stage]} ${o.value} s is over the limit of ${o.limit} s`)
       }
     }
-    return
+    const record = prs[0]
+    const recent = await measureAll(await api.recentMergedPulls({ count: GATE_WINDOW }), api)
+    const streak = streakOf([record, ...recent.filter((r) => r.merge_sha !== record.merge_sha)], record)
+    return send(await gateStep({ record, streak, recent, api, now, runUrl, docsUrl }))
   }
-  const over = overNames(summary)
-  if (over.length === 0) return
-  const runUrl = `${env.GITHUB_SERVER_URL || 'https://github.com'}/${env.GITHUB_REPOSITORY || ''}/actions/runs/${env.GITHUB_RUN_ID || ''}`
-  const since = minDate(prs.map((pr) => pr.merged_at)).slice(0, 10)
-  const window = `The last ${prs.length} merged pull requests, merged since ${since}.`
-  const message = buildMessage('speed', { title: `Speed over the budget: ${over.join(', ')}`, url: runUrl, window, lines: overLines(summary) })
-  await notifyImpl({ token: env.TELEGRAM_BOT_TOKEN || '', chatId: env.TELEGRAM_CHAT_ID || '', ...message, log })
+  await send(manualAlert(summary, prs, runUrl, docsUrl))
 }
 
 // Writes speed.json and speed.md, and the markdown to the job summary when GitHub gives one. Returns the markdown.
@@ -374,7 +543,7 @@ export async function run(argv, env = {}, deps = {}) {
   const md = writeOutputs({ mode: found.mode, limits: LIMITS, summary, prs }, opts.out ?? 'speed-metrics', env)
   // By hand (--last) the table goes to the job log too, so the p90 numbers can be read without the artifact.
   if (opts.merge === undefined) log(md)
-  await alert(opts, prs, summary, env, { log, notifyImpl })
+  await alert(opts, prs, summary, env, { log, notifyImpl, api: client, now })
   log(`speed: ${found.mode}, ${prs.length} merged pull requests, written to ${opts.out ?? 'speed-metrics'}`)
   return { status: 'done', summary }
 }

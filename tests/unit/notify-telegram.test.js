@@ -333,40 +333,50 @@ describe('notify', () => {
   })
 })
 
-describe('speed message (#440)', () => {
-  // The input is what speed-metrics.mjs passes for a CI p90 of 99 s over its 90 s limit.
+describe('speed alert shape (task M7, #446)', () => {
+  // The input is what speed-metrics.mjs passes for one merge whose CI took 3 min 38 s over a 2 min 30 s limit.
   const data = {
-    title: 'Speed over the budget: CI, Smoke',
-    url: 'https://github.com/owner/repo/actions/runs/42',
-    window: 'The last 50 merged pull requests, merged since 2026-11-02.',
-    lines: ['Product code CI: p90 99 s, limit 90 s, usual 90 s', 'Product code Smoke: p90 31 s, limit 25 s, usual 18 s'],
+    headline: 'Delivery is slower than its limit: CI checks and the total',
+    url: 'https://github.com/owner/repo/issues/9',
+    numberLine: 'This merge took 3 min 38 s in CI checks. The limit is 2 min 30 s (45 % over), since 2026-11-24 14:10 UTC (7 in a row).',
+    causeLine: 'Likely cause: Fonts took 1 min 10 s against a usual 20 s.',
+    links: [
+      ['Speed table', 'https://github.com/owner/repo/actions/runs/42'],
+      ['What the stages mean', 'https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions'],
+    ],
   }
 
-  it('says what is over, the numbers, the window and one link to the run', () => {
+  it('is the golden text: emoji and headline with the gate link, number, cause, two links', () => {
     const msg = buildMessage('speed', data)
     expect(msg.html).toBe([
-      '🐢 <b><a href="https://github.com/owner/repo/actions/runs/42">Speed over the budget: CI, Smoke</a></b>',
-      'The last 50 merged pull requests, merged since 2026-11-02.',
-      'Product code CI: p90 99 s, limit 90 s, usual 90 s',
-      'Product code Smoke: p90 31 s, limit 25 s, usual 18 s',
+      '🐢 <b><a href="https://github.com/owner/repo/issues/9">Delivery is slower than its limit: CI checks and the total</a></b>',
+      'This merge took 3 min 38 s in CI checks. The limit is 2 min 30 s (45 % over), since 2026-11-24 14:10 UTC (7 in a row).',
+      'Likely cause: Fonts took 1 min 10 s against a usual 20 s.',
+      '<a href="https://github.com/owner/repo/actions/runs/42">Speed table</a> · <a href="https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions">What the stages mean</a>',
     ].join('\n'))
     expect(msg.plain).toBe([
-      '🐢 Speed over the budget: CI, Smoke: https://github.com/owner/repo/actions/runs/42',
-      'The last 50 merged pull requests, merged since 2026-11-02.',
-      'Product code CI: p90 99 s, limit 90 s, usual 90 s',
-      'Product code Smoke: p90 31 s, limit 25 s, usual 18 s',
+      '🐢 Delivery is slower than its limit: CI checks and the total: https://github.com/owner/repo/issues/9',
+      'This merge took 3 min 38 s in CI checks. The limit is 2 min 30 s (45 % over), since 2026-11-24 14:10 UTC (7 in a row).',
+      'Likely cause: Fonts took 1 min 10 s against a usual 20 s.',
+      'Speed table: https://github.com/owner/repo/actions/runs/42 · What the stages mean: https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions',
     ].join('\n'))
   })
 
-  it('starts with its emoji and never puts a raw run link on a second line', () => {
+  it('has at most five lines, one emoji at the start, and one link in the headline', () => {
     const msg = buildMessage('speed', data)
-    expect(msg.html.startsWith('🐢 ')).toBe(true)
-    expect(msg.html.match(/href=/g)).toHaveLength(1)
+    expect(msg.html.split('\n').length).toBeLessThanOrEqual(5)
+    expect(msg.html.replace('🐢 ', '')).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
+    expect(msg.html.split('\n')[0].match(/href=/g)).toHaveLength(1)
   })
 
-  it('drops the link when it is not https, and escapes the text', () => {
-    const msg = buildMessage('speed', { ...data, title: 'Smoke <b>', url: 'http://example.com' })
-    expect(msg.html.startsWith('🐢 <b>Smoke &lt;b&gt;</b>')).toBe(true)
-    expect(msg.html).not.toContain('href=')
+  it('keeps at most two links, and drops a link that is not https', () => {
+    const msg = buildMessage('speed', { ...data, url: 'http://example.com', links: [...data.links, ['Third', 'https://x.example']] })
+    expect(msg.html.split('\n')[0]).toBe('🐢 <b>Delivery is slower than its limit: CI checks and the total</b>')
+    expect(msg.html.split('\n').at(-1)).not.toContain('Third')
+  })
+
+  it('escapes the headline', () => {
+    const msg = buildMessage('speed', { ...data, headline: 'Smoke <b>', causeLine: 'Likely cause: not known yet.' })
+    expect(msg.html.startsWith('🐢 <b><a href="https://github.com/owner/repo/issues/9">Smoke &lt;b&gt;</a></b>')).toBe(true)
   })
 })

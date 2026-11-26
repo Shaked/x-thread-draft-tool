@@ -141,18 +141,28 @@ Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours.
 Needs you: open the metrics page and find the route with the errors or the slow answers.
 ```
 
-## 6. Speed budget
-Sent by a manual run of the speed metrics when a stage is over its p90 limit. One line per stage over its limit.
+## 6. Alert (speed budget)
+Sent by the speed check (`scripts/speed-metrics.mjs`, task M7 of plan #439). The per-merge run sends it once when a
+streak of production merges over a limit starts, and again only after the stages have been within their limits for
+24 hours. The headline links to the gate issue, or to the run. Four lines at most: the headline, the number, the likely
+cause, and at most two links. There is no action line: an alert that needs nothing from the owner has none.
 
 ```text
-🐢 **[Speed over the budget: <stages>](<run url>)**
-<The window: the last N merged pull requests, merged since <date>.>
-<Stage>: p90 <seconds> s, limit <seconds> s, usual <seconds> s   [one line per stage over its limit]
+🐢 **[<what is over, in plain words>](<gate issue, or run, url>)**
+This merge took <time> in <stage>. The limit is <limit> (<n> % over), since <UTC date and time> (<n> in a row).
+Likely cause: <one cause and its evidence>.   [or: "Likely cause: not known yet."]
+[<Speed table>](<run url>) · [What the stages mean](<docs url>)
 ```
+
+Rules:
+- Stage names in plain words: CI checks, merge wait, deploy, smoke test, the total.
+- Times as "3 min 38 s" or "47 s". Percentages as "45 %". Times in UTC.
+- A manual run says "1 in 10 merges took <time> or more in <stage>" (its p90) instead of "This merge took".
 
 Example:
 ```text
-🐢 **[Speed over the budget: CI](https://github.com/Shaked/x-thread-draft-tool/actions/runs/2)**
-The last 50 merged pull requests, merged since 2026-11-02.
-Product code CI: p90 99 s, limit 90 s, usual 90 s
+🐢 **[Delivery is slower than its limit: CI checks and the total](https://github.com/owner/repo/issues/9)**
+This merge took 2 min 49 s in CI checks. The limit is 1 min 30 s (88 % over), since 2026-11-24 14:10 UTC (7 in a row).
+Likely cause: Fonts took 1 min 10 s against a usual 40 s.
+[Speed table](https://github.com/owner/repo/actions/runs/42) · [What the stages mean](https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions)
 ```
