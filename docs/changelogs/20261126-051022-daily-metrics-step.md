@@ -1,11 +1,11 @@
-# The daily metrics step rolls up counters and deletes old metric rows
+# Old metrics rows are cleaned up every day
 
-- Once a day the metrics workflow writes yesterday's product numbers, moves hourly counters older than 14 days into the daily table, and deletes old ops events (14 days) and counters (400 days).
-- The step runs with its own sign-in token, and the `/ops` paths answer 404 to every other caller.
-- It deletes metric rows only; no user data changes.
+- Each day the metrics job totals yesterday's numbers and moves older hourly counts into daily totals.
+- Old event records are deleted after 14 days, and old counts after 400 days.
+- Only old metric rows are removed; no user data changes.
 
 Area: Admin
-Link: https://github.com/Shaked/x-thread-draft-tool/issues/336
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/480
 
 ## Technical details
 
