@@ -44,7 +44,8 @@ const TRACKERS = new Set(['dispatch', 'janitor', 'tracker'])
 // A needs_action names a decision when it asks for one; "nothing for the owner" and the like say there is none.
 const DECISION = /\b(?:decid(?:e|ing)|decision needed|choose|approve|your call|which option|pick (?:one|between|an option))\b/i
 // A reviewer's approval (Opus, Codex, CI) is a wait, not an owner decision (AGENTS.md: Opus judges every PR).
-const NO_DECISION = /\b(?:no owner|nothing for (?:the owner|you|shaked))\b|\b(?:opus|codex|sonnet|haiku|reviewer|validator|ci)(?:'s)?\s+(?:to\s+)?(?:approv|review)/i
+const NO_DECISION = /\b(?:no owner|nothing for (?:the owner|you|shaked))\b/i
+const REVIEWER = /\b(?:opus|codex|sonnet|haiku|reviewer|validator|ci)(?:'s)?\s+(?:to\s+)?(?:approv|review)\w*/gi
 const STATE = { working: 'running', review_ready: 'review ready', blocked: 'blocked', failed: 'failed', completed: 'completed' }
 // Janitor findings that become the next step of a row, first one wins.
 const NEXT = ['stuck', 'orphan-claim', 'done-open', 'no-handoff', 'duplicate-session', 'nudge-merge', 'orphan-session', 'stale']
@@ -110,7 +111,7 @@ export function ownerNeeded(issue, list = [], sessions = [], { owner, url, fresh
 /** Sessions that ask Shaked for a decision. One older than the janitor's stale window is its `stale` finding instead. */
 function asking(sessions, freshFrom) {
   return sessions.filter((s) => !['completed', 'working'].includes(s.bucket) && Date.parse(s.updatedAt) >= freshFrom)
-    .filter((s) => DECISION.test(s.needs) && !NO_DECISION.test(s.needs))
+    .filter((s) => DECISION.test(String(s.needs || '').replace(REVIEWER, ' ')) && !NO_DECISION.test(s.needs))
     .map((s) => ({ rule: 'needs-action', what: s.needs, words: null, url: sessionUrl(s.id) }))
 }
 

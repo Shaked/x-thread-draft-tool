@@ -123,6 +123,7 @@ describe('Opus review findings on #503', () => {
     expect(ownerNeeded({ labels: [] }, [], [s('review_ready', 'Waiting for Opus approval before merging the PR')], opts)).toEqual([])
     expect(ownerNeeded({ labels: [] }, [], [s('review_ready', 'needs Codex to approve the head')], opts)).toEqual([])
     expect(ownerNeeded({ labels: [] }, [], [s('blocked', 'approve the fire_trigger call or add a permission rule')], opts)).toHaveLength(1)
+    expect(ownerNeeded({ labels: [] }, [], [s('blocked', 'Opus review passed; decide whether to ship the migration')], opts)).toHaveLength(1)
   })
 
   it('a session question older than the stale window is left to the janitor', () => {
