@@ -36,9 +36,16 @@ async function request(path, { method = 'GET', body, headers = {}, keepalive = f
 }
 
 // The admin routes (#283) answer only the admin's browser session that sends this header; the server decides.
+const PAGE_SIZE = 50
+
 export const adminApi = {
   stats() {
     return request('/admin/stats', { headers: { 'x-xt-admin': '1' } }).then((data) => data.stats)
+  },
+
+  audit(before) {
+    const query = before ? `&before=${encodeURIComponent(before)}` : ''
+    return request(`/admin/audit?limit=${PAGE_SIZE}${query}`, { headers: { 'x-xt-admin': '1' } }).then((data) => data.events)
   },
   flags() {
     return request('/admin/flags', { headers: { 'x-xt-admin': '1' } }).then((data) => data.flags)

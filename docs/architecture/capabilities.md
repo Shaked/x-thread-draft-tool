@@ -40,7 +40,7 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | Admin list users | `GET /admin/users` | `admin_list_users` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin user details | `GET /admin/users/:id` | `admin_get_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin statistics | `GET /admin/stats` | `admin_stats` | `/admin/*` | Admin only. The UI is a lazy chunk (#285); anyone else is sent to `/`, as for an unknown path |
-| Admin audit log | `GET /admin/audit` | `admin_audit_log` | `no: planned in #273 Tasks 11 to 14` | Admin only |
+| Admin audit log | `GET /admin/audit` | `admin_audit_log` | `/admin/*` | Admin only. The page (#288) reads the same route, 50 rows at a time; its action filter works on the rows loaded |
 | Admin suspend user | `POST /admin/users/:id/suspend` | `admin_suspend_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin unsuspend user | `POST /admin/users/:id/unsuspend` | `admin_unsuspend_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin delete user | `POST /admin/users/:id/delete` | `admin_delete_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |

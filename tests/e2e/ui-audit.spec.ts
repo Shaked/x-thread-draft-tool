@@ -20,6 +20,7 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
   { name: 'flags', path: '/admin/flags' },
   { name: 'changelog', path: '/admin/changelog' },
   { name: 'admin-stats', path: '/admin' },
+  { name: 'admin-audit', path: '/admin/audit' },
   { name: 'admin-metrics', path: '/admin/metrics' },
   { name: 'tokens', path: '/settings/tokens' },
   { name: 'apps', path: '/settings/apps' },
@@ -153,6 +154,15 @@ async function devToken(request: APIRequestContext, login: string, admin = false
 }
 
 type Seed = { title: string; posts: unknown[] }
+// Fixed audit rows for the audit page case: plain account data, no secrets.
+const ADMIN_AUDIT = {
+  events: Array.from({ length: 12 }, (_, i) => ({
+    id: `ui-audit-${i}`, created_at: `2026-11-25T10:${String(i).padStart(2, '0')}:00.000Z`, actor_login: 'shaked',
+    action: ['suspend_user', 'unsuspend_user', 'delete_user'][i % 3], outcome: 'done', target_github_id: '42', target_login: 'bob',
+    details: { reason: 'ui audit' }
+  }))
+}
+
 const ADMIN_STATS = {
   stats: {
     users: 12, users_suspended: 1, drafts: 40, published_drafts: 9, posts: 130, images: 7, api_tokens_active: 3, connected_apps: 2,
@@ -206,6 +216,7 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
         })
       }
       if (url.pathname === '/api/admin/stats') return route.fulfill({ json: ADMIN_STATS })
+      if (url.pathname === '/api/admin/audit') return route.fulfill({ json: ADMIN_AUDIT })
       if (url.pathname === '/api/admin/metrics') return route.fulfill({ json: metricsAnswer(url.searchParams.get('by') ?? 'route') })
       if (url.pathname === '/api/admin/metrics/series') return route.fulfill({ json: metricsSeries(url.searchParams.get('name') ?? 'requests') })
       if (url.pathname === '/api/admin/flags') {

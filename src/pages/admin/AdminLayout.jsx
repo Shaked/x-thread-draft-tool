@@ -5,6 +5,7 @@ import Page from '../../ui/Page'
 import PageHeader from '../../ui/PageHeader'
 import SideLayout from '../../ui/SideLayout'
 import Stack from '../../ui/Stack'
+import AdminAuditPage from './AdminAuditPage'
 import AdminMetricsPage from './AdminMetricsPage'
 import AdminFlagsPage from './AdminFlagsPage'
 import AdminStatsPage from './AdminStatsPage'
@@ -17,7 +18,7 @@ const ENTRIES = [
   { path: 'flags', label: 'Feature flags', page: <AdminFlagsPage /> },
   { path: 'changelog', label: 'Changelog', page: <ChangelogPage /> },
   { path: 'users', label: 'Users', soon: true },
-  { path: 'audit', label: 'Audit log', soon: true }
+  { path: 'audit', label: 'Audit log', page: <AdminAuditPage /> }
 ]
 
 // The admin shell: a menu (the side column from 768 px, a list above the page on phones) and the open page.
