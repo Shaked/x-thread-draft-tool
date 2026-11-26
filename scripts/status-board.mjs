@@ -69,11 +69,14 @@ const isHuman = (c, owner) => !isAgent(c) && (c.user === owner || c.user?.login 
 const sorted = (list = []) => [...list].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
 const answered = (list, at, owner) => list.some((c) => isHuman(c, owner) && String(c.created_at) > String(at))
 // An agent comment that records what Shaked decided: "Owner decision, 2026-11-25 (Shaked): ...", "DECISION by Shaked".
-const DECISION_RECORD = /^(?:\*\*)?(?:owner decisions?|decisions?|dispatcher decision)\b/i
+// A dispatcher comment that applies a question's default records the decision too.
+const DECISION_RECORD = /^(?:\*\*)?(?:owner decisions?|decisions?|dispatcher decision)\b|^dispatcher\b[^\n]*\bdefault\b/i
 const recorded = (list, at, keys) => list.some((c) => isAgent(c) && String(c.created_at) > String(at)
   && DECISION_RECORD.test(String(c.body || '').trim()) && keys.some((k) => k && k.length >= 4 && String(c.body).includes(k)))
 const nothing = (lines) => !lines.length || /^nothing\b/i.test(lines.join(' '))
 // The exact words to type: the first code span under "What you need to do", or after "reply".
+// Every reply a text offers: the code span after each "reply", as in "**Keep the rule** (reply `keep the rule`)".
+const replies = (text) => [...String(text || '').matchAll(/\breply\b[^`\n]*`([^`]+)`/gi)].map((m) => m[1])
 const wordsIn = (body) => {
   const step = section(body, 'What you need to do').join(' ')
   return (/`([^`]+)`/.exec(step) || /\breply\b[^`\n]*`([^`]+)`/i.exec(String(body || '')))?.[1] ?? null
@@ -89,25 +92,32 @@ export function isOwnerQuestion(c) {
 
 /** The "owner needed" rules for one open issue and its sessions: [{ rule, what, words, url }]. Empty means no. */
 export function ownerNeeded(issue, list = [], sessions = [], { owner, url, freshFrom = -Infinity }) {
-  const out = []
+  const out = questions(list, owner, url)
   const labels = labelsOf(issue)
-  for (const c of sorted(list).filter(isOwnerQuestion)) {
-    const tldr = section(c.body, 'TL;DR')[0] || String(c.body).split('\n')[0]
-    // The question id, as in "One question for you ([H1-Q1 how long history is kept](...))".
-    const id = /questions? for you\s*\(\[([A-Z][\w-]*\d)\b/i.exec(tldr)?.[1] || null
-    if (answered(list, c.created_at, owner) || recorded(list, c.created_at, [id, wordsIn(c.body)])) continue
-    out.push({ rule: 'question', what: tldr.replace(/^.*?questions? for you\s*(?:\(\[([^\]]*)\]\([^)]*\)\))?:?\s*/i, (m, t) => (t ? `${t}: ` : '')).replace(/[.?]$/, ''), words: wordsIn(c.body), url: c.html_url || url })
-  }
   if (labels.includes('owner') && !labels.includes('parked')) out.push({ rule: 'label', what: 'labelled `owner`: read the issue for the step', words: null, url })
   const handoffs = sorted(list).filter((c) => /^HANDOFF\b/.test(String(c.body || '')) && (TRUSTED.has(c.author_association) || c.user === owner))
   const last = handoffs[handoffs.length - 1]
-  if (last && !answered(list, last.created_at, owner)) {
-    const blocked = section(last.body, 'Blocked on you')
-    if (!nothing(blocked)) out.push({ rule: 'handoff', what: blocked[0].replace(/^[-*]\s+/, '').replace(/\.$/, ''), words: wordsIn(last.body), url: last.html_url || url })
+  const blocked = last ? section(last.body, 'Blocked on you') : []
+  const offered = replies(blocked.join('\n'))
+  if (last && !nothing(blocked) && !answered(list, last.created_at, owner) && !recorded(list, last.created_at, offered)) {
+    out.push({ rule: 'handoff', what: handoffAsk(blocked), words: offered[0] ?? wordsIn(last.body), url: last.html_url || url })
   }
   const all = [...out, ...asking(sessions, freshFrom)]
   // The label `owner` says the same as a question or HANDOFF step on the issue: keep it only when it is the one rule.
   return all.some((o) => o.rule !== 'label') ? all.filter((o) => o.rule !== 'label') : all
+}
+
+/** Open owner questions: agent questions with no later answer by Shaked and no decision record that names their id or a reply. */
+function questions(list, owner, url) {
+  const out = []
+  for (const c of sorted(list).filter(isOwnerQuestion)) {
+    const tldr = section(c.body, 'TL;DR')[0] || String(c.body).split('\n')[0]
+    // The question id, as in "One question for you ([H1-Q1 how long history is kept](...))".
+    const id = /questions? for you\s*\(\[([A-Z][\w-]*\d)\b/i.exec(tldr)?.[1] || null
+    if (answered(list, c.created_at, owner) || recorded(list, c.created_at, [id, wordsIn(c.body), ...replies(c.body)])) continue
+    out.push({ rule: 'question', what: tldr.replace(/^.*?questions? for you\s*(?:\(\[([^\]]*)\]\([^)]*\)\))?:?\s*/i, (m, t) => (t ? `${t}: ` : '')).replace(/[.?]$/, ''), words: wordsIn(c.body), url: c.html_url || url })
+  }
+  return out
 }
 
 /** Sessions that ask Shaked for a decision. One older than the janitor's stale window is its `stale` finding instead. */
@@ -115,6 +125,13 @@ function asking(sessions, freshFrom) {
   return sessions.filter((s) => !['completed', 'working'].includes(s.bucket) && Date.parse(s.updatedAt) >= freshFrom)
     .filter((s) => DECISION.test(String(s.needs || '').replace(REVIEWER, ' ')) && !NO_DECISION.test(s.needs))
     .map((s) => ({ rule: 'needs-action', what: s.needs, words: null, url: sessionUrl(s.id) }))
+}
+
+/** What a HANDOFF's "Blocked on you" asks: its "What is decided" line, else its first line that is not a heading. */
+function handoffAsk(blocked) {
+  const decided = blocked.map((l) => /^\*\*What is decided:\*\*\s*(.+)/i.exec(l)?.[1]).find(Boolean)
+  const line = decided || blocked.find((l) => !/^#/.test(l)) || blocked[0].replace(/^#+\s*/, '')
+  return line.replace(/^[-*]\s+/, '').replace(/\.$/, '')
 }
 
 /** Manual tests: each "## N. title" in the manual tests issue or an agent comment on it, with no human reply that names it. */
