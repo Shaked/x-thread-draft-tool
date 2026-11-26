@@ -5,7 +5,8 @@ One criterion: how little must change in our tokens and components to get nice c
 This file records the measurements. The owner picks the direction on #558. Nothing on `main` changed for this.
 
 Measured by Opus on 2026-11-26. Spikes were built outside the repo (`/home/user/bakeoff/spike`, not committed).
-Spike A copies `src/ui` from `main` at `9c45a94`, which includes PR 513 (Rare UI toast).
+Spike A copies `src/ui` from `main` at `9c45a94`, which includes PR 513 (Rare UI toast). Its dialog screen fires the
+toast once the Rare toast has loaded, as in the app, where a toast follows a user action.
 
 ## Candidates
 - **A. Our own `src/ui`**, the Rare look by tokens (`data-skin="rare"`, PR 455), plus the Rare UI components already
@@ -51,7 +52,7 @@ plus one alias file that maps our tokens onto the kit's variables.
 | Hebrew right to left | yes (logical properties, token lint) | no RTL page in its docs; its CSS has no logical properties; segmented control stays left to right in Hebrew | documented (`DirectionProvider`); correct in the screenshots | the CLI converts classes at install (`rtl: true`); by hand here: 3 classes; correct in the screenshots |
 | Dark and light | yes, `light-dark()` tokens | yes through the alias | yes through the alias (127 dark-scheme selectors read `dark-*`) | yes through the alias plus the custom `dark` variant |
 | Reduced motion | yes (dialog 0 s) | yes (dialog animation none) | no by default (`respectReducedMotion: false`); 1 line fixes it | no (dialog still 0.2 s); 1 rule fixes it |
-| First load, drafts page (gzip) | 69.2 kB without the Rare components; 128.8 kB with them | 132.9 kB | 98.1 kB | 95.8 kB |
+| First load, drafts page (gzip) | 69.2 kB without the Rare components; 128.9 kB with them | 132.9 kB | 98.1 kB | 95.8 kB |
 | Added over React 18 | 24.2 kB, router included (11.6 kB over React and router); the Rare components add 59.7 kB more (`motion` 44.1 kB, toast 10.2 kB) | 87.9 kB (CSS 58.2 kB) | 53.1 kB (CSS 12.4 kB) | 50.8 kB (CSS 7.4 kB) |
 | Lazy loading | Rare parts lazy, but the toast is on every page and the delete button on the drafts list, so `motion` loads on every page | JS tree-shaken; all component CSS is one file | per-component CSS files and tree-shaken JS | Tailwind emits only used classes; JS per component |
 | axe (16 runs) | 0 violations | 0 violations | 0 after fixes; before: white text on the orange dark accent, 2 unnamed close buttons | 0 violations |
@@ -82,8 +83,12 @@ Each sheet shows A, B, C and D side by side for one variant. All 24 are in `docs
   `motion` 44.1 kB, the Rare toast (`sonner`) 10.2 kB, the delete button 2.4 kB and their Tailwind CSS 2.9 kB.
   The Rare toast, delete button and counter all import `motion`, and the toast sits on every page, so `motion` loads on
   every page. The #406 decision of 2026-11-26 sets 30 kB as the point to report and propose a fix.
-- In the dialog screen at 390 px, the toast covers the dialog's Cancel button: the toast layer (`--z-toast`, 600) is above
-  the dialog layer (`--z-dialog`, 500). In the app a toast usually follows a closed dialog; the overlap is still possible.
+- This corrects the size posted on [#406](https://github.com/Shaked/x-thread-draft-tool/issues/406) on 2026-11-26 at 18:03:
+  "about 20.8 kB ... motion 5.2", under the 30 kB limit. That count took `motion` as its 5.2 kB `animate` chunk only. The
+  `motion/react` chunk (38.9 kB, with `MotionConfig` and the projection code) loads too, so the total is 59.7 kB, over the limit.
+- In the dialog screen at 390 px, the Rare toast covers the dialog's Cancel button. Sonner's own stylesheet puts its
+  toaster at z-index 999999999, above the dialog layer (`--z-dialog`, 500); our own toast layer (`--z-toast`, 600) is above
+  it too. In the app a toast usually follows a closed dialog; the overlap is still possible.
 
 ### B. Radix Themes
 - Ten of our token names are redefined on `.radix-themes`. `--space-5`, `--space-6` and `--space-8` are 24, 32 and 48 px
@@ -136,7 +141,8 @@ already reaches every page. Cheapest path to the Rare look on every page by defa
 2. Keep the Rare components, but replace `motion` in the three that import it (delete button, counter, toast) with
    CSS animations, so `motion` (44.1 kB) leaves every page. The theme selector (1.7 kB) has no `motion`. The size after
    that change is not measured.
-3. Put the toast layer under the dialog layer, or hold a toast while a dialog is open.
+3. Put both toasts under the dialog layer (our `--z-toast` and an override of sonner's 999999999), or hold a toast while
+   a dialog is open.
 4. Use a headless primitive (E) only when we build a component we lack, such as a date picker.
 
 **Fallback, if the owner wants a full ready-made kit:** D, shadcn/ui, because it maps with the fewest variables and is
