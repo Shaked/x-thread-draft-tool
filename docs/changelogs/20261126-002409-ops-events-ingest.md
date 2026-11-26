@@ -1,6 +1,7 @@
 # The ops events ingest route
 
-- A workflow can post its batch of CI events to `POST /api/ops/events`: it checks its own GitHub token and stores each new event once.
+- The scheduled metrics workflow can send its batch of CI events to the server.
+- The server checks that workflow's own GitHub token and stores each new event once.
 - Nothing shows the events yet, so the app looks the same.
 
 Area: Admin
