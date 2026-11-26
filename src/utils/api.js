@@ -42,7 +42,17 @@ export const adminApi = {
   stats() {
     return request('/admin/stats', { headers: { 'x-xt-admin': '1' } }).then((data) => data.stats)
   },
-
+  users({ q, status, cursor } = {}) {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (status && status !== 'all') params.set('status', status)
+    if (cursor) params.set('cursor', cursor)
+    const query = params.toString()
+    return request(`/admin/users${query ? `?${query}` : ''}`, { headers: { 'x-xt-admin': '1' } })
+  },
+  user(id) {
+    return request(`/admin/users/${encodeURIComponent(id)}`, { headers: { 'x-xt-admin': '1' } }).then((data) => data.user)
+  },
   audit(before) {
     const query = before ? `&before=${encodeURIComponent(before)}` : ''
     return request(`/admin/audit?limit=${PAGE_SIZE}${query}`, { headers: { 'x-xt-admin': '1' } }).then((data) => data.events)
