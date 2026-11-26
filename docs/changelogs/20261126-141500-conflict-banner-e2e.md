@@ -3,7 +3,7 @@
 - A new browser test checks that when an AI app and you change the same post, you see the banner and your text is kept.
 
 Area: Editor
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/539
 
 ## Technical details
 
