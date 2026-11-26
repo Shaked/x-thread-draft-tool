@@ -36,6 +36,7 @@ describe('admin users list', () => {
         ? ok({ users: [user({ id: '22222222-2222-4222-8222-222222222222', login: 'bob', suspended_at: '2026-11-02T00:00:00Z', name: null })], next_cursor: null })
         : ok({ users: [user()], next_cursor: 'NEXT' })
     )
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(await screen.findByText('<b>Ada</b>')).toBeInTheDocument()
     expect(document.querySelector('td b')).toBeNull()
     expect(screen.getByRole('link', { name: 'ada' })).toHaveAttribute('href', `/admin/users/${ID}`)
@@ -44,6 +45,8 @@ describe('admin users list', () => {
     expect(within(screen.getByRole('table')).getByText('Suspended')).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url, init]) => url === '/api/admin/users?cursor=NEXT' && init.headers['x-xt-admin'] === '1')).toBe(true)
     expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull()
+    expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key/)
+    errors.mockRestore()
   })
 
   it('validates the search and sends the prefix and the status', async () => {
