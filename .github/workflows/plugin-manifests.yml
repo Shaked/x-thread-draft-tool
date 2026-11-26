@@ -1,0 +1,29 @@
+name: Plugin manifests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  plugin-manifests:
+    name: Plugin manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out (full history)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch main
+        run: git fetch --no-tags origin main
+
+      - name: Check the plugin manifests and forbidden strings
+        run: node scripts/plugin-manifests.mjs
+
+      - name: Check that changed plugins bump their version
+        run: node scripts/plugin-manifests.mjs --bumps

@@ -32,6 +32,11 @@ export function opsEventsAudience(vercelEnv) {
   return `x-thread-draft-tool-ops-events-${vercelEnv}`
 }
 
+/** The audience of the daily step's token (O5, #336): its own, so each token works on one ops route only. */
+export function opsDailyAudience(vercelEnv) {
+  return `x-thread-draft-tool-ops-daily-${vercelEnv}`
+}
+
 /**
  * Returns the verified claims, or null. Never throws: every failure is "not a valid CI token".
  * Checks the signature, the audience for this environment and the required claims.
@@ -112,17 +117,18 @@ export async function verifyCiToken(token, env = process.env) {
 }
 
 /**
- * Verifies an ops events token (central metrics M2): the metrics-daily workflow on main, scheduled or
- * started by hand, on a GitHub-hosted runner. Returns the claims, or null. Off unless CI_OIDC_ENABLED=1.
+ * Verifies an ops token (central metrics M2 and O5): the metrics-daily workflow on main, scheduled or
+ * started by hand, on a GitHub-hosted runner. `audience` picks the route's audience (a function of
+ * VERCEL_ENV, default the events one). Returns the claims, or null. Off unless CI_OIDC_ENABLED=1.
  */
-export async function verifyOpsToken(token, env = process.env) {
+export async function verifyOpsToken(token, env = process.env, audience = opsEventsAudience) {
   if (env.CI_OIDC_ENABLED !== '1') return null
   const vercelEnv = env.VERCEL_ENV
   if (vercelEnv !== 'preview' && vercelEnv !== 'production') return null
   const repoId = env.CI_OIDC_REPOSITORY_ID
   if (!repoId || !/^\d+$/.test(repoId)) return null
 
-  const claims = await verifySignature(token, opsEventsAudience(vercelEnv))
+  const claims = await verifySignature(token, audience(vercelEnv))
   if (!claims) return null
 
   const reject = (reason) => refuse(claims, reason)

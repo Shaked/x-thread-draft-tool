@@ -1,5 +1,7 @@
 # Connect an AI app with MCP
 
+Hebrew version: [mcp.he.md](./mcp.he.md). It has the connection steps, disconnect and troubleshooting in Hebrew.
+
 X Thread Draft Tool has an MCP connector at `https://x-thread-draft-tool.vercel.app/api/mcp`.
 An AI app that supports MCP can read and change your drafts through it. You approve the
 connection once, on the sign-in page, and you can disconnect it at any time. Drafts are private:
@@ -125,6 +127,15 @@ client's current documentation. Check the app's own settings page if a step diff
 1. Turn on Developer mode in the settings.
 2. Create a connector, paste the URL, and choose OAuth for authentication.
 
+**Grok**
+1. Open `grok.com/connectors` and choose New Connector.
+2. Choose Custom, paste the URL, and complete any sign-in the page asks for.
+
+Not checked: these steps were not read from xAI's documentation. The page https://docs.x.ai/grok/connectors
+could not be opened from the build environment on 2026-11-26, so the steps come from search results only.
+Check them in the Grok app before you rely on them; the manual test is item 5 of
+[#430](https://github.com/Shaked/x-thread-draft-tool/issues/430).
+
 ## Make your AI app save threads as drafts
 
 The server tells AI apps to save a thread or posts you ask for as a draft, even when you do not
@@ -172,6 +183,10 @@ Some tools can show their result as a small view inside an app that supports MCP
   "Open in editor". "View thread" asks the app to call `get_draft` again.
 - `create_share_link` shows the share card: the preview and markdown links, Copy (when the app allows
   it) and the time left until the link expires.
+- Every label and button in the three views is in English and in Hebrew (#371). The view uses the host's
+  locale when the app sends one (`he` gives Hebrew, any other locale English), else the main script of the draft
+  text, else English. In Hebrew the page is right to left; post text keeps its own direction. Which apps send a
+  locale: not checked.
 
 Each of these tools also returns the same text and data as before, so a client without views gets the
 same answer it always got.
@@ -183,6 +198,12 @@ markdown, then the link in it. The thread view reads its posts from this part wh
 parts only or drops `_meta`, and it reports its size even when the app never answers `ui/initialize`
 (#352: Grok showed an empty grey box). How Grok loads views is not checked; the browser test uses a fake
 host that does what we could not rule out (`tests/e2e/mcp-grok-view.spec.ts`).
+
+Every successful result of a tool that reads or changes one draft (`get_draft`, `get_draft_outline`, `create_draft`,
+`create_thread_from_text`, `update_draft`, `duplicate_draft`, `add_post`, `update_post`, `remove_post`, `move_post`,
+`add_image_from_url`, `remove_image`) ends with one state line (#390): `Draft <id>, version <v>, <n> posts, <k> over 280,
+<m> images. Editor: <link>.` and one fixed next-step sentence. It holds no title, post text or image url, and errors
+(including a stale-version 412) and `export_draft` have none. `get_draft` also has `post_count`.
 
 - The app may ask you once before it shows a view. Nothing is shown without that answer.
 - A view reads only the data in the tool result. It makes no network request of its own, and it loads

@@ -174,6 +174,118 @@ export function linksIn(text) {
   return found
 }
 
+/**
+ * Every label, button and message of the three views, one table per view: key -> [English, Hebrew]. {name} marks a value the
+ * code fills in. The page language is on <html lang>: "he" shows the Hebrew text, anything else the English (#371).
+ * A function, not a constant: script.js writes the sections a view needs into its page. tests/unit/mcp-ui-language.test.js fails when a key
+ * lacks one of the two languages or when the code uses a key that is not here.
+ */
+export function labels() {
+  return {
+    common: {
+      tool_error: ['The tool returned an error.', 'הכלי החזיר שגיאה.'],
+      cannot_show: ['This view cannot show that result.', 'התצוגה הזו לא יכולה להציג את התוצאה.'],
+      no_host: ['Could not connect to the host.', 'לא ניתן להתחבר לאפליקציה המארחת.']
+    },
+    thread: {
+      draft: ['Draft', 'טיוטה'],
+      image_alt: ['Image {n} of {total}', 'תמונה {n} מתוך {total}'],
+      open_on_x: ['Open on X', 'פתח ב-X'],
+      over_by: [' · over by {n}', ' · חריגה של {n}'],
+      post_one: ['1 post', 'פוסט אחד'],
+      post_many: ['{n} posts', '{n} פוסטים'],
+      published: ['Published', 'פורסם'],
+      untitled: ['Untitled draft', 'טיוטה ללא כותרת'],
+      open_editor: ['Open in editor', 'פתח בעורך'],
+      full_screen: ['Full screen', 'מסך מלא'],
+      not_saved: ['Not saved yet.', 'עדיין לא נשמר.'],
+      no_posts: ['This draft has no posts.', 'בטיוטה הזו אין פוסטים.'],
+      start: ['Start of thread', 'תחילת השרשור'],
+      end: ['End of thread', 'סוף השרשור'],
+      show_all: ['Show all {n} posts', 'הצג את כל {n} הפוסטים'],
+      saved: ['Saved · version {v} · {n} changed', 'נשמר · גרסה {v} · {n} שונו'],
+      title_before: ['Title before', 'הכותרת לפני'],
+      added: ['Added', 'נוסף'],
+      edited: ['Edited', 'נערך'],
+      moved: ['Moved', 'הועבר'],
+      change: ['{label}: post {n}', '{label}: פוסט {n}'],
+      change_from: [', was post {n}', ', היה פוסט {n}'],
+      removed: ['Removed: was post {n}', 'הוסר: היה פוסט {n}'],
+      text: ['Text', 'טקסט'],
+      before: ['Before', 'לפני']
+    },
+    drafts: {
+      title: ['Drafts', 'טיוטות'],
+      empty: ['No drafts yet', 'עדיין אין טיוטות'],
+      untitled: ['Untitled', 'ללא כותרת'],
+      post_one: ['1 post', 'פוסט אחד'],
+      post_many: ['{n} posts', '{n} פוסטים'],
+      character_one: ['1 character', 'תו אחד'],
+      character_many: ['{n} characters', '{n} תווים'],
+      image_one: ['1 image', 'תמונה אחת'],
+      image_many: ['{n} images', '{n} תמונות'],
+      over: ['{n} over 280', '{n} מעל 280'],
+      published: ['Published', 'פורסם'],
+      published_on: ['Published {day}', 'פורסם ב-{day}'],
+      updated: ['Updated {when}', 'עודכן {when}'],
+      open_editor: ['Open in editor', 'פתח בעורך'],
+      view_thread: ['View thread', 'הצג שרשור'],
+      back: ['Back to list', 'חזרה לרשימה'],
+      loading_thread: ['Loading thread…', 'טוען שרשור…'],
+      load_failed: ['Could not load this draft.', 'לא ניתן לטעון את הטיוטה.'],
+      cannot_show_draft: ['This view cannot show that draft.', 'התצוגה הזו לא יכולה להציג את הטיוטה.']
+    },
+    share: {
+      title: ['Share link', 'קישור לשיתוף'],
+      create: ['Create share link', 'צור קישור לשיתוף'],
+      create_failed: ['The link could not be created.', 'לא ניתן היה ליצור את הקישור.'],
+      preview: ['Preview link', 'קישור לתצוגה מקדימה'],
+      markdown: ['Markdown link', 'קישור ל-Markdown'],
+      open: ['Open', 'פתח'],
+      copy: ['Copy', 'העתק'],
+      copied: ['Copied', 'הועתק'],
+      select_copy: ['Select and copy', 'סמן והעתק'],
+      stop: ['Stop this link', 'עצור את הקישור הזה'],
+      sure: ['Are you sure? The link stops working at once.', 'בטוח? הקישור יפסיק לעבוד מיד.'],
+      yes_stop: ['Yes, stop this link', 'כן, עצור את הקישור'],
+      cancel: ['Cancel', 'ביטול'],
+      waiting: ['Waiting for your OK in the chat', 'ממתין לאישור שלך בצ׳אט'],
+      stop_failed: ['The link could not be stopped.', 'לא ניתן היה לעצור את הקישור.'],
+      no_answer: ['No answer from the host. Try again.', 'אין תשובה מהאפליקציה המארחת. נסה שוב.'],
+      not_allowed: ['Your app does not allow this here.', 'האפליקציה שלך לא מאפשרת זאת כאן.'],
+      stopped: ['Stopped', 'נעצר'],
+      once: ['Works once', 'עובד פעם אחת'],
+      until: ['Works until it expires', 'עובד עד שהתוקף יפוג'],
+      expired: ['Expired', 'פג תוקף'],
+      expires_in: ['Expires in {left} ({time})', 'התוקף יפוג בעוד {left} ({time})']
+    }
+  }
+}
+
+/** The text of one label in the page language (see labels): view and key as in the table, vars fill the {name} marks. */
+export function tr(view, key, vars) {
+  const entry = labels()[view][key]
+  let text = entry[document.documentElement.lang === 'he' ? 1 : 0]
+  for (const name of Object.keys(vars || {})) text = text.split('{' + name + '}').join(String(vars[name]))
+  return text
+}
+
+/**
+ * Sets the page language (#371): lang on <html>, and dir="rtl" for Hebrew (post text keeps dir="auto"). One signal, in
+ * this order: the host's locale from hostContext when it sent one ("he" or "iw" is Hebrew, any other locale is English);
+ * else the main script of the draft text (more Hebrew letters than Latin letters is Hebrew); else English. Returns the language.
+ */
+export function setLang(locale, sample) {
+  const text = String(sample || '')
+  const hebrew = (text.match(/[\u0590-\u05FF]/g) || []).length > (text.match(/[A-Za-z]/g) || []).length
+  const he = typeof locale === 'string' && locale.trim() !== '' ? /^(he|iw)(?![a-z])/i.test(locale.trim()) : hebrew
+  const root = document.documentElement
+  root.setAttribute('lang', he ? 'he' : 'en')
+  if (he) root.setAttribute('dir', 'rtl')
+  else root.removeAttribute('dir')
+  return he ? 'he' : 'en'
+}
+
 /** An element with text children. Only alt, dir, title and href (after the https check) are ever set. */
 export function el(tag, attrs, children) {
   const node = document.createElement(tag)
@@ -209,7 +321,7 @@ export function postNode(thread, index, total, open) {
   const count = thread.counts ? thread.counts[index] : null
   const initial = Array.from(String(thread.title || '?').trim())[0] || '?'
   const body = el('div', {}, [
-    el('header', {}, [el('strong', {}, ['Draft']), el('span', {}, [' ' + (index + 1) + '/' + total])]),
+    el('header', {}, [el('strong', {}, [tr('thread', 'draft')]), el('span', {}, [' ' + (index + 1) + '/' + total])]),
     el('p', { dir: 'auto' }, [text])
   ])
   const links = cut ? [] : linksIn(text)
@@ -222,7 +334,7 @@ export function postNode(thread, index, total, open) {
       if (safe) {
         const pic = document.createElement('img')
         pic.setAttribute('src', safe)
-        pic.setAttribute('alt', 'Image ' + (n + 1) + ' of ' + images.length)
+        pic.setAttribute('alt', tr('thread', 'image_alt', { n: n + 1, total: images.length }))
         pic.loading = 'lazy'
         items.push(el('li', {}, [pic]))
       } else if (safeUrl(url, null)) {
@@ -233,12 +345,12 @@ export function postNode(thread, index, total, open) {
   }
   if (tweet) {
     body.appendChild(
-      el('section', {}, [el('p', {}, [tweet.label]), linkButton('Open on X', tweet.href, open)])
+      el('section', {}, [el('p', {}, [tweet.label]), linkButton(tr('thread', 'open_on_x'), tweet.href, open)])
     )
   }
   if (count) {
     const over = count.over_limit === true
-    const label = count.chars + '/280' + (over ? ' · over by ' + (count.chars - 280) : '')
+    const label = count.chars + '/280' + (over ? tr('thread', 'over_by', { n: count.chars - 280 }) : '')
     body.appendChild(el('footer', {}, [el(over ? 'strong' : 'small', {}, [label])]))
   }
   return el('article', {}, [el('span', {}, [initial]), body])
@@ -270,13 +382,13 @@ export function underEditorBase(url, editorBase) {
 /** The thread's heading: title, post count, Published badge, Open in editor (only for links under the app). */
 export function headerNode(thread, open) {
   const count = thread.posts.length
-  const info = el('p', {}, [count + (count === 1 ? ' post' : ' posts')])
-  if (thread.is_published) info.appendChild(el('span', {}, [' · Published']))
-  const children = [el('h1', { dir: 'auto' }, [thread.title || 'Untitled draft']), info]
+  const info = el('p', {}, [tr('thread', count === 1 ? 'post_one' : 'post_many', { n: count })])
+  if (thread.is_published) info.appendChild(el('span', {}, [' · ' + tr('thread', 'published')]))
+  const children = [el('h1', { dir: 'auto' }, [thread.title || tr('thread', 'untitled')]), info]
   const actions = el('div', {}, [])
   actions.className = 'actions'
-  if (underEditorBase(thread.url, thread.editorBase)) actions.appendChild(linkButton('Open in editor', thread.url, open))
-  if (typeof thread.expand === 'function') actions.appendChild(linkButton('Full screen', null, thread.expand))
+  if (underEditorBase(thread.url, thread.editorBase)) actions.appendChild(linkButton(tr('thread', 'open_editor'), thread.url, open))
+  if (typeof thread.expand === 'function') actions.appendChild(linkButton(tr('thread', 'full_screen'), null, thread.expand))
   children.push(actions)
   return el('header', {}, children)
 }
@@ -286,21 +398,21 @@ export function renderThread(root, thread, open) {
   const total = thread.posts.length
   root.textContent = ''
   root.appendChild(headerNode(thread, open))
-  if (!thread.saved) root.appendChild(el('p', { dir: 'auto' }, ['Not saved yet.']))
+  if (!thread.saved) root.appendChild(el('p', { dir: 'auto' }, [tr('thread', 'not_saved')]))
   if (total === 0) {
-    root.appendChild(el('p', {}, ['This draft has no posts.']))
+    root.appendChild(el('p', {}, [tr('thread', 'no_posts')]))
     return
   }
-  const list = el('div', {}, [el('p', { dir: 'auto' }, ['Start of thread'])])
+  const list = el('div', {}, [el('p', { dir: 'auto' }, [tr('thread', 'start')])])
   root.appendChild(list)
   const first = 25
   const showRange = (from, to) => {
     for (let i = from; i < to; i++) list.appendChild(postNode(thread, i, total, open))
-    if (to === total) list.appendChild(el('p', { dir: 'auto' }, ['End of thread']))
+    if (to === total) list.appendChild(el('p', { dir: 'auto' }, [tr('thread', 'end')]))
   }
   showRange(0, Math.min(total, first))
   if (total > first) {
-    const more = linkButton('Show all ' + total + ' posts', null, null)
+    const more = linkButton(tr('thread', 'show_all', { n: total }), null, null)
     more.addEventListener('click', () => {
       more.remove()
       showRange(first, total)
@@ -331,24 +443,24 @@ export function renderChanges(root, thread, changes, open) {
   root.textContent = ''
   add(headerNode(thread, open))
   if (changes) {
-    line('Saved · version ' + Number(changes.version) + ' · ' + changes.posts.length + ' changed')
-    if (changes.title && typeof changes.title.before === 'string') was('Title before', changes.title.before)
-    const label = { added: 'Added', edited: 'Edited', moved: 'Moved' }
+    line(tr('thread', 'saved', { v: Number(changes.version), n: changes.posts.length }))
+    if (changes.title && typeof changes.title.before === 'string') was(tr('thread', 'title_before'), changes.title.before)
+    const label = { added: tr('thread', 'added'), edited: tr('thread', 'edited'), moved: tr('thread', 'moved') }
     for (const c of changes.posts) {
       if (!c || typeof c !== 'object') continue
       const n = Number(c.index)
       if (c.status === 'removed') {
-        line('Removed: was post ' + n)
-        was('Text', c.before)
+        line(tr('thread', 'removed', { n: n }))
+        was(tr('thread', 'text'), c.before)
         continue
       }
       if (!Object.prototype.hasOwnProperty.call(label, c.status)) continue
-      line(label[c.status] + ': post ' + n + (c.from ? ', was post ' + Number(c.from) : ''))
-      if (c.status === 'edited' && c.before !== c.after) was('Before', c.before)
+      line(tr('thread', 'change', { label: label[c.status], n: n }) + (c.from ? tr('thread', 'change_from', { n: Number(c.from) }) : ''))
+      if (c.status === 'edited' && c.before !== c.after) was(tr('thread', 'before'), c.before)
       if (n >= 1 && n <= total) add(postNode(thread, n - 1, total, open))
     }
   }
-  const all = add(linkButton('Show all ' + total + ' posts', null, null))
+  const all = add(linkButton(tr('thread', 'show_all', { n: total }), null, null))
   all.addEventListener('click', () => {
     renderThread(root, thread, open)
     if (typeof thread.drawn === 'function') thread.drawn()

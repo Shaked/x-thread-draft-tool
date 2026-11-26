@@ -26,6 +26,7 @@ async function request(path, { method = 'GET', body, headers = {}, keepalive = f
   if (!response.ok) {
     const error = new Error(data.error || `HTTP ${response.status}`)
     error.status = response.status
+    error.code = data.code
     // A 412 carries the current `version` and `draft` (nothing was written), so the editor can show them.
     error.version = data.version
     error.draft = data.draft
@@ -33,6 +34,94 @@ async function request(path, { method = 'GET', body, headers = {}, keepalive = f
   }
 
   return data
+}
+
+// The admin routes (#283) answer only the admin's browser session that sends this header; the server decides.
+const PAGE_SIZE = 50
+
+// An admin write whose browser sign-in is older than the server window answers 403 `sign_in_again` (#552). The admin shell
+// registers `askSignIn` (the sign-in pop-up); the call is then repeated once. Reads are never refused for this.
+let askSignIn = null
+export function setAdminSignInHandler(handler) {
+  askSignIn = handler
+  return () => {
+    if (askSignIn === handler) askSignIn = null
+  }
+}
+
+async function adminWrite(path, body) {
+  const send = () => request(path, { method: 'POST', body, headers: { 'x-xt-admin': '1' } })
+  try {
+    return await send()
+  } catch (err) {
+    if (err.code !== 'sign_in_again' || askSignIn === null) throw err
+    const cancelled = () => Object.assign(new Error('You did not sign in, so nothing changed.'), { code: 'sign_in_cancelled' })
+    if (!(await askSignIn())) throw cancelled()
+    // The pop-up closed. If it was closed without signing in, the repeat is refused again: say so in plain words, never the server text.
+    return send().catch((again) => {
+      throw again.code === 'sign_in_again' ? cancelled() : again
+    })
+  }
+}
+
+export const adminApi = {
+  stats() {
+    return request('/admin/stats', { headers: { 'x-xt-admin': '1' } }).then((data) => data.stats)
+  },
+  users({ q, status, cursor } = {}) {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (status && status !== 'all') params.set('status', status)
+    if (cursor) params.set('cursor', cursor)
+    const query = params.toString()
+    return request(`/admin/users${query ? `?${query}` : ''}`, { headers: { 'x-xt-admin': '1' } })
+  },
+  user(id) {
+    return request(`/admin/users/${encodeURIComponent(id)}`, { headers: { 'x-xt-admin': '1' } }).then((data) => data.user)
+  },
+  // Suspend, unsuspend and delete (#287). Each needs the typed login; delete is a dry run, then the real call with the token.
+  suspend(id, confirmLogin, reason) {
+    return adminWrite(`/admin/users/${encodeURIComponent(id)}/suspend`, { confirm_login: confirmLogin, ...(reason ? { reason } : {}) })
+  },
+  unsuspend(id, confirmLogin) {
+    return adminWrite(`/admin/users/${encodeURIComponent(id)}/unsuspend`, { confirm_login: confirmLogin })
+  },
+  deleteDryRun(id) {
+    return adminWrite(`/admin/users/${encodeURIComponent(id)}/delete`, { dry_run: true })
+  },
+  deleteUser(id, confirmToken, confirmLogin) {
+    return adminWrite(`/admin/users/${encodeURIComponent(id)}/delete`, { dry_run: false, confirm_token: confirmToken, confirm_login: confirmLogin })
+  },
+  audit(before) {
+    const query = before ? `&before=${encodeURIComponent(before)}` : ''
+    return request(`/admin/audit?limit=${PAGE_SIZE}${query}`, { headers: { 'x-xt-admin': '1' } }).then((data) => data.events)
+  },
+  flags() {
+    return request('/admin/flags', { headers: { 'x-xt-admin': '1' } }).then((data) => data.flags)
+  },
+  setFlag(name, value) {
+    return adminWrite('/admin/flags', { name, value }).then((data) => data.flags)
+  },
+
+  // The metrics views (#337): `by` is route, op or total; a series is requests, p95 or a product column.
+  metrics(window, by) {
+    return request(`/admin/metrics?window=${window}&by=${by}`, { headers: { 'x-xt-admin': '1' } })
+  },
+  metricsSeries(name, window) {
+    return request(`/admin/metrics/series?name=${name}&window=${window}`, { headers: { 'x-xt-admin': '1' } })
+  },
+  // The delivery section (#452): the summary lines and the newest delivery events (window is 24h or 7d).
+  metricsSummary(window) {
+    return request(`/admin/metrics/summary?window=${window}`, { headers: { 'x-xt-admin': '1' } })
+  },
+  // The delivery events only (ci, speed, deploy): one call each, so a burst of production errors cannot push them out.
+  metricsEvents(since) {
+    return Promise.all(
+      ['ci', 'speed', 'deploy'].map((source) =>
+        request(`/admin/metrics/events?source=${source}&limit=20&since=${encodeURIComponent(since)}`, { headers: { 'x-xt-admin': '1' } })
+      )
+    ).then((lists) => lists.flatMap((list) => list.events).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 20))
+  }
 }
 
 export const authApi = {

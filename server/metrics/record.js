@@ -2,11 +2,15 @@
 // A request that used no SQL (q = 0) is held in memory and written with the next request on this
 // instance that does use the database, so a health check does not wake Neon. Best effort: pending
 // rows are lost when the instance stops. Nothing here changes the answer of a request.
+import { randomUUID } from 'node:crypto'
 import { waitUntil } from '@vercel/functions'
 import { query } from '../db.js'
+import { SOURCES } from '../ops/sources.js'
+import { normalizeEvent } from '../ops/events.js'
 import { merge, oneHot } from './histogram.js'
+import { MCP_FAMILIES } from './client-family.js'
 
-const CALLERS = new Set(['web', 'token', 'mcp', 'ci', 'anon'])
+const CALLERS = new Set(['web', 'token', 'ci', 'anon', ...MCP_FAMILIES])
 const COLUMNS = [
   'hour', 'route', 'op', 'caller', 'n', 'n_3xx', 'n_4xx', 'n_429', 'n_5xx', 'n_tool_error',
   'sum_ms', 'max_ms', 'sum_db_ms', 'sum_q', 'sum_conn', 'cold', 'buckets'
@@ -15,6 +19,78 @@ const SUMMED = ['n', 'n_3xx', 'n_4xx', 'n_429', 'n_5xx', 'n_tool_error', 'sum_ms
 
 const pending = new Map()
 const inflight = new Set()
+
+// Central metrics plan M4 (#450): one prod/error event per 5xx answer, with the detail of that error only.
+// Every 5xx count is metrics_hourly.n_5xx (decision D2). Production only, and only with the request's own
+// write (q > 0), so a health check never adds an event. Caps: 20 per instance per hour, 200 per UTC day.
+const ERROR_PER_HOUR = 20
+const ERROR_PER_DAY = 200
+const TOOL_NAME = /^[A-Za-z0-9_.-]{1,60}$/
+let errorHour = null
+let errorsThisHour = 0
+
+function errorBudgetLeft(hour) {
+  if (hour !== errorHour) {
+    errorHour = hour
+    errorsThisHour = 0
+  }
+  if (errorsThisHour >= ERROR_PER_HOUR) return false
+  errorsThisHour += 1
+  return true
+}
+
+/** The one event of a 5xx answer, built by normalizeEvent (M1), or null. Keeps no message, path or id. */
+function errorEventOf(store, status, ms, now) {
+  if (process.env.VERCEL_ENV !== 'production' || status < 500 || store.q === 0) return null
+  if (!errorBudgetLeft(hourStart(now))) return null
+  const raw = {
+    source: 'prod',
+    kind: 'error',
+    id: randomUUID(),
+    at: new Date(now).toISOString(),
+    name: store.route === 'unmatched' ? 'unmatched' : `${store.method} ${store.route}`,
+    status: String(status),
+    ms: Math.min(Math.round(ms), 2147483647),
+    attrs: {
+      error: store.errorClass,
+      code: store.errorCode,
+      region: process.env.VERCEL_REGION ?? null,
+      tool: store.tool && TOOL_NAME.test(store.tool) ? store.tool : null
+    }
+  }
+  // The one listed repo: this app. The insert counts today's rows of the kind, so the daily cap holds across instances.
+  return normalizeEvent(raw, { repo: SOURCES[0], now }).event ?? null
+}
+
+// $10 is the start of the UTC day, $11 the daily cap. The insert is skipped when the cap is reached.
+const ERROR_INSERT = `
+  insert into ops_events (repo_id, source, kind, id, at, name, status, ms, attrs, link)
+  select $1::bigint, $2::text, $3::text, $4::text, $5::timestamptz, $6::text, $7::text, $8::integer, $9::jsonb, null
+  where (select count(*) from ops_events where repo_id = $1::bigint and source = $2::text and kind = $3::text and at >= $10::timestamptz) < $11
+  on conflict (repo_id, source, kind, id) do nothing`
+
+async function writeError(event) {
+  const dayStart = `${event.at.slice(0, 10)}T00:00:00.000Z`
+  await query(ERROR_INSERT, [
+    event.repo_id,
+    event.source,
+    event.kind,
+    event.id,
+    event.at,
+    event.name,
+    event.status,
+    event.ms,
+    JSON.stringify(event.attrs),
+    dayStart,
+    ERROR_PER_DAY
+  ])
+}
+
+/** Test helper: the per-instance hourly budget starts again. */
+export function resetErrorBudgetForTests() {
+  errorHour = null
+  errorsThisHour = 0
+}
 
 /** METRICS_DISABLED=1 turns the write off. Read on every request, so a test can change it. */
 function metricsEnabled() {
@@ -118,10 +194,19 @@ function recordRequest(store, status, ms, now = Date.now()) {
   for (const held of pending.values()) addInto(batch, held)
   pending.clear()
   addInto(batch, row)
-  const write = writeRows([...batch.values()]).catch(() => {
-    // Logged without the error: a message could hold request data. The answer is already sent.
-    console.warn('[metrics] write failed')
-  })
+  const writes = [
+    writeRows([...batch.values()]).catch(() => {
+      // Logged without the error: a message could hold request data. The answer is already sent.
+      console.warn('[metrics] write failed')
+    })
+  ]
+  const event = errorEventOf(store, status, ms, now)
+  if (event) {
+    writes.push(writeError(event).catch(() => {
+      console.warn('[metrics] error event write failed')
+    }))
+  }
+  const write = Promise.all(writes)
   inflight.add(write)
   write.then(() => inflight.delete(write))
   return write

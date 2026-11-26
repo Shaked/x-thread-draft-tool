@@ -1,7 +1,6 @@
 // MCP tools for drafts (plan Task 7.6). Each tool calls the existing REST handler in-process
 // through server/router.js, as the token's user, so validation and ownership checks are reused.
 import { route } from '../router.js'
-import { isOwnedBlobUrl } from '../draft-images.js'
 import { json } from '../http.js'
 import { outline } from '../draft-stats.js'
 import { xLength } from '../../src/utils/xLength.js'
@@ -13,7 +12,9 @@ import { threadText } from './thread-text.js'
 import { adminTool, listAdminTools } from './admin-tools.js'
 import { mcpAdminReason } from '../admin/role.js'
 import { PREVIOUS_POST } from '../routes/drafts.js'
+import { DRAFT_BEFORE } from '../routes/draft-edits.js'
 import { changeMeta, changesText } from './edit-result.js'
+import { stateLine } from './state-line.js'
 
 const UUID = { type: 'string', format: 'uuid' }
 const TITLE = { type: 'string', maxLength: 500, description: 'Draft title, at most 500 characters.' }
@@ -30,10 +31,7 @@ const POSTS = {
     }
   }
 }
-const MAX_IMAGES = 4
-const PUBLISHED_ERROR = 'This draft is published. Duplicate it to edit.'
-const IMAGE_NOT_FOUND = 'Image not found in this draft. Its posts and image urls are in get_draft_outline.'
-const VERSION = { type: 'integer', minimum: 1, description: 'The draft version from get_draft. The change is refused if the draft changed since.' }
+const VERSION = { type: 'integer', minimum: 1, maximum: 2147483647, description: 'The draft version from get_draft. The change is refused if the draft changed since.' }
 const ID_ONLY = { type: 'object', properties: { id: UUID }, required: ['id'] }
 const FORMATS = { type: 'string', enum: ['json', 'text', 'formatted'], default: 'json' }
 
@@ -205,7 +203,10 @@ const TOOLS = [
       required: ['draftId', 'url']
     },
     run: async (args, ctx) => {
-      if (args.replace !== undefined) return replaceImage(ctx, args)
+      if (args.replace !== undefined) {
+        const res = await ctx.rest('POST', `/drafts/${enc(args.draftId)}/images`, { url: args.url, replace: args.replace }, ifMatch(args.version))
+        return viaRoute(ctx, res, (body) => ({ image_url: body.url, replaced: args.replace }))
+      }
       if (args.postId === undefined) {
         // The REST upload checks that the caller owns the draft; the re-read gives the outline after it.
         const uploaded = await ctx.rest('POST', '/images/from-url', pick(args, ['draftId', 'url']))
@@ -216,22 +217,8 @@ const TOOLS = [
         const draft = { ...outline(current.draft), url: editorUrl(ctx.origin, current.draft.id) }
         return withBefore(withViewPosts(json({ draft, url }), current.draft.posts), current.draft)
       }
-      // With postId, the image is also added to that post: refuse an unknown post or one with 4 images first.
-      const owned = await fetchOwnedDraft(ctx, args.draftId)
-      if (owned.failure) return owned.failure
-      if (owned.draft.is_published) return json({ error: PUBLISHED_ERROR }, 409)
-      const index = owned.draft.posts.findIndex((post) => post.id === args.postId)
-      if (index < 0) return json({ error: 'Post not found in this draft' }, 404)
-      const count = (owned.draft.posts[index].images ?? []).length
-      if (count >= MAX_IMAGES) return json({ error: fullPostError(index) }, 422)
-      if (args.position > count + 1) return json({ error: `position must be from 1 to ${count + 1}` }, 422)
-      const uploaded = await ctx.rest('POST', '/images/from-url', pick(args, ['draftId', 'url']))
-      if (uploaded.status >= 400) return uploaded
-      const { url } = await uploaded.json()
-      const attached = await attachImage(ctx, args.draftId, args.postId, url, args.position)
-      // Not attached: delete the uploaded file, so a failed call leaves no file behind (#367).
-      if (attached.status >= 400) await ctx.rest('DELETE', '/images', { url, if_unused: true })
-      return attached
+      // With postId: one route fetches the image, adds it at the place and deletes the file again when that fails.
+      return viaRoute(ctx, await ctx.rest('POST', `/drafts/${enc(args.draftId)}/images`, { url: args.url, post_id: args.postId, ...pick(args, ['position']) }), (body) => ({ url: body.url, postId: args.postId }))
     }
   },
   {
@@ -290,27 +277,8 @@ const TOOLS = [
       required: ['draftId']
     },
     run: async (args, ctx) => {
-      if ((args.url === undefined) === (args.post_id === undefined)) return json({ error: 'Give url to remove one image, or post_id to remove every image of that post.' }, 422)
-      let removed = []
-      const patched = await editPosts(ctx, args.draftId, (posts) => {
-        // One url: removed from every post that has it (as before). post_id: every image of that post.
-        const index = args.url === undefined ? indexOfPost(posts, args.post_id) : null
-        if (typeof index === 'string') return index
-        removed = index === null ? [args.url] : postImageUrls(posts[index])
-        const keep = (post, i) => (index === null || i === index ? { ...post, images: (post.images ?? []).filter((image) => !removed.includes(imageUrlOf(image))) } : post)
-        return { posts: posts.map(keep) }
-      }, args.version)
-      if (patched.status >= 400) return patched
-      const { draft } = await patched.json()
-      // Only the caller's own files are deleted (DELETE /images refuses others with 403).
-      let deleted = 0
-      for (const url of removed.filter((url) => isOwnedBlobUrl(url, ctx.caller.uid))) {
-        const removedFile = await ctx.rest('DELETE', '/images', { url, if_unused: true })
-        if (removedFile.status >= 400) return removedFile
-        if ((await removedFile.json()).deleted) deleted += 1
-      }
-      const counts = args.url === undefined ? { removed: removed.length, deleted } : { removed: true, deleted: deleted === 1 }
-      return withBefore(withViewPosts(json({ draft: outline(draft), url: editorUrl(ctx.origin, draft.id), ...counts }), draft.posts), patched[BEFORE_OF])
+      const res = await ctx.rest('DELETE', `/drafts/${enc(args.draftId)}/images`, pick(args, ['url', 'post_id']), ifMatch(args.version))
+      return viaRoute(ctx, res, (body) => (args.url === undefined ? { removed: body.removed, deleted: body.deleted } : { removed: true, deleted: body.deleted === 1 }))
     }
   },
   {
@@ -332,18 +300,7 @@ const TOOLS = [
       },
       required: ['id', 'text']
     },
-    run: (args, ctx) =>
-      postEdit(ctx, args.id, (posts) => {
-        if (args.post_id !== undefined) {
-          const existing = posts.find((p) => p.id === args.post_id)
-          if (existing) return existing.text === args.text ? { posts } : { conflict: 'A post with this post_id already exists with different text.' }
-        }
-        const post = { id: args.post_id ?? randomUUID(), text: args.text, images: [], embeddedTweet: null }
-        if (args.after_post_id === undefined) return { posts: [...posts, post] }
-        const index = posts.findIndex((p) => p.id === args.after_post_id)
-        if (index < 0) return 'after_post_id is not a post in this draft'
-        return { posts: [...posts.slice(0, index + 1), post, ...posts.slice(index + 1)] }
-      })
+    run: (args, ctx) => viaRoute(ctx, ctx.rest('POST', `/drafts/${enc(args.id)}/posts`, pick(args, ['text', 'after_post_id', 'post_id'])))
   },
   {
     name: 'update_post',
@@ -364,13 +321,7 @@ const TOOLS = [
     name: 'remove_post',
     description: 'Remove one post from a draft. A draft keeps at least one post. Images only that post used are deleted.' + RESULT_NOTE + CONTENT_NOTE,
     inputSchema: { type: 'object', properties: { id: UUID, post_id: { type: 'string' } }, required: ['id', 'post_id'] },
-    run: (args, ctx) =>
-      postEdit(ctx, args.id, (posts) => {
-        const index = indexOfPost(posts, args.post_id)
-        if (typeof index === 'string') return index
-        if (posts.length === 1) return 'A draft keeps at least one post.'
-        return { posts: posts.filter((_, i) => i !== index), removedImages: postImageUrls(posts[index]) }
-      })
+    run: (args, ctx) => viaRoute(ctx, ctx.rest('DELETE', `/drafts/${enc(args.id)}/posts/${enc(args.post_id)}`))
   },
   {
     name: 'move_post',
@@ -387,16 +338,7 @@ const TOOLS = [
       required: ['id', 'post_id', 'position']
     },
     run: (args, ctx) =>
-      postEdit(ctx, args.id, (posts) => {
-        if (args.image_url !== undefined) return moveImage(posts, args)
-        const index = indexOfPost(posts, args.post_id)
-        if (typeof index === 'string') return index
-        if (args.position > posts.length) return `position must be from 1 to ${posts.length}`
-        const moved = posts.slice()
-        const [post] = moved.splice(index, 1)
-        moved.splice(args.position - 1, 0, post)
-        return { posts: moved }
-      }, args.version)
+      viaRoute(ctx, ctx.rest('POST', `/drafts/${enc(args.id)}/posts/${enc(args.post_id)}/move`, pick(args, ['position', 'image_url']), ifMatch(args.version)))
   },
   {
     name: 'publish_draft',
@@ -543,17 +485,17 @@ const REST_ROUTES = {
   split_text: ['POST /threads/split'],
   create_share_link: ['POST /drafts/:id/share-tokens'],
   revoke_share_link: ['DELETE /drafts/:id/share-tokens/:token', 'DELETE /drafts/:id/share-tokens'],
-  add_image_from_url: ['POST /images/from-url', 'GET /drafts/:id', 'PATCH /drafts/:id', 'DELETE /images'],
+  add_image_from_url: ['POST /images/from-url', 'GET /drafts/:id', 'POST /drafts/:id/images'],
   publish_draft: ['POST /drafts/:id/publish'],
   delete_draft: ['DELETE /drafts/:id'],
-  add_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
+  add_post: ['POST /drafts/:id/posts'],
   update_post: ['PATCH /drafts/:id/posts/:postId'],
-  remove_post: ['GET /drafts/:id', 'PATCH /drafts/:id', 'DELETE /images'],
-  move_post: ['GET /drafts/:id', 'PATCH /drafts/:id'],
+  remove_post: ['DELETE /drafts/:id/posts/:postId'],
+  move_post: ['POST /drafts/:id/posts/:postId/move'],
   whoami: ['GET /auth/me'],
   app_version: ['GET /version', 'GET /changelog'],
   create_thread_from_text: ['POST /threads/split', 'POST /drafts'],
-  remove_image: ['GET /drafts/:id', 'PATCH /drafts/:id', 'DELETE /images']
+  remove_image: ['DELETE /drafts/:id/images']
 }
 
 /** Every REST route the MCP tools call. */
@@ -640,11 +582,20 @@ export async function callTool(name, args, { caller, origin }) {
     if (VIEW_OUTLINE[name] && result._meta) {
       for (const text of EDIT_TOOLS.includes(name) ? editTexts(name, result, origin) : [markdownOf(result)]) result.content.push({ type: 'text', text })
     }
+    addStateLine(result, name, args, origin)
     return result
   } catch (err) {
     console.error('[mcp] tool failed', name, err)
     return toolError('The tool failed. Try again.')
   }
+}
+
+/** #390: every successful draft result ends with the state line (id, version, counts, editor link, next step). */
+function addStateLine(result, name, args, origin) {
+  if (result.isError) return
+  const uploadOnly = name === 'add_image_from_url' && args.postId === undefined && args.replace === undefined
+  const line = stateLine(result.structuredContent?.draft, name, origin, { postId: args.postId ?? args.post_id, uploadOnly })
+  if (line) result.content.push({ type: 'text', text: line })
 }
 
 /** Calls the REST router in-process as `caller`. No Authorization header: the caller is set in runAs. */
@@ -791,15 +742,6 @@ function withViewPosts(response, posts) {
   return response
 }
 
-/** An image entry is a string (older drafts) or an object with a url. Both are supported. */
-const imageUrlOf = (image) => (typeof image === 'string' ? image : image?.url)
-
-/** Index of a post in the draft, or the error text when it is not there. */
-const indexOfPost = (posts, postId) => {
-  const index = posts.findIndex((p) => p.id === postId)
-  return index < 0 ? 'Post not found in this draft' : index
-}
-
 /**
  * update_post: one REST PATCH of the post. The server reads, checks and writes in one transaction
  * (plan O1), and refuses a stale `version` with 412.
@@ -831,102 +773,15 @@ async function staleOr(res) {
 }
 
 /**
- * add_image_from_url with postId: appends the uploaded image to the post. An assistant that adds
- * several images at once makes parallel calls, and all but one get a 412 on the first write (#367).
- * Each call re-reads and tries again: its image url is new and unique, and a 412 wrote nothing,
- * so a retry cannot add it twice. Edits made by others in between are kept.
+ * An edit route's answer as a tool answer (#412): the route did the rules, the write and the file cleanup. A 412 becomes
+ * the tool's stale text; `extra(body)` adds keys the tool shows next to the outline. `res` may be a promise.
  */
-async function attachImage(ctx, draftId, postId, url, position) {
-  // The version is per draft, so a call loses a race to an attach on any post. Each post holds at most
-  // 4 images, so parallel attaches make at most 4 writes per post: with 4 reads per post plus one, a call
-  // of ours sees its post full (that error) before it runs out of tries. Only other writers can use them up.
-  for (let attempt = 1; ; attempt += 1) {
-    const current = await fetchOwnedDraft(ctx, draftId)
-    if (current.failure) return current.failure
-    const index = current.draft.posts.findIndex((post) => post.id === postId)
-    if (index < 0) return json({ error: 'Post not found in this draft' }, 404)
-    const images = (current.draft.posts[index].images ?? []).slice()
-    if (images.length >= MAX_IMAGES) return json({ error: fullPostError(index) }, 422)
-    images.splice(Math.min((position ?? images.length + 1) - 1, images.length), 0, { url })
-    const posts = current.draft.posts.map((post, i) => (i === index ? { ...post, images } : post))
-    const patched = await ctx.rest('PATCH', `/drafts/${enc(draftId)}`, { posts }, ifMatch(current.draft.version))
-    // Here `url` is the image's url, so it replaces the editor link.
-    if (patched.status !== 412 || attempt > 4 * current.draft.posts.length) return outlineResult(withBefore(await staleOr(patched), current.draft), ctx.origin, { url, postId })
-  }
-}
-
-/** Runs a post edit and answers with the outline (see outlineResult). */
-async function postEdit(ctx, id, change, version) {
-  return outlineResult(await editPosts(ctx, id, change, version), ctx.origin)
-}
-
-/** The error for a post that already holds the most images. `index` is 0-based. */
-const fullPostError = (index) => `Post ${index + 1} already has ${MAX_IMAGES} images. Remove, replace or move one first.`
-
-/** move_post with image_url: the posts with that image moved to post_id at position, or an error text. */
-function moveImage(posts, { image_url: url, post_id: toPostId, position }) {
-  const from = posts.findIndex((post) => postImageUrls(post).includes(url))
-  if (from < 0) return IMAGE_NOT_FOUND
-  const to = indexOfPost(posts, toPostId)
-  if (typeof to === 'string') return to
-  const source = posts[from].images.slice()
-  // splice, not filter: an older draft can hold the same plain url string twice; only one moves.
-  const [image] = source.splice(source.findIndex((entry) => imageUrlOf(entry) === url), 1)
-  const target = to === from ? source.slice() : (posts[to].images ?? []).slice()
-  if (target.length >= MAX_IMAGES) return fullPostError(to)
-  if (position > target.length + 1) return `position must be from 1 to ${target.length + 1}`
-  target.splice(position - 1, 0, image)
-  return { posts: posts.map((post, i) => (i === to ? { ...post, images: target } : i === from ? { ...post, images: source } : post)) }
-}
-
-/**
- * add_image_from_url with replace: uploads the new image, then puts it where the old one was, in one
- * versioned write. The old file is deleted when no draft uses it; on any failure the new file is deleted.
- */
-async function replaceImage(ctx, args) {
-  const owned = await fetchOwnedDraft(ctx, args.draftId)
-  if (owned.failure) return owned.failure
-  if (owned.draft.is_published) return json({ error: PUBLISHED_ERROR }, 409)
-  if (!owned.draft.posts.some((post) => postImageUrls(post).includes(args.replace))) return json({ error: IMAGE_NOT_FOUND }, 404)
-  const uploaded = await ctx.rest('POST', '/images/from-url', pick(args, ['draftId', 'url']))
-  if (uploaded.status >= 400) return uploaded
-  const { url } = await uploaded.json()
-  const swap = (image) => (imageUrlOf(image) === args.replace ? { url } : image)
-  const res = await editPosts(ctx, args.draftId, (posts) => {
-    if (!posts.some((post) => postImageUrls(post).includes(args.replace))) return IMAGE_NOT_FOUND
-    return { posts: posts.map((post) => ({ ...post, images: (post.images ?? []).map(swap) })), removedImages: [args.replace] }
-  }, args.version)
-  if (res.status >= 400) await ctx.rest('DELETE', '/images', { url, if_unused: true })
-  return outlineResult(res, ctx.origin, { image_url: url, replaced: args.replace })
-}
-
-/** The image urls of one post (string or { url } entries). */
-const postImageUrls = (post) => (post.images ?? []).map(imageUrlOf).filter((url) => typeof url === 'string' && url.length > 0)
-
-/**
- * Edits the posts of one of the caller's drafts. `change(posts)` returns { posts, removedImages? }
- * or an error text (422), or { conflict } (409). A published draft is refused: the post tools never
- * change a published draft. The read and the write are two REST calls, but the write sends the
- * version it read as If-Match, so a concurrent edit makes it a 412 (never retried here: the caller
- * must re-read, or a retry could apply the change twice). The server no-ops an identical write.
- * Images of removed posts are deleted only when they are the
- * caller's own and no draft still uses them (same rule as remove_image).
- */
-async function editPosts(ctx, id, change, version) {
-  const owned = await fetchOwnedDraft(ctx, id)
-  if (owned.failure) return owned.failure
-  if (owned.draft.is_published) return json({ error: PUBLISHED_ERROR }, 409)
-  // The same ids for the change and for the draft before it, so a post that had no id is not shown as removed (#405).
-  const posts = withMissingPostIds(owned.draft.posts)
-  const edited = change(posts)
-  if (typeof edited === 'string') return json({ error: edited }, 422)
-  if (edited.conflict) return json({ error: edited.conflict }, 409)
-  const patched = await staleOr(await ctx.rest('PATCH', `/drafts/${enc(id)}`, { posts: edited.posts }, ifMatch(version ?? owned.draft.version)))
-  if (patched.status >= 400) return patched
-  for (const url of edited.removedImages ?? []) {
-    if (isOwnedBlobUrl(url, ctx.caller.uid)) await ctx.rest('DELETE', '/images', { url, if_unused: true })
-  }
-  return withBefore(patched, { ...owned.draft, posts })
+async function viaRoute(ctx, res, extra) {
+  res = await res
+  const before = res[DRAFT_BEFORE]
+  if (res.status >= 400) return staleOr(res)
+  const body = await res.clone().json()
+  return outlineResult(withBefore(res, before), ctx.origin, extra?.(body))
 }
 
 function pick(args, keys) {
@@ -948,14 +803,5 @@ function withPostIds(args) {
     })
   }
 }
-
-// A draft saved before ids were required can hold an object post with no id. An edit gives it one
-// first, so the edit can name it. Anything that is not an object is left as it is (REST refuses it).
-const withMissingPostIds = (posts) =>
-  posts.map((post) =>
-    post !== null && typeof post === 'object' && !Array.isArray(post) && typeof post.id !== 'string'
-      ? { ...post, id: randomUUID() }
-      : post
-  )
 
 const enc = (value) => encodeURIComponent(String(value))

@@ -108,12 +108,12 @@ describe('verifyOpsToken', () => {
 })
 
 describe('POST /api/ops/events: who may post', () => {
-  it('refuses a request with no token', async () => {
-    expect((await post(batch([]))).status).toBe(401)
+  it('answers 404 to a request with no token: the /ops gate answers first', async () => {
+    expect((await post(batch([]))).status).toBe(404)
   })
 
-  it('refuses a CI token and a CI-audience token on this route', async () => {
-    expect((await post(batch([]), await mint({}, { aud: ciAudience('preview') }))).status).toBe(401)
+  it('answers 404 to a CI-audience token on this route: the gate answers first', async () => {
+    expect((await post(batch([]), await mint({}, { aud: ciAudience('preview') }))).status).toBe(404)
   })
 
   it('refuses the ops token on a route that is not marked for it', async () => {

@@ -14,12 +14,15 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
+import { lint } from './reply-lint.mjs'
 
 export const REPO = 'Shaked/x-thread-draft-tool'
 export const STALE_DAYS = 14
 export const CLAIM_STALE_HOURS = 3
 export const SUB_ISSUE_LIMIT = 100
 export const NEAR_LIMIT = 90
+// The janitor lints this many of the newest HANDOFF comments with the reply-style rules (#486).
+export const REPLY_STYLE_LAST = 10
 // A name shared by more open issues than this is common (for example `drafts`), not an overlap.
 export const RARE_NAME_MAX = 4
 export const SIMILAR_TITLE = 0.6
@@ -60,6 +63,8 @@ export function shortName(issue) {
   // Task ids like M1 or H20 inside the words would need their own description, so they are code spans.
   // Words the reply-style lint reserves ("unchanged", "blocked") are left out of a description.
   words = words.filter((w) => !/^(unchanged|blocked|blocking)[,.:;]?$/i.test(w))
+  // An issue number inside a description would need its own description: it is left out.
+  words = words.filter((w) => !/^#\d+[,.:;]?$/.test(w))
   while (words.length < 3) words.push(words.length === 2 ? 'issue' : 'the')
   return words.slice(0, 5).map((w) => (/^[A-Z]\d+(\.\d+)?[,.]?$/.test(w) ? `\`${w.replace(/[,.]$/, '')}\`` : w)).join(' ').replace(/[,.:;]$/, '')
 }
@@ -85,7 +90,7 @@ export function similarity(a, b) {
 }
 
 const NEGATION = /\b(not|until|start|no longer)\b|n't\b/i
-const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
+export const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 
 // One clause: it ends at the sentence end, at the next dependency keyword, or where the next field starts.
 // Code spans are not dependencies; a "PR #n" or "see #n" is not one either.
@@ -204,7 +209,7 @@ function checkShipped(c, i) {
   if (done && f.last.release) {
     const merged = Boolean(f.last.pr) && c.pulls.has(f.last.pr)
     const pr = f.last.pr ? `; PR {#${f.last.pr}} is ${merged ? 'merged' : 'not in the merged list'}` : ''
-    if (merged) c.add('shipped', [i.number], `${ref(i.number)}: the last HANDOFF says done and has RELEASE${pr}.`, 'Read the HANDOFF and its "Not done" line, then close as completed.', 'allowed')
+    if (merged) c.add('shipped', [i.number], `${ref(i.number)}: the last HANDOFF says done and has RELEASE${pr}.`, 'Read the HANDOFF, check its Done section, then close as completed.', 'allowed')
     else c.add('shipped', [i.number], `${ref(i.number)}: the last HANDOFF says done and has RELEASE${pr}.`, 'Read the HANDOFF; close only when its PR is merged.')
   } else if (!c.loaded(i) && c.marked('release', i)) {
     c.add('shipped', [i.number], `${ref(i.number)}: a comment has RELEASE, comments not loaded.`, 'Read its comments; a HANDOFF that is not "done" keeps the issue open.')
@@ -355,6 +360,30 @@ function checkStale(c, i) {
   else c.add('held', [i.number], `${ref(i.number)} is labelled ${tags} and names no owner question.`, 'Say in the issue what it waits for.')
 }
 
+/** An open issue that carries `reply-style-fail` (set by the comment lint job, #486): its latest agent comment broke the rules. */
+function checkReplyStyleLabel(c) {
+  for (const i of c.open.filter((x) => has(x, 'reply-style-fail'))) {
+    c.add('reply-style', [i.number], `${ref(i.number)} is labelled \`reply-style-fail\`: an agent comment on it broke the reply-style rules.`, 'Run `npm run reply-lint -- --template` on its latest agent comment, post a corrected one, then remove the label.', 'dispatcher')
+  }
+}
+
+/** Lints the newest HANDOFF comments of every issue whose comments are loaded; reports each failure with its link. */
+function checkReplyStyle(c, repo) {
+  const handoffs = []
+  for (const [issue, list] of Object.entries(c.comments)) {
+    for (const x of list || []) {
+      if (/^HANDOFF\b/.test(x.body || '') && (TRUSTED.has(x.author_association) || x.user === repo.split('/')[0])) handoffs.push({ issue: Number(issue), ...x })
+    }
+  }
+  handoffs.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+  for (const h of handoffs.slice(0, REPLY_STYLE_LAST)) {
+    const rules = [...new Set(lint(h.body, { template: true }).map((f) => f.rule))]
+    if (!rules.length) continue
+    const url = h.html_url || `https://github.com/${repo}/issues/${h.issue}`
+    c.add('reply-style', [h.issue], `The HANDOFF on ${ref(h.issue)} breaks the reply-style rules: ${rules.map((r) => `\`${r}\``).join(', ')} ([comment](${url})).`, 'Run `npm run reply-lint -- --template` on it and post a corrected comment.', 'dispatcher')
+  }
+}
+
 /** Every check. Returns findings: { kind, issues, what, fix, act } with act = allowed | dispatcher | owner. */
 export function analyze(snapshot, { today = new Date().toISOString(), staleDays = STALE_DAYS, knownTables = [] } = {}) {
   const all = (snapshot.issues || []).map(normalize)
@@ -371,6 +400,7 @@ export function analyze(snapshot, { today = new Date().toISOString(), staleDays 
     byNum: new Map(all.map((i) => [i.number, i])),
     pulls: new Map((snapshot.pulls || []).map((p) => [p.number, p])),
     deps: new Map(open.map((i) => [i.number, dependencies(i.body)])),
+    comments,
     loaded: (i) => comments[i.number] || comments[String(i.number)],
     marked: (kind, i) => (markers[kind] || []).includes(i.number),
     // Unknown (a snapshot without open_pulls) counts as having one. A comment that links a PR counts too.
@@ -393,6 +423,8 @@ export function analyze(snapshot, { today = new Date().toISOString(), staleDays 
     checkStale(c, i)
     checkLabels(c, i)
   }
+  checkReplyStyle(c, String(snapshot.repo || REPO))
+  checkReplyStyleLabel(c)
   for (const i of open.filter((x) => x.subIssues >= NEAR_LIMIT)) {
     c.add('limit', [i.number], `${ref(i.number)} has ${i.subIssues} of ${SUB_ISSUE_LIMIT} sub-issues.`, i.subIssues >= SUB_ISSUE_LIMIT ? 'New tasks go to the follow-up epic.' : 'Plan a follow-up epic.')
   }
@@ -432,7 +464,8 @@ const SECTIONS = [
   ['Dependencies', ['dependency', 'missing-dependency', 'cycle', 'waiting']],
   ['Stale and orphaned', ['stale', 'orphan', 'claim', 'held']],
   ['Limits', ['limit']],
-  ['Labels', ['labels']]
+  ['Labels', ['labels']],
+  ['Reply style', ['reply-style']]
 ]
 
 /** 3 to 6 words for every issue and merged pull request in the snapshot, keyed by number. */
@@ -460,8 +493,23 @@ export function wrap(line, max = 150) {
   const out = []
   let rest = line
   while (rest.length > max) {
-    const cut = Math.max(rest.lastIndexOf(', ', max), rest.lastIndexOf('; ', max))
-    if (cut <= indent.length) break
+    let cut = Math.max(rest.lastIndexOf(', ', max), rest.lastIndexOf('; ', max))
+    // No comma to break at: break at the last space outside a code span and outside parentheses,
+    // so a label keeps its description on its own line.
+    if (cut <= indent.length) {
+      const free = (k) => {
+        const head = rest.slice(0, k)
+        const balanced = (head.match(/\(/g) || []).length === (head.match(/\)/g) || []).length
+        // Not between a label ("#101", "M5") and its "(description)".
+        const label = rest[k + 1] === '(' || /(?:#\d+|\b[A-Z]\d+)$/.test(head)
+        return head.split('`').length % 2 === 1 && balanced && !label
+      }
+      cut = [...rest.slice(0, max).matchAll(/ /g)].map((m) => m.index).filter((k) => k > indent.length && free(k)).pop() ?? -1
+      if (cut <= indent.length) break
+      out.push(rest.slice(0, cut))
+      rest = indent + rest.slice(cut + 1)
+      continue
+    }
     out.push(rest.slice(0, cut + 1))
     rest = indent + rest.slice(cut + 2)
   }

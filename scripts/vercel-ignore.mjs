@@ -1,7 +1,7 @@
 // Vercel "Ignored Build Step": exit 0 skips the build, exit 1 builds. Fails toward building.
 import { execFileSync } from 'node:child_process'
 
-export const SKIP = [/^docs\//, /^\.github\//, /^tests\//, /^\.claude\//, /^\.githooks\//, /\.md$/]
+export const SKIP = [/^docs\//, /^\.github\//, /^tests\//, /^\.claude\//, /^\.claude-plugin\//, /^plugins\//, /^\.githooks\//, /\.md$/]
 
 export function shouldSkip(env, files) {
   if (env.VERCEL_ENV !== 'production') return false

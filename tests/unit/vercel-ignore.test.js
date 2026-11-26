@@ -31,6 +31,14 @@ describe('shouldSkip (Vercel ignored build step)', () => {
   it('builds production when vercel.json changed', () => {
     expect(shouldSkip(PROD, ['vercel.json'])).toBe(false)
   })
+
+  it('skips production when only the plugin folder and marketplace file changed', () => {
+    expect(shouldSkip(PROD, ['plugins/reply-style/README.md', '.claude-plugin/marketplace.json'])).toBe(true)
+  })
+
+  it('builds production when a plugin file and src/main.jsx changed', () => {
+    expect(shouldSkip(PROD, ['plugins/reply-style/README.md', '.claude-plugin/marketplace.json', 'src/main.jsx'])).toBe(false)
+  })
 })
 
 // Codex P2 on #62: moving a deployed file into docs/ must still build (rename source path listed).

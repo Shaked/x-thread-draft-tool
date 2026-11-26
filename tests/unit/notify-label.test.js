@@ -148,7 +148,7 @@ describe('run', () => {
     )
     expect(result).toBe('sent')
     const body = JSON.parse(fetchImpl.mock.calls[0][1].body)
-    expect(body.text).toContain(`<b><a href="${PR_URL}">Cleanup review ready</a></b>`)
+    expect(body.text).toContain(`<b>Thread Draft</b> · <a href="${PR_URL}">Cleanup review ready</a>`)
     expect(body.text).toContain('\nT\n')
     expect(body.text).toContain('What it removes: Drop dead helpers')
     expect(body.text.endsWith('Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR.')).toBe(true)

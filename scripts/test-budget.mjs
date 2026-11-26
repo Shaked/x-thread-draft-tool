@@ -21,6 +21,7 @@ const ROOT = (() => {
 export const FILE_LIMIT_MS = Number(process.env.TEST_BUDGET_FILE_MS ?? 5000)
 export const TOTAL_LIMIT_MS = Number(process.env.TEST_BUDGET_TOTAL_MS ?? 70000) // CI runner speed varies 46-62 s for the same green suite (#144 57.5 s, #145 62.3 s, #147 61.0 s, re-runs ~46 s); 70 s = worst + ~12%. Per-file limits are the real guard. Opus 2026-11-18, revises O11.
 // With --shard=n/m (speed plan task S2, #312) the run covers part of the suite, so its total limit is lower.
+// The suite runs in 3 shards since #490 (2 shards measured 55.1 s and 49 s on main, run 45764863768); the limit is unchanged.
 // Shard 1 ran 29.6-44.3 s on main and up to 46.8 s on a PR branch (the same files got slower on some runners).
 // 52 s = worst seen (46.8 s) + ~12%, the same rule as TOTAL_LIMIT_MS. Revises the 45 s limit (Opus ruling, PR #433).
 export const SHARD_TOTAL_LIMIT_MS = Number(process.env.TEST_BUDGET_SHARD_TOTAL_MS ?? 52000)
@@ -46,7 +47,11 @@ export function violations(durations, totalMs, totalLimit = TOTAL_LIMIT_MS) {
     const limit = FILE_LIMIT_OVERRIDES[file] ?? FILE_LIMIT_MS
     if (ms > limit) problems.push(`${file} took ${ms} ms (limit ${limit} ms)`)
   }
-  if (totalMs > totalLimit) problems.push(`total ${Math.round(totalMs)} ms (limit ${totalLimit} ms)`)
+  if (totalMs > totalLimit) {
+    // Name the slowest files so the red log says what to fix first (#490).
+    const slowest = durations.slice(0, 3).map(({ file, ms }) => `${file} ${ms} ms`).join(', ')
+    problems.push(`total ${Math.round(totalMs)} ms (limit ${totalLimit} ms)${slowest ? `; slowest: ${slowest}` : ''}`)
+  }
   return problems
 }
 

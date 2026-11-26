@@ -721,7 +721,7 @@ describe('T5 short results from post edit tools', () => {
     expect(result.isError).toBe(false)
     // #405 adds a short text part after the JSON: the whole text stays under the limit, and it quotes no other post.
     expect(bytes(result.content.map((part) => part.text).join(''))).toBeLessThan(4000)
-    expect(result.content).toHaveLength(2)
+    expect(result.content).toHaveLength(3) // the JSON, what changed, the state line (#390)
     expect(result.content[1].text).not.toContain('x'.repeat(280))
     const { draft: outlined, url } = result.structuredContent
     expect(outlined).toMatchObject({ id: draft.id, post_count: 25, version: await versionOf(draft.id) })

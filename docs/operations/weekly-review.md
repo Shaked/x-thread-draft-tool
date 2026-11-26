@@ -41,7 +41,7 @@ Task #294 wrote these rules. Task #295 added the workflow `.github/workflows/wee
 3. **Dependencies and advisories.** `npm audit` and dependency versions (`npm outdated`).
 4. **Speed.** The speed check of task #306: it opens an issue only when something got slower. Speed fixes go through
    the speed rules of #306, not these.
-5. **Reply style.** `.claude/skills/reply-style/` (its templates and rules) is updated in the same "skill" PR, as the
+5. **Reply style.** `plugins/reply-style/` (the skill, its templates and rules; `.claude/skills/reply-style` is a symlink to it) is updated in the same "skill" PR, as the
    skill itself says.
 6. **pstack.** Look at https://github.com/cursor/plugins/tree/main/pstack for a version newer than 0.15.46, the one
    copied into `.claude/skills/pstack-*` (`THIRD_PARTY_LICENSES/pstack.md`). If one exists, open an issue. Never update
@@ -50,7 +50,7 @@ Task #294 wrote these rules. Task #295 added the workflow `.github/workflows/wee
 ## What the agent may decide and merge
 
 - At most **3 PRs per run**, one theme each.
-- The **skill PR** (theme `skill`) updates `.claude/skills/product-care.md` and `.claude/skills/reply-style/`, with
+- The **skill PR** (theme `skill`) updates `.claude/skills/product-care.md` and `plugins/reply-style/` (with a version bump and a `CHANGELOG.md` section), with
   the findings of the run. It is the only place the skill changes.
 - The agent may merge, under the standing permission, after the Opus judgement passes on the final head:
   - skill text, docs, and test fixtures that follow a published spec.

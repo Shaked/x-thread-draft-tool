@@ -1,0 +1,10 @@
+{
+ "408": {
+  "checks": "red",
+  "codex_threads": 1
+ },
+ "409": {
+  "checks": "green",
+  "codex_threads": 0
+ }
+}

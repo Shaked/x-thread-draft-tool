@@ -137,6 +137,13 @@
   --press-scale: 0.98;
   --opacity-disabled: 0.5;
 
+  /* Animated counter (Rare UI, feature flag "Components"): the height of one digit, and the fade at its top and bottom
+     edges. The fade uses alpha only, so it is the same in both themes. */
+  --counter-line: 1.5em;
+  --mask-counter-fade: linear-gradient(to bottom,
+    rgb(0 0 0 / 0) 0%, rgb(0 0 0 / 0.06) 5.5%, rgb(0 0 0 / 0.5) 11%, rgb(0 0 0 / 0.94) 16.5%, rgb(0 0 0) 22%,
+    rgb(0 0 0) 78%, rgb(0 0 0 / 0.94) 83.5%, rgb(0 0 0 / 0.5) 89%, rgb(0 0 0 / 0.06) 94.5%, rgb(0 0 0 / 0) 100%);
+
   /* Layers */
   --z-raised: 1;             /* inside one component, e.g. the row link overlay */
   --z-sticky: 100;

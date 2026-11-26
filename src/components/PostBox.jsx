@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import ImageUpload from './ImageUpload'
 import Button from '../ui/Button'
+import Count from '../ui/Count'
 import IconButton from '../ui/IconButton'
+import LoadBoundary from '../ui/LoadBoundary'
 import { xLength } from '../utils/xLength.js'
 import './PostBox.css'
 
@@ -313,9 +315,11 @@ function EmbedArea({ embeddedTweet, embedShown, containerRef, readOnly, onRemove
   return (
     <div className="embedded-tweet-container" ref={containerRef}>
       {embedShown ? (
-        <Suspense fallback={<div className="tweet-embed-loading">Loading tweet…</div>}>
-          <TweetEmbed url={embeddedTweet} />
-        </Suspense>
+        <LoadBoundary>
+          <Suspense fallback={<div className="tweet-embed-loading">Loading tweet…</div>}>
+            <TweetEmbed url={embeddedTweet} />
+          </Suspense>
+        </LoadBoundary>
       ) : (
         <div className="tweet-embed-loading">Tweet will load when visible…</div>
       )}
@@ -405,12 +409,14 @@ function ToolbarActions({
         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
       />
       {showEmojiPicker && (
-        <Suspense fallback={<div className="emoji-picker-loading">Loading…</div>}>
-          <EmojiPicker
-            onSelect={onEmojiSelect}
-            onClose={() => setShowEmojiPicker(false)}
-          />
-        </Suspense>
+        <LoadBoundary>
+          <Suspense fallback={<div className="emoji-picker-loading">Loading…</div>}>
+            <EmojiPicker
+              onSelect={onEmojiSelect}
+              onClose={() => setShowEmojiPicker(false)}
+            />
+          </Suspense>
+        </LoadBoundary>
       )}
 
       <IconButton
@@ -477,7 +483,7 @@ function RemovePostButton({ readOnly, onRemove, totalPosts, index }) {
 function CharCounter({ count, max, over }) {
   return (
     <div className={`char-counter ${over ? 'over-limit' : ''}`}>
-      {count}/{max}
+      <Count value={count} max={max} />
       {over && ` (${count - max} over)`}
     </div>
   )

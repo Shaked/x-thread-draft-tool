@@ -18,7 +18,9 @@ const LEGACY = new Set([
 ])
 
 // `style=` props that stay, each with its reason.
-const STYLE_PROP_ALLOWED = new Map()
+const STYLE_PROP_ALLOWED = new Map([
+  ['src/ui/rare/AnimatedCounter.jsx', 'Motion reads a motion value (the wheel offset y) only from the style prop; the file passes `style={style}` with no length or colour']
+])
 
 // Files that must not import CSS (page CSS lives in the shared components).
 const NO_CSS_IMPORT = (file) => file.startsWith('src/pages/') || file === 'src/components/DraftList.jsx' || file === 'src/components/LoginPage.jsx'

@@ -30,14 +30,14 @@ beforeAll(async () => {
   mcpToken = (await issuePair(grant[0].id)).access_token
 })
 
-// An MCP call from a signed-in client (the MCP endpoint, caller kind 'mcp').
-function mcpCall(name) {
+// An MCP call from a signed-in client (the MCP endpoint; caller kind is the client's app family, O3).
+function mcpCall(name, token = mcpToken) {
   return new Request(`${APP_URL}/api/mcp`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       accept: 'application/json, text/event-stream',
-      authorization: `Bearer ${mcpToken}`,
+      authorization: `Bearer ${token}`,
       'mcp-protocol-version': '2026-07-28',
       'mcp-method': 'tools/call',
       'mcp-name': name
@@ -104,20 +104,45 @@ describe('recording one request', () => {
 })
 
 describe('MCP calls', () => {
-  it('an unknown tool is a JSON-RPC error: one row, caller mcp, op tools/call, counted once in n_4xx', async () => {
+  it('an unknown tool is a JSON-RPC error: one row, caller mcp:other, op tools/call, counted once in n_4xx', async () => {
     await route(mcpCall('no_such_tool'))
     await flushMetrics()
     const [row] = await rows()
     expect(row.route).toBe('POST /mcp')
-    expect(row.caller).toBe('mcp')
+    expect(row.caller).toBe('mcp:other')
     expect(row.op).toBe('tools/call')
     expect([Number(row.n_4xx), Number(row.n_429), Number(row.n_tool_error)]).toEqual([1, 0, 0])
+  })
+
+  it('a call through a grant of the Claude web client is stored with caller mcp:claude, never the client_id', async () => {
+    const alice = await db.pg.query("select id from users where login = 'metrics-test'")
+    await db.pg.query(
+      `insert into oauth_clients (client_id, kind, client_name, redirect_uris)
+       values ('xtc_mcp_claude_web', 'registered', 'Claude', '{https://claude.ai/api/mcp/auth_callback}') on conflict do nothing`
+    )
+    const { rows: grant } = await db.pg.query(
+      "insert into oauth_grants (user_id, client_id, scope, resource) values ($1, 'xtc_mcp_claude_web', 'drafts', $2) returning id",
+      [alice.rows[0].id, `${APP_URL}/api/mcp`]
+    )
+    const token = (await issuePair(grant[0].id)).access_token
+    await route(mcpCall('no_such_tool', token))
+    await flushMetrics()
+    const [row] = await rows()
+    expect(row.caller).toBe('mcp:claude')
+    expect(JSON.stringify(row)).not.toContain('xtc_mcp_claude_web')
   })
 })
 
 describe('rate limit', () => {
   it('the 121st tools/call in a minute is a rate-limited answer and counts once in n_429 for its tool', async () => {
-    for (let i = 0; i < 121; i += 1) await route(mcpCall('list_drafts'))
+    // The limit counts per calendar minute (date_trunc in server/mcp/rate.js). Freeze the clock at the last
+    // second of a minute so the 121 calls can never cross the boundary, whatever the wall clock says.
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-26T10:43:59.900Z') })
+    try {
+      for (let i = 0; i < 121; i += 1) await route(mcpCall('list_drafts'))
+    } finally {
+      vi.useRealTimers()
+    }
     await flushMetrics()
     const [row] = (await rows()).filter((r) => r.op === 'tool:list_drafts')
     expect(count(row)).toBe(121)

@@ -57,12 +57,13 @@ describe('#405: get_draft, then update_post', () => {
     expect(edited._meta['x-thread/changes'].posts).toEqual([{ id: 'p2', status: 'edited', index: 2, before: 'old post 2', after: 'new post 2' }])
     // The text: only the changed post as it is now, never the rest of the draft (the view has the text before).
     const text = edited.content.slice(1).map((part) => part.text).join('\n')
-    expect(text).toMatch(/^Saved\. Do not show the whole draft again: .* Version 2, 6 posts; changed: 1 post\. The view shows what changed\./)
+    expect(text).toMatch(/^\*\*Post 2\/6\*\*, edited/)
+    expect(edited.content.at(-1).text).toMatch(/ Saved\. Say in one line what changed; quote only the changed posts, not the whole draft\./) // #390: the hint is in the state line
     expect(text).toContain('**Post 2/6**, edited\n> new post 2')
     expect(text).not.toMatch(/old post/)
     // A replay (the same text again) writes nothing: one short line, not the whole draft.
     const replay = await call('update_post', { id: db.draft.id, post_id: 'p2', text: 'new post 2' })
-    expect(replay.content.slice(1).map((part) => part.text)).toEqual(['Nothing changed. Version 2, 6 posts.'])
+    expect(replay.content.slice(1).map((part) => part.text)).toEqual(['Nothing changed.', expect.stringMatching(/^Draft \S+, version 2, 6 posts/)])
   })
 
   it('routing: most posts changed, or fewer than 4 posts, shows the whole draft; a move lists only the moved post', async () => {
@@ -71,7 +72,7 @@ describe('#405: get_draft, then update_post', () => {
     expect(moved._meta['x-thread/changes'].posts).toEqual([{ id: 'p6', status: 'moved', index: 1, from: 6, before: 'old post 6', after: 'old post 6' }])
     const rewritten = await call('update_draft', { id: db.draft.id, posts: posts.map((post) => ({ ...post, text: `new ${post.text}` })) })
     expect(rewritten._meta['x-thread/changes']).toMatchObject({ known: true, full: true })
-    expect(rewritten.content.at(-1).text).toMatch(/^Thread "Six", 6 posts, saved as a draft\./)
+    expect(rewritten.content.at(-2).text).toMatch(/^Thread "Six", 6 posts, saved as a draft\./)
     await call('remove_post', { id: db.draft.id, post_id: 'p1' })
     await call('remove_post', { id: db.draft.id, post_id: 'p2' })
     const small = await call('update_post', { id: db.draft.id, post_id: 'p3', text: 'three' })
@@ -90,7 +91,7 @@ describe('#405: get_draft, then update_post', () => {
     await db.pg.query('update drafts set posts = $2::jsonb where id = $1', [db.draft.id, JSON.stringify(twice)])
     const removed = await call('remove_post', { id: db.draft.id, post_id: 'd' })
     expect(removed._meta['x-thread/changes']).toMatchObject({ known: true, full: true, post_count: 4 })
-    expect(removed.content.at(-1).text).toMatch(/^Thread "Six", 4 posts, saved as a draft\./)
+    expect(removed.content.at(-2).text).toMatch(/^Thread "Six", 4 posts, saved as a draft\./)
     const one = (ids) => ({ version: 1, posts: ids.map((id) => ({ id, text: id })) })
     expect(changeMeta(one(['a', 'b', 'c', 'd', 'e']), { ...one(['a', 'b', 'c', 'd', 'x']), version: 2 })).toMatchObject({ full: false })
     expect(changeMeta(one(['a', 'a', 'c', 'd', 'e']), { ...one(['a', 'a', 'c', 'd', 'x']), version: 2 })).toMatchObject({ full: true })
@@ -115,5 +116,18 @@ describe('#405: get_draft, then update_post', () => {
     expect(stale._meta).toBeUndefined()
     expect(stale.content).toHaveLength(1)
     expect(stale.content[0].text).toContain('Nothing was saved: the draft changed since you read it. Call get_draft_outline once')
+  })
+
+  it('a version above 2147483647 is a tool argument error, not a 400 from the database, and writes nothing (#474)', async () => {
+    const args = { id: db.draft.id, post_id: 'p2', text: 'too late' }
+    for (const version of [2147483648, 99999999999999]) {
+      const refused = await call('update_post', { ...args, version })
+      expect(refused.isError).toBe(true)
+      expect(refused.content[0].text).toBe('Invalid argument version: must be at most 2147483647')
+    }
+    const edge = await call('update_post', { ...args, version: 2147483647 })
+    expect(edge.content[0].text).toContain('Nothing was saved: the draft changed since you read it')
+    const { rows } = await db.pg.query('select version from drafts where id = $1', [db.draft.id])
+    expect(rows[0].version).toBe(1)
   })
 })

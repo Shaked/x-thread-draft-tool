@@ -40,8 +40,31 @@ describe('metrics-daily workflow (M3)', () => {
     expect(WORKFLOW).toMatch(/^concurrency:\n\s+group: metrics-daily\n\s+cancel-in-progress: false\s*$/m)
   })
 
+  it('has a daily job (O5, #336) with its own job-level permissions, on main only, and no secrets', () => {
+    expect(WORKFLOW).toMatch(/^ {2}daily:\n/m)
+    const daily = WORKFLOW.slice(WORKFLOW.indexOf('\n  daily:\n'), WORKFLOW.indexOf('\n  alerts:\n'))
+    expect(daily).toMatch(/^ {4}permissions:\n {6}id-token: write\n {6}contents: read\s*$/m)
+    expect(daily).toMatch(/^ {4}if: github\.ref == 'refs\/heads\/main'$/m)
+    expect(daily).toMatch(/audience=x-thread-draft-tool-ops-daily-production/)
+    expect(daily).toMatch(/\/api\/ops\/metrics-daily/)
+    expect(daily).not.toMatch(/secrets\./)
+  })
+
   it('runs only the collector script, with the workflow token as its only secret-like value', () => {
     expect(WORKFLOW).toMatch(/run: node scripts\/ops-emit\.mjs/)
-    expect(WORKFLOW).not.toMatch(/secrets\./)
+    // O7 (#338): the only secrets are the two Telegram ones, in the `alerts` job, which holds no OIDC token.
+    const secrets = [...WORKFLOW.matchAll(/secrets\.(\w+)/g)].map((m) => m[1])
+    expect(secrets).toEqual(['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'])
+  })
+
+  it('has an alerts job (O7, #338) that sends the new alerts with the metrics kind, with no OIDC token', () => {
+    const alerts = WORKFLOW.slice(WORKFLOW.indexOf('\n  alerts:\n'))
+    expect(alerts).toMatch(/needs: daily/)
+    expect(alerts).toMatch(/^ {4}permissions:\n {6}contents: read\s*$/m)
+    expect(alerts).not.toMatch(/id-token/)
+    expect(alerts).toMatch(/NOTIFY_KIND: metrics/)
+    expect(alerts).toMatch(/ALERTS: \$\{\{ needs\.daily\.outputs\.alerts \}\}/)
+    // Values reach the script through the environment, never inside the shell text.
+    expect(alerts.match(/\$\{\{[^}]*\}\}/g).every((e) => /^\$\{\{ (needs\.daily\.outputs\.alerts|secrets\.TELEGRAM_\w+) \}\}$/.test(e) || /github\.ref/.test(e))).toBe(true)
   })
 })

@@ -8,6 +8,9 @@ import { listBlobPrefix } from '../blob.js'
 import { deleteUser } from '../admin/delete-user.js'
 import { transaction } from '../db.js'
 import { HttpError, json, readJson, readOptionalJson } from '../http.js'
+import { listFlags, setFlag } from '../admin/flags.js'
+import { eventsParams, eventsView, summaryParams, summaryView } from '../metrics/summary.js'
+import { cached, metricsParams, metricsView, seriesParams, seriesView } from '../metrics/view.js'
 
 // Admin routes (plan A2). Each one is built with adminRoute, which refuses everyone but the admin.
 const status = async ({ admin }) => json({ admin: true, login: admin.login, github_id: admin.gh })
@@ -129,7 +132,7 @@ async function changeSuspension(admin, id, body, suspend) {
   if (typeof body?.confirm_login !== 'string') throw bad('Type confirm_login: the login of this user, exactly.')
   const reason = suspend ? suspendReason(body.reason) : null
   const action = suspend ? 'suspend_user' : 'unsuspend_user'
-  const actor = { uid: admin.uid, gh: admin.gh, login: admin.login }
+  const actor = { uid: admin.uid, gh: admin.gh, login: admin.login, surface: admin.surface }
   const outcome = await transaction(async (q) => {
     await q('select id from users where id = $1 for update', [admin.uid])
     if (!(await withinAdminLimit(q, admin.uid, ADMIN_LIMITS.suspend.actions, ADMIN_LIMITS.suspend.perHour))) {
@@ -226,6 +229,31 @@ const audit = async ({ url }) => {
   })
 }
 
+// The route keys ("METHOD /path") of server/router.js. Read per request: router.js imports this file, so a static import would cycle.
+async function routeKeys() {
+  const { ROUTES } = await import('../router.js')
+  return new Set(ROUTES.map((route) => `${route.method} ${route.path}`))
+}
+
+// Observability plan O4 (#335): the metrics views (server/metrics/view.js), cached for 60 s per parameter set.
+const metrics = async ({ url }) => {
+  const params = metricsParams(url.searchParams, await routeKeys())
+  return json(await cached(`metrics ${JSON.stringify(params)}`, () => metricsView(params)))
+}
+
+const metricsSeries = async ({ url }) => {
+  const params = seriesParams(url.searchParams, await routeKeys())
+  return json(await cached(`series ${JSON.stringify(params)}`, () => seriesView(params)))
+}
+
+// Central metrics M5 (#451): the summary in plain lines (cached 60 s like the other views) and the events list.
+const metricsSummary = async ({ url }) => {
+  const params = summaryParams(url.searchParams)
+  return json(await cached(`summary ${JSON.stringify(params)}`, () => summaryView(params)))
+}
+
+const metricsEvents = async ({ url }) => json(await eventsView(eventsParams(url.searchParams)))
+
 export const adminRoutes = [
   adminRoute('GET', '/admin/status', status),
   adminRoute('GET', '/admin/users', listUsers),
@@ -234,5 +262,11 @@ export const adminRoutes = [
   adminRoute('POST', '/admin/users/:id/unsuspend', unsuspendUser),
   adminRoute('POST', '/admin/users/:id/delete', deleteUserRoute),
   adminRoute('GET', '/admin/stats', stats),
-  adminRoute('GET', '/admin/audit', audit)
+  adminRoute('GET', '/admin/audit', audit),
+  adminRoute('GET', '/admin/metrics', metrics),
+  adminRoute('GET', '/admin/metrics/series', metricsSeries),
+  adminRoute('GET', '/admin/metrics/summary', metricsSummary),
+  adminRoute('GET', '/admin/metrics/events', metricsEvents),
+  adminRoute('GET', '/admin/flags', listFlags),
+  adminRoute('POST', '/admin/flags', setFlag)
 ]

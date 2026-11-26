@@ -1,0 +1,12 @@
+{
+  "name": "metrics",
+  "version": "0.2.0",
+  "description": "Two skills for a central metrics service: join it with a repository, and read its summary and act on it.",
+  "author": {
+    "name": "Shaked"
+  },
+  "license": "MIT",
+  "network": {
+    "hosts": []
+  }
+}

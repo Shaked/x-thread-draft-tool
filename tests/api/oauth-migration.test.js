@@ -98,7 +98,7 @@ describe('003_oauth.sql', () => {
 
   it('is additive and passes the destructive-statement lint', async () => {
     const files = (await readdir(MIGRATIONS_DIR)).filter((f) => f.endsWith('.sql')).sort()
-    expect(files).toEqual(['001_init.sql', '002_api_tokens.sql', '003_oauth.sql', '004_mcp_rate.sql', '005_draft_version.sql', '006_token_cap.sql', '007_share_expiry.sql', '008_revoked_sessions.sql', '009_admin.sql', '010_metrics.sql', '011_ops_events.sql'])
+    expect(files).toEqual(['001_init.sql', '002_api_tokens.sql', '003_oauth.sql', '004_mcp_rate.sql', '005_draft_version.sql', '006_token_cap.sql', '007_share_expiry.sql', '008_revoked_sessions.sql', '009_admin.sql', '010_metrics.sql', '011_ops_events.sql', '012_admin_flags.sql'])
 
     for (const file of files) {
       const sql = await readFile(path.join(MIGRATIONS_DIR, file), 'utf8')
@@ -107,7 +107,7 @@ describe('003_oauth.sql', () => {
   })
 
   it('applies cleanly on PGlite, is idempotent, and creates the OAuth tables', async () => {
-    expect(firstRun.applied).toEqual(['001_init.sql', '002_api_tokens.sql', '003_oauth.sql', '004_mcp_rate.sql', '005_draft_version.sql', '006_token_cap.sql', '007_share_expiry.sql', '008_revoked_sessions.sql', '009_admin.sql', '010_metrics.sql', '011_ops_events.sql'])
+    expect(firstRun.applied).toEqual(['001_init.sql', '002_api_tokens.sql', '003_oauth.sql', '004_mcp_rate.sql', '005_draft_version.sql', '006_token_cap.sql', '007_share_expiry.sql', '008_revoked_sessions.sql', '009_admin.sql', '010_metrics.sql', '011_ops_events.sql', '012_admin_flags.sql'])
 
     const second = await applyMigrations(query)
     expect(second.applied).toEqual([])

@@ -46,14 +46,14 @@ describe('buildMessage: the four kinds', () => {
     const msg = buildMessage('live', { sha: SHA, title: 'Fix the thing' })
     expect(msg.html).toBe(
       [
-        `✅ <b><a href="${PROD_URL}">Production is live and tested</a></b>`,
+        `✅ <b>Thread Draft</b> · <a href="${PROD_URL}">Production is live and tested</a>`,
         '<code>a11392e</code> Fix the thing',
         `<a href="${PROD_URL}">Open production</a> · <a href="${COMMIT_URL}">Commit a11392e</a>`,
       ].join('\n'),
     )
     expect(msg.plain).toBe(
       [
-        `✅ Production is live and tested: ${PROD_URL}`,
+        `✅ Thread Draft · Production is live and tested: ${PROD_URL}`,
         'a11392e Fix the thing',
         `Open production: ${PROD_URL} · Commit a11392e: ${COMMIT_URL}`,
       ].join('\n'),
@@ -66,7 +66,7 @@ describe('buildMessage: the four kinds', () => {
     const msg = buildMessage('failed', { sha: SHA, title: 'Fix the thing', runUrl: RUN_URL })
     expect(msg.html).toBe(
       [
-        `🚨 <b><a href="${RUN_URL}">Production smoke test failed</a></b>`,
+        `🚨 <b>Thread Draft</b> · <a href="${RUN_URL}">Production smoke test failed</a>`,
         '<code>a11392e</code> Fix the thing',
         'Production runs this commit, and its smoke test failed or did not run.',
         'Needs you: open the run and read the first failed step.',
@@ -79,7 +79,7 @@ describe('buildMessage: the four kinds', () => {
     const msg = buildMessage('preview', { title: 'Try the drafts', url: PR_URL })
     expect(msg.html).toBe(
       [
-        `👀 <b><a href="${PREVIEW_URL}">Try it on preview</a></b>`,
+        `👀 <b>Thread Draft</b> · <a href="${PREVIEW_URL}">Try it on preview</a>`,
         'Try the drafts',
         'Needs you: try the change on preview.',
         `<a href="${PR_URL}">PR #12 on GitHub</a>`,
@@ -98,12 +98,12 @@ describe('buildMessage: the four kinds', () => {
   it('owner: needs you, with the issue link', () => {
     const msg = buildMessage('owner', { title: 'Pick a colour', url: ISSUE_URL })
     expect(msg.html).toBe(
-      [`🙋 <b><a href="${ISSUE_URL}">An issue needs you</a></b>`, 'Pick a colour', 'Needs you: open it and answer or do what it asks.'].join('\n'),
+      [`🙋 <b>Thread Draft</b> · <a href="${ISSUE_URL}">An issue needs you</a>`, 'Pick a colour', 'Needs you: open it and answer or do what it asks.'].join('\n'),
     )
     expect(msg.plain).toBe(
-      [`🙋 An issue needs you: ${ISSUE_URL}`, 'Pick a colour', 'Needs you: open it and answer or do what it asks.'].join('\n'),
+      [`🙋 Thread Draft · An issue needs you: ${ISSUE_URL}`, 'Pick a colour', 'Needs you: open it and answer or do what it asks.'].join('\n'),
     )
-    expect(buildMessage('owner', { title: 'T', url: PR_URL }).html.split('\n')[0]).toBe(`🙋 <b><a href="${PR_URL}">A PR needs you</a></b>`)
+    expect(buildMessage('owner', { title: 'T', url: PR_URL }).html.split('\n')[0]).toBe(`🙋 <b>Thread Draft</b> · <a href="${PR_URL}">A PR needs you</a>`)
   })
 
   it('returns null for an unknown kind', () => {
@@ -122,10 +122,10 @@ describe('buildMessage: cleanup review (epic #255, task C3)', () => {
     const msg = buildMessage('cleanup', { title: 'Remove duplicate tests', url: PR_URL, body: PR_BODY })
     const needs = 'Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR.'
     expect(msg.html).toBe(
-      [`🧹 <b><a href="${PR_URL}">Cleanup review ready</a></b>`, 'Remove duplicate tests', 'What it removes: Drop two duplicate parser tests', needs].join('\n'),
+      [`🧹 <b>Thread Draft</b> · <a href="${PR_URL}">Cleanup review ready</a>`, 'Remove duplicate tests', 'What it removes: Drop two duplicate parser tests', needs].join('\n'),
     )
     expect(msg.plain).toBe(
-      [`🧹 Cleanup review ready: ${PR_URL}`, 'Remove duplicate tests', 'What it removes: Drop two duplicate parser tests', needs].join('\n'),
+      [`🧹 Thread Draft · Cleanup review ready: ${PR_URL}`, 'Remove duplicate tests', 'What it removes: Drop two duplicate parser tests', needs].join('\n'),
     )
   })
 
@@ -159,8 +159,8 @@ describe('buildMessage: cleanup review (epic #255, task C3)', () => {
   it('cleanup-started: the headline links to the issue, then the title and what the agent does', () => {
     const msg = buildMessage('cleanup-started', { title: 'Cleanup review 2026-11-20', url: ISSUE_URL, body: 'Summary: ignored' })
     const nothing = 'An agent reviews the commits since the last review and opens up to three PRs.'
-    expect(msg.html).toBe([`🧹 <b><a href="${ISSUE_URL}">Cleanup review started</a></b>`, 'Cleanup review 2026-11-20', nothing].join('\n'))
-    expect(msg.plain).toBe([`🧹 Cleanup review started: ${ISSUE_URL}`, 'Cleanup review 2026-11-20', nothing].join('\n'))
+    expect(msg.html).toBe([`🧹 <b>Thread Draft</b> · <a href="${ISSUE_URL}">Cleanup review started</a>`, 'Cleanup review 2026-11-20', nothing].join('\n'))
+    expect(msg.plain).toBe([`🧹 Thread Draft · Cleanup review started: ${ISSUE_URL}`, 'Cleanup review 2026-11-20', nothing].join('\n'))
   })
 
   it('summaryLine reads only the first line, after "Summary:"', () => {
@@ -238,6 +238,22 @@ describe('messageFromEnv', () => {
   it('builds the message from the environment values', () => {
     const msg = messageFromEnv({ NOTIFY_KIND: 'failed', NOTIFY_SHA: SHA, NOTIFY_TITLE: 'T', NOTIFY_RUN_URL: RUN_URL })
     expect(msg.html).toContain(`href="${RUN_URL}"`)
+  })
+
+  it('builds a metrics alert from the environment: the headline links /admin/metrics of the app named in the environment', () => {
+    const env = {
+      NOTIFY_KIND: 'metrics',
+      NOTIFY_HEADLINE: 'Metrics alert: the database is nearly full',
+      NOTIFY_NUMBER_LINE: 'Capacity: the database is 701 MB. The limit is 700 MB (0 % over), since 2026-11-26 12:30 UTC.',
+      NOTIFY_CAUSE_LINE: 'Likely cause: not known yet.',
+      NOTIFY_ACTION_LINE: 'Needs you: open the page, then free space or decide on the Neon plan.',
+      TELEGRAM_APP_NAME: 'Recipe Box',
+      TELEGRAM_APP_SITE_URL: 'https://recipe-box.example.com',
+    }
+    const lines = messageFromEnv(env).html.split('\n')
+    expect(lines).toHaveLength(4)
+    expect(lines[0]).toBe('🚨 <b>Recipe Box</b> · <a href="https://recipe-box.example.com/admin/metrics">Metrics alert: the database is nearly full</a>')
+    expect(lines[3]).toBe('Needs you: open the page, then free space or decide on the Neon plan.')
   })
 
   it('returns null for an unknown kind', () => {
@@ -349,13 +365,13 @@ describe('speed alert shape (task M7, #446)', () => {
   it('is the golden text: emoji and headline with the gate link, number, cause, two links', () => {
     const msg = buildMessage('speed', data)
     expect(msg.html).toBe([
-      '🐢 <b><a href="https://github.com/owner/repo/issues/9">Delivery is slower than its limit: CI checks and the total</a></b>',
+      '🐢 <b>Thread Draft</b> · <a href="https://github.com/owner/repo/issues/9">Delivery is slower than its limit: CI checks and the total</a>',
       'This merge took 3 min 38 s in CI checks. The limit is 2 min 30 s (45 % over), since 2026-11-24 14:10 UTC (7 in a row).',
       'Likely cause: Fonts took 1 min 10 s against a usual 20 s.',
       '<a href="https://github.com/owner/repo/actions/runs/42">Speed table</a> · <a href="https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions">What the stages mean</a>',
     ].join('\n'))
     expect(msg.plain).toBe([
-      '🐢 Delivery is slower than its limit: CI checks and the total: https://github.com/owner/repo/issues/9',
+      '🐢 Thread Draft · Delivery is slower than its limit: CI checks and the total: https://github.com/owner/repo/issues/9',
       'This merge took 3 min 38 s in CI checks. The limit is 2 min 30 s (45 % over), since 2026-11-24 14:10 UTC (7 in a row).',
       'Likely cause: Fonts took 1 min 10 s against a usual 20 s.',
       'Speed table: https://github.com/owner/repo/actions/runs/42 · What the stages mean: https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions',
@@ -371,12 +387,40 @@ describe('speed alert shape (task M7, #446)', () => {
 
   it('keeps at most two links, and drops a link that is not https', () => {
     const msg = buildMessage('speed', { ...data, url: 'http://example.com', links: [...data.links, ['Third', 'https://x.example']] })
-    expect(msg.html.split('\n')[0]).toBe('🐢 <b>Delivery is slower than its limit: CI checks and the total</b>')
+    expect(msg.html.split('\n')[0]).toBe('🐢 <b>Thread Draft</b> · Delivery is slower than its limit: CI checks and the total')
     expect(msg.html.split('\n').at(-1)).not.toContain('Third')
   })
 
   it('escapes the headline', () => {
     const msg = buildMessage('speed', { ...data, headline: 'Smoke <b>', causeLine: 'Likely cause: not known yet.' })
-    expect(msg.html.startsWith('🐢 <b><a href="https://github.com/owner/repo/issues/9">Smoke &lt;b&gt;</a></b>')).toBe(true)
+    expect(msg.html.startsWith('🐢 <b>Thread Draft</b> · <a href="https://github.com/owner/repo/issues/9">Smoke &lt;b&gt;</a>')).toBe(true)
+  })
+})
+
+describe('CLI exit code (#338)', () => {
+  const run = async (env) => {
+    const { spawnSync } = await import('node:child_process')
+    // fetch is replaced by a stub that answers 500, so nothing leaves the machine and no secret is real.
+    const stub = 'data:text/javascript,globalThis.fetch=async()=>({ok:false,status:500,json:async()=>({})})'
+    return spawnSync(process.execPath, ['--import', stub, 'scripts/notify-telegram.mjs'], {
+      env: { PATH: process.env.PATH, NOTIFY_KIND: 'owner', NOTIFY_TITLE: 'T', NOTIFY_URL: 'https://github.com/a/b/issues/1', TELEGRAM_BOT_TOKEN: '1:FAKE', TELEGRAM_CHAT_ID: '2', ...env },
+      encoding: 'utf8',
+    })
+  }
+
+  it('exits 0 on a failed send by default, and 1 with NOTIFY_FAIL_ON_ERROR=1', async () => {
+    const a = await run({})
+    expect(a.stdout).toContain('notify failed: HTTP 500')
+    expect(a.status).toBe(0)
+    const b = await run({ NOTIFY_FAIL_ON_ERROR: '1' })
+    expect(b.stdout).toContain('notify failed: HTTP 500')
+    expect(b.status).toBe(1)
+    expect(`${b.stdout}${b.stderr}`).not.toContain('1:FAKE')
+  })
+
+  it('exits 0 when the secrets are missing, even with NOTIFY_FAIL_ON_ERROR=1', async () => {
+    const c = await run({ NOTIFY_FAIL_ON_ERROR: '1', TELEGRAM_BOT_TOKEN: '' })
+    expect(c.stdout).toContain('notify skipped')
+    expect(c.status).toBe(0)
   })
 })

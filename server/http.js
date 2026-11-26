@@ -1,8 +1,10 @@
 export class HttpError extends Error {
-  constructor(status, message) {
+  // `code` is an optional machine-readable reason (for example 'sign_in_again'); it rides in the JSON body next to `error`.
+  constructor(status, message, code) {
     super(message)
     this.name = 'HttpError'
     this.status = status
+    if (code !== undefined) this.code = code
   }
 }
 
@@ -17,8 +19,8 @@ export function json(data, status = 200, headers = {}) {
   })
 }
 
-export function error(status, message) {
-  return json({ error: message }, status)
+export function error(status, message, code) {
+  return json(code === undefined ? { error: message } : { error: message, code }, status)
 }
 
 export function parseCookies(request) {

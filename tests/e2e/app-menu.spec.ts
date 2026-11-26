@@ -17,6 +17,7 @@ let token = ''
 let draftId = ''
 let login = ''
 let adminToken = ''
+let adminCookie = '' // the admin area needs the browser session with the admin role (#482)
 
 test.beforeAll(async () => {
   api = await playwrightRequest.newContext({ baseURL: BASE })
@@ -25,6 +26,9 @@ test.beforeAll(async () => {
   expect(signedIn.ok()).toBeTruthy()
   token = (await signedIn.json()).token as string
   adminToken = (await (await api.post('/api/dev/token', { data: { login: `${login}-admin`, admin: true } })).json()).token as string
+  const adminSession = await api.post('/api/dev/session', { data: { login: `${login}-admin`, admin: true } })
+  adminCookie = adminSession.headersArray().find((h) => h.name.toLowerCase() === 'set-cookie')?.value.match(/xt_session=([^;]+)/)?.[1] ?? ''
+  expect(adminCookie).toBeTruthy()
   const posts = Array.from({ length: 8 }, (_, i) => ({ id: `p${i + 1}`, text: `Post ${i + 1} for the menu check.`, images: [], embeddedTweet: null }))
   const created = await api.post('/api/drafts', { headers: { authorization: `Bearer ${token}` }, data: { title: 'Menu check', posts } })
   expect(created.ok()).toBeTruthy()
@@ -332,22 +336,24 @@ test('API tokens page at 390 px: no horizontal overflow, a 44 px Create button, 
   }
 })
 
-// The changelog page (settings-menu.md Task 6): reached from the drawer, paged, readable in both themes.
+// The changelog page (settings-menu.md Task 6): reached from the drawer through Admin, paged, readable in both themes.
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
 
 for (const size of SIZES) {
   for (const theme of ['light', 'dark'] as const) {
     test(`changelog at ${size.name} px, ${theme}: opens from the drawer, Show older, no overflow, readable text`, async ({ browser }) => {
-      const { context, page } = await open(browser, size, { bearer: adminToken })
+      const { context, page } = await open(browser, size, { cookie: adminCookie })
       try {
         if (theme === 'dark') await page.addInitScript(() => localStorage.setItem('xt-theme', 'dark'))
         await page.goto(`${BASE}/`)
         await page.getByRole('heading', { name: 'Your Threads' }).waitFor()
+        // The changelog lives inside the admin (#551): the drawer's one Admin link, then the admin menu.
         await openMenu(page)
-        await drawer(page).getByRole('link', { name: 'Changelog', exact: true }).click()
-        await expect(page).toHaveURL(/\/changelog$/)
+        await drawer(page).getByRole('link', { name: 'Admin', exact: true }).click()
         await expect(drawer(page)).toHaveCount(0)
-        await expect(page.getByRole('heading', { name: 'Changelog', level: 1 })).toBeVisible()
+        await page.getByRole('navigation', { name: 'Admin pages' }).getByRole('link', { name: 'Changelog', exact: true }).click()
+        await expect(page).toHaveURL(/\/admin\/changelog$/)
+        await expect(page.getByRole('heading', { name: 'Changelog', level: 2 })).toBeVisible()
 
         const entries = page.locator('article')
         await expect(entries.first()).toBeVisible()
@@ -371,8 +377,9 @@ for (const size of SIZES) {
           const page = getComputedStyle(document.body).backgroundColor
           return {
             entry: ratio(colour(entry.querySelector('p') ?? entry, 'color'), colour(entry, 'backgroundColor')),
-            day: ratio(colour(document.querySelector('.ui-section h2'), 'color'), page),
-            version: ratio(colour(document.querySelector('.ui-page-header__subtitle'), 'color'), page)
+            // The first h2 is the Changelog section itself; the second is the first day.
+            day: ratio(colour(document.querySelectorAll('.ui-section h2')[1], 'color'), page),
+            version: ratio(colour(document.querySelector('.ui-section__description'), 'color'), page)
           }
         })
         for (const [name, value] of Object.entries(ratios)) expect(value, name).toBeGreaterThanOrEqual(4.5)
@@ -389,9 +396,17 @@ for (const size of SIZES) {
         expect(await overflows(page)).toBe(false)
 
         // The last entry is not covered by the bottom bar once the page is scrolled to its end.
+        // An entry with no Area sits in the closed "Earlier changes" fold of its day: a reader opens the fold to see it,
+        // so the check opens it too (a closed fold is not on screen and would make this check meaningless).
+        await entries.last().evaluate((el) => {
+          const fold = el.closest('details')
+          if (fold) fold.open = true
+        })
         await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-        const clear = await entries.last().evaluate((el) => {
-          const r = el.getBoundingClientRect()
+        // The last entry that is shown: a day can fold older entries into a closed <details>, whose articles are in the DOM but hidden.
+        const clear = await page.evaluate(() => {
+          const shown = [...document.querySelectorAll('article')].filter((el) => el.checkVisibility())
+          const r = shown[shown.length - 1].getBoundingClientRect()
           return !!document.elementFromPoint(r.left + r.width / 2, r.bottom - 6)?.closest('article')
         })
         expect(clear).toBe(true)
@@ -404,13 +419,38 @@ for (const size of SIZES) {
 
 for (const size of SIZES) {
   test(`About links to the changelog ("See what changed") at ${size.name} px`, async ({ browser }) => {
-    const { context, page } = await open(browser, size, { bearer: adminToken })
+    const { context, page } = await open(browser, size, { cookie: adminCookie })
     try {
       await page.goto(`${BASE}/about`)
       await expect(page.getByRole('heading', { name: 'About', level: 1 })).toBeVisible()
       await page.getByRole('link', { name: 'See what changed' }).click()
-      await expect(page).toHaveURL(/\/changelog$/)
-      await expect(page.getByRole('heading', { name: 'Changelog', level: 1 })).toBeVisible()
+      await expect(page).toHaveURL(/\/admin\/changelog$/)
+      await expect(page.getByRole('heading', { name: 'Changelog', level: 2 })).toBeVisible()
+    } finally {
+      await context.close()
+    }
+  })
+}
+
+// The app menu has one admin entry for the admin, "Admin" to /admin, and nothing else of the admin (#551). Real session, real API.
+for (const size of SIZES) {
+  test(`admin at ${size.name} px: the drawer has exactly one admin link, Admin, and it opens the admin area`, async ({ browser }) => {
+    const { context, page } = await open(browser, size, { cookie: adminCookie })
+    try {
+      await page.goto(`${BASE}/`)
+      await expect(page.getByRole('heading', { name: 'Your Threads' })).toBeVisible()
+      await openMenu(page)
+      const adminLinks = drawer(page).locator('a[href^="/admin"]')
+      await expect(adminLinks).toHaveCount(1)
+      await expect(adminLinks).toHaveAttribute('href', '/admin')
+      await expect(adminLinks).toHaveText('Admin')
+      for (const name of ['Changelog', 'Admin area', 'Feature flags', 'Metrics', 'Users', 'Audit log', 'Statistics']) {
+        await expect(drawer(page).getByText(name, { exact: true }), name).toHaveCount(0)
+      }
+      await expect(drawer(page).getByRole('heading', { name: 'Admin' })).toHaveCount(0)
+      await adminLinks.click()
+      await expect(page).toHaveURL(/\/admin$/)
+      await expect(page.getByRole('navigation', { name: 'Admin pages' })).toBeVisible()
     } finally {
       await context.close()
     }
@@ -428,8 +468,30 @@ for (const size of SIZES) {
       await page.goto(`${BASE}/changelog`)
       await expect(page.getByRole('heading', { name: 'Your Threads' })).toBeVisible()
       expect(new URL(page.url()).pathname).toBe('/')
+      await page.goto(`${BASE}/admin/changelog`)
+      await expect(page.getByRole('heading', { name: 'Your Threads' })).toBeVisible()
+      expect(new URL(page.url()).pathname).toBe('/')
       await openMenu(page)
       await expect(drawer(page).getByRole('link', { name: 'Changelog', exact: true })).toHaveCount(0)
+      // No admin entry at all for a normal user (#551).
+      await expect(drawer(page).locator('a[href^="/admin"]')).toHaveCount(0)
+      await expect(drawer(page).getByText('Admin', { exact: true })).toHaveCount(0)
+    } finally {
+      await context.close()
+    }
+  })
+}
+
+// Signed out, both changelog addresses are unknown: they go to the start page (#484).
+for (const size of SIZES) {
+  test(`signed out at ${size.name} px: /changelog and /admin/changelog go to the start page`, async ({ browser }) => {
+    const context: BrowserContext = await browser.newContext({ viewport: size, serviceWorkers: 'block' })
+    const page = await context.newPage()
+    try {
+      for (const path of ['/changelog', '/admin/changelog']) {
+        await page.goto(`${BASE}${path}`)
+        await page.waitForURL((url) => url.pathname === '/')
+      }
     } finally {
       await context.close()
     }

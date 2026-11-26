@@ -16,11 +16,13 @@ const EXCLUDED = {
   '/tokens/:id': 'S-5: a person creates and revokes credentials on the Settings page',
   '/grants': 'S-5: a person disconnects apps on the Settings page',
   '/grants/:id': 'S-5: a person disconnects apps on the Settings page',
+  'DELETE /images': '#412: the image edit tools delete the files in the same route; a REST client deletes one file by URL',
   'POST /images': 'D-5: raw image bytes are not sent through MCP (use add_image_from_url)',
   'GET /share/:token': 'Public one-time read; the link is the product, not a tool',
   'GET /openapi.json': 'Documentation, not a user function',
   'GET /health': 'Health check, not a user function',
   'POST /ops/events': 'Metrics ingest from the metrics-daily workflow (GitHub OIDC), not a user function',
+  'POST /ops/metrics-daily': 'Daily metrics step from the metrics-daily workflow (GitHub OIDC), not a user function',
   'GET /mcp/ui-manifest': 'Deploy check: view hashes for the production smoke step, not a user function',
   'POST /mcp': 'The MCP endpoint itself',
 }
