@@ -5,6 +5,10 @@ deploys, speed stages and production errors, and answers with a plain-line summa
 
 - **Skill `metrics-emit`**: how a repository joins the service (one line on its source list), the event shape
   (version 1) and its caps, what never goes into an event, the rollup pattern for a web app's own numbers, and the dry run.
+- **Skill `metrics-read-act`**: read the service's summary in plain lines, what counts as a problem, how to find one
+  cause, how to open an issue with the numbers (template `templates/finding-issue.md`), how to report. It never
+  changes a limit.
+- **Script `scripts/finding-check.mjs`**: checks an issue body against that template.
 - **Script `scripts/metrics-config.mjs`**: prints and checks the project's four values. Exit 1 when one is missing,
   exit 2 when the file is broken.
 
