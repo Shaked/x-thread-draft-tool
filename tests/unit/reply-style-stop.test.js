@@ -1,12 +1,13 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { decide } from '../../scripts/reply-style-stop.mjs'
 
 const golden = (p) => readFileSync(new URL(`./fixtures/reply-lint/golden/${p}`, import.meta.url), 'utf8')
 const OWNER = { REPLY_STYLE: 'owner' }
-const SCRIPT = new URL('../../scripts/reply-style-stop.mjs', import.meta.url).pathname
+const SCRIPT = fileURLToPath(new URL('../../scripts/reply-style-stop.mjs', import.meta.url))
 
 describe('reply-style Stop hook (no model)', () => {
   it('lets a good reply end the turn', () => {
