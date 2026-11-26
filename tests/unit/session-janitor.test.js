@@ -200,6 +200,8 @@ describe('edge cases from the review', () => {
   it('does not propose to archive a completed session that another finding names', () => {
     const old = edit('session_nohand', { updated_at: '2026-11-10T00:00:00Z' })
     expect(run(old).find((f) => f.kind === 'stale' && f.sessions[0] === 'session_nohand').action).toContain('Not yet')
+    const dup = edit('session_dupb', { status_bucket: 'completed', updated_at: '2026-11-10T00:00:00Z' })
+    expect(run(dup).find((f) => f.kind === 'stale' && f.sessions[0] === 'session_dupb').action).toContain('Not yet')
   })
 
   it('keeps session ids and paths in quoted text, and masks keys and URL passwords', () => {

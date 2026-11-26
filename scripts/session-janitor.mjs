@@ -243,14 +243,12 @@ function checkStale(c, s, issue, named) {
 
 function checkSession(c, s) {
   const found = [...c.matches.get(s.id).keys()].sort((a, b) => a - b)
-  const before = c.count()
-  const stuck = checkStuck(c, s, found[0] ?? null)
+  if (checkStuck(c, s, found[0] ?? null)) c.stuck.add(s.id)
   if (!found.length) checkOrphan(c, s)
   for (const n of found.filter((k) => c.byNum.get(k).state === 'open')) {
     checkDone(c, s, n)
     checkReview(c, s, n)
   }
-  if (!stuck) checkStale(c, s, found[0] ?? null, c.count() > before)
 }
 
 // Two or more sessions (the dispatcher left out) match one open issue.
@@ -309,13 +307,18 @@ export function analyzeSessions(sessionsDoc, snapshot, { today, comments = {}, p
     pulls,
     reviewHours,
     staleDays,
-    count: () => out.length,
+    stuck: new Set(),
     add: (kind, ids, issue, evidence, action, act = 'dispatcher') => out.push({ kind, sessions: ids, issue, evidence, action, act })
   })
   for (const s of c.workers) checkSession(c, s)
   checkDuplicateSessions(c, c.workers)
   checkClaims(c, c.parents)
   checkDuplicateIssues(c, snapshot, c.workers)
+  // Last: a completed session is "can be archived" only when no other finding names it.
+  for (const s of c.workers.filter((x) => !c.stuck.has(x.id))) {
+    const first = [...c.matches.get(s.id).keys()].sort((a, b) => a - b)[0] ?? null
+    checkStale(c, s, first, out.some((f) => f.sessions.includes(s.id)))
+  }
   const rank = new Map(KINDS.map(([k], i) => [k, i]))
   return out.sort((a, b) => rank.get(a.kind) - rank.get(b.kind) || (a.issue ?? 0) - (b.issue ?? 0) || String(a.sessions[0]).localeCompare(String(b.sessions[0])))
 }
