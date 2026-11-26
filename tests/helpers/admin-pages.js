@@ -12,6 +12,12 @@ export function adminPages() {
   const entries = [...layout.matchAll(/\{ path: '([^']*)', label:/g)].map((m) => (m[1] ? `/admin/${m[1]}` : '/admin'))
   const own = [...layout.matchAll(/<Route path="([^"*]+)"/g)].map((m) => `/admin/${m[1]}`)
   const app = readSrc('src/App.jsx')
-  const gated = [...app.matchAll(/isAdmin\(user\) && \(?\s*<Route\s+path="([^"]+)"/g)].map((m) => m[1].replace(/\/\*$/, ''))
-  return [...new Set([...gated.filter((p) => p !== '/admin'), ...entries, ...own])].sort()
+  // Every admin address written in App.jsx (any attribute order, any quote, any case), and the path of every route that mounts AdminLayout.
+  const written = [...app.matchAll(/['"](\/admin[^'"]*|\/changelog[^'"]*)['"]/gi)].map((m) => m[1].replace(/\/\*$/, ''))
+  const mounts = [...app.matchAll(/<AdminLayout\b/g)].map((m) => {
+    const before = [...app.slice(0, m.index).matchAll(/path=['"]([^'"]+)['"]/g)].at(-1)
+    return before ? before[1].replace(/\/\*$/, '') : '(no path)'
+  })
+  const gated = [...written, ...mounts]
+  return [...new Set([...gated, ...entries, ...own])].sort()
 }

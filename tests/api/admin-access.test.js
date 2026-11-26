@@ -117,7 +117,7 @@ describe('the access table has a row for every admin route, tool and page', () =
     expect(Object.keys(REST_ROWS).sort()).toEqual(fromCode)
   })
 
-  it('every route that uses requireAdminUser is adminOnly, and every file that names it is known', () => {
+  it('every route that uses requireAdminUser is adminOnly, and every file that names it is known', async () => {
     const serverFiles = (dir) => readdirSync(join(ROOT, dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? serverFiles(`${dir}/${e.name}`) : e.name.endsWith('.js') ? [`${dir}/${e.name}`] : []))
     const users = serverFiles('server').filter((f) => f !== 'server/admin/guard.js' && readSrc(f).includes('requireAdminUser'))
     // A new file here must add its routes to REST_ROWS and mark them adminOnly (so openapi.json leaves them out), then be added to this list.
@@ -129,6 +129,10 @@ describe('the access table has a row for every admin route, tool and page', () =
     // Every route of a file that names the guard is adminOnly too (a second route there is not left out by mistake).
     const changelog = ROUTES.filter((r) => String(r.handler) === String(guarded[0].handler) || r.path.startsWith('/changelog'))
     expect(changelog.filter((r) => r.adminOnly !== true).map((r) => `${r.method} ${r.path}`)).toEqual([])
+    // Every route that file exports is adminOnly, however its handler reaches the guard (a wrapper, an alias).
+    const exported = Object.values(await import('../../server/changelog.js')).flat().filter((v) => v && typeof v === 'object' && typeof v.path === 'string')
+    expect(exported.length).toBeGreaterThan(0)
+    expect(exported.filter((r) => r.adminOnly !== true).map((r) => `${r.method} ${r.path}`)).toEqual([])
   })
 
   it('has a row for every admin MCP tool, and no normal tool is an admin tool', () => {
@@ -143,8 +147,9 @@ describe('the access table has a row for every admin route, tool and page', () =
     // `isAdmin(user) &&` before it has no other <Route between. A computed path={...} is refused, since it cannot be read.
     const app = readSrc('src/App.jsx')
     expect(app).not.toMatch(/path=\{/)
-    const addresses = [...app.matchAll(/['"](\/admin[^'"]*|\/changelog[^'"]*)['"]/g)]
-    expect(addresses.length).toBeGreaterThan(1)
+    // Paths match without case in React Router, and the admin shell may be mounted at any path: both count.
+    const addresses = [...app.matchAll(/['"](\/admin[^'"]*|\/changelog[^'"]*)['"]/gi), ...[...app.matchAll(/<AdminLayout\b/g)].map((m) => Object.assign(['', '<AdminLayout />'], { index: m.index }))]
+    expect(addresses.length).toBeGreaterThan(2)
     for (const m of addresses) {
       const before = app.slice(0, m.index)
       const gate = before.lastIndexOf('isAdmin(user) &&')
