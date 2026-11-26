@@ -423,7 +423,7 @@ function summaryTop(findings, { counts, today, applied, pass1Findings, dispatche
     '## TL;DR',
     `The janitor matched ${plural(counts.inScope, 'session')} in scope with their issues: ${plural(findings.length, 'finding')}`
       + `${pass1Findings.length ? ` and ${pass1Findings.length} from pass 1` : ''}, ${plural(applied.length, 'fix', 'fixes')} applied (checked).`,
-    dispatcher ? `${plural(dispatcher, 'finding is', 'findings are')} for the dispatcher, in the table below.` : 'No finding is for the dispatcher.',
+    dispatcher ? `${plural(dispatcher, 'finding is', 'findings are')} for the dispatcher, listed below.` : 'No finding is for the dispatcher.',
     owner ? `You need to do ${owner} ${owner === 1 ? 'thing' : 'things'} (below).` : 'Nothing needed from you.',
     '',
     '## What you need to do'

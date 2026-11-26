@@ -7,7 +7,7 @@ Janitor report, <YYYY-MM-DD>: <n> sessions read in <n> pages, <n> in scope,
 
 ## TL;DR
 The janitor matched <n> sessions in scope with their issues: <n> findings, <n> fixes applied (checked).
-<"<n> findings are for the dispatcher, in the table below." or "No finding is for the dispatcher.">
+<"<n> findings are for the dispatcher, listed below." or "No finding is for the dispatcher.">
 <"Nothing needed from you." or "You need to do N things (below).">
 
 ## What you need to do

@@ -15,7 +15,7 @@ Janitor report, 2026-11-26: 14 sessions read in 1 page, 13 in scope,
 
 ## TL;DR
 The janitor matched 13 sessions in scope with their issues: 13 findings, 1 fix applied (checked).
-12 findings are for the dispatcher, in the table below.
+12 findings are for the dispatcher, listed below.
 Nothing needed from you.
 
 ## What you need to do
