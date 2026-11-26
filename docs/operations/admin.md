@@ -31,6 +31,8 @@ The browser app shows who is admin from `GET /api/auth/me`: `user.role` is `admi
 
 The changelog (`GET /api/changelog`, the `/admin/changelog` page and the `changelog` key of `app_version`) is admin only: `requireAdminUser` in `server/admin/guard.js` calls `roleOf` in `role.js`; everyone else gets the 404 of an unknown path (#368). The old `/changelog` page address redirects the admin to `/admin/changelog` (#484).
 
+The one access test is `tests/api/admin-access.test.js` (routes, MCP tools, bundle and text) with `tests/unit/admin-access-pages.test.jsx` (pages). It lists every admin route, tool and page from code and fails when a new one has no row. Add the row when you add the route, tool or page (#485).
+
 ## The ten tools
 
 The admin connection sees the twelve admin tools below. Nobody else sees any of them.
