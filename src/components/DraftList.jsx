@@ -90,16 +90,18 @@ export default function DraftList({ user }) {
     }
   }
 
-  // Runs after the user said yes (DeleteButton asks first).
+  // Runs after the user said yes (DeleteButton asks first). True when the draft was deleted.
   const deleteDraft = async (id) => {
     try {
       await draftsApi.remove(id)
 
       // Refresh lists
       loadDrafts()
+      return true
     } catch (err) {
       console.error('Error deleting draft:', err)
       toast({ message: 'Failed to delete draft: ' + err.message, tone: 'danger' })
+      return false
     }
   }
 

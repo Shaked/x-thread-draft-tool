@@ -9,6 +9,11 @@
  * the panel opens; logical (start/end) positions and a mirrored notch for right-to-left; the "kept" nudge is a
  * keyframe animation instead of a style-bound value; the panel fades without a sideways slide; the base focus
  * ring; ui-rare-* classes for the UI audit. Motion timings are upstream's; reduced motion makes them instant.
+ * Removed: the onCancel prop, className and the rest-props spread; the trigger and yes names come from props
+ * (upstream: "Delete" and "Confirm delete"). One open asks once: a second choice while the panel closes is
+ * ignored. onConfirm is awaited: while it runs the trigger is busy (aria-busy, presses ignored) and the bin stays;
+ * the check mark and "Deleted" come only after it succeeds; false or a rejection goes back to idle, silently
+ * (the caller reports the error), and the next press opens the panel again.
  */
 import { useEffect, useId, useRef, useState } from 'react'
 import { animate, AnimatePresence, motion, useMotionTemplate, useMotionValue, useReducedMotion, useTransform } from 'motion/react'
@@ -96,6 +101,10 @@ export default function DeleteButton({ label, question, description, confirmLabe
   const [size] = useState(() => ({ tile: tokenPx('--hit-min'), panel: 2 * tokenPx('--hit-min') + 3 * tokenPx('--space-1') }))
   const trigger = useRef(null)
   const cancel = useRef(null)
+  // One choice per open (a double press, or a press while the panel fades out, is ignored).
+  const settled = useRef(false)
+  // False once unmounted: the row is removed when the delete succeeds, before onConfirm's promise may settle.
+  const alive = useRef(true)
   const panelId = useId()
   const descriptionId = useId()
   const timing = (transition) => (reduced ? INSTANT : transition)
@@ -114,16 +123,33 @@ export default function DeleteButton({ label, question, description, confirmLabe
   }, [open])
 
   useEffect(() => {
-    if (status === 'idle') return
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (status === 'idle' || status === 'busy') return
     const done = setTimeout(() => setStatus('idle'), HOLD[status])
     return () => clearTimeout(done)
   }, [status])
 
-  const resolve = (next) => {
+  // `onConfirm` may return a promise. false or a rejection means the delete failed: back to idle, no "Deleted".
+  const resolve = async (next) => {
+    if (settled.current) return
+    settled.current = true
     setOpen(false)
-    setStatus(next)
     trigger.current?.focus()
-    if (next === 'deleted') onConfirm()
+    if (next === 'kept') return setStatus('kept')
+    setStatus('busy')
+    let ok = false
+    try {
+      ok = (await onConfirm()) !== false
+    } catch {
+      ok = false
+    }
+    if (alive.current) setStatus(ok ? 'deleted' : 'idle')
   }
 
   return (
@@ -144,8 +170,12 @@ export default function DeleteButton({ label, question, description, confirmLabe
         aria-label={label}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
+        aria-busy={status === 'busy' || undefined}
+        aria-disabled={status === 'busy' || undefined}
         onClick={() => {
+          if (status === 'busy') return
           if (open) return resolve('kept')
+          settled.current = false
           setStatus('idle')
           setOpen(true)
         }}

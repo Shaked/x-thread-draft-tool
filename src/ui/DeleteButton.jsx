@@ -7,6 +7,7 @@ import { useConfirm } from './Dialog'
 const RareDeleteButton = lazy(() => import('./rare/DeleteButton.jsx'))
 
 // A delete action that asks first. `confirm`: { title, body, confirmLabel }; `onConfirm` runs only after a yes.
+// It may return a promise; false (or a rejection) means the delete failed, and the Rare button goes back to idle.
 // Flag off (default): a danger-quiet Button and the confirm dialog. Flag on: Rare UI's two-step delete button,
 // whose panel asks the same question (named by `title`, described by `body`).
 export default function DeleteButton({ label, confirm, onConfirm }) {

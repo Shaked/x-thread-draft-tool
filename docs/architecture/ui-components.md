@@ -423,7 +423,7 @@ Some components have a second implementation behind the Components feature flag 
 |---|---|---|---|
 | `label` | string | required | The button's name ("Delete draft"). |
 | `confirm` | `{ title, body, confirmLabel }` | required | The question: the dialog's title, sentence and yes button (flag off), or the panel's name, description and yes button (flag on). |
-| `onConfirm` | function | required | Runs only after a yes. |
+| `onConfirm` | function | required | Runs only after a yes. May return a promise; `false` or a rejection means it failed (flag on: the button goes back to idle; the caller shows the error). |
 
-- States: flag off (default): a `danger-quiet` small Button that opens the confirm dialog (Cancel focused). Flag on: Rare UI's delete button: a 44 px bin; a press widens it into a panel with Cancel (focused) and the yes button, both 44 px; Escape or Cancel keeps; the lid and walls animate with motion, instant under reduced motion; mirrored in right-to-left. Loads in its own chunk; the Button shows until then.
+- States: flag off (default): a `danger-quiet` small Button that opens the confirm dialog (Cancel focused). Flag on: Rare UI's delete button: a 44 px bin; a press widens it into a panel with Cancel (focused) and the yes button, both 44 px; Escape or Cancel keeps; after yes the bin is busy (`aria-busy`) until `onConfirm` settles; the check mark and "Deleted" show only on success, a failure goes back to idle; the lid and walls animate with motion, instant under reduced motion; mirrored in right-to-left. Loads in its own chunk; the Button shows until then.
 - Example: `<DeleteButton label="Delete draft" confirm={{ title: 'Delete this draft?', body: 'Are you sure you want to delete this draft?', confirmLabel: 'Delete draft' }} onConfirm={remove} />`

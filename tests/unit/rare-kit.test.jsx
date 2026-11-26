@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import DeleteButton from '../../src/ui/DeleteButton.jsx'
@@ -15,6 +15,23 @@ const THEMES = [
 ]
 
 const CONFIRM = { title: 'Delete this draft?', body: 'Are you sure you want to delete this draft?', confirmLabel: 'Delete draft' }
+
+// A promise the test settles by hand, for a delete request still in flight.
+function pending() {
+  let settle
+  const promise = new Promise((resolve, reject) => {
+    settle = { resolve, reject }
+  })
+  return { promise, ...settle }
+}
+
+// Flag on: opens the Rare panel and returns the trigger and the panel's yes button.
+async function openRare(user) {
+  const trigger = await screen.findByRole('button', { name: 'Delete draft', expanded: false })
+  await user.click(trigger)
+  const panel = screen.getByRole('group', { name: 'Delete this draft?' })
+  return { trigger, yes: within(panel).getByRole('button', { name: 'Delete draft' }) }
+}
 
 function renderDelete(onConfirm) {
   return render(
@@ -84,5 +101,67 @@ describe('Rare UI components (feature flag)', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('dialog')).toBeNull()
     await act(async () => {})
+  })
+  it('DeleteButton with the flag on waits for the delete: busy, then Deleted only after it succeeds', async () => {
+    localStorage.setItem(KIT_KEY, 'rare')
+    const request = pending()
+    const onConfirm = vi.fn(() => request.promise)
+    const user = userEvent.setup()
+    renderDelete(onConfirm)
+    const { trigger, yes } = await openRare(user)
+    await user.click(yes)
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+    expect(trigger).toHaveAttribute('aria-busy', 'true')
+    expect(trigger).toHaveFocus()
+    expect(screen.getByRole('status')).toHaveTextContent('')
+    await user.click(trigger)
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('group')).toBeNull()
+    await act(async () => request.resolve(true))
+    expect(screen.getByRole('status')).toHaveTextContent('Deleted')
+    expect(trigger).not.toHaveAttribute('aria-busy')
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('DeleteButton with the flag on goes back to idle when the delete fails, and can try again', async () => {
+    localStorage.setItem(KIT_KEY, 'rare')
+    const onConfirm = vi.fn().mockResolvedValueOnce(false).mockRejectedValueOnce(new Error('offline'))
+    const user = userEvent.setup()
+    renderDelete(onConfirm)
+    let { trigger, yes } = await openRare(user)
+    await user.click(yes)
+    await act(async () => {})
+    expect(screen.getByRole('status')).toHaveTextContent('')
+    expect(trigger).not.toHaveAttribute('aria-busy')
+    ;({ yes } = await openRare(user))
+    await user.click(yes)
+    await act(async () => {})
+    expect(screen.getByRole('status')).toHaveTextContent('')
+    expect(onConfirm).toHaveBeenCalledTimes(2)
+  })
+
+  it('DeleteButton with the flag on deletes once for a double press on yes', async () => {
+    localStorage.setItem(KIT_KEY, 'rare')
+    const onConfirm = vi.fn(() => pending().promise)
+    const user = userEvent.setup()
+    renderDelete(onConfirm)
+    const { yes } = await openRare(user)
+    fireEvent.click(yes)
+    fireEvent.click(yes)
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('DeleteButton with the flag on does not update after it is removed during the delete', async () => {
+    localStorage.setItem(KIT_KEY, 'rare')
+    const request = pending()
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const user = userEvent.setup()
+    const { unmount } = renderDelete(() => request.promise)
+    const { yes } = await openRare(user)
+    await user.click(yes)
+    unmount()
+    await act(async () => request.resolve(true))
+    expect(errors).not.toHaveBeenCalled()
+    errors.mockRestore()
   })
 })
