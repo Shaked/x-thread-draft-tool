@@ -39,6 +39,12 @@ async function request(path, { method = 'GET', body, headers = {}, keepalive = f
 export const adminApi = {
   stats() {
     return request('/admin/stats', { headers: { 'x-xt-admin': '1' } }).then((data) => data.stats)
+  },
+  flags() {
+    return request('/admin/flags', { headers: { 'x-xt-admin': '1' } }).then((data) => data.flags)
+  },
+  setFlag(name, value) {
+    return request('/admin/flags', { method: 'POST', body: { name, value }, headers: { 'x-xt-admin': '1' } }).then((data) => data.flags)
   }
 }
 

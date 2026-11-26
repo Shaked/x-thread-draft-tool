@@ -58,11 +58,8 @@ export default function AppMenu() {
               <Button variant="ghost" fullWidth to="/settings/apps" onClick={close}>
                 Connected apps
               </Button>
-              <Button variant="ghost" fullWidth to="/settings/flags" onClick={close}>
-                Feature flags
-              </Button>
               {user?.admin === true && (
-                <Button variant="ghost" fullWidth to="/changelog" onClick={close}>
+                <Button variant="ghost" fullWidth to="/admin/changelog" onClick={close}>
                   Changelog
                 </Button>
               )}

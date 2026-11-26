@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { authApi } from './utils/api'
+import { adminApi, authApi } from './utils/api'
 import { CurrentUserContext, isAdmin } from './utils/currentUser'
 import LoginPage from './components/LoginPage'
 import DraftList from './components/DraftList'
@@ -9,10 +9,8 @@ import XThreadPreviewPage from './pages/XThreadPreviewPage'
 import TokensPage from './pages/TokensPage'
 import AppsPage from './pages/AppsPage'
 import AboutPage from './pages/AboutPage'
-import FlagsPage from './pages/FlagsPage'
-import ChangelogPage from './pages/ChangelogPage'
 import { applyTheme, getTheme } from './utils/theme'
-import { applySkin } from './utils/skin'
+import { allowFlags, forgetFlags, setKit, setSkin } from './utils/skin'
 import { clearCachedDrafts } from './utils/draftCache'
 import { ToastProvider } from './ui/Toast'
 import { ConfirmProvider } from './ui/Dialog'
@@ -26,14 +24,23 @@ function App() {
   const [suspended, setSuspended] = useState(() => new URLSearchParams(window.location.search).get('suspended') === '1')
   useEffect(() => {
     applyTheme(getTheme())
-    applySkin()
   }, [])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     authApi
       .me()
-      .then((res) => {
+      .then(async (res) => {
+        // The look flags are the admin's (#483): everyone else gets the default look. The admin's account choice is copied
+        // to this device before the first render, so the Rare components do not flash in.
+        allowFlags(isAdmin(res.user))
+        if (!isAdmin(res.user)) forgetFlags()
+        if (isAdmin(res.user)) {
+          const flags = await adminApi.flags().catch(() => null)
+          const valueOf = (name) => flags?.find((flag) => flag.name === name)?.value
+          if (valueOf('look')) setSkin(valueOf('look'))
+          if (valueOf('components')) setKit(valueOf('components'))
+        }
         setUser(res.user ?? null)
         if (res.suspended === true) setSuspended(true)
         // Nobody is signed in (a session that ended elsewhere, such as the consent page's sign-out): no
@@ -42,6 +49,7 @@ function App() {
       })
       .catch((err) => {
         console.error('Failed to load session:', err)
+        allowFlags(false)
         setUser(null)
       })
       .finally(() => setLoading(false))
@@ -85,15 +93,11 @@ function App() {
             element={user ? <AppsPage /> : <LoginPage suspended={suspended} />}
           />
           <Route
-            path="/settings/flags"
-            element={user ? <FlagsPage /> : <LoginPage suspended={suspended} />}
-          />
-          <Route
             path="/about"
             element={user ? <AboutPage /> : <LoginPage suspended={suspended} />}
           />
-          {/* Admin only (#368): for anyone else this path is unknown, so the catch-all below answers it. */}
-          {user?.admin === true && <Route path="/changelog" element={<ChangelogPage />} />}
+          {/* Admin only (#484): the changelog moved under /admin. For anyone else this path is unknown, so the catch-all below answers it. */}
+          {isAdmin(user) && <Route path="/changelog" element={<Navigate to="/admin/changelog" replace />} />}
           {/* Admin only (#482): for anyone else this path is unknown, so the catch-all below answers it. */}
           {isAdmin(user) && (
             <Route

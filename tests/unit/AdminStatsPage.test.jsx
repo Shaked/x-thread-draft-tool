@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import AdminLayout from '../../src/pages/admin/AdminLayout.jsx'
 import App from '../../src/App.jsx'
@@ -45,6 +46,30 @@ describe('admin shell', () => {
     for (const name of ['Metrics', 'Feature flags', 'Changelog', 'Users', 'Audit log']) {
       expect(screen.getByRole('link', { name })).toBeInTheDocument()
     }
+  })
+
+  it('the Changelog entry opens the changelog inside the admin shell (#484)', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      const path = String(url)
+      if (path === '/api/auth/me') return { ok: true, json: async () => ({}) }
+      if (path === '/api/admin/stats') return { ok: true, json: async () => ({ stats: STATS }) }
+      if (path.startsWith('/api/changelog?')) {
+        return { ok: true, json: async () => ({ entries: [{ id: '20261125-100000-shell', date: '2026-11-25T10:00:00Z', title: 'Shell change', summary: 'Shown in the admin shell.', area: 'Admin' }], next: null }) }
+      }
+      return { ok: false, status: 404, json: async () => ({}) }
+    }))
+    render(
+      <MemoryRouter initialEntries={['/admin']}>
+        <Routes>
+          <Route path="/admin/*" element={<AdminLayout />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await user.click(await screen.findByRole('link', { name: 'Changelog' }))
+    expect(await screen.findByText('Shown in the admin shell.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Changelog', level: 2 })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Changelog' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('shows Coming soon for a page that is not built yet', async () => {

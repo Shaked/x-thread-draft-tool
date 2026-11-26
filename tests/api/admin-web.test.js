@@ -92,6 +92,8 @@ const CASES = [
   ['GET', '/admin/audit'],
   ['GET', '/admin/metrics'],
   ['GET', '/admin/metrics/series?name=requests'],
+  ['GET', '/admin/flags'],
+  ['POST', '/admin/flags', {}],
   ['POST', `/admin/users/${NIL}/suspend`, {}],
   ['POST', `/admin/users/${NIL}/unsuspend`, {}],
   ['POST', `/admin/users/${NIL}/delete`, {}]

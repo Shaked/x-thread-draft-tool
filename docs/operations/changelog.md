@@ -1,7 +1,7 @@
 # Changelog entries
 
 Every PR adds one file, `docs/changelogs/<UTC YYYYMMDD-HHMMSS>-<slug>.md` (`AGENTS.md`). The build reads the files into
-`server/generated/changelog.js` (`scripts/build-info.mjs`). The admin sees them on the `/changelog` page and in the
+`server/generated/changelog.js` (`scripts/build-info.mjs`). The admin sees them on the `/admin/changelog` page (#484) and in the
 `app_version` tool. Both show the title and the first three lines, cut at 280 characters.
 
 ## How to write an entry

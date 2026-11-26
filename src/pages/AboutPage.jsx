@@ -110,7 +110,7 @@ export default function AboutPage() {
 
         {user?.admin === true && (
           <Inline>
-            <Button variant="secondary" to="/changelog">
+            <Button variant="secondary" to="/admin/changelog">
               See what changed
             </Button>
           </Inline>
