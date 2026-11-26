@@ -9,7 +9,8 @@ import { listPrompts } from '../../server/mcp/prompts.js'
 import { listSkillResources } from '../../server/mcp/skills.js'
 import { listUiResources } from '../../server/mcp/ui/index.js'
 import { INSTRUCTIONS } from '../../server/mcp/server.js'
-import { checkMatrix, languageProblems, loadMatrix, parseMatrix, staleNotChecked } from '../eval/client-matrix.mjs'
+import { labels } from '../../server/mcp/ui/client.js'
+import { checkMatrix, languageProblems, loadMatrix, parseMatrix, staleNotChecked, viewLabelProblems } from '../eval/client-matrix.mjs'
 
 const views = listUiResources().map((r) => r.name)
 const real = () => ({ ...loadMatrix(), views })
@@ -90,5 +91,26 @@ describe('client matrix (docs/architecture/client-matrix.md)', () => {
     expect(problems).toContain('prompt e: Hebrew part has untranslated Latin words: new, hook, rewrite, it')
     expect(problems).not.toContain('admin f')
     expect(problems).toContain('instructions: English text has no Hebrew counterpart')
+  })
+  it('has English and Hebrew for every view label, and fails for a key with only one of them (#371)', () => {
+    expect(viewLabelProblems(labels())).toEqual([])
+    const problems = viewLabelProblems({
+      thread: {
+        a: ['Open it', ''],
+        b: ['', 'פתח'],
+        c: ['Open {n}', 'פתח'],
+        d: ['Open it', 'פתח draft'],
+        e: ['Open it', 'פתח ב-Markdown'],
+        f: ['שלום', 'שלום'],
+        g: ['Only English']
+      }
+    }).join('\n')
+    expect(problems).toContain('view thread label a: needs one English and one Hebrew text')
+    expect(problems).toContain('view thread label b: needs one English and one Hebrew text')
+    expect(problems).toContain('view thread label c: the {marks} differ between the languages')
+    expect(problems).toContain('view thread label d: Hebrew text has untranslated Latin words: draft')
+    expect(problems).not.toContain('label e')
+    expect(problems).toContain('view thread label f: the English text has no English letters or has Hebrew')
+    expect(problems).toContain('view thread label g: needs one English and one Hebrew text')
   })
 })
