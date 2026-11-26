@@ -2,7 +2,7 @@
 
 Issue: [#502 plugin marketplace](https://github.com/Shaked/x-thread-draft-tool/issues/502), epic
 [#407 Epic 2](https://github.com/Shaked/x-thread-draft-tool/issues/407). Written 2026-11-26 by an Opus session (step 1 of the issue).
-This file is the plan; each build step below is its own task issue under #407.
+This file is the plan. Each build step in section 7 is its own task issue under #407, listed there.
 
 ## 1. Goal and limits
 
@@ -12,22 +12,21 @@ projects can install; they become generic (nothing about this app); the reply te
 Out of scope: the product (the app, its API and MCP server). The marketplace is developer tooling for agents that
 work on a repository. It is not a product surface, so it gets no row in `docs/architecture/client-matrix.md`: no AI
 app connected to the product sees it. Claude Code is the only client that installs these plugins; Codex and other
-agents read the same files by path through `AGENTS.md` (section 4).
+agents read the same files by path through `AGENTS.md` (section 4.2).
 
-## 2. Licence: what stays private until the owner decides
+## 2. Licence
 
-The repository has no `LICENSE` file (checked 2026-11-26 on `main`). The owner question is on #502 (recommendation:
-MIT). The repository is public, so anyone can read the files today, but nobody else has the right to reuse them.
-Until a `LICENSE` file is merged:
+Decided by the owner on 2026-11-26: MIT ("Mit is fine", a comment on #502 at 07:15 UTC). Recorded on epic #407.
 
-- The build tasks go ahead: the plugins are built, tested and used by this repo.
-- No install instructions in `README.md`, and `docs/marketplace.md` says "not published: licence not decided".
-- No plugin manifest has a `license` field, and no plugin has its own `LICENSE` file.
-- Nothing is announced or submitted anywhere (no plugin directory submission).
+- Step 0 (section 7) adds `LICENSE` at the root with the MIT text and the line `Copyright (c) 2026 Shaked`
+  (the GitHub login, the likelier reading; the owner can change the name in that PR).
+- The same PR says in `README.md` and in `LICENSE` that `THIRD_PARTY_LICENSES/` keeps its own licences: pstack
+  (MIT, Lauren Tan) and Rare UI in `src/ui/rare/` (MIT with Commons Clause and attribution). The root licence does
+  not relicense them.
+- Every `plugin.json` gets `"license": "MIT"`. A root `LICENSE` counts for every plugin in the repo (checked here:
+  `claude plugin validate` looks for a licence file at the repository root).
 - Third-party content (pstack) is never republished in a plugin (section 6, row pstack).
-
-Agents do not add a licence. When the owner answers, one small PR adds `LICENSE` at the root, the `license` field
-(SPDX id) in every `plugin.json`, and the install section in `README.md`.
+- Until step 0 merges, no README install section and no announcement.
 
 ## 3. What the documentation says (read 2026-11-26)
 
@@ -43,10 +42,13 @@ Quotes are verbatim. Facts marked "checked here" were run with Claude Code `2.1.
 | "`name` is the only required key." Plugin names: "use kebab-case"; names that start with `claude-`, `anthropic-`, `anthropics-` or `cc-plugin-` are refused | manifest-reference |
 | Skills: "One `<name>/SKILL.md` per skill." Hooks: "`hooks/hooks.json`" | manifest-reference, standard layout |
 | "The name `scripts/` is a convention, not something Claude Code looks for" | [components](https://code.claude.com/docs/en/plugins/components.md) |
-| `${CLAUDE_PLUGIN_ROOT}`: "Absolute path of the plugin's installed version"; it resolves in hook commands and "Anywhere in the Markdown body" of a skill | manifest-reference, environment variables |
+| `${CLAUDE_PLUGIN_ROOT}`: "Absolute path of the plugin's installed version"; it resolves in hook commands and "Anywhere in the Markdown body" of a plugin skill | manifest-reference, environment variables |
 | `${CLAUDE_PLUGIN_ROOT}` "changes when the plugin updates, so don't write state there." | manifest-reference |
 | Hooks file: "under a top-level `"hooks"` key, in the same shape as the `hooks` object in `settings.json`." | components |
 | "A plugin's hooks don't wait for one of the plugin's skills or commands to be used." | components |
+| Hook events: "`Stop` \| When Claude finishes responding". Plugin hooks: "When a plugin is enabled, its hooks merge with your user and project hooks." | [hooks](https://code.claude.com/docs/en/hooks.md) |
+| "If you define the same handler in more than one settings file, it runs once. A plugin's or skill's copy of the same handler stays separate." | hooks, hook handler fields |
+| Stop, exit 2: "Prevents Claude from stopping, continues the conversation". `stop_hook_active` "is `true` when Claude Code is already continuing as a result of a stop hook" | hooks, Stop decision control and Stop input |
 | A plugin skill is invoked "as `/plugin-name:skill-name`"; a plugin skill and a project skill of the same name "Both load" | [skills](https://code.claude.com/docs/en/skills.md) |
 | Install: `/plugin marketplace add owner/repo`, then `/plugin install <name>@<marketplace>`; shell: `claude plugin install <name>@<marketplace> --scope project` | [install](https://code.claude.com/docs/en/plugins/install.md), [cli-reference](https://code.claude.com/docs/en/plugins/cli-reference.md) |
 | A committed `enabledPlugins` entry "turns the plugin on for your collaborators but doesn't download it to their machines. Each collaborator also runs `claude plugin install <name>@<marketplace> --scope project` once per clone." | install |
@@ -54,51 +56,58 @@ Quotes are verbatim. Facts marked "checked here" were run with Claude Code `2.1.
 | A plugin from a git marketplace is copied to `cache/<marketplace>/<plugin>/<version>/`; "Files outside the plugin directory aren't copied" | loading |
 | A plugin from a marketplace added by local path "loads in place"; edits apply at the next session start or `/reload-plugins` | loading |
 | Version: "Setting it keeps users on that version until you change it." Without one, a git source uses the commit sha | manifest-reference, loading |
+| Plugin entries accept `dependencies`; the marketplace has `allowCrossMarketplaceDependenciesOn` | marketplace-reference |
 | `claude plugin validate <path>` "is the authoritative check for a manifest"; `--strict` "Treat warnings as errors" | manifest-reference; `claude plugin validate --help`, checked here |
 | `claude plugin tag` "Create a {name}--v{version} git tag for a plugin release, validating that plugin.json and any enclosing marketplace entry agree" | `claude plugin --help`, checked here |
 | `--plugin-dir <path>`: load a plugin from a folder for one session only | cli-reference; `claude --help`, checked here |
 
 Checked here with a throwaway marketplace in a temp folder (`CLAUDE_CONFIG_DIR` set to a temp folder):
 
-- `claude plugin validate .` passed a marketplace with one relative-path plugin, and listed its `Stop` hook and skill
-  (`skills: reply-style:reply-style`). With `--strict` it failed on warnings: no `author`, no `README.md`, no icon,
-  no `network.hosts`. So every plugin gets `author`, a `README.md` and an empty `network.hosts` list; the icon is a
-  plugin directory listing check and is skipped while nothing is published.
+- `claude plugin validate . --strict` passed a marketplace with one relative-path plugin once the marketplace had a
+  `description` and the plugin had `author`, `README.md` and `network.hosts`. It listed the `Stop` hook and the
+  skill. Missing icon, missing licence and a README without an install line are "plugin directory" checks: they
+  print, but "do not change the result" unless `--profile directory` is given. CI does not use that profile.
+- `claude plugin install reply-style --marketplace <folder> --scope user` installed it; `claude plugin list --json`
+  showed `enabled: true` and the version; `claude plugin details reply-style@<marketplace>` listed
+  `Skills (1) reply-style` and `Hooks (1) Stop`. No model call is needed for any of these.
 - `claude plugin marketplace add ./ --scope project` writes the absolute path of the folder into
   `.claude/settings.json`. That path is wrong in every other clone, so this repo never commits that entry.
-- A marketplace written into `.claude/settings.json` by hand (not added with the command) did not show in
-  `claude plugin marketplace list` in a non-interactive shell. The docs say project marketplaces need the
-  workspace trust dialog.
+- A marketplace written into `.claude/settings.json` by hand did not show in `claude plugin marketplace list` in a
+  non-interactive shell. The docs say project marketplaces need the workspace trust dialog. CI therefore installs at
+  user scope with a temp `CLAUDE_CONFIG_DIR`.
 - A project skill folder that is a symlink (`.claude/skills/x -> ../../plugins/demo/skills/x`) loaded: a headless
   `claude -p` run listed the skill by name.
 
-Not checked: that a `Stop` hook in a plugin's `hooks.json` fires (the validator accepts it; the hooks page was not
-read in this run); which of the two loads when a bare `/name` matches a plugin skill and a project skill.
+Not checked: that a plugin `Stop` hook fires in a live session (the docs say it does; tests make no model call); which of the two loads when
+a bare `/name` matches a plugin skill and a project skill; whether `claude plugin validate` works with no login
+(this container has one).
 
 ## 4. Decisions
 
 ### 4.1 Layout and names
 ```
-.claude-plugin/marketplace.json        marketplace "agent-kit", owner, one entry per plugin
+.claude-plugin/marketplace.json        marketplace "agent-kit": description, owner, one entry per plugin
 plugins/<name>/.claude-plugin/plugin.json
-plugins/<name>/README.md               what it does, config keys, install lines (install lines only after the licence)
+plugins/<name>/README.md               what it does and its config keys; install lines live in docs/marketplace.md
 plugins/<name>/CHANGELOG.md            one section per version
 plugins/<name>/skills/<skill>/SKILL.md and templates/
 plugins/<name>/commands/<command>.md   only where a skill does not fit
 plugins/<name>/hooks/hooks.json        commands use "${CLAUDE_PLUGIN_ROOT}/scripts/..."
 plugins/<name>/scripts/*.mjs           Node 20, no dependencies
 plugins/<name>/fixtures/               golden fixtures, shipped as examples
+plugins/<name>/examples/               files a plugin cannot install, such as GitHub workflows
 ```
-- Marketplace name `agent-kit`: short, not reserved, no app or owner name. The `owner` field of `marketplace.json`
-  is the publisher and needs a name: the owner's GitHub login, the one place it appears.
-- Plugin names: `reply-style`, `task-janitor`, `pr-workflow`, `contract-tests`. Installed names:
-  `reply-style@agent-kit`.
+- Marketplace name `agent-kit`: short, not reserved, no app or owner name. Its `owner.name` and each plugin's
+  `author.name` are the owner's GitHub login: the publisher, the only place that name appears in `plugins/`.
+- Plugin names: `reply-style`, `task-janitor`, `pr-workflow`, `contract-tests`. Installed names: `reply-style@agent-kit`.
+- First version of each plugin: `0.1.0`. `1.0.0` comes when another project has used it for a week without a
+  breaking change.
 - Every relative source starts with `./`. A plugin never reads a path above its own root: the cache copy would not
-  have it (docs, section 3).
-- How another project installs, once the licence is merged:
-  `/plugin marketplace add Shaked/x-thread-draft-tool`, then `/plugin install reply-style@agent-kit`.
-  For a team: `claude plugin install reply-style@agent-kit --scope project` and commit `.claude/settings.json`.
-  For cloud sessions: the docs point to adding the plugin at claude.ai (install page, "Cloud session"); not checked.
+  have it (section 3).
+- How another project installs, after step 0: `/plugin marketplace add Shaked/x-thread-draft-tool`, then
+  `/plugin install reply-style@agent-kit`. For a team: `claude plugin marketplace add Shaked/x-thread-draft-tool --scope project`
+  (it commits a GitHub `extraKnownMarketplaces` entry, not a path), then `claude plugin install reply-style@agent-kit --scope project`.
+  Cloud sessions: the install page says to add plugins at claude.ai; not checked.
 
 ### 4.2 One source of truth: this repo uses the plugin folders in place
 The only copy of each plugin's files is under `plugins/<name>/`. This repo reads them by path:
@@ -107,110 +116,146 @@ The only copy of each plugin's files is under `plugins/<name>/`. This repo reads
   loads a symlinked project skill. Codex and other agents follow the same path from `AGENTS.md`.
 - Hooks: `.claude/settings.json` runs `node "$CLAUDE_PROJECT_DIR/plugins/reply-style/scripts/reply-style-stop.mjs"`.
 - Scripts: `npm run reply-lint` runs the plugin script. `scripts/reply-lint.mjs` becomes a one-line re-export,
-  because `janitor.mjs`, `reply-lint-comment.mjs`, `changelog-check.mjs` and `notify-telegram.mjs` import it.
+  because `janitor.mjs`, `reply-lint-comment.mjs`, `changelog-check.mjs`, `reply-style-stop.mjs` and the tests
+  import it, and `.github/workflows/reply-lint.yml` calls it by path.
 - Settings: this repo's values live in `.claude/agent-kit.json` (4.3).
+- Skill text names its scripts relative to the skill folder (`../../scripts/reply-lint.mjs`), not with
+  `${CLAUDE_PLUGIN_ROOT}`: that variable is not set when the skill loads as a project skill through the symlink.
 
 Why not install the plugin in this repo: most sessions here are cloud sessions, and the docs say they do not add a
 repository's `extraKnownMarketplaces`; a local-path marketplace entry holds an absolute path; and an installed copy
 would be a second copy that lags behind `main`. Why not a copied folder with a "same content" test: two copies in
-every diff. A symlink is one copy. Risk: a Windows clone without symlink support sees a text file; this repo's
-agents run on Linux and macOS, so that is accepted and written in `docs/marketplace.md`.
+every diff. A symlink is one copy.
 
-Install from the marketplace is still tested (section 5, install test), so what other projects get is what runs here.
+Risks, and what handles them:
+- A Windows clone without symlink support sees a text file. This repo's agents run on Linux and macOS; written in
+  `docs/marketplace.md`.
+- An edit through the GitHub file API or web editor to `.claude/skills/reply-style/...` hits the symlink. Edits go
+  to `plugins/reply-style/...` with a version bump. Step 1 writes this into `docs/operations/reply-style.md` and
+  `docs/operations/weekly-review.md`, because the weekly review edits this skill.
+- A person who also installs `reply-style@agent-kit` at user scope gets the skill twice and two Stop hooks here
+  (the docs: a plugin's copy of a handler "stays separate").
+  `docs/marketplace.md` says not to install it in this repo.
+- Repo gates stop seeing the moved code: `COUNTED_DIRS` in `scripts/net-lines.mjs`, `SCAN_DIRS` in
+  `scripts/slop-scan.mjs`, `knip.json` and the Node block of `eslint.config.js` cover `scripts/` only. Step 1 adds
+  `plugins/*/scripts/` to all four, so a move does not hide about 300 lines and later growth is counted.
 
 ### 4.3 How generic is made: one config file per project
-- No app name, owner name, issue number or repo path in any plugin text. The test in section 5 enforces it.
-- Project settings are in one file, `.claude/agent-kit.json`. Each plugin reads the common keys and its own section,
-  and uses the defaults below when the file or a key is missing. Scripts find it at `$CLAUDE_PROJECT_DIR`, else by
-  walking up from the working folder to the git root, or take `--config <file>`. A file that is not valid JSON,
-  or a key of the wrong type, stops the script with exit 2 and names the key.
+- No app name, owner name, issue number or repo path in any plugin text. Test 3 in section 5 enforces it.
+- Project settings are in one file, `.claude/agent-kit.json`, with a top-level part and one section per plugin.
+  A missing file or key means the default.
+- The lint stays pure: `lint(text, options, config)`. Only the command-line scripts and the hook read the file.
+  They find it at `$CLAUDE_PROJECT_DIR/.claude/agent-kit.json`, else by walking up from the working folder to the
+  git root, or take `--config <file>`.
+- A broken file (not JSON, or a key of the wrong type): the command-line lint stops with exit 2 and names the key.
+  The Stop hook never does that, because exit 2 from a Stop hook keeps the turn from ending: it checks
+  `stop_hook_active` first, then on a broken file prints a warning on stderr and exits 0.
+- The skill text is static, so it tells the agent to read `.claude/agent-kit.json` for the owner name and the
+  project templates. The scripts read the same file.
 - Not used: `userConfig` in `plugin.json`. It is set per person at install time; these settings belong to the
   project and are committed.
+
+Keys for step 1 (reply-style). The task-janitor keys are decided in its own task from the constants in
+`scripts/janitor.mjs` (`REPO`, labels such as `held`, `owner`, `parked`, `cleanup`, `weekly`, `reply-style-fail`,
+the markers `CLAIM`, `HANDOFF`, `RELEASE`, the owner words in `OWNER_QUESTION`, `IGNORED_FILES`, the limits).
 
 ```json
 {
   "owner": "Sam",
+  "ownerLogin": "sam-example",
   "repo": "acme/sample-app",
   "reply-style": {
     "humans": ["Sam", "the owner"],
     "allowLines": ["^Implements #\\d+ Task "],
     "maxLineLength": 160,
-    "languages": ["en"],
     "changelogAreas": ["Editor", "Docs"],
     "extraTemplates": { "changelog-entry": "docs/templates/changelog-entry.md" },
-    "writingSkills": ["unslop"],
-    "optIn": { "env": "REPLY_STYLE", "value": "owner" }
-  },
-  "task-janitor": {
-    "labels": { "epic": "epic", "task": "task", "held": "held", "owner": "owner", "queue": "dispatch" },
-    "markers": { "claim": "CLAIM", "handoff": "HANDOFF", "release": "RELEASE" },
-    "staleDays": 14,
-    "claimStaleHours": 3,
-    "subIssueLimit": 100
+    "writingSkills": ["unslop"]
   }
 }
 ```
 
 | Key | Default | Used for |
 |---|---|---|
-| `owner` | `the owner` | The name in skill text and in the Stop hook message |
+| `owner` | `the owner` | The display name the skill tells the agent to use, and the Stop hook message |
+| `ownerLogin` | the owner part of `repo` | Which GitHub author counts as the owner (janitor trust, comment lint) |
 | `repo` | from `git remote get-url origin` | Links in examples and in janitor output |
 | `reply-style.humans` | `[owner, "you", "the owner"]` | Words after "blocked on" and "waiting for" that mean a person |
-| `reply-style.allowLines` | `[]` | Regular expressions for lines the lint skips (this repo: the net-lines line) |
+| `reply-style.allowLines` | `[]` | Regular expressions for lines the lint skips, such as a required `Implements #12 Task 1` line |
 | `reply-style.maxLineLength` | `160` | The `long-line` rule |
-| `reply-style.languages` | `["en"]` | Rule sets. Only `en` exists in version 1; another value stops with exit 2 |
 | `reply-style.changelogAreas` | `[]` (any one word) | The `Area:` line of `--kind=changelog` |
 | `reply-style.extraTemplates` | `{}` | Project templates the skill lists next to its own (this repo: changelog entry, Telegram) |
 | `reply-style.writingSkills` | `[]` | Writing skills the skill tells the agent to apply, by name (this repo: the pstack copies) |
-| `reply-style.optIn` | `REPLY_STYLE=owner` | The environment variable that turns the Stop hook on |
-| `task-janitor.*` | the values in the example | Label names, comment markers and limits |
+
+Fixed, not configurable: the opt-in variable `REPLY_STYLE=owner`; the comment lint's Claude Code footer and its
+`HANDOFF` and `Decision` markers. The three `--kind` shapes (reply, changelog, telegram) stay in the plugin lint as
+generic shapes; the `Link:` line and `## Technical details` part of a changelog entry stay part of that shape.
+
+Keys the issue named and the plan leaves out, with the reason:
+- `languages`: the lint has English rules only. A key with one allowed value does nothing; it comes with a second
+  rule set.
+- Tracker issue: no reply-style rule needs it. The task-janitor task decides it (the queue issue).
+- Link patterns: the label rule (`#12`, `Q1`) is generic and its links are checked by text, not by URL. Added when
+  a project needs another label shape.
 
 The templates and fixtures take their examples from a neutral sample project: `acme/sample-app`, owner "Sam",
-issues `#12` and `#34`. This repo's own example texts (Telegram, changelog) move to `extraTemplates` files.
+issues `#12` and `#34`.
 
-### 4.4 Versions, changelog and upgrades
-- `version` in `plugin.json` and in the marketplace entry, the same value (a test checks it; `claude plugin tag`
-  also checks it). Semver: patch for wording, minor for a new rule, template or config key with a default, major for
-  a removed or renamed key, template or rule. A stricter rule is minor, and its changelog line starts with "Stricter:".
-- Because a set version pins users (docs, section 3), every PR that changes files under `plugins/<name>/` bumps that
-  plugin's version and adds a `CHANGELOG.md` section. A unit test compares with `origin/main` and fails otherwise.
-- Release tags: `claude plugin tag plugins/<name>` creates `<name>--v<version>`. Tags are pushed only after the
-  licence is merged.
+### 4.4 Plugins that use each other
+`scripts/janitor.mjs` imports the reply lint to check recent HANDOFF comments. Plugins are cached apart and never
+read above their root, so the `task-janitor` plugin cannot import the `reply-style` script by path. Decision: that
+check is optional. The janitor reads `task-janitor.replyLint` from the config (a path to the lint module, in this
+repo `plugins/reply-style/scripts/reply-lint.mjs`). Without it the report prints one line, "Reply style: not
+checked (no replyLint in .claude/agent-kit.json)". Tests cover both. The docs list `dependencies` for plugin
+entries; whether a dependency gives a path to the other plugin is not checked, so it is not used.
+
+### 4.5 Versions, changelog and upgrades
+- `version` in `plugin.json` and in the marketplace entry, the same value (test 1; `claude plugin tag` also checks
+  it). Semver: patch for wording, minor for a new rule, template or config key with a default, major for a removed
+  or renamed key, template or rule. A stricter rule is minor, and its changelog line starts with "Stricter:".
+- Because a set version pins users (section 3), every PR that changes files under `plugins/<name>/` bumps that
+  plugin's version and adds a `CHANGELOG.md` section. The check works like `scripts/net-lines.mjs`: a pure function
+  with fixture tests in the unit job, and the git diff in its own workflow with `fetch-depth: 0` (the unit job is a
+  shallow, sharded checkout).
+- Release tags: `claude plugin tag plugins/<name> --push` creates `<name>--v<version>`, after step 0.
 - Upgrade for another project: `claude plugin marketplace update agent-kit`, then
-  `claude plugin update reply-style@agent-kit`, then restart. The docs say auto-update is off by default for
-  marketplaces that are not official. This repo needs no upgrade: it reads `main` in place.
+  `claude plugin update reply-style@agent-kit`, then a restart. This repo needs no upgrade: it reads `main` in place.
 - The repo changelog (`docs/changelogs/`) gets one entry per PR, as today; it is shown to the admin only.
 
 ## 5. Test plan
 
-All tests run with `npm run test:unit` (vitest, no network, no model, no person), except the CLI job.
+All tests run with `npm run test:unit` (vitest, no network, no model, no person), except the plugin CLI job (8).
 
 1. **Manifests.** For the marketplace and each plugin: required fields, kebab-case names, no reserved prefix,
-   `./` sources that exist, no `..`, the same version in both files, `author`, `README.md`, `CHANGELOG.md` with a
-   section for the current version, `network.hosts` present.
-2. **Validator in CI.** A GitHub Actions job runs `claude plugin validate . --strict` and the same for each plugin,
-   with the Claude Code CLI pinned to one version. Whether `validate` needs a login is not checked: the first build
-   PR finds out. If it does, the job stays out and the manifest test is the gate; the PR says so.
-3. **Forbidden strings.** Every file under `plugins/` and `.claude-plugin/` has none of: `x-thread-draft-tool`,
+   `./` sources that exist, no `..`, the same version in both files, `author`, `description`, `README.md`,
+   `CHANGELOG.md` with a section for the current version, `network.hosts`.
+2. **Forbidden strings.** Every file under `plugins/` and `.claude-plugin/` has none of: `x-thread-draft-tool`,
    `Shaked`, `thread draft`, `docs/plans/`, `docs/operations/`, `XT_`, and no `#` followed by digits other than the
-   sample project's `#12` and `#34`. The list is in the test, not in a plugin.
-4. **Golden fixtures.** Every template has a good fixture that passes and bad fixtures that fail for exactly the named
-   rules (today's `tests/unit/reply-lint-golden.test.js`, moved). New: every rule the lint can report has at least
-   one bad fixture, so nothing ships without lint and fixtures (#486 rule).
-5. **Config.** No file gives the defaults; each key changes its rule (a name in `humans`, an `allowLines` pattern,
-   `maxLineLength`, `changelogAreas`); a broken file gives exit 2 with the key name.
-6. **Hook.** The present Stop hook tests (opt-in variable, pass, fail, `stop_hook_active`, not JSON) run against the
-   plugin script. `hooks.json` uses `${CLAUDE_PLUGIN_ROOT}`; this repo's settings point into `plugins/`.
-7. **Copy test.** The test copies `plugins/reply-style/` alone into a temp folder (what the cache gets) and runs the
+   sample project's `#12` and `#34`. The JSON manifests are parsed, and only `owner.name` and `author.name` are
+   exempt. The list is in the test, not in a plugin.
+3. **Golden fixtures.** Every plugin template has a good fixture that passes and bad fixtures that fail for exactly
+   the named rules. The `WANT` map and every rule assertion of `tests/unit/reply-lint-golden.test.js` are kept; the
+   fixtures move into the plugin and their names change to the sample project. The changelog and Telegram fixtures
+   stay in `tests/unit/` and run against the plugin lint with this repo's config, so all seven kinds stay covered.
+   New: every rule the lint can report has at least one bad fixture (the #486 rule: nothing ships without lint and
+   fixtures).
+4. **Config.** No file gives the defaults; each key changes its rule; a broken file gives exit 2 and the key name.
+5. **Hook.** The Stop hook tests (opt-in variable, pass, fail, `stop_hook_active`, not JSON) run against the plugin
+   script, plus: a broken config gives exit 0 and a warning. `hooks.json` uses `${CLAUDE_PLUGIN_ROOT}`; this repo's
+   settings point into `plugins/`.
+6. **Copy test.** The test copies `plugins/reply-style/` alone into a temp folder (what the cache gets) and runs the
    lint CLI and the hook from there, with a temp `.claude/agent-kit.json`. It proves no file above the plugin root
-   is read.
-8. **Install test.** In CI, with `CLAUDE_CONFIG_DIR` and the project in temp folders:
-   `claude plugin marketplace add <checkout> --scope project`, `claude plugin install reply-style@agent-kit --scope project`,
-   then `claude plugin list --json` shows it enabled at the manifest version. Same job as item 2.
-9. **This repo.** `.claude/skills/reply-style` resolves to the plugin skill; `npm run docs:refresh` still lists it in
-   `CLAUDE.md` (`scripts/update-claude-index.mjs` reads `isDirectory()` from a directory entry, which is false for
-   a symlink, so the build PR fixes that); every existing reply-lint, janitor and changelog test passes unchanged
-   except import paths.
+   is read. It is the install test whenever job 8 cannot run.
+7. **This repo.** `.claude/skills/reply-style` resolves to the plugin skill; `npm run docs:refresh` still lists it in
+   `CLAUDE.md` (`scripts/update-claude-index.mjs` reads `isDirectory()` from a directory entry, which is false for a
+   symlink, so step 1 fixes that); the janitor, comment lint and changelog check tests pass with only import paths
+   changed.
+8. **Plugin CLI job.** A GitHub Actions job with the Claude Code CLI pinned to one version and a temp
+   `CLAUDE_CONFIG_DIR`: `claude plugin validate . --strict`, the same for each plugin,
+   `claude plugin install reply-style --marketplace "$GITHUB_WORKSPACE" --scope user`, then `claude plugin list --json`
+   (enabled, manifest version) and `claude plugin details reply-style@agent-kit` (the skill and the `Stop` hook).
+   If the CLI needs a login there, step 1 leaves the job out and says so in the PR; test 6 is then the gate. The
+   job is never added with `continue-on-error`.
 
 ## 6. Generic or specific: one row per piece
 
@@ -218,35 +263,38 @@ All tests run with `npm run test:unit` (vitest, no network, no model, no person)
 |---|---|---|---|
 | `reply-style` skill and 5 templates (status report, owner question, handoff, owner action, incident) | skill | generic after cleaning | Names the owner, this repo's issues and paths; the rules themselves are general |
 | `changelog-entry` template | template | stays here | Its Area list and the app page that shows entries are this app's; the plugin keeps the generic `--kind=changelog` check |
-| `telegram-message` template | template | stays here | Tied to `scripts/notify-telegram.mjs` and the owner's Telegram decisions |
-| `scripts/reply-lint.mjs` | script | generic after cleaning | Owner name, Area list and the net-lines line move to config |
-| `scripts/reply-style-stop.mjs` and the Stop hook | hook | generic after cleaning | Only the message names the owner and the skill path |
+| `telegram-message` template | template | stays here | Tied to `scripts/notify-telegram.mjs` and the owner's Telegram decisions; the plugin keeps the generic `--kind=telegram` check |
+| `scripts/reply-lint.mjs` | script | generic after cleaning | Owner words, the Area list and the `Implements` line move to config |
+| `scripts/reply-style-stop.mjs` and the Stop hook in `.claude/settings.json` | hook | generic after cleaning | Only the message names the owner and the skill path |
 | `scripts/reply-lint-comment.mjs` | script | generic after cleaning | Lints agent comments by the Claude Code footer; nothing app-specific but the import |
-| `.github/workflows/reply-lint*.yml` | workflow | generic, as an example file | A plugin cannot install a workflow; shipped under `plugins/reply-style/examples/` |
+| `.github/workflows/reply-lint.yml`, `reply-lint-comments.yml` | workflow | generic, as example files | A plugin cannot install a workflow; copies go to `plugins/reply-style/examples/`, this repo keeps its own |
+| `docs/operations/reply-style.md` | docs | stays here | This repo's setup (opt-in, CI, janitor); the generic part becomes the plugin README |
 | `scripts/changelog-check.mjs` | script | stays here | Checks this repo's `docs/changelogs/` rule |
-| `task-janitor` skill, `scripts/janitor.mjs`, `sessions.schema.json` | skill, script | generic after cleaning | `REPO`, labels, markers and owner words move to config |
-| `scripts/session-janitor.mjs` (#493) | script | generic after cleaning, after #493 merges | Same as the janitor |
-| Status board command (#499) | command | generic after cleaning, after #499 merges | Not built yet (checked 2026-11-26: #499 open) |
+| `task-janitor` skill, `scripts/janitor.mjs`, `sessions.schema.json` | skill, script | generic after cleaning | `REPO`, labels, markers and owner words move to config (4.3, 4.4) |
+| `scripts/session-janitor.mjs` | script | generic after cleaning, after #493 closes | On `main` already; same cleaning as the janitor |
+| `/janitor` command (#493) | command | generic after cleaning, after #493 closes | Not on `main` yet (checked 2026-11-26: no `.claude/commands/`) |
+| Status board and `/status` command (#499) | command | generic after cleaning, after #499 closes | Not built yet (checked 2026-11-26: #499 open) |
 | `agent-pr-workflow` skill and `scripts/agent-pr.sh` | skill, script | generic after cleaning | Branch, push, REST PR and check reading are general; the Vercel smoke part and the repo default stay here |
 | `e2e-contract-tests` skill | skill | generic after cleaning, later | The method is general; it names this repo's helpers (`route()`, PGlite, test paths), which become examples |
 | `product-care` skill | skill | stays here | Every fact is about this product's clients and platform |
 | `high-risk-features`, `build-and-test`, `deploy-and-release`, `js-ts-quality` | skill | stays here | Short notes about this app's code and checks |
-| `pstack-unslop`, `pstack-technical-writing`, `pstack-bro` | skill | third party, not republished | MIT by Lauren Tan (`THIRD_PARTY_LICENSES/pstack.md`); upstream is itself a plugin repo, https://github.com/cursor/plugins/tree/792440e8a560a4a3f63748cdee70491ecd412982/pstack. The plugin names writing skills through `writingSkills`; this repo keeps its copies |
+| `pstack-unslop`, `pstack-technical-writing`, `pstack-bro` | skill | third party, not republished | MIT by Lauren Tan (`THIRD_PARTY_LICENSES/pstack.md`). Upstream is https://github.com/cursor/plugins/tree/792440e8a560a4a3f63748cdee70491ecd412982/pstack, a Cursor plugin repo; whether Claude Code can install it is not checked. The plugin names writing skills through `writingSkills`; this repo keeps its copies |
 | `scripts/update-claude-index.mjs`, `CLAUDE.md`, `AGENTS.md` | script, docs | stays here | This repo's own map and rules; they point to the plugins |
 
 ## 7. Build steps (task issues under #407)
 
-Each step is one task issue with its full plan, one small PR per step, executor and validator named in the issue,
-Opus judges every PR. The plugin folders are not part of the app build, so step 1 also adds `^plugins\/` and
-`^\.claude-plugin\/` to the skip list in `scripts/vercel-ignore.mjs`, with a test. Opus validates that change,
-because it decides when a deployment is created.
+One task issue per step, one small PR per step. Opus judges every PR. The plugin folders are not part of the app
+build, so step 1a adds `^plugins\/` and `^\.claude-plugin\/` to the skip list in `scripts/vercel-ignore.mjs`, with
+a test.
 
-1. **Plugin `reply-style` and the marketplace file.** Move the skill, 5 templates, lint, Stop hook and comment lint
-   into `plugins/reply-style/`; config file and defaults; this repo switches to the plugin by path (4.2); tests 1 to 9.
-2. **Plugin `task-janitor`.** The janitor, the session janitor and the status board command, after #493 and #499 merge.
-3. **Plugin `pr-workflow`.** The generic part of `agent-pr-workflow` and `agent-pr.sh`.
-4. **Plugin `contract-tests`.** The `e2e-contract-tests` method with neutral examples.
-5. **Docs.** `docs/marketplace.md` and a short README section: what is in it, config, how to contribute. Install
-   commands and the announcement wait for the licence (section 2).
+| Step | What | Executor, validator | Depends on |
+|---|---|---|---|
+| 0, #506 | `LICENSE` (MIT) at the root, the third-party note, `license` in manifests once they exist | Haiku, Opus | this plan |
+| 1a, #507 | `.claude-plugin/marketplace.json`, an empty `plugins/reply-style/` with manifest, README and CHANGELOG, tests 1 and 2, the version check, `vercel-ignore` | Sonnet, Opus | this plan |
+| 1b, #508 | Move the reply-style skill, 5 templates, lint, Stop hook and comment lint into the plugin; config; this repo switches in place (4.2); tests 3 to 8; the gate updates | Sonnet, Opus (hook and every reply check) | 1a |
+| 2, #509 | Plugin `task-janitor`: janitor, session janitor, `/janitor`, status board | Sonnet, Opus | #508, #493, #499 |
+| 3, #510 | Plugin `pr-workflow`: the generic part of `agent-pr-workflow` and `agent-pr.sh` | Sonnet, Sonnet | 1b |
+| 4, #511 | Plugin `contract-tests`: the `e2e-contract-tests` method with neutral examples | Sonnet, Sonnet | 1b |
+| 5, #512 | `docs/marketplace.md` and a short README section: contents, install lines, config, how to contribute | Haiku, Sonnet | 0, 1b |
 
-Not a step: the licence. It is the owner question on #502.
+Task issues: #506 to #512, created with this plan on 2026-11-26. #502 closes when this plan merges.
