@@ -81,7 +81,7 @@ describe('admin feature flags page', () => {
     const user = userEvent.setup()
     renderPage()
     await user.click(await screen.findByRole('radio', { name: 'Rare UI (black, orange)' }))
-    expect(await screen.findByText('Could not save the flag. Nothing changed.')).toBeInTheDocument()
+    expect(await screen.findByText('Could not save the flag (no). Nothing changed.')).toBeInTheDocument()
     expect(localStorage.getItem(SKIN_KEY)).not.toBe('rare')
     expect(document.documentElement.dataset.skin).toBe('default')
   })

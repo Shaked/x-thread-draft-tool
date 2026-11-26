@@ -59,7 +59,7 @@ export default function AppMenu() {
                 Connected apps
               </Button>
               {user?.admin === true && (
-                <Button variant="ghost" fullWidth to="/changelog" onClick={close}>
+                <Button variant="ghost" fullWidth to="/admin/changelog" onClick={close}>
                   Changelog
                 </Button>
               )}

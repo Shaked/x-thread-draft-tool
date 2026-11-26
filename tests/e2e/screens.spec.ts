@@ -123,7 +123,10 @@ test.describe('screens', () => {
       const run = `${width}-${Date.now()}`
       const owner = await devToken(request, `screens-owner-${run}`)
       const empty = await devToken(request, `screens-empty-${run}`)
-      const admin = await devToken(request, 'screens-admin', true) // the changelog is admin only (#368)
+      // The changelog is admin only (#368) and lives in the admin area, which needs the admin's browser session (#484).
+      const adminSession = await request.post(`${BASE}/api/dev/session`, { data: { login: 'screens-admin', admin: true } })
+      const adminCookie = adminSession.headersArray().find((h) => h.name.toLowerCase() === 'set-cookie')?.value.match(/xt_session=([^;]+)/)?.[1]
+      expect(adminCookie).toBeTruthy()
 
       // Empty list: a user with no drafts.
       await shoot(browser, width, 'drafts-empty', '/', { token: empty })
@@ -286,8 +289,8 @@ test.describe('screens', () => {
 
       // The changelog page (settings-menu.md Task 6): light at both widths, dark on phones.
       const changelogReady = (p: Page) => p.locator('article').first()
-      await shoot(browser, width, 'changelog', '/changelog', { token: admin, ready: changelogReady })
-      await shoot(browser, width, 'changelog-dark', '/changelog', { token: admin, theme: 'dark', ready: changelogReady })
+      await shoot(browser, width, 'changelog', '/admin/changelog', { cookie: adminCookie!, ready: changelogReady })
+      await shoot(browser, width, 'changelog-dark', '/admin/changelog', { cookie: adminCookie!, theme: 'dark', ready: changelogReady })
 
       // The About page (plan U2): light and dark at both widths. Ready once the server's version has loaded.
       const aboutReady = (p: Page) => p.getByRole('heading', { name: 'About', level: 1 })

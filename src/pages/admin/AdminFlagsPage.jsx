@@ -24,7 +24,7 @@ const valueOf = (flags, name) => flags.find((flag) => flag.name === name)?.value
 // admin_set_flag tools. The choice is saved on the account and copied to this device, so the look paints before the app loads.
 export default function AdminFlagsPage() {
   const [state, setState] = useState({ status: 'loading', flags: [] })
-  const [failed, setFailed] = useState(false)
+  const [failed, setFailed] = useState('')
 
   const load = () =>
     adminApi
@@ -42,14 +42,14 @@ export default function AdminFlagsPage() {
   }, [])
 
   const choose = (name, apply) => (value) => {
-    setFailed(false)
+    setFailed('')
     adminApi
       .setFlag(name, value)
       .then((flags) => {
         apply(valueOf(flags, name))
         setState({ status: 'ready', flags })
       })
-      .catch(() => setFailed(true))
+      .catch((err) => setFailed(err.message || 'Could not save the flag.'))
   }
 
   if (state.status === 'loading') return <Skeleton variant="card" lines={3} />
@@ -71,7 +71,7 @@ export default function AdminFlagsPage() {
 
   return (
     <Stack gap={8}>
-      {failed && <Banner tone="danger" role="alert">Could not save the flag. Nothing changed.</Banner>}
+      {failed && <Banner tone="danger" role="alert">{`Could not save the flag (${failed}). Nothing changed.`}</Banner>}
       <Section title="Look" headingLevel={2} description="Colours, corner radius, shadows and motion for every page and component. Only you see it.">
         <SegmentedControl legend="Look" value={valueOf(state.flags, 'look')} options={LOOKS} onChange={choose('look', setSkin)} />
       </Section>
