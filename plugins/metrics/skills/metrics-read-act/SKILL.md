@@ -81,7 +81,7 @@ It has no `repo` filter, so for delivery rows (`ci`, `speed`, `deploy`) keep onl
 | Deploys | `source: deploy`, `name: Production`, `status: failure` |
 | Production | `source: prod` |
 
-Each row has a `link`. For a CI run, read the failed step only: `get_job_logs` with `run_id`, `failed_only: true`,
+Each delivery row has a `link`. For a CI run, read the failed step only: `get_job_logs` with `run_id`, `failed_only: true`,
 `return_content: true` and `tail_lines: 100`. A full job log can be about 1 MB.
 
 Name exactly one cause, with its evidence, from this list:
