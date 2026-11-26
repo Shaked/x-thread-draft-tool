@@ -6,6 +6,9 @@ import './Dialog.css'
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+// Dialogs that are open now, the last one on top. Only the top one handles keys, and the page stays locked until the last one closes.
+const OPEN_PANELS = []
+
 // A modal dialog in a portal on <body>, outside #root. While it is open #root is inert (set through the DOM,
 // React 18.2 has no `inert` prop) and the page does not scroll. Tab stays inside, Escape and the scrim close it
 // (unless `dismissible` is false), and focus goes back to the element that was focused when it opened.
@@ -32,9 +35,11 @@ export default function Dialog({ open, onClose, title, description, children, ac
     root?.setAttribute('inert', '')
     document.documentElement.classList.add('dialog-open')
     const box = panel.current
+    OPEN_PANELS.push(box)
     const start = box?.querySelector('[data-autofocus] a, [data-autofocus] button') ?? box?.querySelector(FOCUSABLE) ?? box
     start?.focus()
     const onKey = (event) => {
+      if (OPEN_PANELS[OPEN_PANELS.length - 1] !== box) return
       if (event.key === 'Escape' && latest.current.dismissible) {
         event.preventDefault()
         latest.current.onClose?.()
@@ -54,8 +59,11 @@ export default function Dialog({ open, onClose, title, description, children, ac
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('keydown', onKey)
-      root?.removeAttribute('inert')
-      document.documentElement.classList.remove('dialog-open')
+      OPEN_PANELS.splice(OPEN_PANELS.indexOf(box), 1)
+      if (OPEN_PANELS.length === 0) {
+        root?.removeAttribute('inert')
+        document.documentElement.classList.remove('dialog-open')
+      }
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus()
     }
   }, [open])

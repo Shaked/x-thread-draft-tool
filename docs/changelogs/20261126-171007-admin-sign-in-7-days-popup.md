@@ -10,4 +10,4 @@ Link: https://github.com/Shaked/x-thread-draft-tool/pull/554
 
 ## Technical details
 
-`server/admin/guard.js`, `server/routes/auth.js`, `src/components/admin/SignInAgain.jsx`, `src/utils/api.js`. The refusal carries the code `sign_in_again`. Implements #552 Task 3.
+`server/admin/guard.js`, `server/routes/auth.js`, `src/components/admin/SignInAgain.jsx`, `src/utils/api.js`, `src/ui/Dialog.jsx` (stacked dialogs). The refusal carries the code `sign_in_again`. Implements #552 Task 3.
