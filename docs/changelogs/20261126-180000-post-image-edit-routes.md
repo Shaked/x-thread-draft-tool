@@ -3,7 +3,7 @@
 - A script can now add, move and remove a post, and add, replace, move and remove an image, with one request each.
 - The AI app tools use the same routes, so both follow the same rules (4 images per post, no edits to a published draft, a stale version is refused).
 
-Area: API
+Area: AI apps
 Link: https://github.com/Shaked/x-thread-draft-tool/issues/412
 
 ## Technical details

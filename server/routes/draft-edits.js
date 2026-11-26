@@ -11,9 +11,9 @@ import { xLength } from '../../src/utils/xLength.js'
 import { COLUMNS, etagHeaders, ifMatchOf, isUuid, preconditionHolds, staleResponse, usedImageUrls } from './drafts.js'
 import { storeRemoteImage } from './images.js'
 
-export const MAX_IMAGES = 4
-export const PUBLISHED_ERROR = 'This draft is published. Duplicate it to edit.'
-export const IMAGE_NOT_FOUND = 'Image not found in this draft. Its posts and image urls are in get_draft_outline.'
+const MAX_IMAGES = 4
+const PUBLISHED_ERROR = 'This draft is published. Duplicate it to edit.'
+const IMAGE_NOT_FOUND = 'Image not found in this draft. Its posts and image urls are in get_draft_outline.'
 const MAX_ATTEMPTS = 8
 const POST_NOT_FOUND = 'Post not found in this draft'
 const REMOVE_IMAGE_ARGS = 'Give url to remove one image, or post_id to remove every image of that post.'
