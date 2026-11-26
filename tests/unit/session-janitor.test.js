@@ -202,6 +202,7 @@ describe('edge cases from the review', () => {
     const old = edit('session_nohand', { updated_at: '2026-11-10T00:00:00Z' })
     expect(run(old).find((f) => f.kind === 'stale' && f.sessions[0] === 'session_nohand').action).toContain('Not yet')
     const dup = edit('session_dupb', { status_bucket: 'completed', updated_at: '2026-11-10T00:00:00Z' })
+    // session_dupb also has a no-handoff finding on #108, so it is held back; the duplicate-session finding alone would not.
     expect(run(dup).find((f) => f.kind === 'stale' && f.sessions[0] === 'session_dupb').action).toContain('Not yet')
   })
 
@@ -209,6 +210,7 @@ describe('edge cases from the review', () => {
     expect(quote('see session_01UU4t2FpQfySF3P8nhraSTD in tests/unit/fixtures/session-janitor/sessions.json')).toBe('see session_01UU4t2FpQfySF3P8nhraSTD in tests/unit/fixtures/session-janitor/sessions.json')
     expect(quote('secret wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY1 end')).toBe('secret [redacted] end')
     expect(quote('src/components/editor/ThreadComposerToolbar')).toBe('src/components/editor/ThreadComposerToolbar')
+    expect(quote('allow mcp__claude-code-remote__fire_trigger here')).toBe('allow mcp__claude-code-remote__fire_trigger here')
     expect(quote('key AKIAABCDEFGHIJKLMNOP at https://me:hunter2@db.example')).toBe('key [redacted] at https://[redacted]@db.example')
   })
 
@@ -252,5 +254,15 @@ describe('the templated summary', () => {
     const order = (t) => [...t.matchAll(/^## (.+)$/gm)].map((m) => m[1])
     expect(order(template)).toEqual([...HEADINGS, 'Details'])
     expect(order(text)).toEqual(order(template))
+  })
+})
+
+describe('first real run fixes', () => {
+  it('lists an old completed session with no issue once, as stale that can be archived', () => {
+    const old = edit('session_orphan', { status_bucket: 'completed', updated_at: '2026-11-10T00:00:00Z' })
+    const result = run(old).filter((f) => f.sessions.includes('session_orphan'))
+    expect(result.map((f) => f.kind)).toEqual(['stale'])
+    expect(result[0].evidence).toContain('no issue matches it')
+    expect(result[0].action).toContain('Can be archived')
   })
 })

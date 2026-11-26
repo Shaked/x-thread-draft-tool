@@ -107,13 +107,15 @@ export function titleIssue(title) {
 const TOKEN = /\b(?:gh[pousr]_\w{16,}|github_pat_\w{16,}|sk-[\w-]{16,}|xox[abprs]-[\w-]{10,}|AKIA[0-9A-Z]{16}|eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{4,})|\bBearer\s+\S+/g
 // Any other run of 32 or more key characters is masked too, except a session id. Paths keep their slashes, so they stay.
 const LONG = /\b[A-Za-z0-9+_-]{32,}/g
+// A key mixes digits and both cases; a tool name such as mcp__claude-code-remote__fire_trigger does not.
+const keyLike = (m) => /\d/.test(m) && /[a-z]/.test(m) && /[A-Z]/.test(m)
 // A base64 secret may hold slashes: a run of 40 or more base64 characters with digits and both cases is masked as well.
 const BASE64 = /[A-Za-z0-9+/]{40,}={0,2}/g
 
 /** Text copied from a session for a table cell: one line, no backticks or pipes, tokens masked, at most `max` characters. */
 export function quote(text, max = 100) {
   const one = String(text || '').replace(/\s+/g, ' ').replace(/`/g, "'").replace(/\|/g, '/').replace(TOKEN, '[redacted]')
-    .replace(/:\/\/[^/\s:@]+:[^@\s]+@/g, '://[redacted]@').replace(LONG, (m) => (new RegExp(`^${SESSION_ID}$`).test(m) ? m : '[redacted]')).replace(BASE64, (m) => (/\d/.test(m) && /[a-z]/.test(m) && /[A-Z]/.test(m) ? '[redacted]' : m)).trim()
+    .replace(/:\/\/[^/\s:@]+:[^@\s]+@/g, '://[redacted]@').replace(LONG, (m) => (new RegExp(`^${SESSION_ID}$`).test(m) || !keyLike(m) ? m : '[redacted]')).replace(BASE64, (m) => (keyLike(m) ? '[redacted]' : m)).trim()
   return one.length > max ? `${one.slice(0, max - 3).trimEnd()}...` : one
 }
 
@@ -236,19 +238,23 @@ function checkReview(c, s, n) {
     flags.some((x) => x.red) ? 'Nudge it: fix the red checks and answer the Codex threads, then merge.' : 'Nudge it to merge once Opus has judged the final head.')
 }
 
+const isStale = (c, s) => s.bucket !== 'working' && hours(c.now, s.updatedAt) / 24 > c.staleDays
+
 function checkStale(c, s, issue, named) {
   const days = hours(c.now, s.updatedAt) / 24
-  if (s.bucket === 'working' || !(days > c.staleDays)) return
+  if (!isStale(c, s)) return
   // A completed session that another finding names still has something to post: it is not archived yet.
   let action = 'Not completed, so never archive it: read why it stopped.'
   if (s.bucket === 'completed') action = named ? 'Not yet: another finding names it; archive it once that is done.' : 'Can be archived: it is completed.'
-  c.add('stale', [s.id], issue, `${state(s)}; no update for ${Math.floor(days)} days.`, action)
+  const orphan = c.matches.get(s.id).size ? '' : '; no issue matches it'
+  c.add('stale', [s.id], issue, `${state(s)}; no update for ${Math.floor(days)} days${orphan}.`, action)
 }
 
 function checkSession(c, s) {
   const found = [...c.matches.get(s.id).keys()].sort((a, b) => a - b)
   if (checkStuck(c, s, found[0] ?? null)) c.stuck.add(s.id)
-  if (!found.length) checkOrphan(c, s)
+  // A completed, stale session with no issue is listed once, as stale ("no issue matches it").
+  if (!found.length && !(s.bucket === 'completed' && isStale(c, s))) checkOrphan(c, s)
   for (const n of found.filter((k) => c.byNum.get(k).state === 'open')) {
     checkDone(c, s, n)
     checkReview(c, s, n)
@@ -321,7 +327,8 @@ export function analyzeSessions(sessionsDoc, snapshot, { today, comments = {}, p
   // Last: a completed session is "can be archived" only when no other finding names it.
   for (const s of c.workers.filter((x) => !c.stuck.has(x.id))) {
     const first = [...c.matches.get(s.id).keys()].sort((a, b) => a - b)[0] ?? null
-    checkStale(c, s, first, out.some((f) => f.sessions.includes(s.id)))
+    // A duplicate-session finding already says to archive the completed ones, so it does not hold a session back.
+    checkStale(c, s, first, out.some((f) => f.kind !== 'duplicate-session' && f.sessions.includes(s.id)))
   }
   const rank = new Map(KINDS.map(([k], i) => [k, i]))
   return out.sort((a, b) => rank.get(a.kind) - rank.get(b.kind) || (a.issue ?? 0) - (b.issue ?? 0) || String(a.sessions[0]).localeCompare(String(b.sessions[0])))
