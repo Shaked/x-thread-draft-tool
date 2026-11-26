@@ -9,6 +9,7 @@ import { deleteUser } from '../admin/delete-user.js'
 import { transaction } from '../db.js'
 import { HttpError, json, readJson, readOptionalJson } from '../http.js'
 import { listFlags, setFlag } from '../admin/flags.js'
+import { eventsParams, eventsView, summaryParams, summaryView } from '../metrics/summary.js'
 import { cached, metricsParams, metricsView, seriesParams, seriesView } from '../metrics/view.js'
 
 // Admin routes (plan A2). Each one is built with adminRoute, which refuses everyone but the admin.
@@ -245,6 +246,14 @@ const metricsSeries = async ({ url }) => {
   return json(await cached(`series ${JSON.stringify(params)}`, () => seriesView(params)))
 }
 
+// Central metrics M5 (#451): the summary in plain lines (cached 60 s like the other views) and the events list.
+const metricsSummary = async ({ url }) => {
+  const params = summaryParams(url.searchParams)
+  return json(await cached(`summary ${JSON.stringify(params)}`, () => summaryView(params)))
+}
+
+const metricsEvents = async ({ url }) => json(await eventsView(eventsParams(url.searchParams)))
+
 export const adminRoutes = [
   adminRoute('GET', '/admin/status', status),
   adminRoute('GET', '/admin/users', listUsers),
@@ -256,6 +265,8 @@ export const adminRoutes = [
   adminRoute('GET', '/admin/audit', audit),
   adminRoute('GET', '/admin/metrics', metrics),
   adminRoute('GET', '/admin/metrics/series', metricsSeries),
+  adminRoute('GET', '/admin/metrics/summary', metricsSummary),
+  adminRoute('GET', '/admin/metrics/events', metricsEvents),
   adminRoute('GET', '/admin/flags', listFlags),
   adminRoute('POST', '/admin/flags', setFlag)
 ]

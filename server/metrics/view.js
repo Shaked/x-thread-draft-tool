@@ -108,7 +108,7 @@ function groupOf(by, row) {
 /** GET /api/admin/metrics: one entry per group, biggest count first, at most 200. */
 export async function metricsView({ window, by, route }, now = Date.now()) {
   const w = windowOf(window, now)
-  const rows = await groupRows({ by, from: w.from, day: utcDay(w.fromHour), route })
+  const rows = await groupRows({ by, from: w.from, day: utcDay(w.fromHour), route, to: iso(hourStart(now) + HOUR) })
   const as_of = iso(now)
   return {
     as_of,

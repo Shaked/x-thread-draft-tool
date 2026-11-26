@@ -21,7 +21,7 @@ window.addEventListener('message', function (event) {
   if (msg.method === 'ui/initialize') {
     frame.contentWindow.postMessage({ jsonrpc: '2.0', id: msg.id, result: {
       protocolVersion: '2026-01-26', hostInfo: { name: 'fixture', version: '1' }, hostCapabilities: window.__caps || {},
-      hostContext: { theme: window.__theme || 'light', locale: 'en-US' }
+      hostContext: { theme: window.__theme || 'light', locale: window.__locale === null ? undefined : window.__locale || 'en-US' }
     } }, '*')
   } else if (msg.method === 'ui/notifications/initialized') {
     frame.contentWindow.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: window.__fixture }, '*')

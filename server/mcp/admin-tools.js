@@ -117,6 +117,36 @@ const ADMIN_TOOLS = [
     run: (args, { rest }) => rest('GET', `/admin/metrics/series${queryOf(args, ['name', 'window', 'route'])}`)
   },
   {
+    name: 'admin_metrics_summary',
+    description:
+      'Start here to find problems: one plain line each for delivery speed, CI checks, deploys, production requests and the database, with the number, the limit, last week\'s value and since when it is over. The text field says it all; the first line says when the events are old.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        window: { type: 'string', enum: ['24h', '7d'], default: '24h', description: 'How far back to look.' },
+        repo: { type: 'string', maxLength: 120, description: 'A listed repo as owner/name. Default: the app repo.' }
+      }
+    },
+    run: (args, { rest }) => rest('GET', `/admin/metrics/summary${queryOf(args, ['window', 'repo'])}`)
+  },
+  {
+    name: 'admin_metrics_events',
+    description:
+      'Delivery events (CI runs, merges, speed stages, deploys, production errors), newest first, at most 100, each with a link. Use it after the summary to find the failing runs, then read their logs on GitHub.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        source: { type: 'string', maxLength: 120, description: 'ci, git, speed, deploy or prod.' },
+        kind: { type: 'string', maxLength: 120, description: 'run, merge, deploy or error.' },
+        status: { type: 'string', maxLength: 120, description: 'For example failure, over or 500.' },
+        name: { type: 'string', maxLength: 120, description: 'A workflow, stage, deploy target or route.' },
+        since: { type: 'string', maxLength: 40, description: 'Only events at or after this ISO time.' },
+        limit: { type: 'integer', minimum: 1, maximum: 100, default: 50, description: 'How many events, 1 to 100.' }
+      }
+    },
+    run: (args, { rest }) => rest('GET', `/admin/metrics/events${queryOf(args, ['source', 'kind', 'status', 'name', 'since', 'limit'])}`)
+  },
+  {
     name: 'admin_list_flags',
     description: 'The feature flags of the admin (the Rare UI look and components): each with its value, allowed values, default and meaning.',
     inputSchema: { type: 'object', properties: {} },
@@ -218,6 +248,8 @@ const ADMIN_META = {
   admin_audit_log: ['Admin audit log', true, false, true, false],
   admin_metrics: ['Request metrics', true, false, true, false],
   admin_metrics_series: ['Request metrics over time', true, false, true, false],
+  admin_metrics_summary: ['Metrics summary', true, false, true, false],
+  admin_metrics_events: ['Delivery events', true, false, true, false],
   admin_list_flags: ['List feature flags', true, false, true, false],
   admin_set_flag: ['Set feature flag', false, false, true, false],
   admin_suspend_user: ['Suspend user', false, true, true, false],
@@ -236,6 +268,8 @@ const ADMIN_REST_ROUTES = {
   admin_audit_log: ['GET /admin/audit'],
   admin_metrics: ['GET /admin/metrics'],
   admin_metrics_series: ['GET /admin/metrics/series'],
+  admin_metrics_summary: ['GET /admin/metrics/summary'],
+  admin_metrics_events: ['GET /admin/metrics/events'],
   admin_list_flags: ['GET /admin/flags'],
   admin_set_flag: ['POST /admin/flags'],
   admin_suspend_user: [`POST /admin/users/${NIL_ID}/suspend`],
@@ -252,6 +286,8 @@ const ADMIN_TRIGGERS = {
   admin_audit_log: ['history of admin actions', 'יומן פעולות ניהול'],
   admin_metrics: ['request metrics, errors, slow routes, latency percentiles', 'מדדי בקשות, שגיאות, נתיבים איטיים, זמני תגובה'],
   admin_metrics_series: ['one metric over time, a chart of requests or errors', 'מדד לאורך זמן, גרף בקשות או שגיאות'],
+  admin_metrics_summary: ['is anything wrong, health check, slow merges, failing CI', 'האם משהו שבור, בדיקת תקינות, מיזוגים איטיים'],
+  admin_metrics_events: ['failing CI runs, recent merges and deploys', 'בדיקות שנכשלו, מיזוגים ופריסות אחרונים'],
   admin_list_flags: ['feature flags, the Rare UI look switches', 'דגלי תכונות, מתגי המראה'],
   admin_set_flag: ['turn the Rare UI look or components on or off', 'דגל תכונה, מראה ניסיוני'],
   admin_suspend_user: ['block or freeze a user', 'להשעות משתמש, לחסום משתמש'],

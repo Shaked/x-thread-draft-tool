@@ -191,6 +191,35 @@ export function languageProblems(entries) {
   return problems
 }
 
+// Latin words a Hebrew view label may keep, besides LATIN_ALLOWED: the name of the export format.
+const LABEL_LATIN_ALLOWED = new Set(['Markdown'])
+const MARK = /\{[a-z]+\}/g
+
+/**
+ * Problems with the view labels (#371): `labels` is { view: { key: [English, Hebrew] } } (labels() in
+ * server/mcp/ui/client.js). Each key needs an English text with no Hebrew letter, a Hebrew text with Hebrew letters and
+ * no untranslated Latin word, and the same {marks} in both.
+ */
+export function viewLabelProblems(labels) {
+  const problems = []
+  for (const [view, table] of Object.entries(labels)) {
+    for (const [key, pair] of Object.entries(table)) {
+      const where = `view ${view} label ${key}`
+      if (!Array.isArray(pair) || pair.length !== 2 || pair.some((t) => typeof t !== 'string' || t.trim() === '')) {
+        problems.push(`${where}: needs one English and one Hebrew text`)
+        continue
+      }
+      const [en, he] = pair
+      if (!/[A-Za-z]/.test(en) || HEBREW.test(en)) problems.push(`${where}: the English text has no English letters or has Hebrew`)
+      if (!HEBREW.test(he)) problems.push(`${where}: no Hebrew text`)
+      const latin = untranslated(he.replace(MARK, '')).filter((word) => !LABEL_LATIN_ALLOWED.has(word))
+      if (latin.length) problems.push(`${where}: Hebrew text has untranslated Latin words: ${latin.join(', ')}`)
+      if ((en.match(MARK) ?? []).sort().join() !== (he.match(MARK) ?? []).sort().join()) problems.push(`${where}: the {marks} differ between the languages`)
+    }
+  }
+  return problems
+}
+
 /** The matrix and clients.json from the repo, and a repo-relative file check. */
 export function loadMatrix() {
   return {

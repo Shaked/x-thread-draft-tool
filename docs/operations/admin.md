@@ -35,7 +35,7 @@ The one access test is `tests/api/admin-access.test.js` (routes, MCP tools, bund
 
 ## The ten tools
 
-The admin connection sees the twelve admin tools below. Nobody else sees any of them.
+The admin connection sees the fourteen admin tools below. Nobody else sees any of them.
 
 | Tool | Arguments | REST route |
 |---|---|---|
@@ -46,6 +46,8 @@ The admin connection sees the twelve admin tools below. Nobody else sees any of 
 | `admin_audit_log` | `limit` (1 to 100, default 50), `before` (ISO time) | `GET /api/admin/audit` |
 | `admin_metrics` | `window` (`1h`, `24h`, `7d`, `30d`, `90d`, `400d`; default `24h`), `by` (`route`, `op`, `caller`, `all`, `total`; default `route`), `route` (a route of the app or `unmatched`) | `GET /api/admin/metrics` |
 | `admin_metrics_series` | `name` (`requests`, `errors_5xx`, `errors_4xx`, `rate_limited`, `cold_starts`, `p50`, `p95`, `p99`, or one `metrics_product_daily` column), `window` (`24h`, `7d`, `30d`, `90d`, `400d`; default `7d`), `route` (request series only) | `GET /api/admin/metrics/series` |
+| `admin_metrics_summary` | `window` (`24h` or `7d`; default `24h`), `repo` (a listed repo; default the app repo) | `GET /api/admin/metrics/summary` |
+| `admin_metrics_events` | `source`, `kind`, `status`, `name`, `since` (ISO time), `limit` (1 to 100, default 50) | `GET /api/admin/metrics/events` |
 | `admin_list_flags` | none | `GET /api/admin/flags` |
 | `admin_set_flag` | `flag` (`look` or `components`), `value` (`default` or `rare`); own view only, audited, no confirm token | `POST /api/admin/flags` |
 | `admin_suspend_user` | `id`, `confirm_login` (the exact login, typed by you), `reason` (optional, 200 characters) | `POST /api/admin/users/:id/suspend` |
