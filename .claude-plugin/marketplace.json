@@ -1,0 +1,8 @@
+{
+  "name": "agent-kit",
+  "description": "Generic skills, hooks and scripts for agents that work on a repository: reply templates and their lint first.",
+  "owner": { "name": "Shaked" },
+  "plugins": [
+    { "name": "reply-style", "source": "./plugins/reply-style", "version": "0.1.0", "description": "Reply templates for agents that report to a repository owner, with a lint and a Stop hook." }
+  ]
+}
