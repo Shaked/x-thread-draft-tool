@@ -390,13 +390,10 @@ for (const size of SIZES) {
 
         // The last entry is not covered by the bottom bar once the page is scrolled to its end.
         await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-        // The last entry that is shown: an entry inside a closed "Earlier changes" fold is not on the page.
+        // The last entry that is shown: a day can fold older entries into a closed <details>, whose articles are in the DOM but hidden.
         const clear = await page.evaluate(() => {
-          const shown = [...document.querySelectorAll('article')].filter((el) => {
-            for (let fold = el.closest('details'); fold; fold = fold.parentElement?.closest('details') ?? null) if (!fold.open) return false
-            return true
-          })
-          const r = shown.at(-1)!.getBoundingClientRect()
+          const shown = [...document.querySelectorAll('article')].filter((el) => el.checkVisibility())
+          const r = shown[shown.length - 1].getBoundingClientRect()
           return !!document.elementFromPoint(r.left + r.width / 2, r.bottom - 6)?.closest('article')
         })
         expect(clear).toBe(true)

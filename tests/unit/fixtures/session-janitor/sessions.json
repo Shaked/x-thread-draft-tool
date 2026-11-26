@@ -1,0 +1,24 @@
+{
+ "read_at": "2026-11-26T12:00:00Z",
+ "source": "list_sessions mine=true, limit 100",
+ "pages": 1,
+ "read_total": 14,
+ "has_more": false,
+ "sessions": [
+  { "id": "session_disp", "title": "Dispatcher: follow issue #100", "status": "running", "status_bucket": "working", "post_turn_summary": null, "updated_at": "2026-11-26T11:59:00Z", "created_at": "2026-11-20T00:00:00Z", "parent": null, "tags": [], "model": "opus" },
+  { "id": "session_done", "title": "100 #101: export button", "status": "idle", "status_bucket": "completed", "post_turn_summary": { "recent_action": "posted the HANDOFF" }, "updated_at": "2026-11-26T10:00:00Z", "created_at": "2026-11-26T08:00:00Z", "parent": "session_disp", "tags": ["pipeline"], "model": null },
+  { "id": "session_merged", "title": "100 #102: import screen", "status": "idle", "status_bucket": "review_ready", "post_turn_summary": null, "updated_at": "2026-11-26T11:00:00Z", "created_at": "2026-11-26T08:00:00Z", "parent": "session_disp", "tags": ["pipeline"], "model": null },
+  { "id": "session_nohand", "title": "100 #103: share link", "status": "idle", "status_bucket": "completed", "post_turn_summary": null, "updated_at": "2026-11-26T11:00:00Z", "created_at": "2026-11-26T08:00:00Z", "parent": "session_disp", "tags": ["pipeline"], "model": null },
+  { "id": "session_failed", "title": "100 #104: undo stack", "status": "idle", "status_bucket": "failed", "post_turn_summary": { "recent_action": "npm ci failed | disk full" }, "updated_at": "2026-11-26T09:00:00Z", "created_at": "2026-11-26T08:00:00Z", "parent": "session_disp", "tags": ["pipeline"], "model": "claude-haiku-5-5" },
+  { "id": "session_asks", "title": "100 #105: draft search", "status": "idle", "status_bucket": "blocked", "post_turn_summary": { "needs_action": "pick the search ranking; my token ghp_abcdefghijklmnopqrstuvwxyz0123 is in the log" }, "updated_at": "2026-11-26T09:30:00Z", "created_at": "2026-11-26T08:00:00Z", "parent": "session_disp", "tags": ["pipeline"], "model": null },
+  { "id": "session_review", "title": "100 #106: tag filter", "status": "idle", "status_bucket": "review_ready", "post_turn_summary": null, "updated_at": "2026-11-26T06:00:00Z", "created_at": "2026-11-26T04:00:00Z", "parent": "session_disp", "tags": ["pipeline"], "model": null },
+  { "id": "session_orphan", "title": "Explore the editor code", "status": "running", "status_bucket": "working", "post_turn_summary": null, "updated_at": "2026-11-26T11:30:00Z", "created_at": "2026-11-26T11:00:00Z", "parent": null, "tags": ["pipeline"], "model": null },
+  { "id": "session_dupa", "title": "100 #108: word count", "status": "running", "status_bucket": "working", "post_turn_summary": null, "updated_at": "2026-11-26T11:50:00Z", "created_at": "2026-11-26T09:00:00Z", "parent": "session_disp", "tags": ["pipeline"], "model": null },
+  { "id": "session_dupb", "title": "100 #108: word count again", "status": "running", "status_bucket": "working", "post_turn_summary": null, "updated_at": "2026-11-26T11:55:00Z", "created_at": "2026-11-26T10:00:00Z", "parent": "session_disp", "tags": ["pipeline"], "model": null },
+  { "id": "session_print", "title": "100 #110: print view", "status": "running", "status_bucket": "working", "post_turn_summary": null, "updated_at": "2026-11-26T11:58:00Z", "created_at": "2026-11-26T11:00:00Z", "parent": "session_disp", "tags": ["pipeline"], "model": null },
+  { "id": "session_old", "title": "100 #111: old fix", "status": "idle", "status_bucket": "completed", "post_turn_summary": null, "updated_at": "2026-11-16T12:00:00Z", "created_at": "2026-11-15T12:00:00Z", "parent": "session_disp", "tags": ["pipeline"], "model": null },
+  { "id": "session_paused", "title": "100 #112: paused work", "status": "idle", "status_bucket": "review_ready", "post_turn_summary": null, "updated_at": "2026-11-20T12:00:00Z", "created_at": "2026-11-19T12:00:00Z", "parent": "session_disp", "tags": ["pipeline"], "model": null }
+,
+  { "id": "session_other", "title": "Dotfiles clean-up #12", "status": "idle", "status_bucket": "failed", "post_turn_summary": null, "updated_at": "2026-11-01T12:00:00Z", "created_at": "2026-11-01T11:00:00Z", "parent": null, "tags": [], "model": null }
+ ]
+}
