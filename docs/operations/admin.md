@@ -48,11 +48,24 @@ The admin connection sees the ten admin tools below. Nobody else sees any of the
 | `admin_unsuspend_user` | `id`, `confirm_login` | `POST /api/admin/users/:id/unsuspend` |
 | `admin_delete_user` | `id`, `dry_run` (default true), `confirm_token`, `confirm_login` | `POST /api/admin/users/:id/delete` |
 
-The REST routes are under `/api/admin/`. They answer 404 to everyone except the elevated admin connection, the same answer as an unknown path. The smoke test checks this on the deployed site (`PASS admin paths answer like an unknown path (404)`).
+The REST routes are under `/api/admin/`. They answer 404 to everyone except the admin connection (MCP) and the owner's browser session (web, below), the same answer as an unknown path. The smoke test checks this on the deployed site (`PASS admin paths answer like an unknown path (404)`).
 
 The answers hold account details and numbers only. They never hold draft text, token secrets, token hashes, client secrets or image URLs.
 
 Limits, from `server/admin/limits.js`: suspend and unsuspend together, 30 actions per hour. Delete, 5 per hour. Each admin call counts once in the normal MCP rate row (120 calls per minute).
+
+## The web surface (the owner's browser session, #283)
+
+The `/api/admin/*` routes also answer the owner's browser session. All of these must hold, checked in this order, with no database query until the last:
+
+1. The call is not an in-process MCP call.
+2. The request has no `Authorization` header (so `xt_` tokens, OAuth `/api` tokens and the CI identity never pass).
+3. The request has the header `x-xt-admin: 1`. A custom header forces a CORS preflight, which this API never allows, so a page on another site cannot send it. Cross-origin writes also get 403 from the router's Origin check.
+4. The session cookie verifies (HS256, no audience, has a `jti`).
+5. `roleOf` in `role.js` says admin for the GitHub id in the session. `ADMIN_DISABLED=1` turns this off too.
+6. Then the one statement that checks revoked, suspended and exists.
+
+The check is `realSession` in `server/session.js`, used only by `server/admin/guard.js`. It ignores view-as. Each web call adds 1 to the per-minute MCP count (120 a minute); past that the answer is 429. The router gate (`adminPathOpen`) is async and never counts. The per-tool route binding applies to MCP only. The confirm-token binding for the web surface is #284.
 
 ## What a suspended user sees
 
