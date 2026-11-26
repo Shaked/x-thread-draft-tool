@@ -1,2 +1,5 @@
-Claude Code is now a checked client in `clients.json`: its docs state it reads server instructions, shows MCP prompts and reads resources (#373).
-ChatGPT, Grok, Codex, Claude Desktop and the MCP spec stay "not checked": those vendor pages did not load from the build container.
+# Claude Code is now a checked client in the client matrix
+Area: Connecting AI apps
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/550
+Claude Code's own docs say it reads server instructions, shows prompts and reads resources, so those cells are now built.
+ChatGPT, Grok, Codex and Claude Desktop stay "not checked": their vendor pages did not load.
