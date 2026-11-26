@@ -23,8 +23,10 @@ Decided by the owner on 2026-11-26: MIT ("Mit is fine", a comment on #502 at 07:
 - The same PR says in `README.md` and in `LICENSE` that `THIRD_PARTY_LICENSES/` keeps its own licences: pstack
   (MIT, Lauren Tan) and Rare UI in `src/ui/rare/` (MIT with Commons Clause and attribution). The root licence does
   not relicense them.
-- Every `plugin.json` gets `"license": "MIT"`. A root `LICENSE` counts for every plugin in the repo (checked here:
-  `claude plugin validate` looks for a licence file at the repository root).
+- Every `plugin.json` gets `"license": "MIT"`, and every plugin gets its own `plugins/<name>/LICENSE`, the same
+  text as the root file. Reason: an installed plugin is a copy of its folder only ("Files outside the plugin
+  directory aren't copied", section 3), and MIT asks for the notice in all copies. Test 1 checks that each plugin
+  `LICENSE` equals the root `LICENSE`.
 - Third-party content (pstack) is never republished in a plugin (section 6, row pstack).
 - Until step 0 merges, no README install section and no announcement.
 
@@ -115,9 +117,12 @@ The only copy of each plugin's files is under `plugins/<name>/`. This repo reads
 - Skills: `.claude/skills/<skill>` is a symlink to `../../plugins/<name>/skills/<skill>`. Checked here: Claude Code
   loads a symlinked project skill. Codex and other agents follow the same path from `AGENTS.md`.
 - Hooks: `.claude/settings.json` runs `node "$CLAUDE_PROJECT_DIR/plugins/reply-style/scripts/reply-style-stop.mjs"`.
-- Scripts: `npm run reply-lint` runs the plugin script. `scripts/reply-lint.mjs` becomes a one-line re-export,
-  because `janitor.mjs`, `reply-lint-comment.mjs`, `changelog-check.mjs`, `reply-style-stop.mjs` and the tests
-  import it, and `.github/workflows/reply-lint.yml` calls it by path.
+- Scripts: `npm run reply-lint` runs the plugin script. `scripts/reply-lint.mjs` stays as a small wrapper, because
+  `janitor.mjs`, `reply-lint-comment.mjs`, `changelog-check.mjs`, `reply-style-stop.mjs` and the tests import it,
+  and `.github/workflows/reply-lint.yml` runs it by path. A bare re-export is not enough: the plugin script runs its
+  CLI only when it is the entry file, so `node scripts/reply-lint.mjs bad.md` would exit 0 with no output. The
+  wrapper re-exports the functions and calls the plugin's exported `main()` when it is run itself. A subprocess
+  test runs `node scripts/reply-lint.mjs` on a bad fixture and expects exit 1 and the findings.
 - Settings: this repo's values live in `.claude/agent-kit.json` (4.3).
 - Skill text names its scripts relative to the skill folder (`../../scripts/reply-lint.mjs`), not with
   `${CLAUDE_PLUGIN_ROOT}`: that variable is not set when the skill loads as a project skill through the symlink.
@@ -137,11 +142,12 @@ Risks, and what handles them:
   (the docs: a plugin's copy of a handler "stays separate").
   `docs/marketplace.md` says not to install it in this repo.
 - Repo gates stop seeing the moved code: `COUNTED_DIRS` in `scripts/net-lines.mjs`, `SCAN_DIRS` in
-  `scripts/slop-scan.mjs`, `knip.json` and the Node block of `eslint.config.js` cover `scripts/` only. Step 1 adds
-  `plugins/*/scripts/` to all four, so a move does not hide about 300 lines and later growth is counted.
+  `scripts/slop-scan.mjs`, `knip.json` and the Node block of `eslint.config.js` cover `scripts/` only. Step 1b adds
+  the prefix `plugins/` to `COUNTED_DIRS` (it matches with `startsWith`, so no glob) and `plugins/*/scripts/` to
+  the other three, so a move does not hide about 300 lines and later growth is counted.
 
 ### 4.3 How generic is made: one config file per project
-- No app name, owner name, issue number or repo path in any plugin text. Test 3 in section 5 enforces it.
+- No app name, owner name, issue number or repo path in any plugin text. Test 2 in section 5 enforces it.
 - Project settings are in one file, `.claude/agent-kit.json`, with a top-level part and one section per plugin.
   A missing file or key means the default.
 - The lint stays pure: `lint(text, options, config)`. Only the command-line scripts and the hook read the file.
@@ -206,7 +212,9 @@ issues `#12` and `#34`.
 read above their root, so the `task-janitor` plugin cannot import the `reply-style` script by path. Decision: that
 check is optional. The janitor reads `task-janitor.replyLint` from the config (a path to the lint module, in this
 repo `plugins/reply-style/scripts/reply-lint.mjs`). Without it the report prints one line, "Reply style: not
-checked (no replyLint in .claude/agent-kit.json)". Tests cover both. The docs list `dependencies` for plugin
+checked (no replyLint in .claude/agent-kit.json)", and so does a path that does not exist. Tests cover all three.
+In another project the installed reply-style plugin lives in a cache folder whose path has its version, so a
+configured path breaks at each update and the line says "not checked"; that is accepted. The docs list `dependencies` for plugin
 entries; whether a dependency gives a path to the other plugin is not checked, so it is not used.
 
 ### 4.5 Versions, changelog and upgrades
@@ -232,7 +240,7 @@ All tests run with `npm run test:unit` (vitest, no network, no model, no person)
 2. **Forbidden strings.** Every file under `plugins/` and `.claude-plugin/` has none of: `x-thread-draft-tool`,
    `Shaked`, `thread draft`, `docs/plans/`, `docs/operations/`, `XT_`, and no `#` followed by digits other than the
    sample project's `#12` and `#34`. The JSON manifests are parsed, and only `owner.name` and `author.name` are
-   exempt. The list is in the test, not in a plugin.
+   exempt, and so are the `plugins/*/LICENSE` files (their copyright line). The list is in the test, not in a plugin.
 3. **Golden fixtures.** Every plugin template has a good fixture that passes and bad fixtures that fail for exactly
    the named rules. The `WANT` map and every rule assertion of `tests/unit/reply-lint-golden.test.js` are kept; the
    fixtures move into the plugin and their names change to the sample project. The changelog and Telegram fixtures
@@ -248,8 +256,9 @@ All tests run with `npm run test:unit` (vitest, no network, no model, no person)
    is read. It is the install test whenever job 8 cannot run.
 7. **This repo.** `.claude/skills/reply-style` resolves to the plugin skill; `npm run docs:refresh` still lists it in
    `CLAUDE.md` (`scripts/update-claude-index.mjs` reads `isDirectory()` from a directory entry, which is false for a
-   symlink, so step 1 fixes that); the janitor, comment lint and changelog check tests pass with only import paths
-   changed.
+   symlink, so step 1b fixes that); the janitor, comment lint and changelog check tests pass with only import paths
+   changed. That holds only because `scripts/reply-lint.mjs` passes this repo's `.claude/agent-kit.json` to the
+   pure lint: its default `humans` has no "Shaked", so "blocked on Shaked" would fail without it.
 8. **Plugin CLI job.** A GitHub Actions job with the Claude Code CLI pinned to one version and a temp
    `CLAUDE_CONFIG_DIR`: `claude plugin validate . --strict`, the same for each plugin,
    `claude plugin install reply-style --marketplace "$GITHUB_WORKSPACE" --scope user`, then `claude plugin list --json`
@@ -283,18 +292,19 @@ All tests run with `npm run test:unit` (vitest, no network, no model, no person)
 
 ## 7. Build steps (task issues under #407)
 
-One task issue per step, one small PR per step. Opus judges every PR. The plugin folders are not part of the app
+One task issue per step, one small PR per step. Haiku executes every step (`AGENTS.md`); Sonnet takes a step over
+only when Haiku fails the same step twice. Opus judges every PR. The plugin folders are not part of the app
 build, so step 1a adds `^plugins\/` and `^\.claude-plugin\/` to the skip list in `scripts/vercel-ignore.mjs`, with
 a test.
 
 | Step | What | Executor, validator | Depends on |
 |---|---|---|---|
 | 0, #506 | `LICENSE` (MIT) at the root, the third-party note, `license` in manifests once they exist | Haiku, Opus | this plan |
-| 1a, #507 | `.claude-plugin/marketplace.json`, an empty `plugins/reply-style/` with manifest, README and CHANGELOG, tests 1 and 2, the version check, `vercel-ignore` | Sonnet, Opus | this plan |
-| 1b, #508 | Move the reply-style skill, 5 templates, lint, Stop hook and comment lint into the plugin; config; this repo switches in place (4.2); tests 3 to 8; the gate updates | Sonnet, Opus (hook and every reply check) | 1a |
-| 2, #509 | Plugin `task-janitor`: janitor, session janitor, `/janitor`, status board | Sonnet, Opus | #508, #493, #499 |
-| 3, #510 | Plugin `pr-workflow`: the generic part of `agent-pr-workflow` and `agent-pr.sh` | Sonnet, Sonnet | 1b |
-| 4, #511 | Plugin `contract-tests`: the `e2e-contract-tests` method with neutral examples | Sonnet, Sonnet | 1b |
+| 1a, #507 | `.claude-plugin/marketplace.json`, an empty `plugins/reply-style/` with manifest, README and CHANGELOG, tests 1 and 2, the version check, `vercel-ignore` | Haiku, Opus | this plan |
+| 1b, #508 | Move the reply-style skill, 5 templates, lint, Stop hook and comment lint into the plugin; config; this repo switches in place (4.2); tests 3 to 8; the gate updates | Haiku, Opus (hook and every reply check) | 1a |
+| 2, #509 | Plugin `task-janitor`: janitor, session janitor, `/janitor`, status board | Haiku, Opus | #508, #493, #499 |
+| 3, #510 | Plugin `pr-workflow`: the generic part of `agent-pr-workflow` and `agent-pr.sh` | Haiku, Sonnet | 1b |
+| 4, #511 | Plugin `contract-tests`: the `e2e-contract-tests` method with neutral examples | Haiku, Sonnet | 1b |
 | 5, #512 | `docs/marketplace.md` and a short README section: contents, install lines, config, how to contribute | Haiku, Sonnet | 0, 1b |
 
 Task issues: #506 to #512, created with this plan on 2026-11-26. #502 closes when this plan merges.
