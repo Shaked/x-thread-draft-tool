@@ -1,5 +1,6 @@
 ## TL;DR
-The reply checks now run on every owner reply. Nothing needed from you.
+The reply checks now run on every owner reply.
+Nothing needed from you.
 
 ## What you need to do
 Nothing.
