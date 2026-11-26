@@ -194,4 +194,13 @@ describe('ingestBatch: caps and the row guard', () => {
     const counters = Array.from({ length: 201 }, (_, i) => ({ day, source: 'ci', kind: 'run', name: `wf${i}`, status: 'skipped', count: 1 }))
     await expect(ingestBatch(batch([], { counters }))).rejects.toMatchObject({ status: 429 })
   })
+
+  it('refuses a counter day older than the 400-day retention', async () => {
+    const old = new Date(Date.now() - 401 * 24 * 3600_000).toISOString().slice(0, 10)
+    await expect(ingestBatch(batch([], { counters: [{ day: old, source: 'ci', kind: 'run', name: 'Tests', status: 'skipped', count: 1 }] }))).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('counts a repeated event in one batch once toward the daily cap', async () => {
+    await expect(ingestBatch(batch([event('9'), event('9')]), { dailyEventCap: 1 })).resolves.toMatchObject({ accepted: 1, duplicates: 1 })
+  })
 })

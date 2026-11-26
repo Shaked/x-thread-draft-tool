@@ -13,6 +13,8 @@ const COUNTER_MAX = 1_000_000
 const STRING_MAX = 120
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
 const DAY_MS = 24 * 60 * 60 * 1000
+const COUNTER_DAYS_KEPT = 400
+const COUNTER_ROWS_PER_BATCH = 1000
 
 function refuse(status, reason) {
   return new HttpError(status, `Ops batch refused: ${reason}`)
@@ -39,6 +41,7 @@ function countersOf(raw, now) {
   const today = utcDay(now)
   const keys = new Set()
   const perDay = new Map()
+  if (raw.length > COUNTER_ROWS_PER_BATCH) throw new HttpError(429, 'Ops batch refused: too many counter rows')
   return raw.map((row) => {
     if (!row || typeof row !== 'object' || Array.isArray(row)) throw refuse(400, 'counter')
     const { day, source, kind, name, status, count } = row
@@ -46,6 +49,7 @@ function countersOf(raw, now) {
       throw refuse(400, 'counter day')
     }
     if (utcDay(Date.parse(`${day}T00:00:00Z`)) !== day || day >= today) throw refuse(400, 'counter day is not a finished UTC day')
+    if (Date.parse(`${day}T00:00:00Z`) < Date.parse(`${today}T00:00:00Z`) - COUNTER_DAYS_KEPT * DAY_MS) throw refuse(400, 'counter day is older than the retention')
     if (![source, kind, name, status].every(isText)) throw refuse(400, 'counter text')
     if (!Number.isInteger(count) || count < 0 || count > COUNTER_MAX) throw refuse(400, 'counter count')
     const key = [day, source, kind, name, status].join('\u0001')
@@ -152,8 +156,11 @@ export async function ingestBatch(body, { now = Date.now(), sources = SOURCES, r
     const inserted = await insertEvents(q, events)
     const insertedKeys = new Set(inserted.map((r) => `${r.source}/${r.kind}/${r.id}`))
     const insertedPerDay = new Map()
+    const counted = new Set()
     for (const e of events) {
-      if (insertedKeys.has(`${e.source}/${e.kind}/${e.id}`)) {
+      const key = `${e.source}/${e.kind}/${e.id}`
+      if (insertedKeys.has(key) && !counted.has(key)) {
+        counted.add(key)
         const day = e.at.slice(0, 10)
         insertedPerDay.set(day, (insertedPerDay.get(day) ?? 0) + 1)
       }
