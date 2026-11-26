@@ -40,6 +40,16 @@ describe('metrics-daily workflow (M3)', () => {
     expect(WORKFLOW).toMatch(/^concurrency:\n\s+group: metrics-daily\n\s+cancel-in-progress: false\s*$/m)
   })
 
+  it('has a daily job (O5, #336) with its own job-level permissions, on main only, and no secrets', () => {
+    expect(WORKFLOW).toMatch(/^ {2}daily:\n/m)
+    const daily = WORKFLOW.slice(WORKFLOW.indexOf('\n  daily:\n'))
+    expect(daily).toMatch(/^ {4}permissions:\n {6}id-token: write\n {6}contents: read\s*$/m)
+    expect(daily).toMatch(/^ {4}if: github\.ref == 'refs\/heads\/main'$/m)
+    expect(daily).toMatch(/audience=x-thread-draft-tool-ops-daily-production/)
+    expect(daily).toMatch(/\/api\/ops\/metrics-daily/)
+    expect(daily).not.toMatch(/secrets\./)
+  })
+
   it('runs only the collector script, with the workflow token as its only secret-like value', () => {
     expect(WORKFLOW).toMatch(/run: node scripts\/ops-emit\.mjs/)
     expect(WORKFLOW).not.toMatch(/secrets\./)

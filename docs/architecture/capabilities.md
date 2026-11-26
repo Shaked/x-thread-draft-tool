@@ -58,5 +58,6 @@ Routes that are not user capabilities. Each has a reason. The keys follow the sa
 | `GET /openapi.json` | Documentation, not a user function |
 | `GET /health` | Health check, not a user function |
 | `POST /ops/events` | Metrics ingest from the `metrics-daily` workflow (its own OIDC token, #448), not a user function |
+| `POST /ops/metrics-daily` | Scheduled metrics step for its own workflow's OIDC token (#336), not a user function |
 | `GET /mcp/ui-manifest` | Deploy check: view hashes for the production smoke step, not a user function |
 | `POST /mcp` | The MCP endpoint itself |
