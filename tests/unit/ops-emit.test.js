@@ -50,10 +50,12 @@ function fakeGitHub({ remaining, dropAfterCalls, totalExtra = 0, overrides = {} 
       // The `created` range "YYYY-MM-DD..YYYY-MM-DD" filters by the run's UTC day, as the API does; pages are 100 long.
       const [from, to] = (q.get('created') ?? '').split('..')
       const matching = data.runs.filter((r) => r.created_at.slice(0, 10) >= from && r.created_at.slice(0, 10) <= to)
+      // total_count counts distinct runs, as the API does; a listed-twice run is one run.
+      const distinct = new Set(matching.map((r) => r.id)).size
       const page = Number(q.get('page') ?? 1)
       const per = Number(q.get('per_page') ?? 100)
       const slice = matching.slice((page - 1) * per, page * per)
-      return response({ total_count: matching.length + totalExtra, workflow_runs: slice }, left)
+      return response({ total_count: distinct + totalExtra, workflow_runs: slice }, left)
     }
     const jobs = path.match(/^\/actions\/runs\/(\d+)\/jobs$/)
     if (jobs) return response({ jobs: data.jobs[jobs[1]] ?? [] }, left)
@@ -247,6 +249,14 @@ describe('ops-emit: review fixes on #472', () => {
     expect(events.some((e) => e.source === 'speed' && e.id.startsWith('sha-m2:'))).toBe(true)
   })
 
+  it('the collector\'s own in-progress run on the merge commit does not hold back its speed rows', async () => {
+    const own = { id: 108, run_attempt: 1, name: 'Metrics daily', event: 'schedule', status: 'in_progress', conclusion: null, head_sha: 'sha-m1', created_at: '2026-11-26T11:00:00Z', run_started_at: '2026-11-26T11:00:05Z', updated_at: '2026-11-26T11:00:05Z', html_url: 'https://github.com/Shaked/x-thread-draft-tool/actions/runs/108', pull_requests: [] }
+    const runsBySha = { ...API.runs_by_sha, 'sha-m1': [...API.runs_by_sha['sha-m1'], own] }
+    const { fetchImpl } = fakeGitHub({ overrides: { runs_by_sha: runsBySha } })
+    const events = (await collectRepo(REPO, { ...clients(fetchImpl), now: NOW })).events
+    expect(events.some((e) => e.source === 'speed' && e.id === 'sha-m1:total')).toBe(true)
+  })
+
   it('a merge less than two hours old gets no speed rows yet', async () => {
     const { fetchImpl } = fakeGitHub()
     const oneHourAfterMerge = Date.parse('2026-11-25T11:07:30Z')
@@ -276,6 +286,23 @@ describe('ops-emit: review fixes on #472', () => {
     expect(checked.ok).toBe(true)
     expect(checked.refused).toEqual([])
     expect(checked.events).toHaveLength(body.events.length)
+  })
+
+  it('a duplicate on one page cannot make a listing with a missing run look complete', async () => {
+    // Total is 4 distinct runs on day 24 (102, 104 and two more), but the answer lists 104 twice and leaves one out.
+    const day24 = API.runs.filter((r) => r.created_at.slice(0, 10) === '2026-11-24')
+    const extra = { ...day24[0], id: 9001, created_at: '2026-11-24T07:00:00Z', name: 'Tests', conclusion: 'success', status: 'completed' }
+    const runs = [...API.runs, extra]
+    const { fetchImpl } = fakeGitHub({ overrides: { runs } })
+    const listed = await fetchImpl(`https://api.github.com/repos/${FULL}/actions/runs?created=2026-11-24..2026-11-24&per_page=100&page=1`)
+    const body = await listed.json()
+    expect(body.total_count).toBe(3)
+    // Now make the answer hold a duplicate in place of a run: distinct 2 against total 3 must be incomplete.
+    const dup = [day24[0], day24[0]]
+    const fake2 = fakeGitHub({ overrides: { runs: dup }, totalExtra: 1 })
+    const result = await collectRepo(REPO, { ...clients(fake2.fetchImpl), now: NOW })
+    expect(result.countable).toBe(false)
+    expect(result.counters).toEqual([])
   })
 
   it('takes the newest success or failure of a deployment that is now inactive, so it is not dropped', async () => {

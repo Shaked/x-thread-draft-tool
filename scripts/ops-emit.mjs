@@ -8,15 +8,16 @@
 //   2. the CI runs created since the start of the UTC day WINDOW_DAYS ago, one page at a time. The list
 //      gives each run's latest attempt; the unique key (run id and attempt) keeps each attempt once, so a
 //      re-run that starts later is stored too (the window is the re-run limit: 3 days, see docs/operations);
-//      The list is read one UTC day at a time; a day answering fewer runs than its total_count is incomplete.
+//      The list is read one UTC day at a time; a day with fewer distinct runs than its total_count is incomplete.
 //   3. merges (git), the deployments of those merges (deploy) and, for `speed: true` repos, the speed stages
 //      of each merge (speed-metrics.mjs measurePull and LIMITS). Speed rows wait SPEED_SETTLE_MS (2 hours) after
 //      the merge and until every run on the merge's head and merge commit has finished; until then none is written;
 //   4. counters for each finished UTC day of the window: runs that are not stored events (skipped,
 //      cancelled, unlisted, and stuck: running for over 24 hours), a zero row for an empty day. A day's rows are
 //      replaced whole, so they are sent only when the listing and the CI events completed (`countable`).
-// Stops cleanly once fewer than RATE_FLOOR API calls remain (the x-ratelimit-remaining header of the last answer). It posts the events it has; counters and cursor are sent only when `countable`;
-// a stop among the merges keeps them, because they depend only on the listing and the CI events. The next run repeats the window.
+// Stops cleanly once fewer than RATE_FLOOR API calls remain (x-ratelimit-remaining of the last answer). It posts the events it has; counters and cursor are sent only when `countable`;
+// a stop among the merges keeps them: they depend only on the listing and the CI events.
+// The next run repeats the window.
 //
 // Flags: --dry-run --repo <owner/name>   print the batches (sorted JSON) and send nothing.
 // Env:   GITHUB_TOKEN (reads only), ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN (the
@@ -24,7 +25,7 @@
 
 import { pathToFileURL } from 'node:url'
 import { SOURCES, fullName } from '../server/ops/sources.js'
-import { githubApi, measurePull, LIMITS, stableJson } from './speed-metrics.mjs'
+import { githubApi, measurePull, LIMITS, stableJson, CI_WORKFLOWS, SMOKE_WORKFLOW } from './speed-metrics.mjs'
 
 export const WINDOW_DAYS = 3
 export const RATE_FLOOR = 100
@@ -187,7 +188,7 @@ async function listWindowRuns(get, budget, since, today) {
   const byId = new Map()
   for (let ms = Date.parse(`${since}T00:00:00Z`); utcDay(ms) <= today; ms += DAY_MS) {
     const day = utcDay(ms)
-    let seen = 0
+    const dayIds = new Set()
     let total = null
     let complete = false
     for (let page = 1; page <= 50 && !complete; page++) {
@@ -196,11 +197,11 @@ async function listWindowRuns(get, budget, since, today) {
       total = typeof body.total_count === 'number' ? body.total_count : total
       const list = body.workflow_runs ?? []
       for (const run of list) byId.set(run.id, run)
-      seen += list.length
+      for (const run of list) dayIds.add(run.id)
       if (list.length < 100) complete = true
     }
-    // Items seen (a run listed twice still counts twice here) against the total: fewer means a cut-off listing.
-    if (!complete || (total !== null && seen < total)) return { runs: [...byId.values()], complete: false }
+    // Distinct runs of the day against its total: fewer means a run is missing (a duplicate hides nothing).
+    if (!complete || (total !== null && dayIds.size < total)) return { runs: [...byId.values()], complete: false }
   }
   return { runs: [...byId.values()], complete: true }
 }
@@ -272,8 +273,10 @@ export const SPEED_SETTLE_MS = 2 * 60 * 60 * 1000
  */
 async function speedRowsFor(api, repo, pr, now, full) {
   if (now - Date.parse(pr.merged_at) < SPEED_SETTLE_MS) return []
+  // Only the runs that measurePull reads count: the collector's own run on the same commit must not hold a merge back.
+  const measured = new Set([...CI_WORKFLOWS, SMOKE_WORKFLOW])
   const runs = [...(await api.runsForSha(pr.head.sha)), ...(await api.runsForSha(pr.merge_commit_sha))]
-  if (runs.some((r) => r.status !== 'completed')) return []
+  if (runs.some((r) => measured.has(r.name) && r.status !== 'completed')) return []
   const record = await measurePull(pr, api)
   if (record.kind !== 'docs' && !record.stages.smoke) return []
   return speedEvents(record, `https://github.com/${full}/pull/${pr.number}`)
