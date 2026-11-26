@@ -117,12 +117,18 @@ describe('the access table has a row for every admin route, tool and page', () =
     expect(Object.keys(REST_ROWS).sort()).toEqual(fromCode)
   })
 
-  it('every file that calls requireAdminUser is known, and its routes are marked adminOnly', () => {
+  it('every route that uses requireAdminUser is adminOnly, and every file that names it is known', () => {
     const serverFiles = (dir) => readdirSync(join(ROOT, dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? serverFiles(`${dir}/${e.name}`) : e.name.endsWith('.js') ? [`${dir}/${e.name}`] : []))
-    const users = serverFiles('server').filter((f) => f !== 'server/admin/guard.js' && readSrc(f).includes('requireAdminUser('))
+    const users = serverFiles('server').filter((f) => f !== 'server/admin/guard.js' && readSrc(f).includes('requireAdminUser'))
     // A new file here must add its routes to REST_ROWS and mark them adminOnly (so openapi.json leaves them out), then be added to this list.
     expect(users).toEqual(['server/changelog.js'])
-    expect(ROUTES.filter((r) => r.path === '/changelog').every((r) => r.adminOnly === true)).toBe(true)
+    // Whatever the path or the import name: a handler that calls the guard is an admin route.
+    const guarded = ROUTES.filter((r) => String(r.handler).includes('requireAdminUser'))
+    expect(guarded.length).toBeGreaterThan(0)
+    expect(guarded.filter((r) => r.adminOnly !== true).map((r) => `${r.method} ${r.path}`)).toEqual([])
+    // Every route of a file that names the guard is adminOnly too (a second route there is not left out by mistake).
+    const changelog = ROUTES.filter((r) => String(r.handler) === String(guarded[0].handler) || r.path.startsWith('/changelog'))
+    expect(changelog.filter((r) => r.adminOnly !== true).map((r) => `${r.method} ${r.path}`)).toEqual([])
   })
 
   it('has a row for every admin MCP tool, and no normal tool is an admin tool', () => {
@@ -133,11 +139,17 @@ describe('the access table has a row for every admin route, tool and page', () =
 
   it('lists the admin pages from the source, and each is on the table below', () => {
     expect(pages).toEqual(['/admin', '/admin/audit', '/admin/changelog', '/admin/flags', '/admin/metrics', '/admin/users', '/admin/users/:id', '/changelog'])
-    // Every App.jsx route that names an admin address sits behind isAdmin(user), and none uses a computed path.
+    // Every address of the admin area written in App.jsx (any attribute order, any quote) is behind isAdmin(user): the nearest
+    // `isAdmin(user) &&` before it has no other <Route between. A computed path={...} is refused, since it cannot be read.
     const app = readSrc('src/App.jsx')
-    expect(app).not.toMatch(/<Route[^>]*path=\{/)
-    for (const m of app.matchAll(/<Route\s+path="(\/admin[^"]*|\/changelog)"/g)) {
-      expect(app.slice(Math.max(0, m.index - 80), m.index), `${m[1]} in App.jsx`).toMatch(/isAdmin\(user\) && \(?\s*$/)
+    expect(app).not.toMatch(/path=\{/)
+    const addresses = [...app.matchAll(/['"](\/admin[^'"]*|\/changelog[^'"]*)['"]/g)]
+    expect(addresses.length).toBeGreaterThan(1)
+    for (const m of addresses) {
+      const before = app.slice(0, m.index)
+      const gate = before.lastIndexOf('isAdmin(user) &&')
+      expect(gate > 0 && before[gate - 1] !== '!', `${m[1]} in App.jsx is not behind isAdmin(user)`).toBe(true)
+      expect(before.slice(gate).split('<Route').length - 1, `${m[1]} in App.jsx: another <Route sits between the gate and it`).toBeLessThanOrEqual(1)
     }
     // The jsdom test tests/unit/admin-access-pages.test.jsx renders every one of these as signed out, normal user and admin.
     for (const page of pages) note('page', page, 'as unknown path', 'as unknown path', 'real page (tests/unit/admin-access-pages.test.jsx)')
