@@ -66,8 +66,12 @@ export function validateSessions(doc) {
   if (!doc || typeof doc !== 'object') return ['sessions.json is not an object']
   if (typeof doc.read_at !== 'string' || Number.isNaN(Date.parse(doc.read_at))) errors.push('read_at must be an ISO time')
   if (!Number.isInteger(doc.pages) || doc.pages < 1) errors.push('pages must be the number of list_sessions pages read (1 or more)')
+  if (typeof doc.source !== 'string' || !doc.source) errors.push('source must name the list_sessions call (mine=true or children=true)')
   if (doc.has_more !== false) errors.push('has_more must be false: read every page (after_id = last_id) before the report')
   if (!Array.isArray(doc.sessions)) return [...errors, 'sessions must be an array']
+  if ('read_total' in doc && !(Number.isInteger(doc.read_total) && doc.read_total >= doc.sessions.length)) {
+    errors.push('read_total must count every session read, at least the sessions listed')
+  }
   const ids = new Set()
   doc.sessions.forEach((s, k) => {
     for (const f of SESSION_FIELDS) if (!(f in (s || {}))) errors.push(`sessions[${k}]: missing ${f}`)
@@ -80,6 +84,16 @@ export function validateSessions(doc) {
   return errors
 }
 
+/** A session of this repo's pipeline: tagged `pipeline` or `epic-<n>`. Other sessions of the account are out of scope. */
+export const inScope = (s) => (s.tags || []).some((t) => t === 'pipeline' || /^epic-\d+$/.test(t))
+
+/** The sessions the checks look at: those in scope and the dispatchers that started them. */
+export function scoped(sessions) {
+  const kept = sessions.filter(inScope)
+  const parents = new Set(kept.map((s) => s.parent).filter(Boolean))
+  return sessions.filter((s) => inScope(s) || parents.has(s.id))
+}
+
 /** The issue number a session title names: the first "#NNN". */
 export function titleIssue(title) {
   const m = /#(\d+)\b/.exec(title || '')
@@ -89,11 +103,13 @@ export function titleIssue(title) {
 const TOKEN = /\b(?:gh[pousr]_\w{16,}|github_pat_\w{16,}|sk-[\w-]{16,}|xox[abprs]-[\w-]{10,}|AKIA[0-9A-Z]{16}|eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{4,})|\bBearer\s+\S+/g
 // Any other run of 32 or more key characters is masked too, except a session id. Paths keep their slashes, so they stay.
 const LONG = /\b[A-Za-z0-9+_-]{32,}/g
+// A base64 secret may hold slashes: a run of 40 or more base64 characters is masked as well.
+const BASE64 = /[A-Za-z0-9+/]{40,}={0,2}/g
 
 /** Text copied from a session for a table cell: one line, no backticks or pipes, tokens masked, at most `max` characters. */
 export function quote(text, max = 100) {
   const one = String(text || '').replace(/\s+/g, ' ').replace(/`/g, "'").replace(/\|/g, '/').replace(TOKEN, '[redacted]')
-    .replace(/:\/\/[^/\s:@]+:[^@\s]+@/g, '://[redacted]@').replace(LONG, (m) => (new RegExp(`^${SESSION_ID}$`).test(m) ? m : '[redacted]')).trim()
+    .replace(/:\/\/[^/\s:@]+:[^@\s]+@/g, '://[redacted]@').replace(LONG, (m) => (new RegExp(`^${SESSION_ID}$`).test(m) ? m : '[redacted]')).replace(BASE64, '[redacted]').trim()
   return one.length > max ? `${one.slice(0, max - 3).trimEnd()}...` : one
 }
 
@@ -310,7 +326,7 @@ function context(sessionsDoc, snapshot, comments) {
   const naming = (list, re) => (list || []).filter((p) => re.test(`${p.title}\n${p.body || ''}`)).map((p) => p.number).sort((a, b) => a - b)
   const c = {
     childrenOnly: /children/i.test(sessionsDoc.source || ''),
-    sessions: (sessionsDoc.sessions || []).map(normalizeSession).sort((a, b) => a.id.localeCompare(b.id)),
+    sessions: scoped((sessionsDoc.sessions || []).map(normalizeSession)).sort((a, b) => a.id.localeCompare(b.id)),
     allComments,
     loaded: (n) => allComments[n] || allComments[String(n)],
     issues,

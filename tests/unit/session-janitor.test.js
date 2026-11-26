@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
-import { analyzeSessions, claimOf, KINDS, needs, normalizeSession, quote, SESSION_FIELDS, titleIssue, validateSessions } from '../../scripts/session-janitor.mjs'
+import { analyzeSessions, claimOf, inScope, KINDS, needs, normalizeSession, quote, SESSION_FIELDS, titleIssue, validateSessions } from '../../scripts/session-janitor.mjs'
 
 const load = (name) => JSON.parse(readFileSync(new URL(`./fixtures/session-janitor/${name}`, import.meta.url), 'utf8'))
 const sessions = load('sessions.json')
@@ -17,7 +17,7 @@ describe('the sessions.json shape', () => {
     expect(validateSessions(sessions)).toEqual([])
     const schema = JSON.parse(readFileSync(new URL('../../.claude/skills/task-janitor/sessions.schema.json', import.meta.url), 'utf8'))
     expect(schema.properties.sessions.items.required).toEqual(SESSION_FIELDS)
-    expect(schema.required).toEqual(['read_at', 'pages', 'has_more', 'sessions'])
+    expect(schema.required).toEqual(['read_at', 'source', 'pages', 'has_more', 'sessions'])
   })
 
   it('refuses a dump with pages left, a missing field or a repeated id', () => {
@@ -69,6 +69,13 @@ describe('findings on the fixture sessions', () => {
     expect(unread.evidence).toContain('checks not read')
     const young = analyzeSessions(sessions, snapshot, { comments, pulls, reviewHours: 200 })
     expect(young.filter((f) => f.kind === 'nudge-merge')).toEqual([])
+  })
+
+  it('checks only pipeline sessions and their dispatcher', () => {
+    expect(findings.some((f) => f.sessions.includes('session_other'))).toBe(false)
+    expect(inScope({ tags: ['epic-273'] })).toBe(true)
+    expect(inScope({ tags: ['epic-x', 'cowork-remote'] })).toBe(false)
+    expect(validateSessions({ ...sessions, read_total: 2 })[0]).toContain('read_total')
   })
 
   it('leaves the dispatcher out and finds the orphan session and the orphan claim', () => {
@@ -188,11 +195,12 @@ describe('edge cases from the review', () => {
 
   it('keeps session ids and paths in quoted text, and masks keys and URL passwords', () => {
     expect(quote('see session_01UU4t2FpQfySF3P8nhraSTD in tests/unit/fixtures/session-janitor/sessions.json')).toBe('see session_01UU4t2FpQfySF3P8nhraSTD in tests/unit/fixtures/session-janitor/sessions.json')
+    expect(quote('secret wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY1 end')).toBe('secret [redacted] end')
     expect(quote('key AKIAABCDEFGHIJKLMNOP at https://me:hunter2@db.example')).toBe('key [redacted] at https://[redacted]@db.example')
   })
 
   it('the command exits 1 on a dump with pages left and 2 on bad usage', () => {
-    const cli = (...args) => spawnSync(process.execPath, ['scripts/session-janitor.mjs', ...args], { encoding: 'utf8' })
+    const cli = (...args) => spawnSync(process.execPath, ['scripts/session-janitor.mjs', ...args], { encoding: 'utf8', cwd: new URL('../..', import.meta.url).pathname })
     const dir = 'tests/unit/fixtures/session-janitor'
     expect(cli('findings').status).toBe(2)
     expect(cli('findings', `${dir}/sessions.json`, `${dir}/snapshot.json`, '--stale-days', 'x').status).toBe(2)
