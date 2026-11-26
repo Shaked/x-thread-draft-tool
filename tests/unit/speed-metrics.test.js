@@ -249,7 +249,7 @@ describe('run(): modes, output and the checks', () => {
     expect(sent[0].html).toContain('href="https://github.com/owner/repo/issues/900"')
   })
 
-  it('a second over-limit merge in the same streak updates the gate and sends nothing', async () => {
+  it('running the same over-limit merge again updates the gate and sends nothing', async () => {
     resetGate()
     const opts = { api: fakeApi(), now: NOW, log: () => {}, notifyImpl: async () => 'skipped' }
     await run(['--merge', M[101], '--out', tmp()], {}, opts)
@@ -405,8 +405,10 @@ describe('the gate: streak, cause and state (task M7, #446)', () => {
       runsForSha: async (sha) => [{ id: sha === 'h5' ? 1 : 2, name: 'Tests', created_at: '2026-11-24T10:00:00Z' }],
       jobsForRun: async (id) => jobs[id],
     }
-    const streak = [rec(5, '2026-11-24T14:10:00Z', 120), rec(6, '2026-11-24T13:00:00Z', 120)].map((r, i) => ({ ...r, head_sha: i ? 'h6' : 'h5' }))
-    expect(await ciCause(streak, api)).toBe('Fonts took 1 min 10 s against a usual 40 s')
+    // A first over-limit merge (a streak of one): its usual time comes from the recent production merges.
+    const newest = rec(5, '2026-11-24T14:10:00Z', 120)
+    const recent = [newest, rec(4, '2026-11-24T13:00:00Z', 80)]
+    expect(await ciCause(newest, recent, api)).toBe('Fonts took 1 min 10 s against a usual 40 s')
   })
 
   it('no cause is named when there is only one run to compare', async () => {
@@ -414,12 +416,23 @@ describe('the gate: streak, cause and state (task M7, #446)', () => {
       runsForSha: async () => [{ id: 1, name: 'Tests', created_at: '2026-11-24T10:00:00Z' }],
       jobsForRun: async () => [{ steps: [{ name: 'Fonts', started_at: '2026-11-24T10:00:00Z', completed_at: '2026-11-24T10:01:00Z' }] }],
     }
-    expect(await ciCause([rec(5, '2026-11-24T14:10:00Z', 120)], api)).toBeNull()
+    const only = rec(5, '2026-11-24T14:10:00Z', 120)
+    expect(await ciCause(only, [only], api)).toBeNull()
   })
 
   it('the gate state survives a round trip through the issue body, and a body without it reads as null', () => {
     const state = { active: true, since: '2026-11-24T14:10:00Z', count: 7, clearSince: null }
     expect(readGate(gateBody(state, ['CI checks: 120 s, limit 90 s']))).toEqual(state)
     expect(readGate('no marker here')).toBeNull()
+  })
+})
+
+describe('the gate keeps a streak that is longer than its window (task M7, #446)', () => {
+  it('an active gate keeps its earlier start and count when the window only reaches part of the streak', async () => {
+    const earlier = { active: true, since: '2026-11-01T08:00:00Z', count: 12, clearSince: null }
+    resetGate({ number: 900, html_url: 'https://github.com/owner/repo/issues/900', body: `x\n<!-- speed-gate ${JSON.stringify(earlier)} -->` })
+    await run(['--merge', M[101], '--out', mkdtempSync(join(tmpdir(), 'speed-'))], {}, { api: fakeApi(), now: NOW, log: () => {}, notifyImpl: async () => 'skipped' })
+    const body = gate.updated.at(-1)
+    expect(readGate(body)).toMatchObject({ active: true, since: '2026-11-01T08:00:00Z', count: 12 })
   })
 })

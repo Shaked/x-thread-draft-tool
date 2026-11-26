@@ -27,8 +27,9 @@ permissions:
   # The only write: the per-merge gate issue (task M7, #446). Nothing else is written.
   issues: write
 
+# One group for every run: two merges must not read the gate issue at the same time (task M7, #446).
 concurrency:
-  group: speed-metrics-${{ github.event.workflow_run.head_sha || github.run_id }}
+  group: speed-metrics
   cancel-in-progress: false
 
 jobs:

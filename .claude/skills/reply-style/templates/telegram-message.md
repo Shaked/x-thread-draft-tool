@@ -163,8 +163,8 @@ Rules:
 Example:
 ```text
 **[Delivery is slower than its limit: CI checks and the total](https://github.com/owner/repo/issues/9)**
-This merge took 3 min 38 s in CI checks. The limit is 2 min 30 s (45 % over), since 2026-11-24 14:10 UTC (7 in a row).
-Likely cause: step "Fonts" took 1 min 10 s against a usual 40 s.
+This merge took 2 min 49 s in CI checks. The limit is 1 min 30 s (88 % over), since 2026-11-24 14:10 UTC (7 in a row).
+Likely cause: Fonts took 1 min 10 s against a usual 40 s.
 Nothing needed. A diagnosis follows on the linked issue, then an agent opens the fix PR.
 [Speed table](https://github.com/owner/repo/actions/runs/42) · [What the stages mean](https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions)
 ```

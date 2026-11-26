@@ -330,7 +330,7 @@ describe('speed alert shape (task M7, #446)', () => {
     headline: 'Delivery is slower than its limit: CI checks and the total',
     url: 'https://github.com/owner/repo/issues/9',
     numberLine: 'This merge took 3 min 38 s in CI checks. The limit is 2 min 30 s (45 % over), since 2026-11-24 14:10 UTC (7 in a row).',
-    causeLine: 'Likely cause: step "Fonts" took 1 min 10 s against a usual 20 s.',
+    causeLine: 'Likely cause: Fonts took 1 min 10 s against a usual 20 s.',
     actionLine: 'Nothing needed. A diagnosis follows on the linked issue, then an agent opens the fix PR.',
     links: [
       ['Speed table', 'https://github.com/owner/repo/actions/runs/42'],
@@ -343,14 +343,14 @@ describe('speed alert shape (task M7, #446)', () => {
     expect(msg.html).toBe([
       '<b><a href="https://github.com/owner/repo/issues/9">Delivery is slower than its limit: CI checks and the total</a></b>',
       'This merge took 3 min 38 s in CI checks. The limit is 2 min 30 s (45 % over), since 2026-11-24 14:10 UTC (7 in a row).',
-      'Likely cause: step &quot;Fonts&quot; took 1 min 10 s against a usual 20 s.',
+      'Likely cause: Fonts took 1 min 10 s against a usual 20 s.',
       'Nothing needed. A diagnosis follows on the linked issue, then an agent opens the fix PR.',
       '<a href="https://github.com/owner/repo/actions/runs/42">Speed table</a> · <a href="https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions">What the stages mean</a>',
     ].join('\n'))
     expect(msg.plain).toBe([
       'Delivery is slower than its limit: CI checks and the total: https://github.com/owner/repo/issues/9',
       'This merge took 3 min 38 s in CI checks. The limit is 2 min 30 s (45 % over), since 2026-11-24 14:10 UTC (7 in a row).',
-      'Likely cause: step "Fonts" took 1 min 10 s against a usual 20 s.',
+      'Likely cause: Fonts took 1 min 10 s against a usual 20 s.',
       'Nothing needed. A diagnosis follows on the linked issue, then an agent opens the fix PR.',
       'Speed table: https://github.com/owner/repo/actions/runs/42 · What the stages mean: https://github.com/owner/repo/blob/main/docs/plans/speed.md#1-definitions',
     ].join('\n'))
