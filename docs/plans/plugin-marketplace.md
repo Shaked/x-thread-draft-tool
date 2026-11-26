@@ -10,8 +10,8 @@ The owner asked (2026-11-26, #502): the skills, commands and hooks of this repo 
 projects can install; they become generic (nothing about this app); the reply templates come first.
 
 Out of scope: the product (the app, its API and MCP server). The marketplace is developer tooling for agents that
-work on a repository. It is not a product surface, so it gets no row in `docs/architecture/client-matrix.md`: no AI
-app connected to the product sees it. Claude Code is the only client that installs these plugins; Codex and other
+work on a repository, not a product surface. It still has a row in `docs/architecture/client-matrix.md`, because
+`AGENTS.md` names skills and plugin metadata: Claude Code only, English only (owner replies are English). Claude Code is the only client that installs these plugins; Codex and other
 agents read the same files by path through `AGENTS.md` (section 4.2).
 
 ## 2. Licence
@@ -124,8 +124,10 @@ The only copy of each plugin's files is under `plugins/<name>/`. This repo reads
   wrapper re-exports the functions and calls the plugin's exported `main()` when it is run itself. A subprocess
   test runs `node scripts/reply-lint.mjs` on a bad fixture and expects exit 1 and the findings.
 - Settings: this repo's values live in `.claude/agent-kit.json` (4.3).
-- Skill text names its scripts relative to the skill folder (`../../scripts/reply-lint.mjs`), not with
-  `${CLAUDE_PLUGIN_ROOT}`: that variable is not set when the skill loads as a project skill through the symlink.
+- Skill text names its scripts as `${CLAUDE_PLUGIN_ROOT}/scripts/...`, which Claude Code fills in for a plugin skill,
+  and says where the script is (two folders above the skill file) for when the text shows it unfilled, as it does
+  for a project skill through the symlink. A relative `../../scripts` path would not work: agents run commands
+  from the project root. This repo's agents keep using `npm run reply-lint`.
 
 Why not install the plugin in this repo: most sessions here are cloud sessions, and the docs say they do not add a
 repository's `extraKnownMarketplaces`; a local-path marketplace entry holds an absolute path; and an installed copy
@@ -186,7 +188,7 @@ the markers `CLAIM`, `HANDOFF`, `RELEASE`, the owner words in `OWNER_QUESTION`, 
 | `owner` | `the owner` | The display name the skill tells the agent to use, and the Stop hook message |
 | `ownerLogin` | the owner part of `repo` | Which GitHub author counts as the owner (janitor trust, comment lint) |
 | `repo` | from `git remote get-url origin` | Links in examples and in janitor output |
-| `reply-style.humans` | `[owner, "you", "the owner"]` | Words after "blocked on" and "waiting for" that mean a person |
+| `reply-style.humans` | `["the owner"]` | Words after "blocked on" and "waiting for" that mean a person; `you`, `your` and `owner` always count |
 | `reply-style.allowLines` | `[]` | Regular expressions for lines the lint skips, such as a required `Implements #12 Task 1` line |
 | `reply-style.maxLineLength` | `160` | The `long-line` rule |
 | `reply-style.changelogAreas` | `[]` (any one word) | The `Area:` line of `--kind=changelog` |
