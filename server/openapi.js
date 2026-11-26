@@ -255,7 +255,12 @@ export const OPENAPI = {
           ...json({
             type: 'object',
             properties: {
-              user: { type: ['object', 'null'] },
+              user: {
+                type: ['object', 'null'],
+                properties: {
+                  role: { type: 'string', description: 'Browser session only (#282). Absent for API token callers.' }
+                }
+              },
               auth: { type: ['string', 'null'], enum: ['session', 'token', null] }
             }
           }),

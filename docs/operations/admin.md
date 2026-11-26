@@ -27,6 +27,8 @@ Rules that come from the code:
 - Any app you approve while signed in as you can use admin tools, with no time limit. Approve only apps you started yourself, and revoke apps you no longer use.
 - The consent page names the app's own site (the host of its client_id), and says in bold when the return address is not on that site or on this computer (localhost or 127.0.0.1). Do not approve then. A registered app names no site, so the page says that instead.
 
+The browser app shows who is admin from `GET /api/auth/me`: `user.role` is `admin` or `user` for a browser session (#282, `roleOf` in `role.js`). The badge and the Admin menu section show only for `admin`. An API token caller gets no `role`, and `ADMIN_DISABLED=1` gives `user`.
+
 The changelog (`GET /api/changelog`, the `/changelog` page and the `changelog` key of `app_version`) is admin only: `requireAdminUser` in `server/admin/guard.js` calls `roleOf` in `role.js`; everyone else gets the 404 of an unknown path (#368).
 
 ## The ten tools
