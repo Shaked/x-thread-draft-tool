@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { SignJWT, decodeJwt } from 'jose'
 import { route } from '../../server/router.js'
 import { secretKey } from '../../server/session.js'
+import { createApiToken } from '../../server/tokens.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
 
 let db
@@ -137,9 +138,44 @@ describe('GET /api/auth/me and POST /api/auth/logout', () => {
     const res = await route(apiRequest('/api/auth/me', { cookie }))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
-      user: { id: user.id, login: 'bob', name: 'Bob', avatar_url: null },
+      user: { id: user.id, login: 'bob', name: 'Bob', avatar_url: null, role: 'user' },
       auth: 'session'
     })
+  })
+
+  it('gives role admin to the admin browser session and user to everyone else (#282)', async () => {
+    const admin = await db.insertUser({ github_id: 960015, login: 'Shaked', name: 'Shaked', avatar_url: null })
+    const adminRes = await route(apiRequest('/api/auth/me', { cookie: await db.cookieFor(admin) }))
+    expect((await adminRes.json()).user).toMatchObject({ login: 'Shaked', role: 'admin', admin: true })
+
+    const bob = await db.insertUser({ github_id: 7, login: 'bob' })
+    const bobRes = await route(apiRequest('/api/auth/me', { cookie: await db.cookieFor(bob) }))
+    const bobBody = await bobRes.json()
+    expect(bobBody.user.role).toBe('user')
+    expect(bobBody.user).not.toHaveProperty('admin')
+  })
+
+  it('gives the admin role "user" while ADMIN_DISABLED=1 (#282)', async () => {
+    const admin = await db.insertUser({ github_id: 960015, login: 'Shaked' })
+    const cookie = await db.cookieFor(admin)
+    const before = process.env.ADMIN_DISABLED
+    process.env.ADMIN_DISABLED = '1'
+    try {
+      const res = await route(apiRequest('/api/auth/me', { cookie }))
+      expect((await res.json()).user.role).toBe('user')
+    } finally {
+      if (before === undefined) delete process.env.ADMIN_DISABLED
+      else process.env.ADMIN_DISABLED = before
+    }
+  })
+
+  it('gives no role to an API token caller, even the admin (#282)', async () => {
+    const admin = await db.insertUser({ github_id: 960015, login: 'Shaked' })
+    const { token } = await createApiToken(admin.id, { name: 'laptop' })
+    const res = await route(apiRequest('/api/auth/me', { headers: { authorization: `Bearer ${token}` } }))
+    const body = await res.json()
+    expect(body.auth).toBe('token')
+    expect(body.user).not.toHaveProperty('role')
   })
 
   it('returns user null without a cookie, with a forged cookie, and for a deleted account', async () => {

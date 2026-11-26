@@ -21,7 +21,8 @@ const SOURCE_EXTENSION = /\.(js|jsx|mjs|cjs|ts|tsx)$/
 
 // Who may import role.js. Later tasks add server/routes/auth.js (Task 8) and server/session.js (Task 15) on purpose,
 // each in its own PR, and change this list in that PR.
-const ROLE_IMPORTERS = (file) => file === 'server/mcp/tools.js' || file === 'server/routes/oauth.js' || file.startsWith('server/admin/')
+const ROLE_IMPORTERS = (file) =>
+  file === 'server/mcp/tools.js' || file === 'server/routes/oauth.js' || file === 'server/routes/auth.js' || file.startsWith('server/admin/')
 
 /** The admin identity names: the id itself, the list and the check. Any other module that uses one decides admin by itself. */
 const IDENTITY_NAMES = /\bisAdminGithubId\b|\bADMIN_GITHUB_IDS\b|\b960015\b/g
