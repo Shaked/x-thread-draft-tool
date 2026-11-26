@@ -12,7 +12,7 @@ import { threadRoutes } from './routes/threads.js'
 import { openapiRoutes } from './routes/openapi.js'
 import { mcpUiRoutes } from './routes/mcp-ui.js'
 import { oauthRoutes } from './routes/oauth.js'
-import { opsRoutes } from './routes/ops.js'
+import { opsPathOpen, opsRoutes } from './routes/ops.js'
 import { versionRoutes } from './version.js'
 import { changelogRoutes } from './changelog.js'
 import { handleMcp } from './mcp/server.js'
@@ -102,6 +102,8 @@ async function dispatch(request) {
     // Admin paths answer like an unknown path to everyone but the admin, whatever the method or token.
     // This runs before the 405 answer and before the CI-token 401, so neither can reveal an admin path.
     if ((path === '/admin' || path.startsWith('/admin/')) && !adminPathOpen(request)) return error(404, 'Not found')
+    // The same rule for /ops (O5, #336): only the metrics-daily workflow's token on its own path passes; any other caller gets 404.
+    if ((path === '/ops' || path.startsWith('/ops/')) && (await opsPathOpen(request, path)) !== true) return error(404, 'Not found')
 
     const candidates = TABLE.filter((entry) => entry.regex.test(path))
     if (candidates.length === 0) return error(404, 'Not found')
