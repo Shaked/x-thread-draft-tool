@@ -4,7 +4,7 @@
 - The conflict banner now shows only when you and the other app changed the same post.
 
 Area: Editor
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/541
 
 ## Technical details
 
