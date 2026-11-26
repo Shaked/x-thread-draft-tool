@@ -117,7 +117,7 @@ export default function AboutPage() {
                 Rare UI (rareui.com)
               </a>
               , used under its licence:{' '}
-              <span dir="ltr">MIT + Commons Clause License Condition v1.0 + Attribution, Copyright (c) 2026 Swami Malode.</span>
+              <span dir="ltr">MIT + Commons Clause License Condition v1.0 + Attribution, Copyright (c) 2026 Swami Malode</span>.
             </p>
             <p lang="he" dir="rtl">
               המראה וחלק מהרכיבים לקוחים מ-
@@ -125,7 +125,7 @@ export default function AboutPage() {
                 Rare UI (rareui.com)
               </a>
               , לפי הרישיון שלו:{' '}
-              <span dir="ltr">MIT + Commons Clause License Condition v1.0 + Attribution, Copyright (c) 2026 Swami Malode.</span>
+              <span dir="ltr">MIT + Commons Clause License Condition v1.0 + Attribution, Copyright (c) 2026 Swami Malode</span>.
             </p>
           </Stack>
         </Section>

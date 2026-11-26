@@ -14,7 +14,7 @@ Source: https://github.com/swamimalode07/rare-ui/tree/0e9f0ef86bd690b16175fb8195
 Changes: listed in the header comment of each file (TypeScript removed, values from `src/styles/tokens.css`,
 logical properties, full-width cards, accessible names). Each header keeps the copyright notice.
 
-Credit: the Feature flags page (`/settings/flags`) links to https://rareui.com, as the licence asks, and
+Credit: the About page (`/about`, English and Hebrew) and the admin Feature flags page (`/admin/flags`) link to https://rareui.com, as the licence asks, and
 README.md names Rare UI under Credits.
 
 The Rare toast uses the npm package `sonner` 2.0.8 (MIT licence, a normal dependency, not copied here).
