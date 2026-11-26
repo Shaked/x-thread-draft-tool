@@ -16,8 +16,9 @@ You read the report and apply the fixes this skill allows. Task: #458 (task jani
    `RELEASE` or `CLAIM`. It has no comment bodies.
 2. Comments: the first report names issues whose comments are not loaded. Read those with
    `mcp__github__issue_read` (`get_comments`, `perPage` 100, and the next page while a page is full) and save them as
-   `comments.json`: an object from issue number to `[{ "user", "author_association", "created_at", "body" }]`.
+   `comments.json`: an object from issue number to `[{ "user", "author_association", "created_at", "html_url", "body" }]`.
    Load the held and owner issues too, if they have comments.
+   The report also lints the newest 10 HANDOFF comments in that file with the reply-style rules (#486); load recent task issues too to cover them.
 3. Report:
    `node scripts/janitor.mjs report snapshot.json --comments comments.json [--today YYYY-MM-DD] [--stale-days 14]`
 4. Keep both files in your scratchpad. Never commit them: they hold issue text.
