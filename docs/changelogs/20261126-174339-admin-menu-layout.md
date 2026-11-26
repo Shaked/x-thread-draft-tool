@@ -4,7 +4,7 @@
 - The users and audit log filters no longer have large empty gaps, and phone tables show their caption on one line.
 
 Area: Admin
-Link: https://github.com/Shaked/x-thread-draft-tool/pulls
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/557
 
 ## Technical details
 
