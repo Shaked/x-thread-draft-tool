@@ -374,7 +374,9 @@ The app itself still sends nothing (`docs/operations/telegram.md`).
 | A3 capacity | the database is over 700 MB (70 % of the free 1 GB), or more than 100 requests were rate limited (`n_429`, which includes refused MCP tool calls) in the last 24 hours | the free Neon limit blocks writes when full; many 429s mean the rate limit hurts real users |
 
 - An alert is sent when it starts and again only after it has been clear for 24 hours
-  (`metrics_alert_state`). One line per alert: the kind, the value, the limit, a link to `/admin/metrics`.
+  (`metrics_alert_state`). One message per alert, in the Alert shape of `.claude/reply-style-templates/telegram-message.md`
+  (section 6): the headline links to `/admin/metrics`, then the value, the limit and since when, the likely cause, and a
+  `Needs you:` line only for capacity.
 - No alert for a single slow request, for cold starts, or for the `pg` SSL warning.
 
 ## 7. Tasks

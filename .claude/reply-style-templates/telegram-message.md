@@ -131,18 +131,19 @@ No workflow sends this kind yet. Task O7 of the observability plan (#338) adds i
 shape of section 6: one message per alert that fired (errors, slow or capacity). The headline links to the metrics page.
 The number line gives the value in plain words, the window, the limit, how much over and since when (UTC). The likely
 cause line is always there. Only the capacity alert on the Neon free plan adds a `Needs you:` line, and it names the
-plan limit that is near.
+plan limit that is near and the step to take. Order: headline, number line, likely cause line, then `Needs you:`.
 
 ```text
 🚨 **<app name>** · [Metrics alert: <the alert that fired, in words>](<production url>/admin/metrics)
-<Alert>: <the value, in plain words>, in the last <window>. The limit is <limit>, <n> % over, since <UTC date and time>.
+<Alert>: <the value, in plain words>, in the last <window>. The limit is <limit> (<n> % over), since <UTC date and time>.
 Likely cause: <one cause and its evidence>.   [or: "Likely cause: not known yet."]
+Needs you: <the plan limit that is near, and the step to take>.   [only for the capacity alert on the Neon free plan]
 ```
 
 Example:
 ```text
 🚨 **Thread Draft** · [Metrics alert: slow answers](https://x-thread-draft-tool.vercel.app/admin/metrics)
-Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms, 38 % over, since 2026-11-25 09:00 UTC.
+Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms (38 % over), since 2026-11-25 09:00 UTC.
 Likely cause: not known yet.
 ```
 
@@ -158,6 +159,7 @@ which makes five lines.
 🐢 **<app name>** · [<what is over, in plain words>](<gate issue, or run, url>)
 This merge took <time> in <stage>. The limit is <limit> (<n> % over), since <UTC date and time> (<n> in a row).
 Likely cause: <one cause and its evidence>.   [or: "Likely cause: not known yet."]
+Needs you: <the one action>.   [only when the owner must act: the metrics capacity alert; the speed kind never has this line]
 [<Speed table>](<run url>) · [What the stages mean](<docs url>)
 ```
 

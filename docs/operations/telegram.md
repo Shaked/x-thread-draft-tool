@@ -52,7 +52,7 @@ Bold is the app name, and the headline after it is the link. English only: the o
 | Cleanup review ready | 🧹 **Thread Draft** · Cleanup review ready<br>Remove duplicate tests<br>What it removes: two parser tests that check the same thing.<br>Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR. |
 | Cleanup review started | 🧹 **Thread Draft** · Cleanup review started<br>Cleanup review 2026-11-25<br>An agent reviews the commits since the last review and opens up to three PRs. |
 | Weekly review started | 🗓 **Thread Draft** · Weekly review started<br>Weekly review 2026-11-30<br>An agent checks the signals and opens up to three PRs; owner items get the label owner. |
-| Metrics alert | 🚨 **Thread Draft** · Metrics alert: slow answers<br>Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms, 38 % over, since 2026-11-25 09:00 UTC.<br>Likely cause: not known yet. |
+| Metrics alert | 🚨 **Thread Draft** · Metrics alert: slow answers<br>Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms (38 % over), since 2026-11-25 09:00 UTC.<br>Likely cause: not known yet. |
 
 Notes:
 - The needs-you headline says "A PR needs you" or "An issue needs you". The script decides from the link: a pull request address says PR.
