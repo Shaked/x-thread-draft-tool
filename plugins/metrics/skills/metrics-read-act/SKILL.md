@@ -49,7 +49,8 @@ Events carry the time of the run, merge or deploy they describe, not the time of
 repository can keep line 1 after a good run. Read the finished run: if it failed, that is the problem, so open an issue
 with the run link. If it succeeded, list the repository's recent runs, merges and deploys with the GitHub tools. Only when
 there are newer ones than the last event, the collector stores nothing: open an issue with the run link. Otherwise
-report the quiet period and open no issue.
+note the quiet period for the delivery lines, open no issue for it, and go on to judge the Production and Database lines,
+which come from current numbers and not from delivery events.
 
 ## 2. What counts as a problem
 A line is a problem when:
@@ -69,7 +70,9 @@ other margins, and then they win. When nothing is a problem, report that with th
 
 ## 3. Find the cause
 For each problem, call `admin_metrics_events`, newest first, with `since` set to the window start and `limit` 20.
-It has no `repo` filter, so keep only rows whose `link` starts with `https://github.com/<repo>/`:
+It has no `repo` filter, so for delivery rows (`ci`, `speed`, `deploy`) keep only those whose `link` starts with
+`https://github.com/<repo>/`. A `prod` row has no link: it comes from the service's own app. Read its `name` (the route),
+`status` and `attrs` (`error`, `code`, `region`, `tool`) instead:
 
 | Area | Filters |
 |---|---|
