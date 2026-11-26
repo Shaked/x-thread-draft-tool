@@ -44,7 +44,9 @@ export function measured(fn, done = null) {
       cold: wasCold,
       rateLimited: false,
       rpcError: false,
-      toolError: false
+      toolError: false,
+      errorClass: null,
+      errorCode: null
     }
     const start = performance.now()
     const response = await als.run(store, () => fn(request))
@@ -128,4 +130,26 @@ export function noteCaller(kind) {
 export function noteOutcome(flag) {
   const store = current()
   if (store) store[flag] = true
+}
+
+const ERROR_CLASS = /^[A-Za-z][A-Za-z0-9]{0,39}$/
+const ERROR_CODE = /^(?:[A-Z][A-Z0-9_]{0,29}|\d{5})$/
+
+/**
+ * The class name and code of the error behind a 5xx answer (plan M4, #450). Both are kept only when
+ * they have the shape of a class name or a code; anything else is dropped (class 'Error', code null).
+ */
+export function noteError(err) {
+  const store = current()
+  if (!store) return
+  let name = null
+  let code = null
+  try {
+    name = typeof err?.name === 'string' ? err.name : null
+    code = typeof err?.code === 'string' ? err.code : null
+  } catch {
+    // A getter that throws tells nothing: the class stays the default.
+  }
+  store.errorClass = name && ERROR_CLASS.test(name) ? name : 'Error'
+  store.errorCode = code && ERROR_CODE.test(code) ? code : null
 }
