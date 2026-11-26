@@ -63,8 +63,10 @@ export function buildMetricsConfig(raw, file = 'agent-kit.json') {
       throw new ConfigError(`"metrics.${key}" in ${file} must be a non-empty string`)
     }
   }
-  const repo = section.repo ?? (typeof raw.repo === 'string' ? raw.repo : '')
-  if (repo !== '' && !REPO.test(repo)) throw new ConfigError(`"metrics.repo" in ${file} must look like owner/name (this is "${repo}")`)
+  if (raw.repo !== undefined && typeof raw.repo !== 'string') throw new ConfigError(`"repo" in ${file} must be a string`)
+  const repoKey = section.repo === undefined && raw.repo !== undefined ? 'repo' : 'metrics.repo'
+  const repo = section.repo ?? raw.repo ?? ''
+  if (repo !== '' && !REPO.test(repo)) throw new ConfigError(`"${repoKey}" in ${file} must look like owner/name (this is "${repo}")`)
   return {
     app: section.app ?? '',
     repo,
@@ -113,8 +115,8 @@ export function main(argv = process.argv.slice(2), { cwd = process.cwd(), env = 
   let file
   if (argv[0] === '--config') {
     file = argv[1]
-    if (!file) {
-      console.error('metrics-config: --config needs a file')
+    if (!file || argv.length > 2) {
+      console.error('metrics-config: --config takes exactly one file')
       return 2
     }
   } else if (argv.length > 0) {

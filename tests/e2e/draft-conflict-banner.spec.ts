@@ -2,7 +2,7 @@
 // Two writers: the browser (the user, typing in the editor) and an API call (the AI app). Runs in the required `chromium`
 // project: playwright.config.ts starts the local API and the built app.
 
-import { expect, request as playwrightRequest, test, type APIRequestContext } from '@playwright/test'
+import { expect, request as playwrightRequest, test, type APIRequestContext, type Browser } from '@playwright/test'
 
 const BASE = process.env.XT_BASE_URL ?? 'http://127.0.0.1:4173'
 const ORIGIN = new URL(BASE).origin
@@ -40,19 +40,15 @@ async function storedPosts(id: string): Promise<string[]> {
   return (await read.json()).draft.posts.map((p: Post) => p.text)
 }
 
-test('the AI app and the user change the same post: the banner shows, the AI text is stored, and my text is in the copy box', async ({
-  browser
-}) => {
-  const id = await createDraft('Conflict banner check')
-
+async function openEditor(browser: Browser, id: string) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' })
   // The editor's live check (GET with If-None-Match, every 4 s) must not pick up the AI change before the user types:
   // then the user's save would succeed and there would be no 412. Until the user has typed, every live check answers 304.
-  let userHasTyped = false
+  const gate = { userHasTyped: false }
   await context.route(`${ORIGIN}/**`, (route) => {
     const request = route.request()
     if (new URL(request.url()).pathname.startsWith('/api/')) {
-      if (!userHasTyped && request.method() === 'GET' && request.headers()['if-none-match']) {
+      if (!gate.userHasTyped && request.method() === 'GET' && request.headers()['if-none-match']) {
         return route.fulfill({ status: 304 })
       }
       return route.continue({ headers: { ...request.headers(), authorization: bearer } })
@@ -62,6 +58,22 @@ test('the AI app and the user change the same post: the banner shows, the AI tex
   const page = await context.newPage()
   await page.goto(`${BASE}/draft/${id}`)
   await page.getByLabel('Draft title').waitFor()
+  return { context, page, gate }
+}
+
+async function aiChangesPost(id: string, index: number, text: string) {
+  const current = (await (await api.get(`/api/drafts/${id}`, { headers: { authorization: bearer } })).json()).draft
+  const posts = current.posts.map((p: Post, i: number) => (i === index ? { ...p, text } : p))
+  const saved = await api.patch(`/api/drafts/${id}`, { headers: { authorization: bearer }, data: { posts } })
+  expect(saved.ok()).toBeTruthy()
+}
+
+test('the AI app and the user change the same post: the banner shows, the AI text is stored, and my text is in the copy box', async ({
+  browser
+}) => {
+  const id = await createDraft('Conflict banner check')
+
+  const { context, page, gate } = await openEditor(browser, id)
   const second = page.locator('textarea.post-textarea').nth(1)
   await expect(second).toHaveValue('Post two')
 
@@ -78,7 +90,7 @@ test('the AI app and the user change the same post: the banner shows, the AI tex
 
   // The user types in the same post before the editor has seen the AI change. The next autosave gets 412.
   await second.click()
-  userHasTyped = true
+  gate.userHasTyped = true
   await second.pressSequentially(' and my words')
 
   const banner = page.getByRole('alert')
@@ -94,5 +106,29 @@ test('the AI app and the user change the same post: the banner shows, the AI tex
   await expect(banner).toHaveCount(0)
 
   expect(await storedPosts(id)).toEqual(['Post one', 'Post two, by the AI app'])
+  await context.close()
+})
+
+test('the AI app changes post 2 while the user types in post 1: both texts are stored, with the note and no banner (#474)', async ({
+  browser
+}) => {
+  const id = await createDraft('Merge check')
+  const { context, page, gate } = await openEditor(browser, id)
+  const first = page.locator('textarea.post-textarea').nth(0)
+  const second = page.locator('textarea.post-textarea').nth(1)
+  await expect(second).toHaveValue('Post two')
+
+  await aiChangesPost(id, 1, 'Post two, by the AI app')
+  await expect(second).toHaveValue('Post two')
+
+  await first.click()
+  gate.userHasTyped = true
+  await first.pressSequentially(' and my words')
+
+  await expect(page.getByText('Changes from another app were added. Your edits are kept.')).toBeVisible({ timeout: 10000 })
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(second).toHaveValue('Post two, by the AI app')
+  await expect(first).toHaveValue('Post one and my words')
+  await expect.poll(() => storedPosts(id), { timeout: 10000 }).toEqual(['Post one and my words', 'Post two, by the AI app'])
   await context.close()
 })
