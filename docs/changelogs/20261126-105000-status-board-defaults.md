@@ -4,4 +4,4 @@
 - A handoff step on the board now quotes what is being decided.
 
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/519
