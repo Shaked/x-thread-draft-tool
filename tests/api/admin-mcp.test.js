@@ -107,7 +107,7 @@ describe.each([MODERN, LEGACY])('the admin tools are listed only for the elevate
     for (const adminUntil of [null, past()]) {
       const { token } = await tokenAndCaller(await grantFor(admin, { adminUntil }))
       const body = await rpc(version, token, 'tools/list')
-      expect(toolNames(body).filter(isAdminName)).toHaveLength(12)
+      expect(toolNames(body).filter(isAdminName)).toHaveLength(14)
     }
   })
 
