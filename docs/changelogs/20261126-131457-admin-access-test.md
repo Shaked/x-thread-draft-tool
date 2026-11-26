@@ -1,1 +1,11 @@
-Admin: one access test for the whole admin area (#485). It builds the list of admin routes, tools and pages from code, checks each as signed out, as a normal user and as the admin, and fails when a new one has no row. Also checks that admin text is not in the normal bundle, the MCP lists, openapi.json or llms.txt.
+# One test guards the whole admin area
+
+- A new test checks that only the admin can reach admin pages, routes and assistant tools.
+- Everyone else gets the same answer as for an unknown address.
+
+Area: Admin
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/534
+
+## Technical details
+
+`tests/api/admin-access.test.js` and `tests/unit/admin-access-pages.test.jsx` build the list from code and fail when a new admin route, tool or page has no row (#485).
