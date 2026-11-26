@@ -641,14 +641,20 @@ export async function callTool(name, args, { caller, origin }) {
     if (VIEW_OUTLINE[name] && result._meta) {
       for (const text of EDIT_TOOLS.includes(name) ? editTexts(name, result, origin) : [markdownOf(result)]) result.content.push({ type: 'text', text })
     }
-    // #390: every successful draft result ends with the state line (id, version, counts, editor link, next step).
-    const line = result.isError ? null : stateLine(result.structuredContent?.draft, name, origin, { postId: args.postId ?? args.post_id })
-    if (line) result.content.push({ type: 'text', text: line })
+    addStateLine(result, name, args, origin)
     return result
   } catch (err) {
     console.error('[mcp] tool failed', name, err)
     return toolError('The tool failed. Try again.')
   }
+}
+
+/** #390: every successful draft result ends with the state line (id, version, counts, editor link, next step). */
+function addStateLine(result, name, args, origin) {
+  if (result.isError) return
+  const uploadOnly = name === 'add_image_from_url' && args.postId === undefined && args.replace === undefined
+  const line = stateLine(result.structuredContent?.draft, name, origin, { postId: args.postId ?? args.post_id, uploadOnly })
+  if (line) result.content.push({ type: 'text', text: line })
 }
 
 /** Calls the REST router in-process as `caller`. No Authorization header: the caller is set in runAs. */

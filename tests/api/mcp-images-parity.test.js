@@ -88,7 +88,7 @@ describe('add_image_from_url', () => {
     expect(res.error).toBeNull()
     expect(await urlsOf(draft.id)).toEqual([[own('a')], [res.data.image_url, own('c')]])
     expect(deleteBlobUrls).toHaveBeenCalledWith([own('b')])
-    expect(res.parts.join('\n')).toMatch(/Draft \S+, version 2, 2 posts, .* Saved\. /) // #405: a replace writes the draft
+    expect(res.parts.join('\n')).toMatch(/Draft \S+, version 2, 2 posts, 0 over 280, 3 images\. Editor: \S+\. Saved\. Say in one line which images changed; the draft has 3 images in all\.$/) // #405: a replace writes the draft
   })
 
   it('replace: an unknown image is refused before any upload; a stale version writes nothing and deletes the new file', async () => {

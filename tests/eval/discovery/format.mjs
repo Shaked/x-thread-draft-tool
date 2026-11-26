@@ -7,7 +7,7 @@
 //   3. each text fits its length limit.
 //   4. (#405) an edit result quotes only the posts the edit changed, never the whole draft again.
 //   5. (#390) the state line of a draft result holds no user text.
-//   5. (#371) the view labels (English and Hebrew) hold no direction mark or invisible character.
+//   6. (#371) the view labels (English and Hebrew) hold no direction mark or invisible character.
 // A part that clients.json says the client does not read (false) is skipped for that client; "not checked" counts
 // as read, the safe case. tests/api/mcp-discovery.test.js runs it and prints the table.
 import { isCleanServerText } from '../../../server/mcp/language.js'

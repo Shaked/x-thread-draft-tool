@@ -10,6 +10,7 @@ const HINTS = [
   'Call get_draft for the text, or update_post to change a post.',
   'Saved. Say in one line what changed; quote only the changed posts, not the whole draft.',
   'Saved. Say in one line what changed; if no card shows the thread, quote the changed posts.',
+  'Saved. The image is uploaded, not in a post yet. Say this in one line.',
   /^Saved\. Post \d+ has \d of 4 images\. Say this in one line\.$/,
   /^Saved\. Say in one line which images changed; the draft has \d+ images? in all\.$/
 ]
@@ -60,6 +61,10 @@ describe('stateLine', () => {
   it('the image hint keeps the per-post count when the draft is already an outline (Codex review on #549)', () => {
     const summary = { id: ID, version: 3, post_count: 2, over_limit_count: 0, image_count: 3, posts: [{ id: 'a', index: 1, image_count: 0 }, { id: 'b', index: 2, image_count: 3 }] }
     expect(stateLine(summary, 'add_image_from_url', ORIGIN, { postId: 'b' })).toMatch(/ Saved\. Post 2 has 3 of 4 images\. Say this in one line\.$/)
+  })
+
+  it('an upload that is not in a post has its own hint', () => {
+    expect(stateLine(draft([post('a', 'one')]), 'add_image_from_url', ORIGIN, { uploadOnly: true })).toMatch(/ Saved\. The image is uploaded, not in a post yet\. Say this in one line\.$/)
   })
 
   it('never holds a title, post text or image url', () => {
