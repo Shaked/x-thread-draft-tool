@@ -107,7 +107,8 @@ export function titleIssue(title) {
 const TOKEN = /\b(?:gh[pousr]_\w{16,}|github_pat_\w{16,}|sk-[\w-]{16,}|xox[abprs]-[\w-]{10,}|AKIA[0-9A-Z]{16}|eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{4,})|\bBearer\s+\S+/g
 // Any other run of 32 or more key characters is masked too, except a session id. Paths keep their slashes, so they stay.
 const LONG = /\b[A-Za-z0-9+_-]{32,}/g
-// A key mixes digits and both cases; a tool name such as mcp__claude-code-remote__fire_trigger does not.
+// A long run with a digit is masked (hex keys too); one with no digit, such as the tool name
+// mcp__claude-code-remote__fire_trigger, stays. A base64 run with slashes is masked when it mixes digits and both cases.
 const keyLike = (m) => /\d/.test(m) && /[a-z]/.test(m) && /[A-Z]/.test(m)
 // A base64 secret may hold slashes: a run of 40 or more base64 characters with digits and both cases is masked as well.
 const BASE64 = /[A-Za-z0-9+/]{40,}={0,2}/g
@@ -115,7 +116,7 @@ const BASE64 = /[A-Za-z0-9+/]{40,}={0,2}/g
 /** Text copied from a session for a table cell: one line, no backticks or pipes, tokens masked, at most `max` characters. */
 export function quote(text, max = 100) {
   const one = String(text || '').replace(/\s+/g, ' ').replace(/`/g, "'").replace(/\|/g, '/').replace(TOKEN, '[redacted]')
-    .replace(/:\/\/[^/\s:@]+:[^@\s]+@/g, '://[redacted]@').replace(LONG, (m) => (new RegExp(`^${SESSION_ID}$`).test(m) || !keyLike(m) ? m : '[redacted]')).replace(BASE64, (m) => (keyLike(m) ? '[redacted]' : m)).trim()
+    .replace(/:\/\/[^/\s:@]+:[^@\s]+@/g, '://[redacted]@').replace(LONG, (m) => (new RegExp(`^${SESSION_ID}$`).test(m) || /^[A-Za-z_-]+$/.test(m) ? m : '[redacted]')).replace(BASE64, (m) => (keyLike(m) ? '[redacted]' : m)).trim()
   return one.length > max ? `${one.slice(0, max - 3).trimEnd()}...` : one
 }
 
@@ -385,13 +386,20 @@ const cell = (text) => String(text).replace(/\s+/g, ' ').replace(/\|/g, '/')
 export const COMMENT_MAX = 60000
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
+/** 3 to 6 words for a pull request: its title, padded with "pull request" when it has fewer than 3 words. */
+function prName(title) {
+  const words = title.replace(/[`"()[\]:|]/g, ' ').split(/\s+/).filter(Boolean)
+  if (words.length >= 3) return shortName({ title })
+  return [...words, 'pull', 'request'].map((w) => (/^[A-Z]\d+(\.\d+)?$/.test(w) ? `\`${w}\`` : w)).join(' ')
+}
+
 /** 3 to 6 words for every issue and pull request in the snapshot (open PRs too), keyed by number. */
 export function describeSnapshot(snapshot) {
   const names = describeAll(snapshot)
   const issues = new Set((snapshot.issues || []).map((i) => i.number))
   // A short PR title is padded with "pull request", not with the word "issue" that shortName adds.
   for (const p of [...(snapshot.pulls || []), ...(snapshot.open_pulls || [])]) {
-    if (!issues.has(p.number)) names.set(p.number, shortName({ title: p.title || '' }).replace(/ issue$/, ' pull request'))
+    if (!issues.has(p.number)) names.set(p.number, prName(p.title || ''))
   }
   // A "|" in a title would break the Details table, and it is not a word: the name is made again without it.
   for (const i of snapshot.issues || []) if (/\|/.test(i.title || '')) names.set(i.number, shortName({ title: i.title.replace(/\|/g, ' ') }))

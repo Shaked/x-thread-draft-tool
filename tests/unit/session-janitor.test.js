@@ -211,6 +211,7 @@ describe('edge cases from the review', () => {
     expect(quote('secret wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY1 end')).toBe('secret [redacted] end')
     expect(quote('src/components/editor/ThreadComposerToolbar')).toBe('src/components/editor/ThreadComposerToolbar')
     expect(quote('allow mcp__claude-code-remote__fire_trigger here')).toBe('allow mcp__claude-code-remote__fire_trigger here')
+    expect(quote('dd 0123456789abcdef0123456789abcdef and 0123456789ABCDEF0123456789ABCDEF01234567')).toBe('dd [redacted] and [redacted]')
     expect(quote('key AKIAABCDEFGHIJKLMNOP at https://me:hunter2@db.example')).toBe('key [redacted] at https://[redacted]@db.example')
   })
 
@@ -255,6 +256,8 @@ describe('the templated summary', () => {
 
   it('pads a short PR title with "pull request"', () => {
     expect(describeSnapshot(snapshot).get(201)).toBe('Export button pull request')
+    const snap = { ...snapshot, pulls: [{ number: 301, title: 'Fix login issue now', body: '' }] }
+    expect(describeSnapshot(snap).get(301)).toBe('Fix login issue now')
   })
 
   it('puts the counts first, with every kind', () => {
