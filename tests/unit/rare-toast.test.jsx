@@ -80,4 +80,35 @@ describe('Toast (Rare UI, feature flag)', () => {
     await user.click(close)
     await waitFor(() => expect(card()).toBeNull())
   })
+
+  it('clears a toast that showed the old way while the Rare chunk loaded, once a Rare toast takes over', async () => {
+    const user = userEvent.setup()
+    function Two() {
+      const toast = useToast()
+      return (
+        <>
+          <button type="button" onClick={() => toast({ message: 'Old failure', tone: 'danger' })}>
+            Fail
+          </button>
+          <button type="button" onClick={() => toast({ message: 'All good', tone: 'success' })}>
+            Pass
+          </button>
+        </>
+      )
+    }
+    render(
+      <ToastProvider>
+        <Two />
+      </ToastProvider>
+    )
+    // The flag is switched on after the provider mounted, so the first toast shows the old way while the chunk loads.
+    localStorage.setItem(KIT_KEY, 'rare')
+    await user.click(screen.getByRole('button', { name: 'Fail' }))
+    expect(document.querySelector('.ui-toast--danger')).not.toBeNull()
+    await waitFor(() => expect(stack()).not.toBeNull())
+    await user.click(screen.getByRole('button', { name: 'Pass' }))
+    await waitFor(() => expect(card()).not.toBeNull())
+    expect(document.querySelector('.ui-toast--danger')).toBeNull()
+    expect(screen.queryByText('Old failure')).toBeNull()
+  })
 })

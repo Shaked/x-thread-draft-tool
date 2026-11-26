@@ -42,6 +42,9 @@ export function ToastProvider({ children }) {
     ({ message, tone = 'neutral' }) => {
       if (getKit() === 'rare') {
         if (rare.current) {
+          // a toast that showed the old way while the Rare chunk loaded must not stay underneath the new one
+          clearTimeout(timer.current)
+          setCurrent(null)
           rare.current({ message, tone })
           return
         }
