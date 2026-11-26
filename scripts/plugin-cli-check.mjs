@@ -3,7 +3,7 @@
 // manifest version, and the components the plugin ships. Needs `claude` on the PATH and an empty CLAUDE_CONFIG_DIR.
 // No model call, no login. Used by .github/workflows/plugin-cli.yml (docs/plans/plugin-marketplace.md, test 8).
 import { execFileSync } from 'node:child_process'
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 
 const root = process.cwd()
 const claude = (...args) => execFileSync('claude', args, { encoding: 'utf8', cwd: root })
@@ -22,7 +22,8 @@ for (const entry of market.plugins) {
   const details = claude('plugin', 'details', `${entry.name}@${market.name}`)
   const skills = readdirSync(`plugins/${entry.name}/skills`, { withFileTypes: true }).filter((d) => d.isDirectory()).length
   if (!new RegExp(`Skills \\(${skills}\\)`).test(details)) failures.push(`${entry.name}: the CLI does not list ${skills} skill(s)`)
-  const hooks = JSON.parse(readFileSync(`plugins/${entry.name}/hooks/hooks.json`, 'utf8')).hooks ?? {}
+  const hooksFile = `plugins/${entry.name}/hooks/hooks.json`
+  const hooks = existsSync(hooksFile) ? JSON.parse(readFileSync(hooksFile, 'utf8')).hooks ?? {} : {}
   for (const event of Object.keys(hooks)) if (!details.includes(event)) failures.push(`${entry.name}: the CLI does not list the ${event} hook`)
 }
 
