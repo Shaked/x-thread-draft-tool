@@ -31,8 +31,8 @@ const GUARDED = new WeakSet()
 // 7 days, not the 12 hours of #284, because a short window made the owner sign in again in the middle of a flag change.
 // Reads are not limited, and MCP has no such rule (Shaked, 2026-11-20). `iat` is the sign-in time: sessions are issued only at sign-in.
 // An old sign-in answers 403 with the code `sign_in_again`; the browser opens the sign-in pop-up and repeats the call once.
-export const WEB_WRITE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
-export const SIGN_IN_AGAIN_CODE = 'sign_in_again'
+const WEB_WRITE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
+const SIGN_IN_AGAIN_CODE = 'sign_in_again'
 
 function signedInRecently(admin) {
   return typeof admin.iat === 'number' && Date.now() / 1000 - admin.iat <= WEB_WRITE_MAX_AGE_SECONDS
