@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import Badge from '../../ui/Badge'
 import Banner from '../../ui/Banner'
 import Button from '../../ui/Button'
@@ -37,7 +36,7 @@ const day = (value) => (value ? String(value).slice(0, 10) : 'unknown')
 
 const rowOf = (user) => ({
   id: user.id,
-  login: <Link to={`/admin/users/${user.id}`}>{user.login}</Link>,
+  login: <Button variant="ghost" to={`/admin/users/${user.id}`}>{user.login}</Button>,
   name: <span dir="auto">{user.name ?? 'unknown'}</span>,
   status: user.suspended_at ? <Badge tone="danger">Suspended</Badge> : <Badge tone="success">Active</Badge>,
   created: day(user.created_at),

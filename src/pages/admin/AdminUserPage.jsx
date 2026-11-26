@@ -70,7 +70,7 @@ function UserDetails({ id }) {
           <DescriptionList
             columns={2}
             items={[
-              { term: 'Login', value: LOGIN.test(user.login) ? <a href={`https://github.com/${user.login}`} target="_blank" rel="noreferrer">{user.login}</a> : show(user.login) },
+              { term: 'Login', value: LOGIN.test(user.login) ? <Button variant="ghost" href={`https://github.com/${user.login}`}>{user.login}</Button> : show(user.login) },
               { term: 'Name', value: <span dir="auto">{show(user.name)}</span> },
               { term: 'Protected', value: user.protected ? 'Yes' : 'No' },
               { term: 'Created', value: when(user.created_at) },
