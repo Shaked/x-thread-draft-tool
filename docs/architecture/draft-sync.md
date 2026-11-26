@@ -1,7 +1,7 @@
 # How draft saves, conflicts and live updates work
 
 This page is the short version. The rules are in `server/routes/drafts.js` and `server/mcp/tools.js`.
-Checked against `main` on 2026-11-25 (after #360, #361 and #363 merged).
+Checked against `main` on 2026-11-26 (after #360, #361, #363, #474 merged).
 
 ## The revision
 
@@ -71,8 +71,15 @@ The tools do not retry for the caller, with one exception: `add_image_from_url` 
 - Active tab, 4 s rate: about 900 checks per hour.
 - Idle tab: about 62 checks from the start of an idle stretch to the pause, then none until input.
 - Worst case, visible and active 3 hours a day: about 2,700 checks a day, about 81,000 a month.
-- Database and compute cost per check: not measured. Neon suspend delay: not checked.
-- Vercel invocation limit and transfer share: not checked.
+- Measured on 2026-11-26 (#474), locally with `npm run dev:api` (real route and SQL on PGlite, one 2-post draft, raw response read with `curl -D`):
+  - **Bytes per 304:** 233 bytes of response headers, 0 bytes of body (checked). The same draft as a 200: 283 bytes of headers and 380 bytes of body (checked). Request bytes (the cookie or token header) and the extra headers Vercel adds: not checked.
+  - **Statements per check:** 2, the session check and one draft statement (checked, `[perf]` line `q:2`, same as `tests/api/draft-poll.test.js`).
+  - **Time per check on PGlite:** `ms` 1.3 to 1.5, `db` 1.2 to 1.3 (checked, local). This is not Neon's latency. A [perf] line for a 304 on the preview deployment: not checked (the preview has no smoke-test user, and a 304 needs a signed-in request).
+  - **Monthly transfer, one tab visible and active 3 h a day:** 81,000 checks x 233 bytes = about 19 MB of response headers (computed from the measured bytes). The Hobby plan includes 100 GB of Fast Data Transfer a month, so this is about 0.02 percent. Deployed bytes: not checked.
+- Vercel Hobby limits, read on 2026-11-26 from [the Hobby plan page](https://vercel.com/docs/plans/hobby) (last updated 2026-11-12): first 1,000,000 Function Invocations and first 100 GB Fast Data Transfer a month. Over the limit, the page says you wait until 30 days have passed before you can use the feature again. 81,000 checks are 8.1 percent of the invocations for one such tab, and every extra open tab adds the same. A per-second or per-minute invocation rate limit on Hobby: not checked (the limits page was only partly read). That the project is on Hobby: not checked.
+- Neon, read on 2026-11-26 with read-only tools (project `neon-gray-drum`): both compute endpoints have `autoscaling_limit_min_cu` and `max_cu` of 0.25 and `suspend_timeout_seconds` 0. The Neon docs say a compute suspends after 5 minutes without queries ([Scale to Zero](https://neon.com/docs/introduction/scale-to-zero)). Whether 0 means that default in the API: not checked. The Neon plan of the organization: not checked.
+- **Neon suspend delay and the live check:** the check runs every 4 s, far below 5 minutes, so an open active tab keeps the compute awake (derived from the two numbers above). After the 10 minute pause (see above) no check runs and the compute can suspend 5 minutes later.
+- **CU-hours, one tab visible and active 3 h a day for 30 days:** 0.25 CU x (3 h + 5 min) x 30 = about 23 CU-hours a month (computed). It is an upper bound for the added cost: time when other traffic keeps the compute awake anyway costs nothing extra. The Free plan includes 100 CU-hours per project a month ([Neon plans](https://neon.com/docs/introduction/plans)), so this would be 23 percent of that allowance. The project's own `active_time` was 232,068 s (about 64.5 h) from 2026-11-07 to 2026-11-26 14:33 UTC, so the compute is already awake about 3.4 h a day on average (checked, read-only).
 - REST rate limit on this route: none in `server/router.js` (not re-checked here).
 
 ## Related
