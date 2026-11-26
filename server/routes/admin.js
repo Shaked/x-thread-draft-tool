@@ -8,6 +8,7 @@ import { listBlobPrefix } from '../blob.js'
 import { deleteUser } from '../admin/delete-user.js'
 import { transaction } from '../db.js'
 import { HttpError, json, readJson, readOptionalJson } from '../http.js'
+import { cached, metricsParams, metricsView, seriesParams, seriesView } from '../metrics/view.js'
 
 // Admin routes (plan A2). Each one is built with adminRoute, which refuses everyone but the admin.
 const status = async ({ admin }) => json({ admin: true, login: admin.login, github_id: admin.gh })
@@ -226,6 +227,23 @@ const audit = async ({ url }) => {
   })
 }
 
+// The route keys ("METHOD /path") of server/router.js. Read per request: router.js imports this file, so a static import would cycle.
+async function routeKeys() {
+  const { ROUTES } = await import('../router.js')
+  return new Set(ROUTES.map((route) => `${route.method} ${route.path}`))
+}
+
+// Observability plan O4 (#335): the metrics views (server/metrics/view.js), cached for 60 s per parameter set.
+const metrics = async ({ url }) => {
+  const params = metricsParams(url.searchParams, await routeKeys())
+  return json(await cached(`metrics ${JSON.stringify(params)}`, () => metricsView(params)))
+}
+
+const metricsSeries = async ({ url }) => {
+  const params = seriesParams(url.searchParams, await routeKeys())
+  return json(await cached(`series ${JSON.stringify(params)}`, () => seriesView(params)))
+}
+
 export const adminRoutes = [
   adminRoute('GET', '/admin/status', status),
   adminRoute('GET', '/admin/users', listUsers),
@@ -234,5 +252,7 @@ export const adminRoutes = [
   adminRoute('POST', '/admin/users/:id/unsuspend', unsuspendUser),
   adminRoute('POST', '/admin/users/:id/delete', deleteUserRoute),
   adminRoute('GET', '/admin/stats', stats),
-  adminRoute('GET', '/admin/audit', audit)
+  adminRoute('GET', '/admin/audit', audit),
+  adminRoute('GET', '/admin/metrics', metrics),
+  adminRoute('GET', '/admin/metrics/series', metricsSeries)
 ]
