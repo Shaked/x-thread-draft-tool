@@ -318,3 +318,13 @@ describe('helpers', () => {
     expect(out).toContain('[redacted]')
   })
 })
+
+describe('status board and the session-link rule', () => {
+  it('a PR-only Waiting for row whose ticket title says "session" still passes the lint', () => {
+    const renamed = JSON.parse(JSON.stringify(snapshot))
+    renamed.issues.find((i) => i.number === 308).title = 'Session janitor misses stale claims'
+    const renamedText = formatBoard(buildBoard(sessions, renamed, { comments, pulls }))
+    expect(renamedText).toMatch(/- \[#308 [^\]]*[Ss]ession[^\]]*\]\([^)]*\), \[#408/)
+    expect(lint(renamedText, { template: true }).filter((f) => f.rule === 'session-link')).toEqual([])
+  })
+})

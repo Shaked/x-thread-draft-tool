@@ -59,7 +59,7 @@ const NUMBERS = { one: 1, two: 2, three: 3, four: 4, five: 5 }
 // The one word of `Area:` in a changelog entry (plan #369, step 1). Changing it changes the page groups.
 export const AREAS = ['Drafts', 'Editor', 'AI apps', 'Admin', 'Design', 'Speed', 'Security', 'Docs']
 // A session link has the shape the commit attribution uses: https://claude.ai/code/session_<id>. Opening it is not checked.
-const SESSION_LINK = /\]\(https:\/\/claude\.ai\/code\/session_[\w-]+\)/
+const SESSION_LINK = /\]\(https:\/\/claude\.ai\/code\/session_[\w-]+[^)\s]*\)/
 const SESSION_WORD = /\bsessions?\b|\bsession_\w+/i
 const DETAILS_HEADING = /^## Technical details\s*$/
 
@@ -94,8 +94,8 @@ function sections(lines) {
   const found = []
   lines.forEach(({ text, n }) => {
     const h = /^##\s+(.*?)\s*$/.exec(text)
-    if (h) found.push({ name: h[1], line: n, body: [] })
-    else if (found.length && text.trim()) found[found.length - 1].body.push(text)
+    if (h) found.push({ name: h[1], line: n, body: [], nums: [] })
+    else if (found.length && text.trim()) { found[found.length - 1].body.push(text); found[found.length - 1].nums.push(n) }
   })
   return found
 }
@@ -111,15 +111,16 @@ function checkDetails(all, fencedLines, add) {
 /** Each "Waiting for" item (a "- " line and its continuation lines) that names a session carries a session link. */
 function checkWaitingSessions(waiting, add) {
   if (!waiting) return
-  const items = []
-  waiting.body.forEach((t) => {
-    if (/^\s*[-*+]\s/.test(t) || !items.length) items.push([])
-    items[items.length - 1].push(t)
+  const items = [] // a top-level "- " line starts an item; indented lines and sub-bullets belong to it
+  waiting.body.forEach((t, k) => {
+    if (/^[-*+]\s/.test(t) || !items.length) items.push({ line: waiting.nums[k], lines: [] })
+    items[items.length - 1].lines.push(t)
   })
   for (const item of items) {
-    const raw = item.join(' ')
-    if (SESSION_WORD.test(raw.replace(/\[([^\]]*)\]\([^)\s]*\)/g, '$1')) && !SESSION_LINK.test(raw)) {
-      add(waiting.line, 'session-link', `"${item[0].trim().slice(0, 50)}" names a session: add its session link next to the task link, [session](https://claude.ai/code/session_<id>)`)
+    const raw = item.lines.join(' ')
+    // A link's text (an issue or PR title) can hold the word "session"; only words outside links name a session.
+    if (SESSION_WORD.test(raw.replace(/\[[^\]]*\]\([^)\s]*\)/g, '')) && !SESSION_LINK.test(raw)) {
+      add(item.line, 'session-link', `"${item.lines[0].trim().slice(0, 50)}" names a session: add its session link next to the task link, [session](https://claude.ai/code/session_<id>)`)
     }
   }
 }

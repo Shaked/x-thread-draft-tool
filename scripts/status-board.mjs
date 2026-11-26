@@ -413,7 +413,7 @@ function head(board) {
     return `${k + 1}. ${r.ticket}: ${code(quote(o.what, 60))}. ${o.words ? `Reply ${code(quote(o.words, 40))} [there](${o.url}).` : `Answer [there](${o.url}).`}`
   })
   const waiting = board.rows.filter((r) => WHAT[r.group])
-    .map((r) => `- ${r.ticket}, ${r.sessions.length ? sessionCell({ sessions: r.sessions.slice(0, 2) }) : r.pr.split('; ')[0]}: ${WHAT[r.group]}. Expected: not known.`)
+    .map((r) => `- ${r.ticket}${r.sessions.length ? ` · ${sessionCell({ sessions: r.sessions.slice(0, 2) })}` : `, ${r.pr.split('; ')[0]}`}: ${WHAT[r.group]}. Expected: not known.`)
   const asks = needs.flatMap((r) => r.owner.map((o) => `- ${r.ticket}: ${OWNER_RULES.find(([k]) => k === o.rule)[1]} ([link](${o.url})).`))
   const done = board.merged.map((p) => `- {#${p.number}} merged ${time(p.at)} UTC${p.issue ? ` for {#${p.issue}}` : ''}, checked.`)
   return [

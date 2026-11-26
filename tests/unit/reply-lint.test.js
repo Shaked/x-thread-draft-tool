@@ -99,3 +99,20 @@ describe('reply-lint rules', () => {
     expect(rules('```\nx\n```\n✅ **Thread Draft** · [P](https://x.test)\nT', { kind: 'telegram' })).toEqual([])
   })
 })
+
+describe('session-link rule edge cases (Opus review of #523)', () => {
+  const reply = (waiting) => `## TL;DR\nA task ran.\nNothing needed from you.\n\n## What you need to do\nNothing.\n\n## Waiting for\n${waiting}\n\n## Blocked on you\nNothing.\n\n## Done\n- Checked.\n`
+  const found = (waiting) => lint(reply(waiting), { template: true }).filter((f) => f.rule === 'session-link')
+  const task = '[#5 tag filter issue](https://example.com/issues/5)'
+
+  it('a title with the word "session" inside a link is not a session', () => {
+    expect(found(`- [#5 session janitor misses claims](https://example.com/issues/5): CI runs. Expected: not known.`)).toEqual([])
+  })
+  it('accepts a session link with a query, and a sub-bullet under an item that has its link', () => {
+    expect(found(`- ${task} · [session](https://claude.ai/code/session_01AbC?tab=x): works. Expected: not known.\n  - its session waits for CI`)).toEqual([])
+  })
+  it('reports the line of the bad item, not the heading', () => {
+    const [f] = found(`- ${task} · [session](https://claude.ai/code/session_a): works.\n- ${task}: the session works on it.`)
+    expect(f.line).toBe(10)
+  })
+})
