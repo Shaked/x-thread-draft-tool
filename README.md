@@ -88,7 +88,7 @@ with GitHub's device flow via `npm run agent:login`, which keeps a short-lived a
 - Agent guide with curl examples: [docs/agents/api.md](./docs/agents/api.md)
 - Local API for development and tests: `npm run dev:api` (http://127.0.0.1:8787), then `npm run smoke`
 
-Connect an AI app over MCP (Claude, Claude Code, Codex, ChatGPT): [docs/agents/mcp.md](./docs/agents/mcp.md).
+Connect an AI app over MCP (Claude, Claude Code, Codex, ChatGPT): [docs/agents/mcp.md](./docs/agents/mcp.md), Hebrew: [docs/agents/mcp.he.md](./docs/agents/mcp.he.md).
 
 ## Project Structure
 
@@ -252,7 +252,7 @@ When a task changes behavior, contributors should update:
 
 ## License
 
-MIT, except the third-party files listed in THIRD_PARTY_LICENSES/, which keep their own licences.
+MIT (see [LICENSE](./LICENSE)), except the third-party files listed in THIRD_PARTY_LICENSES/, which keep their own licences.
 
 ## Credits
 

@@ -2,7 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ToastProvider, useToast } from '../../src/ui/Toast.jsx'
-import { KIT_KEY } from '../../src/utils/skin.js'
+import { allowFlags, KIT_KEY } from '../../src/utils/skin.js'
 
 // The toast behind the "Components" feature flag (#406, Rare UI toast), through the provider in src/ui/Toast.jsx.
 // The Rare stack loads in its own chunk, so the flag-on tests wait for it before they press the button.
@@ -26,7 +26,10 @@ describe('Toast (Rare UI, feature flag)', () => {
     Element.prototype.setPointerCapture ??= () => {}
     Element.prototype.releasePointerCapture ??= () => {}
   })
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => {
+    localStorage.clear()
+    allowFlags(true)
+  })
   afterEach(() => {
     cleanup()
     localStorage.clear()

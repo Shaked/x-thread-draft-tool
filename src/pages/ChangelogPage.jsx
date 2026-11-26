@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import Banner from '../ui/Banner'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
-import Page from '../ui/Page'
-import PageHeader from '../ui/PageHeader'
 import Section from '../ui/Section'
 import Skeleton from '../ui/Skeleton'
 import Stack from '../ui/Stack'
@@ -109,13 +107,7 @@ export default function ChangelogPage() {
   }
 
   return (
-    <Page width="narrow">
-      <PageHeader
-        title="Changelog"
-        subtitle={`Version ${version.short}, deployed ${version.deployedAt}`}
-        back={{ to: '/', label: '← Back to drafts' }}
-      />
-
+    <Section title="Changelog" description={`Version ${version.short}, deployed ${version.deployedAt}`}>
       <Stack gap={8}>
         {list.status === 'loading' && <Skeleton variant="card" lines={2} />}
         {list.status === 'error' && (
@@ -176,6 +168,6 @@ export default function ChangelogPage() {
           </Stack>
         )}
       </Stack>
-    </Page>
+    </Section>
   )
 }

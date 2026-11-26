@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { lint, HEADINGS } from '../../scripts/reply-lint.mjs'
 import { spawnSync } from 'node:child_process'
-import { analyzeSessions, claimOf, inScope, KINDS, needs, normalizeSession, quote, SESSION_FIELDS, titleIssue, validateSessions } from '../../scripts/session-janitor.mjs'
+import { analyzeSessions, claimOf, describeSnapshot, formatSummary, inScope, KINDS, passOneFindings, splitSummary, summaryCounts, needs, normalizeSession, quote, SESSION_FIELDS, titleIssue, validateSessions } from '../../scripts/session-janitor.mjs'
 
 const load = (name) => JSON.parse(readFileSync(new URL(`./fixtures/session-janitor/${name}`, import.meta.url), 'utf8'))
 const sessions = load('sessions.json')
@@ -200,7 +201,12 @@ describe('edge cases from the review', () => {
   it('does not propose to archive a completed session that another finding names', () => {
     const old = edit('session_nohand', { updated_at: '2026-11-10T00:00:00Z' })
     expect(run(old).find((f) => f.kind === 'stale' && f.sessions[0] === 'session_nohand').action).toContain('Not yet')
+    // The session a duplicate finding keeps is never "can be archived" in the same report.
+    const keep = edit('session_dupa', { status_bucket: 'completed', updated_at: '2026-11-10T00:00:00Z' })
+    const kept = run(keep, { 108: [...comments[108], owner('2026-11-26T09:30:00Z', 'HANDOFF A8 - partial\nRELEASE'), owner('2026-11-26T09:40:00Z', 'CLAIM session session_dupa | branch b')] })
+    expect(kept.find((f) => f.kind === 'stale' && f.sessions[0] === 'session_dupa').action).toContain('Not yet')
     const dup = edit('session_dupb', { status_bucket: 'completed', updated_at: '2026-11-10T00:00:00Z' })
+    // session_dupb also has a no-handoff finding on #108, so it is held back; the duplicate-session finding alone would not.
     expect(run(dup).find((f) => f.kind === 'stale' && f.sessions[0] === 'session_dupb').action).toContain('Not yet')
   })
 
@@ -208,6 +214,8 @@ describe('edge cases from the review', () => {
     expect(quote('see session_01UU4t2FpQfySF3P8nhraSTD in tests/unit/fixtures/session-janitor/sessions.json')).toBe('see session_01UU4t2FpQfySF3P8nhraSTD in tests/unit/fixtures/session-janitor/sessions.json')
     expect(quote('secret wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY1 end')).toBe('secret [redacted] end')
     expect(quote('src/components/editor/ThreadComposerToolbar')).toBe('src/components/editor/ThreadComposerToolbar')
+    expect(quote('allow mcp__claude-code-remote__fire_trigger here')).toBe('allow mcp__claude-code-remote__fire_trigger here')
+    expect(quote('dd 0123456789abcdef0123456789abcdef and 0123456789ABCDEF0123456789ABCDEF01234567')).toBe('dd [redacted] and [redacted]')
     expect(quote('key AKIAABCDEFGHIJKLMNOP at https://me:hunter2@db.example')).toBe('key [redacted] at https://[redacted]@db.example')
   })
 
@@ -219,5 +227,104 @@ describe('edge cases from the review', () => {
     const ok = cli('findings', `${dir}/sessions.json`, `${dir}/snapshot.json`, '--comments', `${dir}/comments.json`, '--pulls', `${dir}/pulls.json`)
     expect(JSON.parse(ok.stdout)).toEqual(findings)
     expect(cli('need', `${dir}/sessions-more.json`, `${dir}/snapshot.json`).status).toBe(1)
+  })
+})
+
+describe('the templated summary', () => {
+  const counts = summaryCounts(sessions, snapshot)
+  const options = { counts, today: sessions.read_at, repo: snapshot.repo, names: describeSnapshot(snapshot), applied: load('applied.json') }
+  const text = formatSummary(findings, options)
+
+  it('matches the golden file exactly', () => {
+    expect(text).toBe(readFileSync(new URL('./fixtures/session-janitor/summary.golden.md', import.meta.url), 'utf8'))
+  })
+
+  it('passes the reply-style lint, with findings, with none, and with an owner finding', () => {
+    expect(lint(text, { template: true })).toEqual([])
+    expect(lint(formatSummary([], { ...options, applied: [] }), { template: true })).toEqual([])
+    const owner = [{ kind: 'stuck', sessions: ['session_x'], issue: 105, evidence: 'session `blocked`, it asks a money question.', action: 'Answer the question on {#105}.', act: 'owner' }]
+    const withOwner = formatSummary(owner, options)
+    expect(lint(withOwner, { template: true })).toEqual([])
+    expect(withOwner).toContain('You need to do 1 thing (below).')
+  })
+
+  it('passes the lint for a title naming an unknown number and for titles with a pipe', () => {
+    const doc = edit('session_orphan', { title: 'Look at #999 ideas' })
+    const snap = { ...snapshot, issues: snapshot.issues.map((i) => (i.number === 109 || i.number === 110 ? { ...i, title: 'E100 task A9: print | view' } : i)) }
+    const result = analyzeSessions(doc, snap, { comments, pulls })
+    const text = formatSummary(result, { ...options, names: describeSnapshot(snap), applied: [{ issue: 101, what: 'closed | checked' }] })
+    expect(lint(text, { template: true })).toEqual([])
+    expect(text).toContain('#999 (not in the issue list)')
+    expect(text.split('\n').filter((l) => l.startsWith('| ') && l.includes('`session_')).every((l) => l.split(' | ').length === 5)).toBe(true)
+  })
+
+  it('counts pass 1 owner and dispatcher findings in the combined summary', () => {
+    const pass1Findings = [
+      { kind: 'labels', issues: [105], what: '{#105}: the body says `held` and names an owner question.', fix: 'Ask the owner on {#105}.', act: 'owner' },
+      { kind: 'stale', issues: [104], what: '{#104}: no activity for 20 days.', fix: 'Check it is still wanted.', act: 'dispatcher' }
+    ]
+    const text = formatSummary([], { ...options, applied: [], pass1Findings })
+    expect(lint(text, { template: true })).toEqual([])
+    expect(text).toContain('You need to do 1 thing (below).')
+    expect(text).toContain('acts on the 1 `dispatcher` finding below')
+    expect(text).toContain('| Pass 1 findings (issues, under Details) | 2 |')
+    expect(text).toContain('0 findings and 2 from pass 1, 0 fixes applied (checked).')
+  })
+
+  it('leaves pass 1 duplicate pairs to the pass 2 finding, which keeps a pair with a session for the dispatcher', () => {
+    const one = passOneFindings(snapshot, comments)
+    expect(one.some((f) => f.kind === 'duplicate')).toBe(false)
+    expect(findings.find((f) => f.kind === 'duplicate-issue').act).toBe('dispatcher')
+  })
+
+  it('links the session and the issue on every finding row', () => {
+    const rows = text.split('\n').filter((l) => l.startsWith('| ') && l.includes('`session_'))
+    expect(rows.length).toBe(findings.length)
+    for (const row of rows) expect(row).toMatch(/\]\(https:\/\/claude\.ai\/code\/session_\w+\)/)
+    expect(rows.filter((r) => !r.includes('| none |')).every((r) => /\]\(https:\/\/github\.com\/example\/repo\/issues\/\d+\)/.test(r))).toBe(true)
+  })
+
+  it('splits a summary over the comment limit into parts that each pass the lint', () => {
+    expect(splitSummary(findings, options)).toEqual([text])
+    const max = 3000
+    const parts = splitSummary(findings, { ...options, pass1: 'Task janitor report.\n' }, max)
+    expect(parts.length).toBeGreaterThan(1)
+    expect(parts.every((p) => p.length <= max)).toBe(true)
+    expect(lint(parts[0], { template: true })).toEqual([])
+    for (const p of parts.slice(1)) expect(lint(p)).toEqual([])
+    const rows = parts.join('\n').split('\n').filter((l) => l.startsWith('| ') && l.includes('`session_'))
+    expect(rows.length).toBe(findings.length)
+    expect(parts[0]).not.toContain('### Pass 1 report')
+    expect(parts[0]).toContain('in the next comments (continued parts)')
+    expect(parts.at(-1)).toContain(`part ${parts.length} of ${parts.length}`)
+  })
+
+  it('pads a short PR title with "pull request"', () => {
+    expect(describeSnapshot(snapshot).get(201)).toBe('Export button pull request')
+    const snap = { ...snapshot, pulls: [{ number: 301, title: 'Fix login issue now', body: '' }] }
+    expect(describeSnapshot(snap).get(301)).toBe('Fix login issue now')
+  })
+
+  it('puts the counts first, with every kind', () => {
+    const top = text.split('## TL;DR')[0]
+    expect(top).toContain('14 sessions read in 1 page, 13 in scope,')
+    for (const [kind] of KINDS) expect(top).toContain(`\`${kind}\``)
+  })
+
+  it('follows the template headings in order', () => {
+    const template = readFileSync(new URL('../../.claude/reply-style-templates/janitor-summary.md', import.meta.url), 'utf8')
+    const order = (t) => [...t.matchAll(/^## (.+)$/gm)].map((m) => m[1])
+    expect(order(template)).toEqual([...HEADINGS, 'Details'])
+    expect(order(text)).toEqual(order(template))
+  })
+})
+
+describe('first real run fixes', () => {
+  it('lists an old completed session with no issue once, as stale that can be archived', () => {
+    const old = edit('session_orphan', { status_bucket: 'completed', updated_at: '2026-11-10T00:00:00Z' })
+    const result = run(old).filter((f) => f.sessions.includes('session_orphan'))
+    expect(result.map((f) => f.kind)).toEqual(['stale'])
+    expect(result[0].evidence).toContain('no issue matches it')
+    expect(result[0].action).toContain('Can be archived')
   })
 })

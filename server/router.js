@@ -4,6 +4,7 @@ import { adminRoutes } from './routes/admin.js'
 import { authRoutes } from './routes/auth.js'
 import { deviceRoutes } from './routes/device.js'
 import { draftRoutes } from './routes/drafts.js'
+import { draftEditRoutes } from './routes/draft-edits.js'
 import { grantRoutes } from './routes/grants.js'
 import { imageRoutes } from './routes/images.js'
 import { shareRoutes } from './routes/share.js'
@@ -33,6 +34,7 @@ export const ROUTES = [
   ...authRoutes,
   ...deviceRoutes,
   ...draftRoutes,
+  ...draftEditRoutes,
   ...grantRoutes,
   ...imageRoutes,
   ...shareRoutes,
@@ -101,7 +103,7 @@ async function dispatch(request) {
 
     // Admin paths answer like an unknown path to everyone but the admin, whatever the method or token.
     // This runs before the 405 answer and before the CI-token 401, so neither can reveal an admin path.
-    if ((path === '/admin' || path.startsWith('/admin/')) && !adminPathOpen(request)) return error(404, 'Not found')
+    if ((path === '/admin' || path.startsWith('/admin/')) && (await adminPathOpen(request)) !== true) return error(404, 'Not found')
     // The same rule for /ops (O5, #336): only the metrics-daily workflow's token on its own path passes; any other caller gets 404.
     if ((path === '/ops' || path.startsWith('/ops/')) && (await opsPathOpen(request, path)) !== true) return error(404, 'Not found')
 
@@ -123,7 +125,7 @@ async function dispatch(request) {
     return await match.handler({ request, url, path, params })
   } catch (err) {
     noteError(err)
-    if (err instanceof HttpError) return error(err.status, err.message)
+    if (err instanceof HttpError) return error(err.status, err.message, err.code)
     console.error('[api] unhandled error', err)
     return error(500, 'Server error')
   }

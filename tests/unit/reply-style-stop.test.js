@@ -1,12 +1,13 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { decide } from '../../scripts/reply-style-stop.mjs'
 
 const golden = (p) => readFileSync(new URL(`./fixtures/reply-lint/golden/${p}`, import.meta.url), 'utf8')
 const OWNER = { REPLY_STYLE: 'owner' }
-const SCRIPT = new URL('../../scripts/reply-style-stop.mjs', import.meta.url).pathname
+const SCRIPT = fileURLToPath(new URL('../../scripts/reply-style-stop.mjs', import.meta.url))
 
 describe('reply-style Stop hook (no model)', () => {
   it('lets a good reply end the turn', () => {
@@ -18,6 +19,13 @@ describe('reply-style Stop hook (no model)', () => {
     expect(out.decision).toBe('block')
     expect(out.reason).toContain('loose-label')
     expect(out.reason).toContain('headings')
+  })
+
+  it('covers the session-link rule: a Waiting for session without its link is sent back, with the link it passes', () => {
+    const out = decide({ last_assistant_message: golden('handoff/bad-session-link.md') }, OWNER)
+    expect(out.decision).toBe('block')
+    expect(out.reason).toContain('session-link')
+    expect(decide({ last_assistant_message: golden('handoff/good-2.md') }, OWNER)).toBeNull()
   })
 
   it('does not check sessions that did not opt in, or a second pass, or an empty message', () => {
@@ -41,6 +49,6 @@ describe('reply-style Stop hook (no model)', () => {
 
   it('registers the Stop hook in .claude/settings.json', () => {
     const settings = JSON.parse(readFileSync(new URL('../../.claude/settings.json', import.meta.url), 'utf8'))
-    expect(settings.hooks.Stop[0].hooks[0].command).toContain('scripts/reply-style-stop.mjs')
+    expect(settings.hooks.Stop[0].hooks[0].command).toContain('plugins/reply-style/scripts/reply-style-stop.mjs')
   })
 })

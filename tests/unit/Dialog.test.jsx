@@ -20,7 +20,31 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+function Stacked() {
+  const [top, setTop] = useState(true)
+  return (
+    <div>
+      <div id="root">page</div>
+      <Dialog open title="Lower" onClose={() => {}} actions={[{ label: 'Lower action' }]} />
+      {top && <Dialog open title="Upper" onClose={() => setTop(false)} actions={[{ label: 'Upper cancel', autoFocus: true }, { label: 'Upper go' }]} />}
+    </div>
+  )
+}
+
 describe('Dialog and useConfirm', () => {
+  it('stacked dialogs: only the top one handles Tab, and the page stays locked until the last one closes', async () => {
+    const user = userEvent.setup()
+    render(<Stacked />)
+    expect(screen.getByRole('button', { name: 'Upper cancel' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Upper go' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByText('Upper')).toBeNull()
+    expect(document.getElementById('root')).toHaveAttribute('inert')
+    expect(document.documentElement.classList.contains('dialog-open')).toBe(true)
+  })
+
+
   it('traps focus, closes on Escape, makes #root inert and returns focus to the opener', async () => {
     const user = userEvent.setup()
     const onResult = vi.fn()

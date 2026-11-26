@@ -11,14 +11,27 @@ import path from 'node:path'
 
 const BASE = process.env.XT_BASE_URL ?? 'http://localhost:4173'
 const ORIGIN = new URL(BASE).origin
+const ADMIN_USER = {
+  id: '11111111-1111-4111-8111-111111111111', github_id: '1', login: 'ada-l', name: 'עדה לאבלייס', avatar_url: null,
+  created_at: '2026-11-01T10:00:00.000Z', last_sign_in_at: '2026-11-25T10:00:00.000Z', last_active_at: '2026-11-25T10:00:00.000Z',
+  suspended_at: null, suspended_reason: null, protected: false, drafts: 3, published_drafts: 1, posts: 9, images: 2, api_tokens_active: 1,
+  api_tokens_total: 2, connected_apps: 1, share_links_active: 0, mcp_calls_24h: 4, mcp_calls_7d: 20,
+  api_tokens: [{ id: 't1', created_via: 'web', created_at: '2026-11-02T10:00:00.000Z', last_used_at: null, expires_at: null, revoked_at: null }],
+  image_files: 2, image_bytes: 2048, image_files_truncated: false
+}
 const OUT = path.join('test-results', 'ui-audit')
 
 // Pages under audit. A page joins when its migration PR lands (plan section 5, rules for every migration PR).
 // `drafts` are seeded for that page's user (the draft list with rows, one Hebrew title for the RTL pass).
 const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare'; kit?: 'rare' }[] = [
   { name: 'about', path: '/about' },
-  { name: 'flags', path: '/settings/flags' },
-  { name: 'changelog', path: '/changelog' },
+  { name: 'flags', path: '/admin/flags' },
+  { name: 'changelog', path: '/admin/changelog' },
+  { name: 'admin-stats', path: '/admin' },
+  { name: 'admin-users', path: '/admin/users' },
+  { name: 'admin-user', path: `/admin/users/${ADMIN_USER.id}` },
+  { name: 'admin-audit', path: '/admin/audit' },
+  { name: 'admin-metrics', path: '/admin/metrics' },
   { name: 'tokens', path: '/settings/tokens' },
   { name: 'apps', path: '/settings/apps' },
   { name: 'drafts-empty', path: '/' },
@@ -45,7 +58,7 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
     ]
   },
   // The optional Rare UI look (feature flag, #406): the same checks with xt-skin=rare on the new page and two main pages.
-  { name: 'flags-rare', path: '/settings/flags', skin: 'rare' },
+  { name: 'flags-rare', path: '/admin/flags', skin: 'rare' },
   {
     name: 'drafts-rare',
     path: '/',
@@ -151,6 +164,52 @@ async function devToken(request: APIRequestContext, login: string, admin = false
 }
 
 type Seed = { title: string; posts: unknown[] }
+// Fixed audit rows for the audit page case: plain account data, no secrets.
+const ADMIN_AUDIT = {
+  events: Array.from({ length: 12 }, (_, i) => ({
+    id: `ui-audit-${i}`, created_at: `2026-11-25T10:${String(i).padStart(2, '0')}:00.000Z`, actor_login: 'shaked',
+    action: ['suspend_user', 'unsuspend_user', 'delete_user'][i % 3], outcome: 'done', target_github_id: '42', target_login: 'bob',
+    details: { reason: 'ui audit' }
+  }))
+}
+
+const ADMIN_STATS = {
+  stats: {
+    users: 12, users_suspended: 1, drafts: 40, published_drafts: 9, posts: 130, images: 7, api_tokens_active: 3, connected_apps: 2,
+    share_links_active: 4, mcp_calls_24h: 210, mcp_calls_7d: 1500, active_users_24h: 5, active_users_7d: 9,
+    signups_by_day: Array.from({ length: 30 }, (_, i) => ({ day: `2026-11-${String(i + 1).padStart(2, '0')}`, signups: i % 3 }))
+  }
+}
+
+// A fixed answer for the metrics page (#337): one group for the whole window, two routes, two tools, and the same points for each series.
+const metricGroup = (route: string, op: string, count: number) => ({
+  group: { route, op, caller: 'all' }, count, errors: { '4xx': 3, '429': 1, '5xx': 2, tool_error: 0 },
+  p50: 8.4, p90: 15.9, p95: count > 50 ? 22.4 : null, p99: null, p99_9: null
+})
+const metricsAnswer = (by: string) => ({
+  metrics:
+    by === 'total' ? [metricGroup('all', '-', 100)]
+    : by === 'route' ? [metricGroup('GET /drafts', '-', 60), metricGroup('GET /me', '-', 40)]
+    : [metricGroup('all', 'tool:list_drafts', 7), metricGroup('all', 'tools/list', 2)]
+})
+const metricsSeries = (name: string) => ({
+  name, grain: 'hour',
+  points: Array.from({ length: 24 }, (_, i) => ({ at: `2026-11-25T${String(i).padStart(2, '0')}:00:00Z`, value: (i * 7) % 11, p95: i % 5 === 0 ? null : 10 + (i % 7) }))
+})
+
+// A fixed answer for the delivery section (#452).
+const DELIVERY_SUMMARY = {
+  text: 'Metrics summary, last 24 hours.\n- CI checks: 4 runs, 1 failed (25 %). Last week 50 %.\nNothing is over its limit.',
+  findings: [
+    { area: 'speed', value: 200, baseline: 120, ci: null, link: 'https://github.com/x/y/actions/workflows/speed-metrics.yml' },
+    { area: 'ci', value: 25, baseline: 50, ci: { median_ms: 120000, p90_ms: 300000, flaky_pct: 25, baseline_median_ms: 90000, baseline_p90_ms: 240000, baseline_flaky_pct: 0 } },
+    { area: 'deploys', value: 22, baseline: 20, ci: null }
+  ]
+}
+const DELIVERY_EVENTS = {
+  events: [{ at: '2026-11-26T10:00:00.000Z', source: 'ci', kind: 'run', id: '1.2', name: 'Tests', status: 'failure', ms: 61000, link: 'https://github.com/x/y/actions/runs/1' }]
+}
+
 async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare'; kit?: 'rare' } = {}) {
   const phone = c.width < 800
   const context: BrowserContext = await browser.newContext({
@@ -161,12 +220,38 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
     serviceWorkers: 'block'
   })
   // The changelog is admin only (#368): its check signs in as the admin.
-  const token = await devToken(request, `ui-audit-${c.name}-${Date.now()}`, pagePath === '/changelog')
-  const hebrew = c.rtl && pagePath === '/changelog'
+  const token = await devToken(request, `ui-audit-${c.name}-${Date.now()}`, pagePath === '/admin/changelog')
+  const hebrew = c.rtl && pagePath === '/admin/changelog'
+  const asAdmin = pagePath.startsWith('/admin') || Boolean(extra.skin || extra.kit)
   // Signed-in pages: the dev token goes out as a bearer header. The Hebrew pass answers the changelog itself.
   await context.route(`${ORIGIN}/api/**`, (route) => {
     if (hebrew && new URL(route.request().url()).pathname === '/api/changelog') {
       return route.fulfill({ json: HEBREW_CHANGELOG })
+    }
+    // The admin pages and the Rare UI flags (admin only, #483) need the admin's browser session (a bearer token never passes):
+    // answer the calls they make. The flags answer from the seeded skin and kit, as the account would.
+    if (asAdmin) {
+      const url = new URL(route.request().url())
+      if (url.pathname === '/api/auth/me') {
+        return route.fetch({ headers: { ...route.request().headers(), authorization: `Bearer ${token}` } }).then(async (res) => {
+          const body = await res.json()
+          return route.fulfill({ response: res, json: { ...body, user: { ...body.user, role: 'admin' } } })
+        })
+      }
+      if (url.pathname === '/api/admin/stats') return route.fulfill({ json: ADMIN_STATS })
+      if (url.pathname === '/api/admin/users') return route.fulfill({ json: { users: [ADMIN_USER], next_cursor: null } })
+      if (url.pathname === `/api/admin/users/${ADMIN_USER.id}`) {
+        return route.fulfill({ json: { user: { ...ADMIN_USER, connected_apps: [{ id: 'g1', kind: 'claude', redirect_host: 'claude.ai', resource: 'mcp', created_at: ADMIN_USER.created_at, last_used_at: null, revoked_at: null }] } } })
+      }
+      if (url.pathname === '/api/admin/audit') return route.fulfill({ json: ADMIN_AUDIT })
+      if (url.pathname === '/api/admin/metrics') return route.fulfill({ json: metricsAnswer(url.searchParams.get('by') ?? 'route') })
+      if (url.pathname === '/api/admin/metrics/series') return route.fulfill({ json: metricsSeries(url.searchParams.get('name') ?? 'requests') })
+      if (url.pathname === '/api/admin/metrics/summary') return route.fulfill({ json: DELIVERY_SUMMARY })
+      if (url.pathname === '/api/admin/metrics/events') return route.fulfill({ json: { events: url.searchParams.get('source') === 'ci' ? DELIVERY_EVENTS.events : [] } })
+      if (url.pathname === '/api/admin/flags') {
+        const flag = (name: string, value?: string) => ({ name, value: value ?? 'default', values: ['default', 'rare'], default: 'default', meaning: '' })
+        return route.fulfill({ json: { flags: [flag('look', extra.skin), flag('components', extra.kit)] } })
+      }
     }
     return route.continue({ headers: { ...route.request().headers(), authorization: `Bearer ${token}` } })
   })
@@ -184,6 +269,11 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   await page.goto(`${BASE}${pagePath.replace(':first', firstDraftId)}`, { waitUntil: 'networkidle' })
   await expect(extra.heading ? page.getByRole('heading', { name: extra.heading, level: 1 }) : page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(page.getByText('Loading…')).toHaveCount(0)
+  // The metrics page loads its numbers after the shell: audit the tables and the chart, not the error banner.
+  if (pagePath === '/admin/metrics') {
+    await expect(page.getByRole('heading', { name: 'All routes' })).toBeVisible()
+    await expect(page.getByRole('table', { name: 'Delivery events, newest first' })).toBeVisible()
+  }
   if (c.rtl) await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'))
   // The menu drawer (a Dialog on the start edge) is audited open, so its targets, type and colours are checked too.
   if (extra.menu) {

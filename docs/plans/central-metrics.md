@@ -426,7 +426,7 @@ This replaces the one-line speed message. Today the owner gets the headline "Spe
 and the line "p90 over the limit: CI, Smoke, Total" with a link to the run
 (`scripts/speed-metrics.mjs`, `alert()`). It does not say how much, since when, why, or what to do.
 
-The shape is close to `.claude/skills/reply-style/templates/telegram-message.md` (at most 5 lines, the bold
+The shape is close to `.claude/reply-style-templates/telegram-message.md` (at most 5 lines, the bold
 linked headline, `Needs you:` or `Nothing needed.`, links), written with `pstack-unslop`. An alert has no
 item line (a commit or an issue title); the number takes its place. So M7 adds a second shape, "Alert",
 to that file, with golden tests, and the speed kind uses it. O7's `metrics` kind uses it when O7 is built.

@@ -190,6 +190,13 @@ describe('GET /admin/metrics: grouped rows', () => {
     expect(byOp.body.metrics[0]).toMatchObject({ count: 36, group: { route: 'all', op: '-', caller: 'all' } })
   })
 
+  it('by=total is one group for the whole window', async () => {
+    const caller = await elevatedCaller()
+    const { body } = await getJson(caller, 'admin_metrics', '/admin/metrics?window=24h&by=total')
+    expect(body.metrics).toHaveLength(1)
+    expect(body.metrics[0]).toMatchObject({ count: 36, group: { route: 'all', op: '-', caller: 'all' } })
+  })
+
   it('route filters to one route, or to unmatched (no rows here)', async () => {
     const caller = await elevatedCaller()
     const one = await getJson(caller, 'admin_metrics', '/admin/metrics?window=24h&route=GET%20%2Fdrafts')

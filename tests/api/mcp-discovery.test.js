@@ -9,7 +9,9 @@ import { getPrompt, listPrompts } from '../../server/mcp/prompts.js'
 import { readSkillResource } from '../../server/mcp/skills.js'
 import { threadText } from '../../server/mcp/thread-text.js'
 import { INSTRUCTIONS } from '../../server/mcp/server.js'
+import { labels } from '../../server/mcp/ui/client.js'
 import { changeMeta, changesText } from '../../server/mcp/edit-result.js'
+import { stateLine } from '../../server/mcp/state-line.js'
 import { WRITE_TOOLS } from '../eval/mcp-default-use.eval.mjs'
 import { MODES, NAMES_CONNECTOR, checkAgainst, clientScores, evaluate, formatClientTable, formatTable, modeFor } from '../eval/discovery/score.mjs'
 import { fenceProblems, formatEval, formatEvalTable } from '../eval/discovery/format.mjs'
@@ -139,7 +141,7 @@ describe('per client (#365)', () => {
 
   it('format eval: no code fence around post text, Hebrew kept exactly, within the length limits, for every client', () => {
     const editText = (before, after) => changesText(changeMeta(before, after))
-    const server = { instructions: INSTRUCTIONS, tools, prompts: listPrompts(), getPrompt, skillText: readSkillResource('skill://x-thread-drafts/SKILL.md')[0].text, threadText, editText }
+    const server = { instructions: INSTRUCTIONS, tools, prompts: listPrompts(), getPrompt, skillText: readSkillResource('skill://x-thread-drafts/SKILL.md')[0].text, threadText, editText, stateLine, viewLabels: labels() }
     const { problems, rows } = formatEval(clients, server)
     console.log(formatEvalTable(rows))
     expect(problems, problems.join('\n')).toEqual([])
@@ -147,9 +149,18 @@ describe('per client (#365)', () => {
     // A direction mark the server adds around the user's text is found (Codex review on #399).
     const marked = formatEval(clients, { ...server, threadText: (args) => `\u202e${threadText(args)}` }).problems
     expect(marked.join('\n')).toContain('results thread markdown (he): Hebrew or user text is not kept exactly as written')
+    // #371: a direction mark inside a Hebrew view label is found, for every client that shows views.
+    const hebrew = labels()
+    hebrew.thread.draft = ['Draft', '\u202bטיוטה']
+    const labelProblems = formatEval(clients, { ...server, viewLabels: hebrew }).problems.join('\n')
+    expect(labelProblems).toContain('views thread.draft (he): Hebrew or user text is not kept exactly as written')
+    expect(rows.filter((r) => r.group === 'views').length).toBeGreaterThan(0)
     // #405: an edit result that shows the whole draft again fails, in English and Hebrew.
     const whole = formatEval(clients, { ...server, editText: (before, after) => `${editText(before, after)}\n${threadText({ ...after, saved: true })}` }).problems
     for (const lang of ['en', 'he']) expect(whole.join('\n')).toContain(`results edit result (${lang}): shows 5 posts the edit did not change`)
+    // #390: a state line that holds the title, a post or an image url fails, in English and Hebrew.
+    const leaky = formatEval(clients, { ...server, stateLine: (draft, ...rest) => `${stateLine(draft, ...rest)} ${draft.title}` }).problems
+    for (const lang of ['en', 'he']) expect(leaky.join('\n')).toContain(`results state line (${lang}): holds user text`)
   })
 
   it('format eval: finds a code fence around text, and allows only the fences that text may hold', () => {

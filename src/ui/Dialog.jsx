@@ -6,10 +6,14 @@ import './Dialog.css'
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+// Dialogs that are open now, the last one on top. Only the top one handles keys, and the page stays locked until the last one closes.
+const OPEN_PANELS = []
+
 // A modal dialog in a portal on <body>, outside #root. While it is open #root is inert (set through the DOM,
 // React 18.2 has no `inert` prop) and the page does not scroll. Tab stays inside, Escape and the scrim close it
 // (unless `dismissible` is false), and focus goes back to the element that was focused when it opened.
-// `actions`: [{ label, variant, onClick, autoFocus }]; the one with `autoFocus` gets focus first.
+// `actions`: [{ label, variant, onClick, autoFocus, disabledReason, loading, disabled }]; the one with `autoFocus` gets focus first.
+// `disabledReason` keeps the button focusable and shows the reason (see Button); `loading` ignores clicks.
 // `placement`: 'center' (default) or 'sheet-start', a drawer on the inline start edge (the app menu).
 // Focus goes to the first element inside `[data-autofocus]` when there is one (a link or a button), else the first control.
 // `returnTo`: a ref to the element that focus returns to on close (optional).
@@ -31,9 +35,11 @@ export default function Dialog({ open, onClose, title, description, children, ac
     root?.setAttribute('inert', '')
     document.documentElement.classList.add('dialog-open')
     const box = panel.current
+    OPEN_PANELS.push(box)
     const start = box?.querySelector('[data-autofocus] a, [data-autofocus] button') ?? box?.querySelector(FOCUSABLE) ?? box
     start?.focus()
     const onKey = (event) => {
+      if (OPEN_PANELS[OPEN_PANELS.length - 1] !== box) return
       if (event.key === 'Escape' && latest.current.dismissible) {
         event.preventDefault()
         latest.current.onClose?.()
@@ -53,8 +59,11 @@ export default function Dialog({ open, onClose, title, description, children, ac
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('keydown', onKey)
-      root?.removeAttribute('inert')
-      document.documentElement.classList.remove('dialog-open')
+      OPEN_PANELS.splice(OPEN_PANELS.indexOf(box), 1)
+      if (OPEN_PANELS.length === 0) {
+        root?.removeAttribute('inert')
+        document.documentElement.classList.remove('dialog-open')
+      }
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus()
     }
   }, [open])
@@ -86,7 +95,7 @@ export default function Dialog({ open, onClose, title, description, children, ac
           <div className="ui-dialog__actions">
             {actions.map((action) => (
               <span key={action.label} className="ui-dialog__action" data-autofocus={action.autoFocus ? '' : undefined}>
-                <Button variant={action.variant ?? 'secondary'} onClick={action.onClick}>
+                <Button variant={action.variant ?? 'secondary'} onClick={action.onClick} disabledReason={action.disabledReason} loading={action.loading} disabled={action.disabled}>
                   {action.label}
                 </Button>
               </span>

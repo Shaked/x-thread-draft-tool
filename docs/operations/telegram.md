@@ -9,11 +9,12 @@ Code:
 - `.github/workflows/smoke-deployed.yml`: the two production kinds, after the deployed smoke test.
 - `.github/workflows/notify-labels.yml`: the three label kinds.
 - `.github/workflows/cleanup-review-daily.yml`: starts the cleanup message (see `docs/operations/cleanup-review.md`).
+- `.github/workflows/metrics-daily.yml`: the metrics kind (job `alerts`, task #338).
 - `.github/workflows/speed-metrics.yml`: the speed kind, from a manual run of the speed metrics (epic #273, task #310) and from the per-merge run after a production smoke test (task M7 of plan #439).
 
-## The six kinds
+## The nine kinds
 
-The script sends the forms in `.claude/skills/reply-style/templates/telegram-message.md` (task #369, step 7). Each headline starts with one emoji (✅ live, 🚨 failed, 👀 preview, 🙋 needs you, 🧹 cleanup, 🐢 speed) and no section says "nothing". Each kind has a golden test in `tests/unit/notify-telegram-golden.test.js`. "The messages" below shows each one.
+The script sends the forms in `.claude/reply-style-templates/telegram-message.md` (task #369, step 7). Line 1 of every message is the emoji, the app name in bold and the headline (issue #504). Each message starts with one emoji (✅ live, 🚨 failed or metrics alert, 👀 preview, 🙋 needs you, 🧹 cleanup, 🐢 speed) and no section says "nothing". Each kind has a golden test in `tests/unit/notify-telegram-golden.test.js`. "The messages" below shows each one.
 
 
 | Kind | Headline (it is the link) | When it is sent | Other links |
@@ -28,7 +29,7 @@ The script sends the forms in `.claude/skills/reply-style/templates/telegram-mes
 | 🐢 Delivery is slower than its limit: <stages> (plain stage names) | The per-merge run after a production merge, when a stage is over its limit: the first merge of a streak over a limit. Again only after the stages have been within their limits for 24 hours. A manual run of `speed-metrics.yml` (input `last`) sends it when a stage's p90 is over its limit. | The Alert shape (template section 6): "This merge took 2 min 49 s in CI checks. The limit is ..., since <UTC time> (N in a row)." Then the likely cause, or "not known yet". Links: the speed table and the stage definitions. No action line. | The gate issue (the per-merge run) or the run (manual) |
 
 What a message looks like (the forms in the template):
-- Line 1: the headline in bold. It is the link (in the HTML version; the plain-text fallback shows the link as `label: url`).
+- Line 1: the kind's emoji, the app name in bold, ` · `, then the headline. The headline is the link (in the HTML version; the plain-text fallback shows the link as `label: url`).
 - Line 2: for the production kinds, the short commit id (7 characters, in code font) and the commit title. For the other kinds, the issue or PR title.
 - A fact line, when the kind has one: "What changed" (try-preview) or "What it removes" (cleanup ready), from the PR body. See the note below.
 - "Needs you: ..." with one action, only when the kind needs one. A section with nothing to say is not written.
@@ -40,19 +41,19 @@ Nothing else sends a message. There is no message for a push, a new PR, a CI run
 
 ## The messages
 
-Sent by the script since task #369, step 7. The rules and the placeholders are in `.claude/skills/reply-style/templates/telegram-message.md`.
-Bold is the headline, and the headline is the link. English only: the owner reads English.
+Sent by the script since task #369, step 7. The rules and the placeholders are in `.claude/reply-style-templates/telegram-message.md`.
+Bold is the app name, and the headline after it is the link. English only: the owner reads English.
 
 | Kind | Example |
 |---|---|
-| Production passed | ✅ **Production is live and tested**<br>`46070af` Thread view: one action row and purple accent<br>Open production · Commit 46070af · See the run |
-| Production failed | 🚨 **Production smoke test failed**<br>`46070af` Thread view: one action row and purple accent<br>Production runs this commit, and its smoke test failed or did not run.<br>Needs you: open the run and read the first failed step.<br>Open production |
-| Try it on preview | 👀 **Try it on preview**<br>Thread view: one action row and purple accent<br>What changed: the thread view shows its three buttons in one row.<br>Needs you: try the change on preview.<br>PR #424 on GitHub |
-| Needs you | 🙋 **An issue needs you**, or 🙋 **A PR needs you**<br>Changelog entries and Telegram messages follow the writing templates<br>Needs you: open it and answer or do what it asks. |
-| Cleanup review ready | 🧹 **Cleanup review ready**<br>Remove duplicate tests<br>What it removes: two parser tests that check the same thing.<br>Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR. |
-| Cleanup review started | 🧹 **Cleanup review started**<br>Cleanup review 2026-11-25<br>An agent reviews the commits since the last review and opens up to three PRs. |
-| Weekly review started | 🗓 **Weekly review started**<br>Weekly review 2026-11-30<br>An agent checks the signals and opens up to three PRs; owner items get the label owner. |
-| Metrics alert | 🚨 **Metrics alert: slow answers**<br>Slow: the slowest 5 % of API requests took 1380 ms or more in the last 24 hours. The limit is 1000 ms.<br>Needs you: open the metrics page and find the route with the errors or the slow answers. |
+| Production passed | ✅ **Thread Draft** · Production is live and tested<br>`46070af` Thread view: one action row and purple accent<br>Open production · Commit 46070af · See the run |
+| Production failed | 🚨 **Thread Draft** · Production smoke test failed<br>`46070af` Thread view: one action row and purple accent<br>Production runs this commit, and its smoke test failed or did not run.<br>Needs you: open the run and read the first failed step.<br>Open production |
+| Try it on preview | 👀 **Thread Draft** · Try it on preview<br>Thread view: one action row and purple accent<br>What changed: the thread view shows its three buttons in one row.<br>Needs you: try the change on preview.<br>PR #424 on GitHub |
+| Needs you | 🙋 **Thread Draft** · An issue needs you, or A PR needs you<br>Changelog entries and Telegram messages follow the writing templates<br>Needs you: open it and answer or do what it asks. |
+| Cleanup review ready | 🧹 **Thread Draft** · Cleanup review ready<br>Remove duplicate tests<br>What it removes: two parser tests that check the same thing.<br>Needs you: review the PR, then merge or close it. Agents never merge a cleanup PR. |
+| Cleanup review started | 🧹 **Thread Draft** · Cleanup review started<br>Cleanup review 2026-11-25<br>An agent reviews the commits since the last review and opens up to three PRs. |
+| Weekly review started | 🗓 **Thread Draft** · Weekly review started<br>Weekly review 2026-11-30<br>An agent checks the signals and opens up to three PRs; owner items get the label owner. |
+| Metrics alert | 🚨 **Thread Draft** · Metrics alert: slow answers<br>Slow: the slowest 5 % of 4200 API requests took 1380 ms or more in 24 hours. The limit is 1000 ms (38 % over), usual 90 ms, since 2026-11-26 09:17 UTC.<br>Likely cause: GET /drafts used the most request time (3100 s).<br>Next: no new message for this alert until it has been clear for 24 hours. |
 
 Notes:
 - The needs-you headline says "A PR needs you" or "An issue needs you". The script decides from the link: a pull request address says PR.
@@ -60,7 +61,20 @@ Notes:
 - The "What changed" line (try-preview) never shows: the preview label does not pass the body, and `messageFromEnv` does not read it. This was already true before task #369.
 - The production passed message links the site, the commit and the run. `smoke-deployed.yml` passes `NOTIFY_RUN_URL` for both production kinds. A commit id that is not 7 to 40 hex characters shows only the title, with no commit link.
 - The speed kind uses the Alert shape (template section 6): an emoji, and no action line. The per-merge run also opens or updates one gate issue, labelled `task`, titled "Speed gate: delivery is over its limit"; its body holds the state the next run reads back.
-- No workflow sends a metrics alert yet. Task O7 of `docs/plans/observability.md` adds the kind `metrics` and uses its form in the template.
+- The metrics kind (🚨, task O7 #338) is sent by the `alerts` job of `metrics-daily.yml`: one message per alert that the daily step (`POST /api/ops/metrics-daily`, every 6 hours) returns as new. Errors: 5xx at least 2 % and at least 10 in 6 hours. Slow: p95 over 1 000 ms with 200 samples in 24 hours. Capacity: database over 700 MB, over 100 rate-limited requests in 24 hours, or over 100 000 `ops_events` rows. Limits are in `server/metrics/alerts.js`. The headline links `/admin/metrics` of the app; an alert is sent again only after 24 hours clear (`metrics_alert_state`).
+
+## The app name (issue #504)
+
+The channel is shared with other apps, so every message says which app it is about, on line 1: `✅ **Thread Draft** · Production is live and tested`. `buildMessage` in `scripts/notify-telegram.mjs` gets the app from `DEFAULT_APP` (the one place that holds the name and the addresses), then the environment. Every kind is built by the same function, so no kind can leave it out. Another repo sets its own values and adds no other text:
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `TELEGRAM_APP_NAME` | The app name, cut to 40 characters | Thread Draft |
+| `TELEGRAM_APP_REPO_URL` | Repository address, for commit links | the Thread Draft repository |
+| `TELEGRAM_APP_SITE_URL` | Production address | the Thread Draft production site |
+| `TELEGRAM_APP_PREVIEW_URL` | Preview address | the Thread Draft preview site |
+
+A value that is not `https://` is ignored. No workflow sets them yet, so this app's messages use the defaults. `npm run reply-lint -- --kind=telegram --app=<name> <file>` fails a message whose line 1 has no bold name followed by ` · `, and a name other than `<name>`. The golden tests (`tests/unit/notify-telegram-golden.test.js`) build every kind for Thread Draft and for a second fixture app, "Recipe Box".
 
 ## The two secrets, and how to set them
 

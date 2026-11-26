@@ -66,7 +66,7 @@ describe('add_image_from_url called in parallel for one post', () => {
     const result = await addImage(draft.id, 1, null)
     expect(result._meta['x-thread/posts']).toEqual(await (await db.pg.query('select posts from drafts where id = $1', [draft.id])).rows[0].posts)
     expect(result.structuredContent.draft.url).toBe(`${APP_URL}/draft/${draft.id}`)
-    expect(result.content.at(-1).text).toMatch(/^Uploaded, not in a post yet: draft version 1,/)
+    expect(result.content.at(-2).text).toMatch(/^Uploaded, not in a post yet: draft version 1,/)
   })
 
   it('a fifth parallel call gets the 4-images error and its uploaded file is deleted', async () => {

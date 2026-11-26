@@ -135,6 +135,7 @@ Some components have a second implementation behind the Components feature flag 
 | `haspopup` | `menu` | | The button opens a menu: sets `aria-haspopup`. Used by `Menu`. |
 | `expanded` | boolean | | Whether that menu is open: sets `aria-expanded`. |
 | `controls` | string | | The `id` of the menu it opens: sets `aria-controls`. |
+| `ariaCurrent` | `page` | | Marks the link of the open page: sets `aria-current`. |
 | `onClick` | function | | |
 
 - States: default, hover (only where hover exists), pressed (scale 0.98), focus-visible (the base focus ring), disabled (half opacity), loading, disabled with reason.
@@ -449,3 +450,47 @@ Some components have a second implementation behind the Components feature flag 
 - States: flag off (default): plain text, `120/280`. Flag on (`xt-kit` = `rare`, Feature flags > Components): the value's digits roll to the new value (a spring, 0.6 s); the number is read once through a sr-only span; the rolling digits are aria-hidden; not a live region; the value sits in a left-to-right box so Hebrew text keeps `120/280` in order. Under the over-limit colour of `.char-counter`, the counter inherits it. Reduced motion: the digits change at once. Loads in its own chunk; the plain text shows until then.
 - Tokens: `--counter-line` (one digit's height) and `--mask-counter-fade` (the top and bottom fade, alpha only) in `src/styles/tokens.css`.
 - Example: `<Count value={count} max={280} />`
+
+## Table
+- File: `src/ui/Table.jsx`
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `caption` | string | required | Names the table; shown as soft text above it. |
+| `columns` | `{ key, label }[]` | required | The first column names each row. |
+| `rows` | object[] | required | One object per row, with the column keys. |
+
+- States: a real table from 768 px; below that each row is a card with a label and value line per cell.
+- Example: `<Table caption="Signups" columns={[{ key: 'day', label: 'Day' }, { key: 'n', label: 'Signups' }]} rows={rows} />`
+
+## SideLayout
+- File: `src/ui/SideLayout.jsx`
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `side` | node | required | The menu. Sits at the inline start from 768 px, above the content below that. |
+| `children` | node | | The page content. |
+
+- States: stacked under 768 px; a 14 rem side column from 768 px (`--flex-min`).
+- Example: `<SideLayout side={<nav>…</nav>}><Section title="Statistics" /></SideLayout>`
+
+## LoadBoundary
+- File: `src/ui/LoadBoundary.jsx` (also exports `ReloadNotice`)
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `children` | node | required | A `Suspense` with a `React.lazy` part inside. |
+| `fallback` | node | `ReloadNotice` | Shown when the lazy file fails to load. Rare UI parts pass the current component. |
+
+- Why (#551): after a deploy, an open tab asks for a file of the build before. Vercel answers it with `index.html`,
+  the import fails, and without a boundary React removes the whole page. React keeps a failed import, so only a reload helps.
+- Only a failed load (the import error of Chrome, Firefox or Safari) shows the fallback. Any other error is thrown on:
+  a reload cannot fix a bug.
+- `ReloadNotice`: a warning `Banner` (role alert) with a Reload button; Reload waits for the new service worker (`reloadToNewest`).
+- Example: `<LoadBoundary fallback={current}><Suspense fallback={current}><RareThemeSelector /></Suspense></LoadBoundary>`

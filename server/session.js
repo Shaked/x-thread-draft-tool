@@ -9,6 +9,7 @@ import { upsertGithubUser } from './github-user.js'
 import { currentCaller } from './caller-context.js'
 import { noteCaller } from './perf.js'
 import { SUSPENDED_MESSAGE, admit } from './suspension.js'
+import { roleOf } from './admin/role.js'
 
 // The CI identity: a dedicated row in users (github_id -1; real GitHub ids are positive).
 const CI_USER = { id: -1, login: 'ci-smoke', name: 'CI', avatar_url: null }
@@ -31,12 +32,8 @@ export async function createSession(user) {
     .sign(secretKey())
 }
 
-/**
- * The state of the browser session: `{ session }` (the payload), `{ suspended: true }`, or null when
- * missing, invalid, expired, revoked or the user is gone. One statement answers all three questions
- * (revoked? suspended? still there?), so suspension adds no round trip.
- */
-async function sessionState(request) {
+/** The payload of a valid session cookie, or null. Checks the signature, the audience and the jti; no database. */
+async function verifiedPayload(request) {
   const token = parseCookies(request)[SESSION_COOKIE]
   if (!token) return null
   let payload
@@ -50,6 +47,15 @@ async function sessionState(request) {
   if (payload.aud !== undefined) return null
   // A token without a jti predates sign-out revocation and cannot be revoked, so it is refused.
   if (typeof payload.jti !== 'string' || payload.jti === '') return null
+  return payload
+}
+
+/**
+ * The state of a verified session payload: `{ session }` (the payload), `{ suspended: true }`, or null when
+ * revoked or the user is gone. One statement answers all three questions (revoked? suspended? still there?),
+ * so suspension adds no round trip.
+ */
+async function stateOf(payload) {
   // Outside the try: a database error is a server error, never "signed out".
   const { rows } = await query(
     `select exists(select 1 from revoked_sessions where jti = $1) as revoked,
@@ -62,6 +68,29 @@ async function sessionState(request) {
   // The payload rides along only so that sign-out can revoke it; every other caller treats suspended as no session.
   if (row.suspended_at !== null) return { suspended: true, session: payload }
   return { session: payload }
+}
+
+async function sessionState(request) {
+  const payload = await verifiedPayload(request)
+  return payload === null ? null : stateOf(payload)
+}
+
+/**
+ * The web admin caller (#283), or null. It is the real browser session: view-as (Task 15) never applies here.
+ * Checked in this order, and every check before the last runs without a database query:
+ * not an in-process MCP call, no Authorization header, `x-xt-admin: 1`, a verified session cookie, the admin role.
+ * Only then the revoked, suspended and exists statement. A custom header forces a CORS preflight, which this API never allows.
+ */
+export async function realSession(request) {
+  if (currentCaller() !== null) return null
+  if (request.headers.get('authorization') !== null) return null
+  if (request.headers.get('x-xt-admin') !== '1') return null
+  const payload = await verifiedPayload(request)
+  if (payload === null || roleOf(payload.gh) !== 'admin') return null
+  const state = await stateOf(payload)
+  if (state === null || state.suspended) return null
+  noteCaller('web')
+  return { ...payload, via: 'session', suspended: false }
 }
 
 /**

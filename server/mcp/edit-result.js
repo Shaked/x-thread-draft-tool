@@ -23,7 +23,6 @@ export function changeMeta(before, after) {
 }
 
 const quote = (text) => String(text).split('\n').map((line) => (line ? `> ${line}` : '>'))
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 /**
  * One changed post as markdown lines: the post as it is now (quoted when its text changed), a removed post's old text.
@@ -39,22 +38,18 @@ function postLines(change, total) {
   return [`${at}, edited${moved}`, ...(change.before === change.after ? [] : quote(change.after)), ...images]
 }
 
-/** The "after the edit" text of docs/plans/draft-contract.md section 2.4 (one set of instructions, #358). */
-const AFTER_EDIT = 'Saved. Do not show the whole draft again: say in one line what changed and quote only the changed posts, if any.'
-
 /**
- * The text of an edit's result: one line with what to do, the new version and the count, then the changed posts only,
- * unless the whole draft is shown (`changes.full`): then the caller adds the whole thread as its own text part.
- * The editor link is in the JSON part before it.
+ * The text of an edit's result: the changed posts only (and a changed title), unless the whole draft is shown
+ * (`changes.full`): then the caller adds the whole thread as its own text part. The version, the count, the editor link
+ * and what to do next are in the state line that ends the result (state-line.js, #390): nothing is said twice.
  */
 export function changesText(changes) {
-  const state = `Version ${changes.version}, ${plural(changes.post_count, 'post')}`
-  if (changes.full) return `${AFTER_EDIT} ${state}. The view shows the whole draft.`
-  if (changes.posts.length === 0 && !changes.title) return `Nothing changed. ${state}.`
-  const lines = [`${AFTER_EDIT} ${state}; changed: ${plural(changes.posts.length, 'post')}. The view shows what changed.`]
+  if (changes.full) return 'The view shows the whole draft.'
+  if (changes.posts.length === 0 && !changes.title) return 'Nothing changed.'
   const oneLine = (title) => String(title || 'Untitled draft').replace(/\s+/g, ' ').trim()
-  if (changes.title) lines.push('', `Title: "${oneLine(changes.title.before)}" is now "${oneLine(changes.title.after)}".`)
-  for (const change of changes.posts.slice(0, TEXT_LIMIT)) lines.push('', ...postLines(change, changes.post_count))
-  if (changes.posts.length > TEXT_LIMIT) lines.push('', `And ${changes.posts.length - TEXT_LIMIT} more changed posts: the view lists them.`)
-  return lines.join('\n')
+  const blocks = []
+  if (changes.title) blocks.push(`Title: "${oneLine(changes.title.before)}" is now "${oneLine(changes.title.after)}".`)
+  for (const change of changes.posts.slice(0, TEXT_LIMIT)) blocks.push(postLines(change, changes.post_count).join('\n'))
+  if (changes.posts.length > TEXT_LIMIT) blocks.push(`And ${changes.posts.length - TEXT_LIMIT} more changed posts: the view lists them.`)
+  return blocks.join('\n\n')
 }

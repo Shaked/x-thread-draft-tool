@@ -28,7 +28,7 @@ const featureFiles = listMdFiles(featuresDir).filter((f) => f !== 'index.md');
 // A skill is a flat `<name>.md` file or a `<name>/SKILL.md` folder (the folder form holds templates).
 const skillFiles = [
   ...listMdFiles(skillsDir),
-  ...readdirSync(skillsDir, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync(join(skillsDir, d.name, 'SKILL.md'))).map((d) => join(d.name, 'SKILL.md'))
+  ...readdirSync(skillsDir, { withFileTypes: true }).filter((d) => (d.isDirectory() || d.isSymbolicLink()) && existsSync(join(skillsDir, d.name, 'SKILL.md'))).map((d) => join(d.name, 'SKILL.md'))
 ].sort();
 
 const now = new Date();

@@ -27,11 +27,15 @@ Rules that come from the code:
 - Any app you approve while signed in as you can use admin tools, with no time limit. Approve only apps you started yourself, and revoke apps you no longer use.
 - The consent page names the app's own site (the host of its client_id), and says in bold when the return address is not on that site or on this computer (localhost or 127.0.0.1). Do not approve then. A registered app names no site, so the page says that instead.
 
-The changelog (`GET /api/changelog`, the `/changelog` page and the `changelog` key of `app_version`) is admin only: `requireAdminUser` in `server/admin/guard.js` calls `roleOf` in `role.js`; everyone else gets the 404 of an unknown path (#368).
+The browser app shows who is admin from `GET /api/auth/me`: `user.role` is `admin` or `user` for a browser session (#282, `roleOf` in `role.js`). The badge and the one "Admin" link to `/admin` in the app menu show only for `admin` (#551). An API token caller gets no `role`, and `ADMIN_DISABLED=1` gives `user`.
+
+The changelog (`GET /api/changelog`, the `/admin/changelog` page and the `changelog` key of `app_version`) is admin only: `requireAdminUser` in `server/admin/guard.js` calls `roleOf` in `role.js`; everyone else gets the 404 of an unknown path (#368). The old `/changelog` page address redirects the admin to `/admin/changelog` (#484).
+
+The one access test is `tests/api/admin-access.test.js` (routes, MCP tools, bundle and text) with `tests/unit/admin-access-pages.test.jsx` (pages). It lists every admin route, tool and page from code and fails when a new one has no row. Add the row when you add the route, tool or page (#485).
 
 ## The ten tools
 
-The admin connection sees the ten admin tools below. Nobody else sees any of them.
+The admin connection sees the fourteen admin tools below. Nobody else sees any of them.
 
 | Tool | Arguments | REST route |
 |---|---|---|
@@ -40,17 +44,51 @@ The admin connection sees the ten admin tools below. Nobody else sees any of the
 | `admin_get_user` | `id` (user UUID from `admin_list_users`) | `GET /api/admin/users/:id` |
 | `admin_stats` | none | `GET /api/admin/stats` |
 | `admin_audit_log` | `limit` (1 to 100, default 50), `before` (ISO time) | `GET /api/admin/audit` |
-| `admin_metrics` | `window` (`1h`, `24h`, `7d`, `30d`, `90d`, `400d`; default `24h`), `by` (`route`, `op`, `caller`, `all`; default `route`), `route` (a route of the app or `unmatched`) | `GET /api/admin/metrics` |
+| `admin_metrics` | `window` (`1h`, `24h`, `7d`, `30d`, `90d`, `400d`; default `24h`), `by` (`route`, `op`, `caller`, `all`, `total`; default `route`), `route` (a route of the app or `unmatched`) | `GET /api/admin/metrics` |
 | `admin_metrics_series` | `name` (`requests`, `errors_5xx`, `errors_4xx`, `rate_limited`, `cold_starts`, `p50`, `p95`, `p99`, or one `metrics_product_daily` column), `window` (`24h`, `7d`, `30d`, `90d`, `400d`; default `7d`), `route` (request series only) | `GET /api/admin/metrics/series` |
+| `admin_metrics_summary` | `window` (`24h` or `7d`; default `24h`), `repo` (a listed repo; default the app repo) | `GET /api/admin/metrics/summary` |
+| `admin_metrics_events` | `source`, `kind`, `status`, `name`, `since` (ISO time), `limit` (1 to 100, default 50) | `GET /api/admin/metrics/events` |
+| `admin_list_flags` | none | `GET /api/admin/flags` |
+| `admin_set_flag` | `flag` (`look` or `components`), `value` (`default` or `rare`); own view only, audited, no confirm token | `POST /api/admin/flags` |
 | `admin_suspend_user` | `id`, `confirm_login` (the exact login, typed by you), `reason` (optional, 200 characters) | `POST /api/admin/users/:id/suspend` |
 | `admin_unsuspend_user` | `id`, `confirm_login` | `POST /api/admin/users/:id/unsuspend` |
 | `admin_delete_user` | `id`, `dry_run` (default true), `confirm_token`, `confirm_login` | `POST /api/admin/users/:id/delete` |
 
-The REST routes are under `/api/admin/`. They answer 404 to everyone except the elevated admin connection, the same answer as an unknown path. The smoke test checks this on the deployed site (`PASS admin paths answer like an unknown path (404)`).
+The "Delivery and CI" section of `/admin/metrics` (#452) shows the summary numbers and the events table. The CI finding of the summary carries `ci`: median and p90 CI time and flaky retries, with last week's values. A flaky retry is a run that passed on attempt 2 or later, so a manual re-run of a green run counts too. The events table leaves out production errors.
+
+The REST routes are under `/api/admin/`. They answer 404 to everyone except the admin connection (MCP) and the owner's browser session (web, below), the same answer as an unknown path. The smoke test checks this on the deployed site (`PASS admin paths answer like an unknown path (404)`).
 
 The answers hold account details and numbers only. They never hold draft text, token secrets, token hashes, client secrets or image URLs.
 
 Limits, from `server/admin/limits.js`: suspend and unsuspend together, 30 actions per hour. Delete, 5 per hour. Each admin call counts once in the normal MCP rate row (120 calls per minute).
+
+## The web surface (the owner's browser session, #283)
+
+The `/api/admin/*` routes also answer the owner's browser session. All of these must hold, checked in this order, with no database query until the last:
+
+1. The call is not an in-process MCP call.
+2. The request has no `Authorization` header (so `xt_` tokens, OAuth `/api` tokens and the CI identity never pass).
+3. The request has the header `x-xt-admin: 1`. A custom header forces a CORS preflight, which this API never allows, so a page on another site cannot send it. Cross-origin writes also get 403 from the router's Origin check.
+4. The session cookie verifies (HS256, no audience, has a `jti`).
+5. `roleOf` in `role.js` says admin for the GitHub id in the session. `ADMIN_DISABLED=1` turns this off too.
+6. Then the one statement that checks revoked, suspended and exists.
+
+The check is `realSession` in `server/session.js`, used only by `server/admin/guard.js`. It ignores view-as. Each web call adds 1 to the per-minute MCP count (120 a minute); past that the answer is 429. The router gate (`adminPathOpen`) is async and never counts. The per-tool route binding applies to MCP only. Web admin changes (any method but GET) need a browser sign-in from the last 7 days (`WEB_WRITE_MAX_AGE_SECONDS` in `server/admin/guard.js`; a refusal is 403 "Sign in again: ..." with the code `sign_in_again`). Reads are not limited. The owner set 7 days on 2026-11-26 (#552); it was 12 hours (O6). MCP has no such rule: the window applies to the web surface only, and the MCP tools keep their own confirm tokens.
+
+When the web gets `sign_in_again`, the admin pages (`SignInAgain` in `src/components/admin/`, wired into `adminApi` in `src/utils/api.js`) open a dialog with one button. It opens `/api/auth/login?popup=1` in a pop-up; the callback sets the session and answers a page that closes the pop-up. The change is then repeated once by itself. If the pop-up is closed without signing in, nothing is saved and the page says "You did not sign in, so nothing changed." This holds for every admin write: flags, suspend, unsuspend and delete.
+
+A delete confirm token is bound to its surface and its binding: the MCP grant on MCP, the browser session's `jti` on web (`bindOf` in `server/admin/confirm.js`). A token opens only on the surface that made it, and only in the session that made it. Another session's token, or a token from the other surface, answers 400 "confirm_token is not valid for this call. Run the dry run again."
+
+The browser pages are under `/admin` (#285): `src/pages/admin/` is one lazy chunk that is never precached (`tests/unit/admin-bundle.test.js` checks it). `isAdmin` in `src/utils/currentUser.js` is the one place the browser reads the role; the server still decides.
+
+## Suspend, unsuspend and delete in the browser (#287)
+
+On `/admin/users/:id` the admin sees an Actions section (not for the protected accounts, the admin and CI, which show no buttons). It calls the same routes as the MCP tools, so the same rules hold: the typed login, the 10-minute wait, the confirm token, the 7-day sign-in rule (with the sign-in pop-up) and one audit row with `details.surface` `web`.
+
+- **Suspend**: a dialog names the user id and what stops working. Type the login exactly to enable the button. The reason is optional (200 characters).
+- **Unsuspend**: a dialog with the same typed login.
+- **Delete user**: its button waits until 10 minutes after the suspension. Step 1 is the dry run (nothing is deleted): a dialog shows the counts, the user id and when the confirm token expires. Step 2: type the login, and the real call goes out with `confirm_token` and `confirm_login`. The token lives in page state only, never in storage.
+- Every server refusal (403 protected, 409 wait or content changed, 429 limit) is shown with the server's own message.
 
 ## What a suspended user sees
 
@@ -78,8 +116,8 @@ What the server does, in order:
 
 - Table `admin_audit` (migration `009_admin.sql`). It has no foreign keys on purpose, so a row outlives the user it is about.
 - Each row keeps the admin's id and login, the action, the outcome (`started`, `done`, `failed`, `refused`), and the target's id, GitHub id and login.
-- The `details` field never holds a secret.
-- Read it with `admin_audit_log`, newest first.
+- Every row has `details.surface`: `mcp` or `web`. The `details` field never holds a secret.
+- Read it with `admin_audit_log`, newest first. The browser page is `/admin/audit` (#288): the same rows, 50 at a time; its action filter works on the rows already loaded.
 
 ## Scale note
 

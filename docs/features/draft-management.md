@@ -19,3 +19,4 @@ Sign out ends this browser's session on the server (the old cookie value stops w
 ## The menu
 
 Every signed-in page has a menu button at the start of its header. It opens a left drawer (closed on load) with Drafts, Theme (Light, Dark, Match device), API tokens, Connected apps, and Sign out. Escape, a press on the dark area, a drawer link and a route change close it. While it is open the page behind cannot be focused and does not scroll; focus returns to the menu button on close. The phone bottom bar keeps its own Sign out.
+- Post edits over REST and MCP (#412): `POST /api/drafts/:id/posts` adds a post, `POST /api/drafts/:id/posts/:postId/move` moves it, `DELETE /api/drafts/:id/posts/:postId` removes it. Each honours `If-Match` (412 on a stale version) and refuses a published draft (409). The editor still saves the whole draft.

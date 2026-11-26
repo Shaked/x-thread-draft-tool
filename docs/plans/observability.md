@@ -295,7 +295,7 @@ Two capabilities, each on all three surfaces (AGENTS.md rule), each with its own
 
 - Admin only, through `adminRoute` and the guard. The tools are in `ADMIN_TOOLS`, hidden from everyone
   else, and each tool may reach only its own route (the per-route binding of #298).
-- `GET /api/admin/metrics?window=1h|24h|7d|30d|90d|400d&by=route|op|caller|all&route=<route key>`:
+- `GET /api/admin/metrics?window=1h|24h|7d|30d|90d|400d&by=route|op|caller|all|total&route=<route key>`:
   one entry per group, sorted by `count`, at most 200 entries. `1h` is the current UTC hour so far; the
   other windows end at the read time. `route` must be a key of `ROUTES` or `unmatched`, else 400, so the
   60 s cache stays small.
@@ -363,7 +363,7 @@ without `group`.
 ## 6. Alerts (three kinds, Telegram)
 
 Worked out by every run of the daily step (every 6 hours). Sent with `scripts/notify-telegram.mjs`, new kind
-`metrics`, in the Alert shape of `.claude/skills/reply-style/templates/telegram-message.md` once #475 folds
+`metrics`, in the Alert shape of `.claude/reply-style-templates/telegram-message.md` once #475 folds
 its section 5 (central-metrics D6), with the existing secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 The app itself still sends nothing (`docs/operations/telegram.md`).
 
@@ -374,7 +374,9 @@ The app itself still sends nothing (`docs/operations/telegram.md`).
 | A3 capacity | the database is over 700 MB (70 % of the free 1 GB), or more than 100 requests were rate limited (`n_429`, which includes refused MCP tool calls) in the last 24 hours | the free Neon limit blocks writes when full; many 429s mean the rate limit hurts real users |
 
 - An alert is sent when it starts and again only after it has been clear for 24 hours
-  (`metrics_alert_state`). One line per alert: the kind, the value, the limit, a link to `/admin/metrics`.
+  (`metrics_alert_state`). One message per alert, in the Alert shape of `.claude/reply-style-templates/telegram-message.md`
+  (section 6): the headline links to `/admin/metrics`, then the value, the limit and since when, the likely cause, and a
+  `Needs you:` line only for capacity.
 - No alert for a single slow request, for cold starts, or for the `pg` SSL warning.
 
 ## 7. Tasks

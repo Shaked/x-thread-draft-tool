@@ -46,7 +46,7 @@ async function tool(name, args) {
   const body = { jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args } }
   const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2025-06-18', authorization: `Bearer ${token}` }
   const { result } = await (await route(new Request(MCP, { method: 'POST', headers, body: JSON.stringify(body) }))).json()
-  return { error: result.isError ? result.content[0].text : null, data: result.structuredContent, text: result.content[1]?.text }
+  return { error: result.isError ? result.content[0].text : null, data: result.structuredContent, text: result.content[1]?.text, parts: result.content.map((part) => part.text) }
 }
 
 /** An image url under alice's own Blob folder, so remove and replace may delete its file. */
@@ -68,6 +68,7 @@ describe('add_image_from_url', () => {
     const added = await tool('add_image_from_url', { draftId: draft.id, url: 'https://example.com/n.png', postId: 'p1', position: 1 })
     expect(added.error).toBeNull()
     expect((await urlsOf(draft.id))[0]).toEqual([added.data.url, own('a'), own('b')])
+    expect(added.parts.at(-1)).toMatch(/, 3 images\. Editor: \S+\. Saved\. Post 1 has 3 of 4 images\. Say this in one line\.$/) // #390 (Codex review)
     const late = await tool('add_image_from_url', { draftId: draft.id, url: 'https://example.com/m.png', postId: 'p1', position: 5 })
     expect(late.error).toMatch(/position must be from 1 to 4/)
     expect(putBlob).toHaveBeenCalledTimes(1)
@@ -87,7 +88,7 @@ describe('add_image_from_url', () => {
     expect(res.error).toBeNull()
     expect(await urlsOf(draft.id)).toEqual([[own('a')], [res.data.image_url, own('c')]])
     expect(deleteBlobUrls).toHaveBeenCalledWith([own('b')])
-    expect(res.text).toMatch(/^Saved\. .* Version 2, 2 posts\./) // #405: a replace writes the draft
+    expect(res.parts.join('\n')).toMatch(/Draft \S+, version 2, 2 posts, 0 over 280, 3 images\. Editor: \S+\. Saved\. Say in one line which images changed; the draft has 3 images in all\.$/) // #405: a replace writes the draft
   })
 
   it('replace: an unknown image is refused before any upload; a stale version writes nothing and deletes the new file', async () => {

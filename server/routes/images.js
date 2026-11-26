@@ -73,10 +73,15 @@ async function uploadImageFromUrl({ request }) {
   const { rows } = await query('select 1 from drafts where id = $1 and user_id = $2', [draftId, session.uid])
   if (!rows[0]) throw new HttpError(404, 'Draft not found')
 
-  const { bytes, contentType } = await fetchRemoteImage(body.url)
-  const pathname = `drafts/${session.uid}/${draftId}/${crypto.randomUUID()}.${extensionFor(contentType)}`
+  return json(await storeRemoteImage(session.uid, draftId, body.url), 201)
+}
+
+/** Fetches a public image and stores it under the caller's own prefix. Answers { url, sourceUrl }. */
+export async function storeRemoteImage(uid, draftId, sourceUrl) {
+  const { bytes, contentType } = await fetchRemoteImage(sourceUrl)
+  const pathname = `drafts/${uid}/${draftId}/${crypto.randomUUID()}.${extensionFor(contentType)}`
   const blob = await putBlob(pathname, bytes, { contentType })
-  return json({ url: blob.url, sourceUrl: body.url }, 201)
+  return { url: blob.url, sourceUrl }
 }
 
 export const imageRoutes = [

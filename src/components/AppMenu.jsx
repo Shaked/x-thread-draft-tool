@@ -1,12 +1,13 @@
 import { useCallback, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { formatVersion, localBuildInfo, utcText } from '../utils/version'
+import Badge from '../ui/Badge'
 import Button from '../ui/Button'
 import Dialog from '../ui/Dialog'
 import IconButton from '../ui/IconButton'
 import Section from '../ui/Section'
 import Stack from '../ui/Stack'
-import { useCurrentUser } from '../utils/currentUser'
+import { isAdmin as isAdminUser, useCurrentUser } from '../utils/currentUser'
 import { signOut } from './LogoutButton'
 import ThemeSetting from './ThemeSetting'
 import './AppMenu.css'
@@ -24,6 +25,7 @@ export default function AppMenu() {
   const close = () => setOpen(false)
   const menuButton = useRef(null)
   const user = useCurrentUser()
+  const isAdmin = isAdminUser(user)
   const build = localBuildInfo()
   const version = formatVersion(build, new Date())
 
@@ -31,6 +33,12 @@ export default function AppMenu() {
   return (
     <>
       <IconButton ref={menuButton} icon="menu" label="Menu" expanded={open} controls="app-menu" onClick={() => setOpen(true)} />
+      {/* Shown only to the admin (#282): `role` comes from /api/auth/me for a browser session. */}
+      {isAdmin && (
+        <span role="status" aria-label="You are the admin">
+          <Badge tone="accent">Admin</Badge>
+        </span>
+      )}
       <Dialog id="app-menu" open={open} onClose={close} placement="sheet-start" title="X Thread Draft Tool" returnTo={menuButton}>
         <div className="app-menu-close">
           <IconButton icon="close" label="Close menu" onClick={close} />
@@ -50,16 +58,15 @@ export default function AppMenu() {
               <Button variant="ghost" fullWidth to="/settings/apps" onClick={close}>
                 Connected apps
               </Button>
-              <Button variant="ghost" fullWidth to="/settings/flags" onClick={close}>
-                Feature flags
-              </Button>
-              {user?.admin === true && (
-                <Button variant="ghost" fullWidth to="/changelog" onClick={close}>
-                  Changelog
-                </Button>
-              )}
             </Stack>
           </Section>
+          {/* The one admin entry, shown only to the admin (#551): everything else of the admin (the changelog, the flags,
+              the metrics) lives inside /admin. The pages are a lazy chunk (#285). */}
+          {isAdmin && (
+            <Button variant="ghost" fullWidth to="/admin" onClick={close}>
+              Admin
+            </Button>
+          )}
           <div className="app-menu-foot">
             <Button variant="ghost" fullWidth onClick={signOut}>
               Sign out

@@ -2,9 +2,10 @@
 // with one inline script: the client functions from client.js, copied in with toString(), then a starter written as a
 // string so the module transform never rewrites its names. The colors are the X variables from server/share/x-css.js.
 import * as client from './client.js'
-import { el } from './client.js'
+import { el, tr } from './client.js'
 import { X_VARS_DARK, X_VARS_LIGHT } from '../../share/x-css.js'
 import { embedOrigin } from './origin.js'
+import { minifyCss, pageScript } from './script.js'
 import { CARD_FUNCTIONS, CARD_STYLE, renderShare, shareFrom } from './share-card.js'
 import { ACCENT_VARS_DARK, ACCENT_VARS_LIGHT } from './tokens.js'
 
@@ -71,19 +72,25 @@ const STARTER = `
   }
   function createShare(id) { return link.callTool('create_share_link', { id: id }, 120000); }
   function revokeShare(id, token) { return link.callTool('revoke_share_link', { id: id, token: token }, 120000); }
+  function locale() {
+    var ctx = link && link.context();
+    return ctx && typeof ctx.locale === 'string' ? ctx.locale : undefined;
+  }
+  function useLang(sample) { setLang(locale(), sample); }
   function showResult(result) {
     shown = true;
     if (result.isError) {
+      useLang('');
       var first = result.content && result.content[0];
-      renderError(root, first && first.text ? first.text : 'The tool returned an error.');
+      renderError(root, first && first.text ? first.text : tr('common', 'tool_error'));
       return;
     }
     var thread = threadFrom(result);
     if (thread) {
+      useLang([thread.title].concat(thread.posts.map(function (post) { return postText(post).text; })).join(' '));
       thread.expand = canExpand() ? expand : null;
       thread.imageOrigin = IMAGE_ORIGIN || thread.imageOrigin;
-      var ctx = link.context();
-      thread.share = link.canCallTools() ? { create: createShare, revoke: revokeShare, locale: ctx && typeof ctx.locale === 'string' ? ctx.locale : undefined } : null;
+      thread.share = link.canCallTools() ? { create: createShare, revoke: revokeShare, locale: locale() || (document.documentElement.lang === 'he' ? 'he' : undefined) } : null;
       thread.drawn = function () {
         if (!thread.share || !thread.id || !thread.saved) return;
         const share = createShareNode(thread, open);
@@ -96,7 +103,8 @@ const STARTER = `
       else renderThread(root, thread, open);
       thread.drawn();
     } else {
-      renderError(root, 'This view cannot show that result.');
+      useLang('');
+      renderError(root, tr('common', 'cannot_show'));
     }
   }
   function applyContext(ctx) {
@@ -114,7 +122,7 @@ const STARTER = `
   link = bridge({
     result: showResult,
     context: applyContext,
-    error: function () { if (!shown) renderError(root, 'Could not connect to the host.'); }
+    error: function () { if (!shown) { useLang(''); renderError(root, tr('common', 'no_host')); } }
   });
   setTimeout(function () {
     if (!link.delivered() && window.openai && window.openai.toolOutput) {
@@ -129,13 +137,13 @@ const STARTER = `
  * the card (renderShare) is shown in place. A refusal by the host removes the button; a timeout can be tried again.
  */
 export function createShareNode(thread, open) {
-  const button = el('button', {}, ['Create share link'])
+  const button = el('button', {}, [tr('share', 'create')])
   const note = el('p', { dir: 'auto' }, [])
   const card = el('div', {}, [])
   const box = el('div', {}, [button, note, card])
   button.addEventListener('click', function () {
     button.disabled = true
-    note.textContent = 'Waiting for your OK in the chat'
+    note.textContent = tr('share', 'waiting')
     let call
     try {
       call = thread.share.create(thread.id)
@@ -147,7 +155,7 @@ export function createShareNode(thread, open) {
         const share = result && !result.isError ? shareFrom(result) : null
         if (!share) {
           const first = result && result.content && result.content[0]
-          note.textContent = first && first.text ? first.text : 'The link could not be created.'
+          note.textContent = first && first.text ? first.text : tr('share', 'create_failed')
           button.disabled = false
           return
         }
@@ -157,7 +165,7 @@ export function createShareNode(thread, open) {
       },
       function (err) {
         const timedOut = /timed out$/.test(String(err && err.message))
-        note.textContent = timedOut ? 'No answer from the host. Try again.' : 'Your app does not allow this here.'
+        note.textContent = timedOut ? tr('share', 'no_answer') : tr('share', 'not_allowed')
         if (timedOut) button.disabled = false
         else button.remove()
       }
@@ -172,6 +180,8 @@ export function createShareNode(thread, open) {
 // is shared by reference, not written twice.
 export const RENDER_FUNCTIONS = [
   client.bridge,
+  client.tr,
+  client.setLang,
   client.safeUrl,
   client.safeImage,
   client.clampInset,
@@ -196,7 +206,7 @@ export const RENDER_FUNCTIONS = [
 
 // The page script for one image origin: the render functions, then the starter with the origin baked in.
 const scriptFor = (imageOrigin) =>
-  [...RENDER_FUNCTIONS, ...CARD_FUNCTIONS, createShareNode].map((fn) => fn.toString()).join('\n') + STARTER.replace('__IMAGE_ORIGIN__', embedOrigin(imageOrigin))
+  pageScript(['common', 'thread', 'share'], [...RENDER_FUNCTIONS, ...CARD_FUNCTIONS, createShareNode], STARTER.replace('__IMAGE_ORIGIN__', embedOrigin(imageOrigin)))
 
 /** The whole view document, for one image origin (null when the environment has none). */
 function threadHtml(imageOrigin) {
@@ -207,7 +217,7 @@ function threadHtml(imageOrigin) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>X thread</title>
-<style>${STYLE}</style>
+<style>${minifyCss(STYLE)}</style>
 </head>
 <body>
 <main id="root"><p>Loading thread…</p></main>

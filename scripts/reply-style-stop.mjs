@@ -1,35 +1,25 @@
 #!/usr/bin/env node
-// Stop hook for sessions that report to the owner (#486). Claude Code runs it when a turn ends and passes
-// JSON on stdin with `last_assistant_message` and `stop_hook_active` (https://code.claude.com/docs/en/hooks).
-// A session opts in with the environment variable REPLY_STYLE=owner, set in the shell that starts `claude`
-// (a hook inherits that environment). Any other session is not checked.
-// When the reply fails `scripts/reply-lint.mjs` with the template checks on, the hook prints
-// {"decision":"block","reason":...} and exits 0, so the agent rewrites the reply before the turn ends.
-// It never blocks twice in a row (`stop_hook_active`), so a reply that cannot pass does not loop.
-import { readFileSync } from 'node:fs'
+// This repo's Stop hook entry: the reply-style plugin's hook, run with this repo's `.claude/agent-kit.json`.
+// `.claude/settings.json` runs the plugin script directly; this wrapper keeps `decide(input, env)` for the tests and old callers.
+// A broken settings file never blocks a turn (exit 2 would): the check is skipped with a warning on stderr.
 import { pathToFileURL } from 'node:url'
-import { lint } from './reply-lint.mjs'
+import { decide as pluginDecide, main as pluginMain } from '../plugins/reply-style/scripts/reply-style-stop.mjs'
 
-/** Returns null (let the turn end) or { decision: 'block', reason }. Pure: the tests call it without a model. */
+let config = null
+let configError = null
+try {
+  config = (await import('./reply-lint.mjs')).config
+} catch (error) {
+  configError = error
+}
+
 export function decide(input, env = process.env) {
-  if (env.REPLY_STYLE !== 'owner') return null
-  if (!input || input.stop_hook_active) return null
-  const text = String(input.last_assistant_message || '').trim()
-  if (!text) return null
-  const findings = lint(text, { template: true })
-  if (!findings.length) return null
-  const list = findings.map((f) => `line ${f.line}: ${f.rule}: ${f.message}`).join('\n')
-  return {
-    decision: 'block',
-    reason: `Your reply to Shaked breaks the reply-style rules (.claude/skills/reply-style/SKILL.md). Rewrite it with the template for its kind and send it again:\n${list}`
+  if (configError) {
+    if (env.REPLY_STYLE === 'owner') process.stderr.write(`reply-style: check skipped, config broken: ${configError.message}\n`)
+    return null
   }
+  return pluginDecide(input, env, config)
 }
 
-function main() {
-  let input = null
-  try { input = JSON.parse(readFileSync(0, 'utf8')) } catch { /* not JSON: let the turn end */ }
-  const result = decide(input)
-  if (result) console.log(JSON.stringify(result))
-}
-
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main()
+// Run directly, the plugin's main reads the hook input and the settings itself (and warns once on a broken file).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) pluginMain()

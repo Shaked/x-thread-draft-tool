@@ -8,11 +8,11 @@ import { exportAsFormattedText, exportAsJSON, exportAsNumberedText, exportAsPlai
 import { xLength } from '../../src/utils/xLength.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const COLUMNS = 'id, user_id, title, posts, is_published, published_at, created_at, updated_at, version'
+export const COLUMNS = 'id, user_id, title, posts, is_published, published_at, created_at, updated_at, version'
 const POST_TEXT_MAX = 280
 const EMPTY_POST = () => ({ id: crypto.randomUUID(), text: '', images: [], embeddedTweet: null })
 
-function isUuid(value) {
+export function isUuid(value) {
   return typeof value === 'string' && UUID_RE.test(value)
 }
 
@@ -49,7 +49,7 @@ function shareLinkNotFound() {
  * The If-Match precondition of a request (RFC 9110): null when absent, { any: true } for `*`,
  * { version, weak } for one entity tag such as "3" or W/"3". Anything else is a 400.
  */
-function ifMatchOf(request) {
+export function ifMatchOf(request) {
   const header = request.headers.get('if-match')
   if (header === null) return null
   const value = header.trim()
@@ -60,12 +60,12 @@ function ifMatchOf(request) {
 }
 
 /** Writes need the strong comparison: a weak tag never matches. */
-const preconditionHolds = (expected, version) => expected === null || expected.any === true || (!expected.weak && expected.version === version)
+export const preconditionHolds = (expected, version) => expected === null || expected.any === true || (!expected.weak && expected.version === version)
 
-const etagHeaders = (version) => ({ etag: `"${version}"` })
+export const etagHeaders = (version) => ({ etag: `"${version}"` })
 
 /** A stale If-Match: nothing written. The current draft is in the answer, so the client needs no extra read. */
-const staleResponse = (draft) =>
+export const staleResponse = (draft) =>
   json({ error: 'The draft changed since you read it', version: draft.version, draft }, 412, etagHeaders(draft.version))
 
 /**
@@ -248,7 +248,7 @@ async function getDraft({ request, params }) {
   if (!rows[0]) throw notFound()
   const { unchanged, ...draft } = rows[0]
   if (unchanged) return new Response(null, { status: 304, headers: { ...etagHeaders(draft.version), 'cache-control': 'no-store' } })
-  return json({ draft }, 200, etagHeaders(draft.version))
+  return json({ draft: { ...draft, post_count: Array.isArray(draft.posts) ? draft.posts.length : 0 } }, 200, etagHeaders(draft.version))
 }
 
 /** GET /api/drafts/:id/outline: owner only. Counts and a preview per post, not the full text. */

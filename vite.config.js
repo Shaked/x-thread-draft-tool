@@ -57,6 +57,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // The admin chunk is the lazy import of pages/admin/AdminLayout (named AdminLayout-<hash>): never precached.
+        globIgnores: ['**/assets/AdminLayout-*'],
         skipWaiting: true,
         clientsClaim: true,
         // Serverless API responses (drafts, auth, one-time share links) are always live.

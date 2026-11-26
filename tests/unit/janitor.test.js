@@ -158,6 +158,18 @@ describe('report text', () => {
     expect(text).toContain('In a cycle or waiting on one, left out: #13 #14')
   })
 
+  it('wraps a long line with no comma at a space outside code, and leaves issue numbers out of a name', () => {
+    const lines = wrap(`- ${'word '.repeat(30)}\`a b c\` ${'more '.repeat(10)}end`, 60)
+    expect(lines.length).toBeGreaterThan(1)
+    expect(lines.every((l) => l.length <= 60 && l.split('`').length % 2 === 1)).toBe(true)
+    expect(shortName({ title: 'E407 task M9: what #354 still misses: merge' })).toBe('what still misses: merge')
+    for (const pad of [21, 22, 23, 24]) {
+      const label = wrap(`- ${'word '.repeat(pad)}then #101 (export button for drafts) is next ${'more '.repeat(8)}end`, 120)
+      expect(label.length).toBeGreaterThan(1)
+      expect(lint(label.join('\n')), `pad ${pad}`).toEqual([])
+    }
+  })
+
   it('wraps a long line at a comma', () => {
     const lines = wrap(`- ${'word, '.repeat(40)}end`, 60)
     expect(lines.length).toBeGreaterThan(1)

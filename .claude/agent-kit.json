@@ -1,0 +1,41 @@
+{
+  "owner": "Shaked",
+  "ownerLogin": "Shaked",
+  "repo": "Shaked/x-thread-draft-tool",
+  "reply-style": {
+    "humans": [
+      "Shaked",
+      "the owner"
+    ],
+    "allowLines": [
+      "^Implements #\\d+ Task "
+    ],
+    "changelogAreas": [
+      "Drafts",
+      "Editor",
+      "AI apps",
+      "Admin",
+      "Design",
+      "Speed",
+      "Security",
+      "Docs"
+    ],
+    "extraTemplates": {
+      "changelog-entry": ".claude/reply-style-templates/changelog-entry.md",
+      "telegram-message": ".claude/reply-style-templates/telegram-message.md",
+      "janitor-summary": ".claude/reply-style-templates/janitor-summary.md",
+      "status-board": ".claude/reply-style-templates/status-board.md"
+    },
+    "writingSkills": [
+      "pstack-unslop",
+      "pstack-technical-writing",
+      "pstack-bro"
+    ]
+  },
+  "metrics": {
+    "app": "X Thread Draft Tool",
+    "repo": "Shaked/x-thread-draft-tool",
+    "siteUrl": "https://x-thread-draft-tool.vercel.app",
+    "ingestUrl": "https://x-thread-draft-tool.vercel.app/api/ops/events"
+  }
+}

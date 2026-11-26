@@ -10,7 +10,7 @@
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 
-export const COUNTED_DIRS = ['src/', 'server/', 'api/', 'scripts/']
+export const COUNTED_DIRS = ['src/', 'server/', 'api/', 'scripts/', 'plugins/']
 const LOCKFILE = /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/
 const PLAN_REFERENCE = /docs\/plans\/[a-z0-9-]+\.md.*Task \d+(\.\d+)?/
 // A task id may start with one capital letter, as in "Implements #273 Task R0".

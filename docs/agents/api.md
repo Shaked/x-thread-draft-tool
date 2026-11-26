@@ -153,6 +153,20 @@ curl -s -X PATCH $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN" \
 curl -s -X PATCH $BASE/api/drafts/DRAFT_ID/posts/p1 -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -H 'If-Match: "3"' -d '{"text":"Edited"}'
 
+# Add, move and remove posts and images (owner). Each is one route with the rules of the MCP tools (#412).
+# Same If-Match rules as above: a stale version is 412 with no write. 409 for a published draft, 422 for a broken rule.
+curl -s -X POST $BASE/api/drafts/DRAFT_ID/posts -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"text":"New post","after_post_id":"p1"}'    # after_post_id and post_id are optional
+curl -s -X POST $BASE/api/drafts/DRAFT_ID/posts/p3/move -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"position":1}'                              # with "image_url": move that image to p3 at position
+curl -s -X DELETE $BASE/api/drafts/DRAFT_ID/posts/p3 -H "Authorization: Bearer $TOKEN"  # a draft keeps one post
+curl -s -X POST $BASE/api/drafts/DRAFT_ID/images -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"url":"https://example.com/a.png","post_id":"p1","position":2}'   # at most 4 per post
+curl -s -X POST $BASE/api/drafts/DRAFT_ID/images -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"url":"https://example.com/b.png","replace":"OLD_IMAGE_URL"}'
+curl -s -X DELETE $BASE/api/drafts/DRAFT_ID/images -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"post_id":"p1"}'                              # or {"url":"IMAGE_URL"}; → { draft, removed, deleted }
+
 # Duplicate (owner) → 201 with the copy, titled "<title> (copy)"
 curl -s -X POST $BASE/api/drafts/DRAFT_ID/duplicate -H "Authorization: Bearer $TOKEN"
 
@@ -299,7 +313,10 @@ The full picture (who sends which version, the editor, the 304 check): [docs/arc
   write that already landed succeeds even though its tag is now stale.
 - Errors: `400` malformed header or body, `404` not found or not yours, `409` published draft (post routes),
   `412` stale version.
-- MCP: `add_post`, `remove_post`, `move_post`, `remove_image` and `add_image_from_url` send the version they read as
-  If-Match; `update_draft` and `update_post` take an optional `version` (from `get_draft`). A conflict is a tool error
+- The post and image routes (`POST /drafts/:id/posts`, `DELETE /drafts/:id/posts/:postId`, `POST /drafts/:id/posts/:postId/move`,
+  `POST` and `DELETE /drafts/:id/images`) read the draft and write it with one UPDATE that re-checks the version it read.
+  With `If-Match` a stale version is `412`; without it, a write that landed in between makes the route plan the edit again on the newer draft.
+- MCP: `move_post`, `remove_image` and `add_image_from_url` with `replace` take an optional `version`, as do
+  `update_draft` and `update_post` (from `get_draft`). A conflict is a tool error
   (`isError`) with the current `version`, telling you to call `get_draft` again. `add_post` takes an optional `post_id`: the same id and text
   again changes nothing; the same id with other text is a 409 tool error.

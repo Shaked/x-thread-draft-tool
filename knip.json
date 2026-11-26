@@ -3,6 +3,7 @@
   "entry": [
     "api/handler.js",
     "scripts/*.{mjs,js}",
+    "plugins/*/scripts/*.mjs",
     "tests/**/*.{test,spec}.{js,jsx,ts}",
     "tests/eval/*.eval.mjs"
   ],
@@ -10,6 +11,7 @@
     "src/**",
     "server/**",
     "api/**",
-    "scripts/**"
+    "scripts/**",
+    "plugins/**"
   ]
 }

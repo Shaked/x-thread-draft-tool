@@ -9,7 +9,8 @@ export const DIMENSIONS = {
   route: ['route'],
   op: ['op'],
   caller: ['caller'],
-  all: ['route', 'op', 'caller']
+  all: ['route', 'op', 'caller'],
+  total: ['total'] // one group for the whole window: the summary row of the admin page (#337)
 }
 
 /** Columns of metrics_product_daily that a series may name. The rolling ones are read at taken_at. */
@@ -25,7 +26,7 @@ const MAX_GROUPS = 200
 const SOURCE = 'n, n_4xx, n_429, n_5xx, n_tool_error, cold, sum_ms, max_ms, buckets'
 
 /** Rows of one window grouped by `by`: at most 200, the biggest count first. Each row has the histogram of its group. */
-export async function groupRows({ by, from, day, route }) {
+export async function groupRows({ by, from, day, route, to = null }) {
   const dims = DIMENSIONS[by].join(', ')
   const params = [from, day]
   let filter = ''
@@ -33,11 +34,18 @@ export async function groupRows({ by, from, day, route }) {
     params.push(route)
     filter = ` and route = $${params.length}`
   }
+  // `to` (the end of the last hour wanted) bounds the hourly rows only, so the summary can read the days before a window.
+  // Daily rows are whole days: a caller must not ask for a range that reaches them.
+  let until = ''
+  if (to !== null) {
+    params.push(to)
+    until = ` and hour < $${params.length}::timestamptz`
+  }
   const sql = `
 with src as (
-  select route, op, caller, ${SOURCE} from metrics_hourly where hour >= $1::timestamptz${filter}
+  select route, op, caller, 'all'::text as total, ${SOURCE} from metrics_hourly where hour >= $1::timestamptz${filter}${until}
   union all
-  select route, op, caller, ${SOURCE} from metrics_daily where day >= $2::date${filter}
+  select route, op, caller, 'all'::text as total, ${SOURCE} from metrics_daily where day >= $2::date${filter}
 ),
 grouped as (
   select ${dims},

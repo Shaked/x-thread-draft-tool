@@ -9,12 +9,16 @@
 //   node scripts/session-janitor.mjs findings sessions.json snapshot.json [--comments f] [--pulls f] [--today ISO]
 //       [--review-hours N] [--stale-days N]
 //       Prints the findings as JSON, one object per finding.
+//   node scripts/session-janitor.mjs report sessions.json snapshot.json [same options] [--applied applied.json]
+//       [--pass1 pass1.txt]
+//       Prints the summary in the template .claude/reply-style-templates/janitor-summary.md.
+//       applied.json lists the fixes the agent applied and checked: [{ "issue": n, "what": "closed as completed ..." }].
 //
 // analyzeSessions() is pure: the tests run it on fixtures.
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { analyze as passOne, commentFacts, normalize, REPO, TRUSTED } from './janitor.mjs'
+import { analyze as passOne, commentFacts, describeAll, expand, migrationTables, normalize, REPO, shortName, TRUSTED } from './janitor.mjs'
 
 export const REVIEW_HOURS = 2
 export const STALE_DAYS = 3
@@ -103,13 +107,16 @@ export function titleIssue(title) {
 const TOKEN = /\b(?:gh[pousr]_\w{16,}|github_pat_\w{16,}|sk-[\w-]{16,}|xox[abprs]-[\w-]{10,}|AKIA[0-9A-Z]{16}|eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{4,})|\bBearer\s+\S+/g
 // Any other run of 32 or more key characters is masked too, except a session id. Paths keep their slashes, so they stay.
 const LONG = /\b[A-Za-z0-9+_-]{32,}/g
+// A long run with a digit is masked (hex keys too); one with no digit, such as the tool name
+// mcp__claude-code-remote__fire_trigger, stays. A base64 run with slashes is masked when it mixes digits and both cases.
+const keyLike = (m) => /\d/.test(m) && /[a-z]/.test(m) && /[A-Z]/.test(m)
 // A base64 secret may hold slashes: a run of 40 or more base64 characters with digits and both cases is masked as well.
 const BASE64 = /[A-Za-z0-9+/]{40,}={0,2}/g
 
 /** Text copied from a session for a table cell: one line, no backticks or pipes, tokens masked, at most `max` characters. */
 export function quote(text, max = 100) {
   const one = String(text || '').replace(/\s+/g, ' ').replace(/`/g, "'").replace(/\|/g, '/').replace(TOKEN, '[redacted]')
-    .replace(/:\/\/[^/\s:@]+:[^@\s]+@/g, '://[redacted]@').replace(LONG, (m) => (new RegExp(`^${SESSION_ID}$`).test(m) ? m : '[redacted]')).replace(BASE64, (m) => (/\d/.test(m) && /[a-z]/.test(m) && /[A-Z]/.test(m) ? '[redacted]' : m)).trim()
+    .replace(/:\/\/[^/\s:@]+:[^@\s]+@/g, '://[redacted]@').replace(LONG, (m) => (new RegExp(`^${SESSION_ID}$`).test(m) || /^[A-Za-z_-]+$/.test(m) ? m : '[redacted]')).replace(BASE64, (m) => (keyLike(m) ? '[redacted]' : m)).trim()
   return one.length > max ? `${one.slice(0, max - 3).trimEnd()}...` : one
 }
 
@@ -183,7 +190,7 @@ function checkStuck(c, s, issue) {
 
 function checkOrphan(c, s) {
   const n = titleIssue(s.title)
-  const named = n !== null ? `; its title names #${n}, which is not in the issue list` : '; no issue number in its title, no CLAIM or HANDOFF names it'
+  const named = n !== null ? `; its title names ${ref(n)}` : '; no issue number in its title, no CLAIM or HANDOFF names it'
   c.add('orphan-session', [s.id], null, `${state(s)}${named}.`, 'Read it: link it to its issue with a CLAIM, or archive it once it is completed.')
 }
 
@@ -232,19 +239,23 @@ function checkReview(c, s, n) {
     flags.some((x) => x.red) ? 'Nudge it: fix the red checks and answer the Codex threads, then merge.' : 'Nudge it to merge once Opus has judged the final head.')
 }
 
+const isStale = (c, s) => s.bucket !== 'working' && hours(c.now, s.updatedAt) / 24 > c.staleDays
+
 function checkStale(c, s, issue, named) {
   const days = hours(c.now, s.updatedAt) / 24
-  if (s.bucket === 'working' || !(days > c.staleDays)) return
+  if (!isStale(c, s)) return
   // A completed session that another finding names still has something to post: it is not archived yet.
   let action = 'Not completed, so never archive it: read why it stopped.'
   if (s.bucket === 'completed') action = named ? 'Not yet: another finding names it; archive it once that is done.' : 'Can be archived: it is completed.'
-  c.add('stale', [s.id], issue, `${state(s)}; no update for ${Math.floor(days)} days.`, action)
+  const orphan = c.matches.get(s.id).size ? '' : '; no issue matches it'
+  c.add('stale', [s.id], issue, `${state(s)}; no update for ${Math.floor(days)} days${orphan}.`, action)
 }
 
 function checkSession(c, s) {
   const found = [...c.matches.get(s.id).keys()].sort((a, b) => a - b)
   if (checkStuck(c, s, found[0] ?? null)) c.stuck.add(s.id)
-  if (!found.length) checkOrphan(c, s)
+  // A completed, stale session with no issue is listed once, as stale ("no issue matches it").
+  if (!found.length && !(s.bucket === 'completed' && isStale(c, s))) checkOrphan(c, s)
   for (const n of found.filter((k) => c.byNum.get(k).state === 'open')) {
     checkDone(c, s, n)
     checkReview(c, s, n)
@@ -317,14 +328,17 @@ export function analyzeSessions(sessionsDoc, snapshot, { today, comments = {}, p
   // Last: a completed session is "can be archived" only when no other finding names it.
   for (const s of c.workers.filter((x) => !c.stuck.has(x.id))) {
     const first = [...c.matches.get(s.id).keys()].sort((a, b) => a - b)[0] ?? null
-    checkStale(c, s, first, out.some((f) => f.sessions.includes(s.id)))
+    // A duplicate-session finding already says to archive the completed ones, so it does not hold a session back.
+    // except for the session it keeps.
+    const holds = (f) => f.sessions.includes(s.id) && (f.kind !== 'duplicate-session' || f.action.includes(code(s.id)))
+    checkStale(c, s, first, out.some(holds))
   }
   const rank = new Map(KINDS.map(([k], i) => [k, i]))
   return out.sort((a, b) => rank.get(a.kind) - rank.get(b.kind) || (a.issue ?? 0) - (b.issue ?? 0) || String(a.sessions[0]).localeCompare(String(b.sessions[0])))
 }
 
-/** Sessions, issues, comment facts and matches, shared by the report and the `need` command. */
-function context(sessionsDoc, snapshot, comments) {
+/** Sessions, issues, comment facts and matches, shared by the report, the `need` command and the status board (#499). */
+export function context(sessionsDoc, snapshot, comments) {
   const allComments = { ...(snapshot.comments || {}), ...comments }
   const issues = (snapshot.issues || []).map(normalize)
   const naming = (list, re) => (list || []).filter((p) => re.test(`${p.title}\n${p.body || ''}`)).map((p) => p.number).sort((a, b) => a - b)
@@ -349,6 +363,12 @@ function context(sessionsDoc, snapshot, comments) {
   return c
 }
 
+/** The counts at the top of the summary: every session read, the ones in scope, pages and issues. */
+export function summaryCounts(doc, snapshot) {
+  const sessions = (doc.sessions || []).map(normalizeSession)
+  return { sessions: doc.read_total ?? sessions.length, inScope: scoped(sessions).length, pages: doc.pages, issues: (snapshot.issues || []).length }
+}
+
 /** Issues whose comments the report still needs, and open PRs whose checks it needs (for the `need` command). */
 export function needs(sessionsDoc, snapshot, comments = {}) {
   const c = context(sessionsDoc, snapshot, comments)
@@ -361,12 +381,152 @@ export function needs(sessionsDoc, snapshot, comments = {}) {
   return { issues, prs }
 }
 
+const LABELS = new Map(KINDS)
+// One table cell: one line, and a "|" (from pass 1 text or an agent's words) cannot end the cell.
+const cell = (text) => String(text).replace(/\s+/g, ' ').replace(/\|/g, '/')
+// GitHub refuses a comment over 65 536 characters; above this the skill posts pass 1 as a second comment.
+export const COMMENT_MAX = 60000
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+/** 3 to 6 words for a pull request: its title, padded with "pull request" when it has fewer than 3 words. */
+function prName(title) {
+  const words = title.replace(/[`"()[\]:|]/g, ' ').split(/\s+/).filter(Boolean)
+  if (words.length >= 3) return shortName({ title })
+  return [...words, 'pull', 'request'].map((w) => (/^[A-Z]\d+(\.\d+)?$/.test(w) ? `\`${w}\`` : w)).join(' ')
+}
+
+/** 3 to 6 words for every issue and pull request in the snapshot (open PRs too), keyed by number. */
+export function describeSnapshot(snapshot) {
+  const names = describeAll(snapshot)
+  const issues = new Set((snapshot.issues || []).map((i) => i.number))
+  // A short PR title is padded with "pull request", not with the word "issue" that shortName adds.
+  for (const p of [...(snapshot.pulls || []), ...(snapshot.open_pulls || [])]) {
+    if (!issues.has(p.number)) names.set(p.number, prName(p.title || ''))
+  }
+  // A "|" in a title would break the Details table, and it is not a word: the name is made again without it.
+  for (const i of snapshot.issues || []) if (/\|/.test(i.title || '')) names.set(i.number, shortName({ title: i.title.replace(/\|/g, ' ') }))
+  for (const [n, words] of names) names.set(n, words.replace(/\|/g, ' ').replace(/\s+/g, ' '))
+  return names
+}
+
+const TABLE_HEAD = ['| Kind | Session | Issue | Evidence | Proposed action |', '|---|---|---|---|---|']
+
+/** The findings table: one row per finding, with the Claude session and the issue as links. */
+function findingRows(findings, x, repo) {
+  return [...TABLE_HEAD, ...findings.map((f) => {
+    const sessions = f.sessions.length ? f.sessions.map((id) => `[${code(id)}](https://claude.ai/code/${id})`).join(', ') : 'none'
+    const issue = f.issue ? `[${x(ref(f.issue))}](https://github.com/${repo}/issues/${f.issue})` : 'none'
+    return `| ${[LABELS.get(f.kind), sessions, issue, x(f.evidence), `${x(f.action)} \`${f.act}\``].map(cell).join(' | ')} |`
+  })]
+}
+
+/** A continuation comment: more rows of the findings table. Each part describes its labels again, so it reads alone. */
+export function formatPart(findings, { today, repo = REPO, names = new Map(), part, of }) {
+  const seen = new Set()
+  const lines = [`Janitor report, ${String(today).slice(0, 10)}: findings continued, part ${part} of ${of}.`, '', ...findingRows(findings, (t) => expand(t, names, seen), repo)]
+  return lines.join('\n') + '\n'
+}
+
+/**
+ * The summary as comments of at most `max` characters: the templated summary first (all counts, as many rows as fit),
+ * then continuation parts with the other rows. Pass 1 text is left out when the first part does not fit with it.
+ */
+export function splitSummary(findings, options, max = COMMENT_MAX) {
+  const whole = formatSummary(findings, options)
+  if (whole.length <= max) return [whole]
+  const base = { ...options, pass1: '' }
+  let shown = findings.length
+  while (shown > 0 && formatSummary(findings, { ...base, shown }).length > max) shown--
+  const chunks = []
+  let rest = findings.slice(shown)
+  while (rest.length) {
+    let n = rest.length
+    while (n > 1 && formatPart(rest.slice(0, n), { ...options, part: 2, of: 9 }).length > max) n--
+    chunks.push(rest.slice(0, n))
+    rest = rest.slice(n)
+  }
+  const of = chunks.length + 1
+  return [formatSummary(findings, { ...base, shown }), ...chunks.map((c, k) => formatPart(c, { ...options, part: k + 2, of }))]
+}
+
+/** The counts at the top and the TL;DR, up to the "What you need to do" heading. */
+function summaryTop(findings, { counts, today, applied, pass1Findings, dispatcher, owner }) {
+  return [
+    `Janitor report, ${String(today).slice(0, 10)}: ${plural(counts.sessions, 'session')} read in ${plural(counts.pages, 'page')}, ${counts.inScope} in scope,`,
+    `${plural(counts.issues, 'issue')} read, ${plural(findings.length, 'finding')} (counts checked).`,
+    '',
+    '| Finding kind | Count |',
+    '|---|---|',
+    ...KINDS.map(([k, label]) => `| ${label} (\`${k}\`) | ${findings.filter((f) => f.kind === k).length} |`),
+    ...(pass1Findings.length ? [`| Pass 1 findings (issues, under Details) | ${pass1Findings.length} |`] : []),
+    '',
+    '## TL;DR',
+    `The janitor matched ${plural(counts.inScope, 'session')} in scope with their issues: ${plural(findings.length, 'finding')}`
+      + `${pass1Findings.length ? ` and ${pass1Findings.length} from pass 1` : ''}, ${plural(applied.length, 'fix', 'fixes')} applied (checked).`,
+    dispatcher ? `${plural(dispatcher, 'finding is', 'findings are')} for the dispatcher, listed below.` : 'No finding is for the dispatcher.',
+    owner ? `You need to do ${owner} ${owner === 1 ? 'thing' : 'things'} (below).` : 'Nothing needed from you.',
+    '',
+    '## What you need to do'
+  ]
+}
+
+/**
+ * The summary text (template: .claude/reply-style-templates/janitor-summary.md). Pure: the golden test pins it.
+ * counts: { sessions, pages, issues }; applied: [{ issue, what }]; pass1: the pass 1 report text, or ''.
+ */
+export function formatSummary(findings, { counts, today, repo = REPO, names = new Map(), applied = [], pass1 = '', pass1Findings = [], shown = findings.length }) {
+  const seen = new Set([154])
+  const x = (text) => expand(text, names, seen)
+  // Pass 1 findings count too: their owner items go to the owner, the rest to the dispatcher. Their text is under Details.
+  const one = pass1Findings.map((f) => ({ issue: f.issues?.[0] ?? null, evidence: f.what, action: f.fix, act: f.act }))
+  const dispatcher = [...findings, ...one].filter((f) => f.act === 'dispatcher').length
+  const owner = [...findings, ...one].filter((f) => f.act === 'owner')
+  const lines = summaryTop(findings, { counts, today, applied, pass1Findings, dispatcher, owner: owner.length })
+  if (owner.length) owner.forEach((f, k) => lines.push(`${k + 1}. ${x(f.action)} Where: ${f.issue ? x(ref(f.issue)) : 'the finding below'}.`))
+  else lines.push('Nothing.')
+  lines.push('', '## Waiting for')
+  if (dispatcher) {
+    lines.push(`- [#154 dispatcher queue issue](https://github.com/${repo}/issues/154): acts on the ${plural(dispatcher, '`dispatcher` finding')} below.`,
+      '  Expected: its next pass, time not known.')
+  } else lines.push('Nothing.')
+  lines.push('', '## Blocked on you')
+  if (owner.length) owner.forEach((f) => lines.push(`- ${x(f.evidence)}`))
+  else lines.push('Nothing.')
+  lines.push('', '## Done', `- Read ${plural(counts.sessions, 'session')} in ${plural(counts.pages, 'page')} (\`has_more\` false) and ${plural(counts.issues, 'issue')}, checked.`,
+    `- Checked ${plural(counts.inScope, 'session')} in scope (tagged \`pipeline\` or \`epic-<n>\`, with their dispatcher); the others belong to other projects.`)
+  for (const a of applied) lines.push(`- ${x(ref(a.issue))}: ${String(a.what).replace(/\s+/g, ' ')}, checked.`)
+  if (!applied.length) lines.push('- No fix applied in this run.')
+  lines.push('', '## Details', '### Findings')
+  if (!findings.length) lines.push('No findings.')
+  else {
+    lines.push(...findingRows(findings.slice(0, shown), x, repo))
+    if (shown < findings.length) lines.push('', `${plural(findings.length - shown, 'more finding is', 'more findings are')} in the next comments (continued parts).`)
+  }
+  if (pass1.trim()) {
+    lines.push('', '### Pass 1 report (task janitor)',
+      'For a duplicate pair, the `duplicate-issue` row above wins over the fix written below.', '', pass1.trim())
+  }
+  return lines.join('\n') + '\n'
+}
+
+/**
+ * The findings pass 1 printed (`janitor.mjs report` with its default options: the snapshot's time, 14 stale days), so
+ * its owner and dispatcher items are counted at the top. Duplicate pairs are left out: pass 2's `duplicate-issue`
+ * finding has the same pair, and its `act` wins (a session on either issue keeps it with the dispatcher).
+ */
+export function passOneFindings(snapshot, comments = {}) {
+  const today = snapshot.fetched_at || new Date().toISOString()
+  return passOne({ ...snapshot, comments: { ...(snapshot.comments || {}), ...comments } }, { today, knownTables: migrationTables() })
+    .filter((f) => f.kind !== 'duplicate')
+}
+
 function main() {
   const [cmd, sessionsFile, snapshotFile, ...rest] = process.argv.slice(2)
   const opt = (name) => { const k = rest.indexOf(name); return k === -1 ? null : rest[k + 1] }
   const json = (f) => (f ? JSON.parse(readFileSync(f, 'utf8')) : {})
-  if (!['need', 'findings'].includes(cmd) || !sessionsFile || !snapshotFile) {
-    console.error('usage: session-janitor.mjs need|findings sessions.json snapshot.json [--comments f] [--pulls f] [--today ISO] [--review-hours N] [--stale-days N]')
+  if (!['need', 'findings', 'report'].includes(cmd) || !sessionsFile || !snapshotFile) {
+    console.error('usage: session-janitor.mjs need|findings|report sessions.json snapshot.json [--comments f] [--pulls f] [--today ISO]'
+      + ' [--review-hours N] [--stale-days N] [--applied f] [--pass1 f]')
     process.exit(2)
   }
   const doc = json(sessionsFile)
@@ -403,7 +563,25 @@ function main() {
     reviewHours: number('--review-hours', REVIEW_HOURS),
     staleDays: number('--stale-days', STALE_DAYS)
   })
-  process.stdout.write(JSON.stringify(findings, null, 1) + '\n')
+  if (cmd === 'findings') {
+    process.stdout.write(JSON.stringify(findings, null, 1) + '\n')
+    return
+  }
+  const parts = splitSummary(findings, {
+    counts: summaryCounts(doc, snapshot),
+    today,
+    repo: snapshot.repo || REPO,
+    names: describeSnapshot(snapshot),
+    applied: opt('--applied') ? json(opt('--applied')) : [],
+    pass1: opt('--pass1') ? readFileSync(opt('--pass1'), 'utf8') : '',
+    pass1Findings: opt('--pass1') ? passOneFindings(snapshot, comments) : []
+  })
+  process.stdout.write(parts[0])
+  // Over the comment limit: part 1 is printed, the other parts go to files named after --parts (summary-2.md, ...).
+  const prefix = opt('--parts')
+  parts.slice(1).forEach((text, k) => writeFileSync(`${prefix || 'summary'}-${k + 2}.md`, text))
+  const left = opt('--pass1') && !parts[0].includes('### Pass 1 report') ? '; pass 1 text left out: post pass1.txt as its own comment' : ''
+  console.error(`summary: ${parts.length} ${parts.length > 1 ? 'comments' : 'comment'}, ${parts.map((t) => t.length).join(' + ')} characters${left}`)
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

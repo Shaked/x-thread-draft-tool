@@ -18,10 +18,10 @@
         document.documentElement.dataset.theme = 'light';
       }
     </script>
-    <!-- Sets the look (feature flag "rare") before the first paint: the default look unless the saved choice says otherwise. -->
+    <!-- Sets the look (feature flag "rare", admin only) before the first paint: the default look unless this device last saw the admin and the saved choice says rare. -->
     <script>
       try {
-        document.documentElement.dataset.skin = localStorage.getItem('xt-skin') === 'rare' ? 'rare' : 'default';
+        document.documentElement.dataset.skin = localStorage.getItem('xt-admin') === '1' && localStorage.getItem('xt-skin') === 'rare' ? 'rare' : 'default';
       } catch (e) {
         document.documentElement.dataset.skin = 'default';
       }
