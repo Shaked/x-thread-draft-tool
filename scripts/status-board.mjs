@@ -106,7 +106,10 @@ export function asks(lines) {
 
 /** What one ask is about: its "What is decided" line, else its ### title, else its first list item or other line. */
 function askText(part) {
+  // "**What is decided:** x" on one line, or the template's "### What is decided" heading and the line after it.
+  const under = part.lines.findIndex((l) => /^###\s+what is decided\s*$/i.test(l))
   const decided = part.lines.map((l) => /^\*\*What is decided:\*\*\s*(.+)/i.exec(l)?.[1]).find(Boolean)
+    || (under !== -1 ? part.lines.slice(under + 1).find((l) => !/^#/.test(l)) : null)
   const item = part.lines.find((l) => /^(?:[-*+]|\d+\.)\s/.test(l))
   const line = decided || part.title || item || part.lines.find((l) => !/^#/.test(l)) || part.lines[0].replace(/^#+\s*/, '')
   return line.replace(/^(?:[-*+]|\d+\.)\s+/, '').replace(/\.$/, '')

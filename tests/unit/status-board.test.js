@@ -259,6 +259,11 @@ describe('Opus findings on #519', () => {
     expect(got).toEqual([{ rule: 'handoff', what: 'Merge PR 5 after the screenshot (reply `merged`)', words: 'merged', url: 'h' }])
     expect(asks(['Two decisions, below.', '### Font', '1. **Serif** (reply `serif`).'])).toHaveLength(1)
   })
+
+  it('a HANDOFF laid out as the question template quotes the line under "What is decided", not the first option', () => {
+    const h = at('2026-11-26T09:00:00Z', 'HANDOFF B3 (x y z) - partial\n\n## Blocked on you\n### What is decided\nWhether drafts save on each key.\n### Options\n1. **Save each** (reply `save-each`): more writes.\n\nRELEASE')
+    expect(ownerNeeded({ labels: [] }, [h], [], opts)).toEqual([{ rule: 'handoff', what: 'Whether drafts save on each key', words: 'save-each', url: 'h' }])
+  })
 })
 
 describe('manual tests are optional', () => {
