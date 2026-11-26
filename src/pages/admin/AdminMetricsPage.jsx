@@ -93,27 +93,39 @@ export default function AdminMetricsPage() {
     setSpan(value)
   }
 
-  if (state.status === 'loading') return <Skeleton variant="card" lines={3} />
+  // The window switch stays on screen while the numbers load or fail, so keyboard focus is not lost when it changes.
+  const windowSwitch = <SegmentedControl legend="Time window" value={span} options={WINDOWS} onChange={change} />
+  if (state.status === 'loading') {
+    return (
+      <Stack gap={8}>
+        {windowSwitch}
+        <Skeleton variant="card" lines={3} />
+      </Stack>
+    )
+  }
   if (state.status === 'error') {
     return (
-      <Banner
-        tone="danger"
-        role="alert"
-        actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setState({ status: 'loading' })
-              setAttempt(attempt + 1)
-            }}
-          >
-            Try again
-          </Button>
-        }
-      >
-        Could not load the metrics.
-      </Banner>
+      <Stack gap={8}>
+        {windowSwitch}
+        <Banner
+          tone="danger"
+          role="alert"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setState({ status: 'loading' })
+                setAttempt(attempt + 1)
+              }}
+            >
+              Try again
+            </Button>
+          }
+        >
+          Could not load the metrics.
+        </Banner>
+      </Stack>
     )
   }
 
@@ -136,7 +148,7 @@ export default function AdminMetricsPage() {
 
   return (
     <Stack gap={8}>
-      <SegmentedControl legend="Time window" value={span} options={WINDOWS} onChange={change} />
+      {windowSwitch}
       <Section title="All routes" headingLevel={2}>
         <DescriptionList
           columns={2}

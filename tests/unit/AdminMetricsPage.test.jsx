@@ -86,6 +86,7 @@ describe('admin metrics page', () => {
     open()
     await screen.findByText('5xx share')
     fireEvent.click(screen.getByRole('radio', { name: '7 days' }))
+    expect(screen.getByRole('radio', { name: '7 days' })).toBeChecked() // the switch stays while the new window loads
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url) === '/api/admin/metrics?window=7d&by=total')).toBe(true))
   })
 
