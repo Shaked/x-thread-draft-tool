@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-11-21",
+  "as_of": "2026-11-26",
   "note": "What each AI app shows or reads. A value is true or false only with a source URL that was read (a page, or an issue that records what the owner saw). Otherwise it is \"not checked\" with source \"not checked\". The discovery score gives each client the with_instructions mode when reads_instructions is true, else tools_only (the safe case). docs/architecture/client-matrix.md has one column per client here and one table per language in languages.",
   "languages": ["en", "he"],
   "clients": {
@@ -32,9 +32,9 @@
       "reads_tool_title": { "value": "not checked", "source": "not checked" }
     },
     "claude_code": {
-      "reads_instructions": { "value": "not checked", "source": "https://code.claude.com/docs/en/mcp" },
-      "shows_prompts": { "value": "not checked", "source": "https://code.claude.com/docs/en/mcp" },
-      "reads_resources": { "value": "not checked", "source": "https://code.claude.com/docs/en/mcp" },
+      "reads_instructions": { "value": true, "source": "https://code.claude.com/docs/en/mcp" },
+      "shows_prompts": { "value": true, "source": "https://code.claude.com/docs/en/mcp" },
+      "reads_resources": { "value": true, "source": "https://code.claude.com/docs/en/mcp" },
       "renders_ui_views": { "value": "not checked", "source": "not checked" },
       "reads_tool_title": { "value": "not checked", "source": "not checked" }
     },
