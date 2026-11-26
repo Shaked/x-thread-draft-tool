@@ -29,7 +29,12 @@ export default function AdminFlagsPage() {
   const load = () =>
     adminApi
       .flags()
-      .then((flags) => setState({ status: 'ready', flags }))
+      .then((flags) => {
+        // The account is the source of truth: another browser or the MCP tool may have changed a flag since this app started.
+        setSkin(valueOf(flags, 'look'))
+        setKit(valueOf(flags, 'components'))
+        setState({ status: 'ready', flags })
+      })
       .catch(() => setState({ status: 'error', flags: [] }))
 
   useEffect(() => {

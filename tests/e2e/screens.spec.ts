@@ -81,6 +81,17 @@ async function shoot(
       return route.continue()
     })
   }
+  if (options.token && SKIN) {
+    // The look is the admin's (#483): answer as the admin with the requested look, as the UI audit does.
+    await context.route(`${ORIGIN}/api/auth/me`, async (route) => {
+      const res = await route.fetch({ headers: { ...route.request().headers(), authorization: `Bearer ${options.token}` } })
+      const body = await res.json()
+      return route.fulfill({ response: res, json: { ...body, user: body.user && { ...body.user, role: 'admin' } } })
+    })
+    await context.route(`${ORIGIN}/api/admin/flags`, (route) =>
+      route.fulfill({ json: { flags: [{ name: 'look', value: SKIN }, { name: 'components', value: 'default' }] } })
+    )
+  }
   if (options.cookie) {
     // Creating a token needs a browser session (cookie), so POSTs go out with the API origin.
     await context.addCookies([{ name: 'xt_session', value: options.cookie, url: BASE }])

@@ -72,7 +72,7 @@ describe('admin feature flags page', () => {
     renderPage()
     await user.click(await screen.findByRole('radio', { name: 'Rare UI components' }))
     await waitFor(() => expect(localStorage.getItem(KIT_KEY)).toBe('rare'))
-    expect(document.documentElement.dataset.skin).toBeUndefined()
+    expect(document.documentElement.dataset.skin).toBe('default')
     expect(screen.getByRole('link', { name: 'Rare UI' })).toHaveAttribute('href', 'https://rareui.com')
   })
 
@@ -82,7 +82,8 @@ describe('admin feature flags page', () => {
     renderPage()
     await user.click(await screen.findByRole('radio', { name: 'Rare UI (black, orange)' }))
     expect(await screen.findByText('Could not save the flag. Nothing changed.')).toBeInTheDocument()
-    expect(localStorage.getItem(SKIN_KEY)).toBeNull()
+    expect(localStorage.getItem(SKIN_KEY)).not.toBe('rare')
+    expect(document.documentElement.dataset.skin).toBe('default')
   })
 
   it('a signed-in normal user gets the default look and /settings/flags goes to the drafts page, whatever is stored', async () => {
@@ -107,5 +108,13 @@ describe('admin feature flags page', () => {
     render(<App />)
     await waitFor(() => expect(document.documentElement.dataset.skin).toBe('rare'))
     expect(localStorage.getItem(SKIN_KEY)).toBe('rare')
+  })
+
+  it('applies the account values to this device when the page loads', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ flags: [flag('look', 'rare'), flag('components', 'rare')] }) })))
+    renderPage()
+    expect((await screen.findByRole('radio', { name: 'Rare UI (black, orange)' })).checked).toBe(true)
+    expect(document.documentElement.dataset.skin).toBe('rare')
+    expect(localStorage.getItem(KIT_KEY)).toBe('rare')
   })
 })
