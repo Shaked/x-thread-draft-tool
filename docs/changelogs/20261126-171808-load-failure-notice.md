@@ -1,4 +1,4 @@
-# A failed page load shows Reload, not a blank page
+# A Reload notice replaces a blank page
 
 - After a new version is out, a page or part that cannot load shows a Reload button instead of an empty screen.
 

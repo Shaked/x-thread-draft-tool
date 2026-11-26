@@ -482,5 +482,7 @@ Some components have a second implementation behind the Components feature flag 
 
 - Why (#551): after a deploy, an open tab asks for a file of the build before. Vercel answers it with `index.html`,
   the import fails, and without a boundary React removes the whole page. React keeps a failed import, so only a reload helps.
+- Only a failed load (the import error of Chrome, Firefox or Safari) shows the fallback. Any other error is thrown on:
+  a reload cannot fix a bug.
 - `ReloadNotice`: a warning `Banner` (role alert) with a Reload button.
 - Example: `<LoadBoundary fallback={current}><Suspense fallback={current}><RareThemeSelector /></Suspense></LoadBoundary>`

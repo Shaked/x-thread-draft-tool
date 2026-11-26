@@ -2,18 +2,24 @@ import { Component } from 'react'
 import Banner from './Banner'
 import Button from './Button'
 
+// A failed dynamic import, as Chrome, Firefox and Safari word it.
+const LOAD_FAILED = /dynamically imported module|Importing a module script failed/i
+
 // A page or component in its own file (React.lazy) that fails to load shows `fallback`, not an empty screen (#551).
 // It happens after a deploy: the open tab asks for a file of the build before, the host answers index.html and the
 // import fails. React keeps a failed import, so only a reload fetches the new version. No `fallback`: a Reload notice.
+// Any other error is thrown on, as without this boundary: a reload cannot fix a bug, so it must not ask for one.
 export default class LoadBoundary extends Component {
-  state = { failed: false }
+  state = { error: null }
 
-  static getDerivedStateFromError() {
-    return { failed: true }
+  static getDerivedStateFromError(error) {
+    return { error }
   }
 
   render() {
-    if (!this.state.failed) return this.props.children
+    const { error } = this.state
+    if (error === null) return this.props.children
+    if (!LOAD_FAILED.test(String(error?.message))) throw error
     return this.props.fallback === undefined ? <ReloadNotice /> : this.props.fallback
   }
 }
