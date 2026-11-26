@@ -17,6 +17,7 @@ let token = ''
 let draftId = ''
 let login = ''
 let adminToken = ''
+let adminCookie = '' // the admin area needs the browser session with the admin role (#482)
 
 test.beforeAll(async () => {
   api = await playwrightRequest.newContext({ baseURL: BASE })
@@ -25,6 +26,9 @@ test.beforeAll(async () => {
   expect(signedIn.ok()).toBeTruthy()
   token = (await signedIn.json()).token as string
   adminToken = (await (await api.post('/api/dev/token', { data: { login: `${login}-admin`, admin: true } })).json()).token as string
+  const adminSession = await api.post('/api/dev/session', { data: { login: `${login}-admin`, admin: true } })
+  adminCookie = adminSession.headersArray().find((h) => h.name.toLowerCase() === 'set-cookie')?.value.match(/xt_session=([^;]+)/)?.[1] ?? ''
+  expect(adminCookie).toBeTruthy()
   const posts = Array.from({ length: 8 }, (_, i) => ({ id: `p${i + 1}`, text: `Post ${i + 1} for the menu check.`, images: [], embeddedTweet: null }))
   const created = await api.post('/api/drafts', { headers: { authorization: `Bearer ${token}` }, data: { title: 'Menu check', posts } })
   expect(created.ok()).toBeTruthy()
@@ -338,16 +342,16 @@ const overflows = (page: Page) => page.evaluate(() => document.documentElement.s
 for (const size of SIZES) {
   for (const theme of ['light', 'dark'] as const) {
     test(`changelog at ${size.name} px, ${theme}: opens from the drawer, Show older, no overflow, readable text`, async ({ browser }) => {
-      const { context, page } = await open(browser, size, { bearer: adminToken })
+      const { context, page } = await open(browser, size, { cookie: adminCookie })
       try {
         if (theme === 'dark') await page.addInitScript(() => localStorage.setItem('xt-theme', 'dark'))
         await page.goto(`${BASE}/`)
         await page.getByRole('heading', { name: 'Your Threads' }).waitFor()
         await openMenu(page)
         await drawer(page).getByRole('link', { name: 'Changelog', exact: true }).click()
-        await expect(page).toHaveURL(/\/changelog$/)
+        await expect(page).toHaveURL(/\/admin\/changelog$/)
         await expect(drawer(page)).toHaveCount(0)
-        await expect(page.getByRole('heading', { name: 'Changelog', level: 1 })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Changelog', level: 2 })).toBeVisible()
 
         const entries = page.locator('article')
         await expect(entries.first()).toBeVisible()
@@ -371,8 +375,9 @@ for (const size of SIZES) {
           const page = getComputedStyle(document.body).backgroundColor
           return {
             entry: ratio(colour(entry.querySelector('p') ?? entry, 'color'), colour(entry, 'backgroundColor')),
-            day: ratio(colour(document.querySelector('.ui-section h2'), 'color'), page),
-            version: ratio(colour(document.querySelector('.ui-page-header__subtitle'), 'color'), page)
+            // The first h2 is the Changelog section itself; the second is the first day.
+            day: ratio(colour(document.querySelectorAll('.ui-section h2')[1], 'color'), page),
+            version: ratio(colour(document.querySelector('.ui-section__description'), 'color'), page)
           }
         })
         for (const [name, value] of Object.entries(ratios)) expect(value, name).toBeGreaterThanOrEqual(4.5)
@@ -412,13 +417,13 @@ for (const size of SIZES) {
 
 for (const size of SIZES) {
   test(`About links to the changelog ("See what changed") at ${size.name} px`, async ({ browser }) => {
-    const { context, page } = await open(browser, size, { bearer: adminToken })
+    const { context, page } = await open(browser, size, { cookie: adminCookie })
     try {
       await page.goto(`${BASE}/about`)
       await expect(page.getByRole('heading', { name: 'About', level: 1 })).toBeVisible()
       await page.getByRole('link', { name: 'See what changed' }).click()
-      await expect(page).toHaveURL(/\/changelog$/)
-      await expect(page.getByRole('heading', { name: 'Changelog', level: 1 })).toBeVisible()
+      await expect(page).toHaveURL(/\/admin\/changelog$/)
+      await expect(page.getByRole('heading', { name: 'Changelog', level: 2 })).toBeVisible()
     } finally {
       await context.close()
     }
@@ -436,8 +441,27 @@ for (const size of SIZES) {
       await page.goto(`${BASE}/changelog`)
       await expect(page.getByRole('heading', { name: 'Your Threads' })).toBeVisible()
       expect(new URL(page.url()).pathname).toBe('/')
+      await page.goto(`${BASE}/admin/changelog`)
+      await expect(page.getByRole('heading', { name: 'Your Threads' })).toBeVisible()
+      expect(new URL(page.url()).pathname).toBe('/')
       await openMenu(page)
       await expect(drawer(page).getByRole('link', { name: 'Changelog', exact: true })).toHaveCount(0)
+    } finally {
+      await context.close()
+    }
+  })
+}
+
+// Signed out, both changelog addresses are unknown: they go to the start page (#484).
+for (const size of SIZES) {
+  test(`signed out at ${size.name} px: /changelog and /admin/changelog go to the start page`, async ({ browser }) => {
+    const context: BrowserContext = await browser.newContext({ viewport: size, serviceWorkers: 'block' })
+    const page = await context.newPage()
+    try {
+      for (const path of ['/changelog', '/admin/changelog']) {
+        await page.goto(`${BASE}${path}`)
+        await page.waitForURL((url) => url.pathname === '/')
+      }
     } finally {
       await context.close()
     }
