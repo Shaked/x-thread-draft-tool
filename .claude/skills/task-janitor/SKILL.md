@@ -60,7 +60,7 @@ Owner-only matters (money, secrets, deleting data, product behaviour no task dec
 question on the epic, with the label `owner`.
 
 ## Post the report
-Post it as a comment on the task issue that asked for the run, in the `status-report` template of `reply-style`:
+Pass 1 alone: post it as a comment on the task issue that asked for the run, in the `status-report` template of `reply-style`:
 `TL;DR` with the counts, `Done` with the fixes you applied (each with its issue link and "checked"), and the
 script output under `Details`. List what is left for the dispatcher and the owner. Run `npm run reply-lint` on it
 before you post. The script output passes the lint on its own: each issue gets its 3 to 6 words the first time.
@@ -110,6 +110,33 @@ session tools, so you hand it the sessions as a file.
 
 A session that is the parent of another session in scope is the dispatcher: it is left out of every finding.
 
+## Run both passes (`/janitor`)
+The slash command [`/janitor`](../../commands/janitor.md) runs the steps below. The summary is a template:
+[`janitor-summary`](../reply-style/templates/janitor-summary.md) of `reply-style`, and a golden test pins it.
+
+1. Pass 1 snapshot and comments (see "Run it"), and the pass 2 dump, `need`, `comments.json` and `pulls.json`
+   (see "Pass 2"). Keep every file in your scratchpad; never commit them.
+2. `node scripts/janitor.mjs report snapshot.json --comments comments.json > pass1.txt` (default options, so the
+   summary counts the same pass 1 findings).
+3. `node scripts/session-janitor.mjs findings sessions.json snapshot.json --comments comments.json --pulls pulls.json`.
+4. Apply only the allowed fixes of both passes (see "Act on the report"). For a duplicate pair, pass 2's
+   `duplicate-issue` finding wins over pass 1: when it says `dispatcher` (a session works on either issue), close nothing. For a pass 2 `done-open` that is `allowed`,
+   read the last HANDOFF first: it says done, has RELEASE, and its PR is merged (check the PR yourself).
+   Write each fix you applied and checked in `applied.json`: `[{ "issue": 101, "what": "closed as completed after
+   reading its HANDOFF" }]`.
+5. `node scripts/session-janitor.mjs report sessions.json snapshot.json --comments comments.json --pulls pulls.json
+   --applied applied.json --pass1 pass1.txt > summary.md`. Run `npm run reply-lint -- --template summary.md`; it
+   must pass. Each comment stays under 60 000 characters: when the summary is longer, the command first leaves the
+   pass 1 text out, then puts the table rows that do not fit in continuation parts, `summary-2.md`, `summary-3.md` and
+   so on (`--parts <prefix>` sets the name). stderr says how many comments there are and whether pass 1 was left out.
+   Lint each part with `npm run reply-lint -- <file>`; post them in order, then `pass1.txt` if it was left out.
+6. Post it, with the Claude Code footer, on the standing issue #497 (Janitor reports tracker issue). Never open a
+   second tracker.
+
+For pass 2 findings the agent running the janitor does not resume, message or archive any session. Resuming a
+failed session, answering a blocked one, nudging a merge and archiving a completed one are the dispatcher's
+(#154, queue and dispatcher rules): the summary lists them under `Waiting for`.
+
 ## Phase 2: run it by itself (design only)
 Shaked asked for a run after about 10 new tasks, as a second phase (#458, 2026-11-25). Three options, checked
 against `AGENTS.md` and the dispatcher rules in #154 (queue and dispatcher rules) on 2026-11-25:
@@ -124,3 +151,6 @@ Pick: the dispatcher count, with the weekly review as a fallback once #295 ships
 permission, and the count comes from GitHub search, so no counter can drift. The first build step is a
 `janitor.mjs due` command that prints the number of issues opened since the last report comment, for the
 dispatcher to compare with 10. The held task for phase 2 is #461 (janitor runs by itself).
+
+Where pass 2 hooks in: the same trigger runs `/janitor`, so both passes run together, after about 10 new tasks
+(#461). The dispatcher already holds the session tools that the dump needs; a workflow does not. Not built yet.
