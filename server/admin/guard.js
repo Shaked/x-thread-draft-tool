@@ -27,6 +27,14 @@ export function adminField(caller) {
 
 const GUARDED = new WeakSet()
 
+// Owner decision O6 (default, #284): a web admin change (any method but GET) needs a browser sign-in from this window.
+// Reads are not limited, and MCP has no such rule (Shaked, 2026-11-20). `iat` is the sign-in time: sessions are issued only at sign-in.
+const WEB_WRITE_MAX_AGE_SECONDS = 12 * 60 * 60
+
+function signedInRecently(admin) {
+  return typeof admin.iat === 'number' && Date.now() / 1000 - admin.iat <= WEB_WRITE_MAX_AGE_SECONDS
+}
+
 /** The app origin of this deployment (same rule as server/mcp/server.js). */
 function appOrigin(request) {
   return (process.env.PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/$/, '')
@@ -74,6 +82,9 @@ export function adminRoute(method, path, handler) {
   const routeKey = `${method} ${path}`
   const guarded = async (ctx) => {
     const admin = await requireAdmin(ctx.request, routeKey)
+    if (admin.surface === 'web' && method !== 'GET' && !signedInRecently(admin)) {
+      throw new HttpError(403, `Sign in again: admin changes on the web need a sign-in from the last ${WEB_WRITE_MAX_AGE_SECONDS / 3600} hours.`)
+    }
     // A web call counts once, in the same per-minute row as an MCP admin tool call (the MCP surface counts in server/mcp/server.js).
     if (admin.surface === 'web' && !(await withinToolRate(admin.uid))) throw new HttpError(429, RATE_LIMIT_MESSAGE)
     return handler({ ...ctx, admin })

@@ -192,7 +192,7 @@ describe('suspend and unsuspend through the admin tools', () => {
       ['suspend_user', 'done', 'alice'],
       ['unsuspend_user', 'done', 'alice']
     ])
-    expect(rows[0].details).toEqual({ reason: 'spam', counts: { api_tokens: 1, connected_apps: 0, share_links: 0 } })
+    expect(rows[0].details).toEqual({ surface: 'mcp', reason: 'spam', counts: { api_tokens: 1, connected_apps: 0, share_links: 0 } })
     expect(JSON.stringify(rows)).not.toMatch(/token_hash|secret/)
   })
 
