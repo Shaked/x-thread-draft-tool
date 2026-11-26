@@ -157,9 +157,9 @@ tracker (not #430) is also a Needs you row. A session with no issue that asks fo
 Owner needed is `yes` only by these rules, on an open issue (agent comments end with either Claude Code footer):
 | Rule | When | Answered when |
 |---|---|---|
-| `question` | An agent comment (Claude Code footer) whose first line ends with `?`, or whose TL;DR starts with "One question for you" | A later comment by Shaked's login without the footer (not a collaborator) |
+| `question` | An agent comment (Claude Code footer) whose first line ends with `?`, or whose TL;DR starts with "One question for you" | A later comment by Shaked's login without the footer (not a collaborator), or a later decision record ("Owner decision", "Dispatcher ... default") that names its id or one of its replies |
 | `label` | The label `owner`, without `parked` (a parked owner task is Held: Shaked parked it) | The label is removed |
-| `handoff` | The last HANDOFF has a `## Blocked on you` that is not "Nothing" | A later comment by Shaked's login without the footer (not a collaborator) |
+| `handoff` | The last HANDOFF has a `## Blocked on you` that is not "Nothing" (the board quotes its "What is decided" line) | A later comment by Shaked's login without the footer (not a collaborator), or a later decision record that names one of its replies |
 | `needs-action` | A matched session, updated in the last 3 days and not completed or working, has a `needs_action` that asks: decide, choose, approve, your call, which option, pick one (not "nothing for the owner", not a reviewer approval such as "Opus approval") | The session moves on |
 
 The exact words are the first code span under the comment's `What you need to do`, or after "reply". Manual tests (`## N. title`

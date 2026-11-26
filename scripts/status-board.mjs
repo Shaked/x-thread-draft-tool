@@ -68,15 +68,62 @@ const isAgent = (c) => FOOTER.test(String(c.body || '').trim())
 const isHuman = (c, owner) => !isAgent(c) && (c.user === owner || c.user?.login === owner)
 const sorted = (list = []) => [...list].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
 const answered = (list, at, owner) => list.some((c) => isHuman(c, owner) && String(c.created_at) > String(at))
-// An agent comment that records what Shaked decided: "Owner decision, 2026-11-25 (Shaked): ...", "DECISION by Shaked".
-const DECISION_RECORD = /^(?:\*\*)?(?:owner decisions?|decisions?|dispatcher decision)\b/i
+// An agent comment that records what Shaked decided: "Owner decision, 2026-11-25 (Shaked): ...", "DECISION by Shaked",
+// or a dispatcher comment that applied a question's default ("Dispatcher, 2026-11-25: applying the default, `x`").
+const DECISION_RECORD = /^(?:\*\*)?(?:owner decisions?|decisions?|dispatcher decision)\b|^dispatcher\b[^\n]*\b(?:applying|applied) the default\b/i
+const escape = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+// A reply counts only as an exact code span (`keep the rule`), a question id only as a whole word (H1-Q1).
+const mentions = (body, k) => (k.code ? String(body).includes(`\`${k.text}\``) : new RegExp(`(?<![\\w-])${escape(k.text)}(?![\\w-])`).test(String(body)))
+const spans = (list) => list.filter(Boolean).map((text) => ({ text, code: true }))
 const recorded = (list, at, keys) => list.some((c) => isAgent(c) && String(c.created_at) > String(at)
-  && DECISION_RECORD.test(String(c.body || '').trim()) && keys.some((k) => k && k.length >= 4 && String(c.body).includes(k)))
+  && DECISION_RECORD.test(String(c.body || '').trim()) && keys.some((k) => k.text && mentions(c.body, k)))
 const nothing = (lines) => !lines.length || /^nothing\b/i.test(lines.join(' '))
+// Every reply a text offers: the code span after each "reply", as in "**Keep the rule** (reply `keep the rule`)".
+const replies = (text) => [...String(text || '').matchAll(/\breply\b[^`\n]*`([^`]+)`/gi)].map((m) => m[1])
 // The exact words to type: the first code span under "What you need to do", or after "reply".
 const wordsIn = (body) => {
   const step = section(body, 'What you need to do').join(' ')
   return (/`([^`]+)`/.exec(step) || /\breply\b[^`\n]*`([^`]+)`/i.exec(String(body || '')))?.[1] ?? null
+}
+// The owner-question template's own ### parts: they belong to one question.
+const TEMPLATE_PARTS = /^(?:what is decided|options|recommendation|if nobody answers|where to answer)$/i
+
+/** The asks of a "Blocked on you" section: one per `###` question in it, or one for the whole section. */
+export function asks(lines) {
+  const parts = []
+  for (const l of lines) {
+    const h = /^###\s+(.+)/.exec(l)
+    if (h && !TEMPLATE_PARTS.test(h[1].trim())) parts.push({ title: h[1].trim(), lines: [] })
+    else {
+      if (!parts.length) parts.push({ title: null, lines: [] })
+      parts[parts.length - 1].lines.push(l)
+    }
+  }
+  // Plain intro text before the first ### question is dropped; a list item or a reply there is an ask of its own.
+  const ask = (p) => p.title || p.lines.some((l) => /^(?:[-*+]|\d+\.)\s/.test(l) || replies(l).length)
+  return parts.some((p) => p.title) ? parts.filter(ask) : parts
+}
+
+/** What one ask is about: its "What is decided" line, else its ### title, else its first list item or other line. */
+function askText(part) {
+  // "**What is decided:** x" on one line, or the template's "### What is decided" heading and the line after it.
+  const under = part.lines.findIndex((l) => /^###\s+what is decided\s*$/i.test(l))
+  const decided = part.lines.map((l) => /^\*\*What is decided:\*\*\s*(.+)/i.exec(l)?.[1]).find(Boolean)
+    || (under !== -1 ? part.lines.slice(under + 1).find((l) => !/^#/.test(l)) : null)
+  const item = part.lines.find((l) => /^(?:[-*+]|\d+\.)\s/.test(l))
+  const line = decided || part.title || item || part.lines.find((l) => !/^#/.test(l)) || part.lines[0].replace(/^#+\s*/, '')
+  return line.replace(/^(?:[-*+]|\d+\.)\s+/, '').replace(/\.$/, '')
+}
+
+/** The asks of one comment that no later decision record names; each ask's replies are its own. */
+function openAsks(list, c, blocked, rule, url) {
+  const parts = asks(blocked)
+  // A single ask may name its reply elsewhere in the comment ("then reply `done`"); only a code span after "reply" counts.
+  const elsewhere = parts.length === 1 ? replies(c.body) : []
+  return parts.map((p) => ({ p, offered: replies(p.lines.join('\n')) }))
+    .map(({ p, offered }) => ({ p, offered: offered.length ? offered : elsewhere }))
+    .filter(({ offered }) => !recorded(list, c.created_at, spans(offered)))
+    .map(({ p, offered }) => ({ rule, what: askText(p), words: offered[0] ?? null, url: c.html_url || url }))
 }
 
 /** An agent comment that asks the owner: its first line ends with "?", or its TL;DR starts with "One question for you". */
@@ -89,25 +136,36 @@ export function isOwnerQuestion(c) {
 
 /** The "owner needed" rules for one open issue and its sessions: [{ rule, what, words, url }]. Empty means no. */
 export function ownerNeeded(issue, list = [], sessions = [], { owner, url, freshFrom = -Infinity }) {
-  const out = []
+  const out = questions(list, owner, url)
   const labels = labelsOf(issue)
+  if (labels.includes('owner') && !labels.includes('parked')) out.push({ rule: 'label', what: 'labelled `owner`: read the issue for the step', words: null, url })
+  const handoffs = sorted(list).filter((c) => /^HANDOFF\b/.test(String(c.body || '')) && (TRUSTED.has(c.author_association) || c.user === owner))
+  const last = handoffs[handoffs.length - 1]
+  const blocked = last ? section(last.body, 'Blocked on you') : []
+  if (last && !nothing(blocked) && !answered(list, last.created_at, owner)) out.push(...openAsks(list, last, blocked, 'handoff', url))
+  const all = [...out, ...asking(sessions, freshFrom)]
+  // The label `owner` says the same as a question or HANDOFF step on the issue: keep it only when it is the one rule.
+  return all.some((o) => o.rule !== 'label') ? all.filter((o) => o.rule !== 'label') : all
+}
+
+/** Open owner questions: agent questions with no later answer by Shaked and no decision record that names their id or a reply. */
+function questions(list, owner, url) {
+  const out = []
   for (const c of sorted(list).filter(isOwnerQuestion)) {
     const tldr = section(c.body, 'TL;DR')[0] || String(c.body).split('\n')[0]
     // The question id, as in "One question for you ([H1-Q1 how long history is kept](...))".
     const id = /questions? for you\s*\(\[([A-Z][\w-]*\d)\b/i.exec(tldr)?.[1] || null
-    if (answered(list, c.created_at, owner) || recorded(list, c.created_at, [id, wordsIn(c.body)])) continue
+    if (answered(list, c.created_at, owner)) continue
+    // "Two questions for you": one ask per ### question, each answered by its own replies.
+    const parts = asks(section(c.body, 'Blocked on you'))
+    if (parts.length > 1) {
+      out.push(...openAsks(list, c, section(c.body, 'Blocked on you'), 'question', url))
+      continue
+    }
+    if (recorded(list, c.created_at, [{ text: id, code: false }, ...spans([wordsIn(c.body), ...replies(c.body)])])) continue
     out.push({ rule: 'question', what: tldr.replace(/^.*?questions? for you\s*(?:\(\[([^\]]*)\]\([^)]*\)\))?:?\s*/i, (m, t) => (t ? `${t}: ` : '')).replace(/[.?]$/, ''), words: wordsIn(c.body), url: c.html_url || url })
   }
-  if (labels.includes('owner') && !labels.includes('parked')) out.push({ rule: 'label', what: 'labelled `owner`: read the issue for the step', words: null, url })
-  const handoffs = sorted(list).filter((c) => /^HANDOFF\b/.test(String(c.body || '')) && (TRUSTED.has(c.author_association) || c.user === owner))
-  const last = handoffs[handoffs.length - 1]
-  if (last && !answered(list, last.created_at, owner)) {
-    const blocked = section(last.body, 'Blocked on you')
-    if (!nothing(blocked)) out.push({ rule: 'handoff', what: blocked[0].replace(/^[-*]\s+/, '').replace(/\.$/, ''), words: wordsIn(last.body), url: last.html_url || url })
-  }
-  const all = [...out, ...asking(sessions, freshFrom)]
-  // The label `owner` says the same as a question or HANDOFF step on the issue: keep it only when it is the one rule.
-  return all.some((o) => o.rule !== 'label') ? all.filter((o) => o.rule !== 'label') : all
+  return out
 }
 
 /** Sessions that ask Shaked for a decision. One older than the janitor's stale window is its `stale` finding instead. */
