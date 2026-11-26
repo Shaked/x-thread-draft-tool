@@ -41,6 +41,7 @@ The tools do not retry for the caller, with one exception: `add_image_from_url` 
 - On `412` it stops saving and shows a banner: "This draft changed in another app while you were editing."
   - **Show their changes**: keeps your text in a read-only box with a Copy button, then shows the saved draft.
   - **Keep mine**: saves your text as a new version on top of theirs.
+- End-to-end check with two writers (an API call as the AI app, the browser as the user, the same post): `tests/e2e/draft-conflict-banner.spec.ts` (#474). The banner shows, the AI text stays stored, and the user's text is in the copy box.
 - Not built yet: automatic merge when the two sides changed different posts. Every `412` shows the banner.
 
 ## Live updates (the 304 check)
