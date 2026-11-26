@@ -20,6 +20,13 @@ describe('reply-style Stop hook (no model)', () => {
     expect(out.reason).toContain('headings')
   })
 
+  it('covers the session-link rule: a Waiting for session without its link is sent back, with the link it passes', () => {
+    const out = decide({ last_assistant_message: golden('handoff/bad-session-link.md') }, OWNER)
+    expect(out.decision).toBe('block')
+    expect(out.reason).toContain('session-link')
+    expect(decide({ last_assistant_message: golden('handoff/good-2.md') }, OWNER)).toBeNull()
+  })
+
   it('does not check sessions that did not opt in, or a second pass, or an empty message', () => {
     const bad = { last_assistant_message: golden('status-report/bad-loose-label.md') }
     expect(decide(bad, {})).toBeNull()

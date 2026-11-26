@@ -99,3 +99,38 @@ describe('reply-lint rules', () => {
     expect(rules('```\nx\n```\n✅ **Thread Draft** · [P](https://x.test)\nT', { kind: 'telegram' })).toEqual([])
   })
 })
+
+describe('session-link rule edge cases (Opus review of #523)', () => {
+  const reply = (waiting) => `## TL;DR\nA task ran.\nNothing needed from you.\n\n## What you need to do\nNothing.\n\n## Waiting for\n${waiting}\n\n## Blocked on you\nNothing.\n\n## Done\n- Checked.\n`
+  const found = (waiting) => lint(reply(waiting), { template: true }).filter((f) => f.rule === 'session-link')
+  const task = '[#5 tag filter issue](https://example.com/issues/5)'
+
+  it('a title with the word "session" inside a link is not a session', () => {
+    expect(found(`- [#5 session janitor misses claims](https://example.com/issues/5): CI runs. Expected: not known.`)).toEqual([])
+  })
+  it('accepts a session link with a query, and a sub-bullet under an item that has its link', () => {
+    expect(found(`- ${task} · [session](https://claude.ai/code/session_01AbC?tab=x): works. Expected: not known.\n  - its session waits for CI`)).toEqual([])
+  })
+  it('reports the line of the bad item, not the heading', () => {
+    const [f] = found(`- ${task} · [session](https://claude.ai/code/session_a): works.\n- ${task}: the session works on it.`)
+    expect(f.line).toBe(10)
+  })
+})
+
+describe('session-link rule: a link that says session must have the session address (Opus re-review of #523)', () => {
+  const reply = (item) => `## TL;DR\nA task ran.\nNothing needed from you.\n\n## What you need to do\nNothing.\n\n## Waiting for\n${item}\n\n## Blocked on you\nNothing.\n\n## Done\n- Checked.\n`
+  const task = '[#5 tag filter issue](https://example.com/issues/5)'
+  it.each([
+    'https://claude.ai/code/01abc',
+    'https://github.com/o/r/issues/5',
+    'https://claude.ai/chat/session_01A'
+  ])('flags [session](%s)', (url) => {
+    expect(lint(reply(`- ${task} · [session](${url}): works.`), { template: true }).map((f) => f.rule)).toContain('session-link')
+  })
+  it('flags a session id as link text that points elsewhere', () => {
+    expect(lint(reply(`- ${task} · [\`session_01abc\`](https://example.com): works.`), { template: true }).map((f) => f.rule)).toContain('session-link')
+  })
+  it('passes the right session link', () => {
+    expect(lint(reply(`- ${task} · [session](https://claude.ai/code/session_01abc): works.`), { template: true }).map((f) => f.rule)).not.toContain('session-link')
+  })
+})

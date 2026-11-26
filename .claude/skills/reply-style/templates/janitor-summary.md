@@ -18,6 +18,7 @@ Nothing.
 ## Waiting for
 - [#154 dispatcher queue issue](https://github.com/Shaked/x-thread-draft-tool/issues/154): acts on the <n> `dispatcher` findings below.
   Expected: its next pass, time not known.
+- For an agent session: [<task, 3 to 6 words>](<task link>) · [session](https://claude.ai/code/session_<id>): <what it is doing>. Expected: <time, or "not known">.
 
 <Or "Nothing.">
 

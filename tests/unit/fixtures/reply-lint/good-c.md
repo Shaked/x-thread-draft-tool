@@ -7,7 +7,7 @@ Nothing.
 
 ## Waiting for
 - [PR #344 draft list redesign](https://github.com/Shaked/x-thread-draft-tool/pull/344), for
-  [#322 draft list on design system](https://github.com/Shaked/x-thread-draft-tool/issues/322): its session merges `main`
+  [#322 draft list on design system](https://github.com/Shaked/x-thread-draft-tool/issues/322) · [session](https://claude.ai/code/session_01c344): its session merges `main`
   into `claude/ui-draft-list`, so the unit check runs in two parts. Then it merges when CI is green and checks production.
   Expected: not known.
 - [#323 app shell redesign](https://github.com/Shaked/x-thread-draft-tool/issues/323) (menu drawer, phone bar, theme setting):

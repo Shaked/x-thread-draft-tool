@@ -9,10 +9,10 @@ You need to do 3 things (below).
 4. [#304 draft search ranking](https://github.com/example/repo/issues/304): `decide the search ranking: newest first or best match`. Answer [there](https://claude.ai/code/session_asks).
 
 ## Waiting for
-- [#306 undo stack issue](https://github.com/example/repo/issues/306), [session](https://claude.ai/code/session_failed) `failed`: waits for the dispatcher. Expected: not known.
-- [#307 word count issue](https://github.com/example/repo/issues/307), [session](https://claude.ai/code/session_works) `running`: the session works on it. Expected: not known.
+- [#306 undo stack issue](https://github.com/example/repo/issues/306) · [session](https://claude.ai/code/session_failed) `failed`: waits for the dispatcher. Expected: not known.
+- [#307 word count issue](https://github.com/example/repo/issues/307) · [session](https://claude.ai/code/session_works) `running`: the session works on it. Expected: not known.
 - [#308 theme switch issue](https://github.com/example/repo/issues/308), [#408 Theme switch issue](https://github.com/example/repo/pull/408) open, checks `red`, 1 open Codex thread: waits for CI or review. Expected: not known.
-- [#309 tag filter issue](https://github.com/example/repo/issues/309), [session](https://claude.ai/code/session_review) `review ready`: waits for CI or review. Expected: not known.
+- [#309 tag filter issue](https://github.com/example/repo/issues/309) · [session](https://claude.ai/code/session_review) `review ready`: waits for CI or review. Expected: not known.
 
 ## Blocked on you
 - [#301](https://github.com/example/repo/issues/301): an open owner question ([link](https://github.com/example/repo/issues/301#issuecomment-1)).
