@@ -25,6 +25,8 @@ concurrency:
 jobs:
   emit:
     name: Ops events
+    # A hand-started run on another branch would read everything and then be refused at the POST: main only.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

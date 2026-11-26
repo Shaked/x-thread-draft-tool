@@ -36,9 +36,11 @@ const DEPLOY_ENVS = ['Production', 'Preview']
 
 const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10)
 const utcDayStart = (ms) => Date.parse(`${utcDay(ms)}T00:00:00Z`)
+// The ingest contract (server/ops/events.js cleanMs) refuses a duration above 2^31 - 1 ms: send null instead.
+const MAX_MS = 2147483647
 const millis = (from, to) => {
   const n = Math.round(Date.parse(to) - Date.parse(from))
-  return Number.isFinite(n) ? Math.max(0, n) : null
+  return Number.isFinite(n) && n <= MAX_MS ? Math.max(0, n) : null
 }
 
 export function parseArgs(argv) {
@@ -173,18 +175,33 @@ export function speedEvents(record, link) {
   return rows
 }
 
-/** Lists the runs created since `since` (a UTC date), one page at a time. complete is false when stopped early. */
-async function listWindowRuns(get, budget, since) {
-  const runs = []
-  for (let page = 1; page <= 50; page++) {
-    if (budget.low()) return { runs, complete: false }
-    const list = (await get(`/actions/runs?created=${encodeURIComponent(`>=${since}`)}&per_page=100&page=${page}`)).workflow_runs ?? []
-    runs.push(...list)
-    if (list.length < 100) return { runs, complete: true }
+/**
+ * Lists the runs created on each UTC day from `since` to `today`, one day at a time (a day is far below any
+ * list cap). Runs are de-duplicated by id: a run can move onto another page while the pages are read.
+ * complete is false when a day stops early or answers fewer distinct runs than its total_count. An
+ * incomplete listing only delays counters and the cursor; it never sends a wrong count.
+ */
+async function listWindowRuns(get, budget, since, today) {
+  const byId = new Map()
+  for (let ms = Date.parse(`${since}T00:00:00Z`); utcDay(ms) <= today; ms += DAY_MS) {
+    const day = utcDay(ms)
+    let seen = 0
+    let total = null
+    let complete = false
+    for (let page = 1; page <= 50 && !complete; page++) {
+      if (budget.low()) return { runs: [...byId.values()], complete: false }
+      const body = await get(`/actions/runs?created=${encodeURIComponent(`${day}..${day}`)}&per_page=100&page=${page}`)
+      total = typeof body.total_count === 'number' ? body.total_count : total
+      const list = body.workflow_runs ?? []
+      for (const run of list) byId.set(run.id, run)
+      seen += list.length
+      if (list.length < 100) complete = true
+    }
+    // Items seen (a run listed twice still counts twice here) against the total: fewer means a cut-off listing.
+    if (!complete || (total !== null && seen < total)) return { runs: [...byId.values()], complete: false }
   }
-  return { runs, complete: false }
+  return { runs: [...byId.values()], complete: true }
 }
-
 /** One event per stored run. A failed run costs one jobs call, for its failed job and step. Pushes into `events`. */
 async function ciEvents(api, budget, repo, runs, events) {
   for (const run of runs) {
@@ -215,21 +232,27 @@ function gitEvent(pr, full) {
   }
 }
 
-/** The deploy events of a merge: each Production or Preview deployment whose latest status is success or failure. */
+/**
+ * The deploy events of a merge: each Production or Preview deployment, with its newest success or failure in
+ * the status history. The current state is not used: GitHub marks a superseded successful deployment `inactive`
+ * (auto_inactive), and that must not hide it.
+ */
 async function deployEvents(api, pr, full) {
   const events = []
   for (const dep of await api.deploymentsForSha(pr.merge_commit_sha)) {
     if (!DEPLOY_ENVS.includes(dep.environment)) continue
-    const last = (await api.deploymentStatuses(dep.id)).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0]
-    if (!last || !['success', 'failure'].includes(last.state)) continue
+    const terminal = (await api.deploymentStatuses(dep.id))
+      .filter((s) => s.state === 'success' || s.state === 'failure')
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0]
+    if (!terminal) continue
     events.push({
       source: 'deploy',
       kind: 'deploy',
       id: String(dep.id),
       at: dep.created_at,
       name: dep.environment,
-      status: last.state,
-      ms: millis(dep.created_at, last.created_at),
+      status: terminal.state,
+      ms: millis(dep.created_at, terminal.created_at),
       attrs: { sha: dep.sha },
       link: `https://github.com/${full}/commit/${dep.sha}`
     })
@@ -237,28 +260,32 @@ async function deployEvents(api, pr, full) {
   return events
 }
 
+/** A merge's speed stages are measured only SPEED_SETTLE_MS after it merged, and only when every run on its head and merge commit is finished. */
+export const SPEED_SETTLE_MS = 2 * 60 * 60 * 1000
+
 /**
- * Speed rows are written only once the merge's runs have finished: while a run on the head or merge commit is
- * still going, its stage times are partial, and ingest never updates a stored row. The smoke run must exist
- * for a code merge (the stage waits for it). Measured runs are the ones finished when listed.
+ * Speed rows are written only once the merge's runs have finished: a stage measured while a run is still going
+ * is partial, and ingest never updates a stored row. The runs are read fresh here (the window listing is older
+ * than the measurements), and a code merge needs its smoke run.
  */
-async function speedRowsFor(api, repo, pr, runs, full) {
-  const open = new Set(runs.filter((r) => r.status !== 'completed').map((r) => r.head_sha))
-  if (open.has(pr.head.sha) || open.has(pr.merge_commit_sha)) return []
+async function speedRowsFor(api, repo, pr, now, full) {
+  if (now - Date.parse(pr.merged_at) < SPEED_SETTLE_MS) return []
+  const runs = [...(await api.runsForSha(pr.head.sha)), ...(await api.runsForSha(pr.merge_commit_sha))]
+  if (runs.some((r) => r.status !== 'completed')) return []
   const record = await measurePull(pr, api)
   if (record.kind !== 'docs' && !record.stages.smoke) return []
   return speedEvents(record, `https://github.com/${full}/pull/${pr.number}`)
 }
 
 /** Git, deploy and (speed repos) speed events of the merges since the window start. Pushes into `events`. */
-async function mergeEvents(api, budget, repo, now, runs, events) {
+async function mergeEvents(api, budget, repo, now, events) {
   const full = fullName(repo)
   const pulls = (await api.recentMergedPulls({ sinceMs: utcDayStart(now - WINDOW_DAYS * DAY_MS) })).filter((pr) => pr.base?.ref === 'main')
   for (const pr of pulls) {
     if (budget.low()) return false
     events.push(gitEvent(pr, full))
     events.push(...(await deployEvents(api, pr, full)))
-    if (repo.speed) events.push(...(await speedRowsFor(api, repo, pr, runs, full)))
+    if (repo.speed) events.push(...(await speedRowsFor(api, repo, pr, now, full)))
   }
   return true
 }
@@ -293,29 +320,30 @@ export function withEmptyDays(counters, since, now) {
 
 /**
  * The events and counters of one listed repo. `api` is githubApi(), `get` is restGet(), `budget` is countedFetch's.
- * A RateFloor thrown by any request stops the collection; the events gathered so far are kept, and no counter
- * or cursor is sent (complete is false).
+ * `countable` is true when the run listing and the CI events completed: counters and cursor depend only on
+ * those, so a later stop among the merges does not stop them. `complete` is true when everything did. A
+ * RateFloor thrown by any request stops the collection; the events gathered so far are kept.
  */
 export async function collectRepo(repo, { api, get, budget, now }) {
   const since = new Date(utcDayStart(now - WINDOW_DAYS * DAY_MS)).toISOString().slice(0, 10)
   const events = []
   let runs = []
-  let complete = true
+  let countable = false
+  let complete = false
   try {
-    const listed = await listWindowRuns(get, budget, since)
+    const listed = await listWindowRuns(get, budget, since, utcDay(now))
     runs = listed.runs
-    complete = listed.complete
-    if (complete) complete = await ciEvents(api, budget, repo, runs, events)
-    if (complete) complete = await mergeEvents(api, budget, repo, now, runs, events)
+    countable = listed.complete && (await ciEvents(api, budget, repo, runs, events))
+    complete = countable && (await mergeEvents(api, budget, repo, now, events))
   } catch (err) {
     if (!(err instanceof RateFloor)) throw err
-    complete = false
   }
   return {
     events: uniqueSorted(events),
     complete,
-    counters: complete ? withEmptyDays(counterRows(runs, repo, now), since, now) : [],
-    cursor: complete ? cursorFor(runs, repo) : null,
+    countable,
+    counters: countable ? withEmptyDays(counterRows(runs, repo, now), since, now) : [],
+    cursor: countable ? cursorFor(runs, repo) : null,
     calls: budget.calls,
     remaining: budget.remaining
   }
@@ -329,8 +357,8 @@ export function batchesFor(repoId, result) {
   return chunks.map((events, index) => {
     const body = { v: 1, repo_id: repoId, events }
     if (index === chunks.length - 1) {
-      if (result.complete && result.counters.length) body.counters = result.counters
-      if (result.complete && result.cursor) body.cursor = result.cursor
+      if (result.countable && result.counters.length) body.counters = result.counters
+      if (result.countable && result.cursor) body.cursor = result.cursor
     }
     return body
   })

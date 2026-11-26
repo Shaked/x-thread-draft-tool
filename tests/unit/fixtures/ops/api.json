@@ -1,44 +1,258 @@
 {
   "_about": "Trimmed GitHub REST answers for scripts/ops-emit.mjs tests (#449). Made-up ids and times, no logins, no emails. The test clock is 2026-11-26T12:00:00Z.",
   "runs": [
-    { "id": 100, "run_attempt": 1, "name": "Tests", "event": "pull_request", "status": "completed", "conclusion": "success", "created_at": "2026-11-25T10:00:00Z", "run_started_at": "2026-11-25T10:00:30Z", "updated_at": "2026-11-25T10:02:00Z", "html_url": "https://github.com/Shaked/x-thread-draft-tool/actions/runs/100", "pull_requests": [{ "number": 10 }] },
-    { "id": 101, "run_attempt": 1, "name": "Tests", "event": "pull_request", "status": "completed", "conclusion": "failure", "created_at": "2026-11-25T11:00:00Z", "run_started_at": "2026-11-25T11:00:20Z", "updated_at": "2026-11-25T11:01:00Z", "html_url": "https://github.com/Shaked/x-thread-draft-tool/actions/runs/101", "pull_requests": [] },
-    { "id": 102, "run_attempt": 1, "name": "Security", "event": "push", "status": "completed", "conclusion": "skipped", "created_at": "2026-11-24T09:00:00Z", "run_started_at": "2026-11-24T09:00:00Z", "updated_at": "2026-11-24T09:00:01Z", "html_url": "https://github.com/Shaked/x-thread-draft-tool/actions/runs/102", "pull_requests": [] },
-    { "id": 104, "run_attempt": 1, "name": "Tests", "event": "push", "status": "completed", "conclusion": "cancelled", "created_at": "2026-11-24T08:00:00Z", "run_started_at": "2026-11-24T08:00:10Z", "updated_at": "2026-11-24T08:00:40Z", "html_url": "https://github.com/Shaked/x-thread-draft-tool/actions/runs/104", "pull_requests": [] },
-    { "id": 103, "run_attempt": 1, "name": "Tests", "event": "push", "status": "in_progress", "conclusion": null, "created_at": "2026-11-26T09:00:00Z", "run_started_at": "2026-11-26T09:00:10Z", "updated_at": "2026-11-26T09:00:10Z", "html_url": "https://github.com/Shaked/x-thread-draft-tool/actions/runs/103", "pull_requests": [] },
-    { "id": 105, "run_attempt": 1, "name": "Tests", "event": "push", "status": "in_progress", "conclusion": null, "created_at": "2026-11-23T01:00:00Z", "run_started_at": "2026-11-23T01:00:05Z", "updated_at": "2026-11-23T01:00:05Z", "html_url": "https://github.com/Shaked/x-thread-draft-tool/actions/runs/105", "pull_requests": [] }
+    {
+      "id": 100,
+      "run_attempt": 1,
+      "name": "Tests",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-25T10:00:00Z",
+      "run_started_at": "2026-11-25T10:00:30Z",
+      "updated_at": "2026-11-25T10:02:00Z",
+      "html_url": "https://github.com/Shaked/x-thread-draft-tool/actions/runs/100",
+      "pull_requests": [
+        {
+          "number": 10
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "run_attempt": 1,
+      "name": "Tests",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "failure",
+      "created_at": "2026-11-25T11:00:00Z",
+      "run_started_at": "2026-11-25T11:00:20Z",
+      "updated_at": "2026-11-25T11:01:00Z",
+      "html_url": "https://github.com/Shaked/x-thread-draft-tool/actions/runs/101",
+      "pull_requests": []
+    },
+    {
+      "id": 102,
+      "run_attempt": 1,
+      "name": "Security",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-11-24T09:00:00Z",
+      "run_started_at": "2026-11-24T09:00:00Z",
+      "updated_at": "2026-11-24T09:00:01Z",
+      "html_url": "https://github.com/Shaked/x-thread-draft-tool/actions/runs/102",
+      "pull_requests": []
+    },
+    {
+      "id": 104,
+      "run_attempt": 1,
+      "name": "Tests",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-11-24T08:00:00Z",
+      "run_started_at": "2026-11-24T08:00:10Z",
+      "updated_at": "2026-11-24T08:00:40Z",
+      "html_url": "https://github.com/Shaked/x-thread-draft-tool/actions/runs/104",
+      "pull_requests": []
+    },
+    {
+      "id": 103,
+      "run_attempt": 1,
+      "name": "Tests",
+      "event": "push",
+      "status": "in_progress",
+      "conclusion": null,
+      "created_at": "2026-11-26T09:00:00Z",
+      "run_started_at": "2026-11-26T09:00:10Z",
+      "updated_at": "2026-11-26T09:00:10Z",
+      "html_url": "https://github.com/Shaked/x-thread-draft-tool/actions/runs/103",
+      "pull_requests": []
+    },
+    {
+      "id": 105,
+      "run_attempt": 1,
+      "name": "Tests",
+      "event": "push",
+      "status": "in_progress",
+      "conclusion": null,
+      "created_at": "2026-11-23T01:00:00Z",
+      "run_started_at": "2026-11-23T01:00:05Z",
+      "updated_at": "2026-11-23T01:00:05Z",
+      "html_url": "https://github.com/Shaked/x-thread-draft-tool/actions/runs/105",
+      "pull_requests": []
+    }
   ],
   "jobs": {
     "101": [
-      { "name": "Unit tests", "conclusion": "success", "steps": [{ "name": "Run", "conclusion": "success" }] },
-      { "name": "E2E tests (playwright)", "conclusion": "failure", "steps": [{ "name": "Set up job", "conclusion": "success" }, { "name": "Install Playwright browsers", "conclusion": "failure" }] }
+      {
+        "name": "Unit tests",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Run",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "name": "E2E tests (playwright)",
+        "conclusion": "failure",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install Playwright browsers",
+            "conclusion": "failure"
+          }
+        ]
+      }
     ]
   },
   "pulls": [
-    { "number": 10, "merged_at": "2026-11-25T10:07:30Z", "created_at": "2026-11-25T09:00:00Z", "updated_at": "2026-11-25T10:07:30Z", "merge_commit_sha": "sha-m1", "base": { "ref": "main" }, "head": { "sha": "sha-a" }, "html_url": "https://github.com/Shaked/x-thread-draft-tool/pull/10" },
-    { "number": 11, "merged_at": "2026-11-24T12:00:00Z", "created_at": "2026-11-24T09:00:00Z", "updated_at": "2026-11-24T12:00:00Z", "merge_commit_sha": "sha-m2", "base": { "ref": "main" }, "head": { "sha": "sha-b" }, "html_url": "https://github.com/Shaked/x-thread-draft-tool/pull/11" },
-    { "number": 12, "merged_at": null, "created_at": "2026-11-24T10:00:00Z", "updated_at": "2026-11-24T11:00:00Z", "merge_commit_sha": null, "base": { "ref": "main" }, "head": { "sha": "sha-c" }, "html_url": "https://github.com/Shaked/x-thread-draft-tool/pull/12" }
+    {
+      "number": 10,
+      "merged_at": "2026-11-25T10:07:30Z",
+      "created_at": "2026-11-25T09:00:00Z",
+      "updated_at": "2026-11-25T10:07:30Z",
+      "merge_commit_sha": "sha-m1",
+      "base": {
+        "ref": "main"
+      },
+      "head": {
+        "sha": "sha-a"
+      },
+      "html_url": "https://github.com/Shaked/x-thread-draft-tool/pull/10"
+    },
+    {
+      "number": 11,
+      "merged_at": "2026-11-24T12:00:00Z",
+      "created_at": "2026-11-24T09:00:00Z",
+      "updated_at": "2026-11-24T12:00:00Z",
+      "merge_commit_sha": "sha-m2",
+      "base": {
+        "ref": "main"
+      },
+      "head": {
+        "sha": "sha-b"
+      },
+      "html_url": "https://github.com/Shaked/x-thread-draft-tool/pull/11"
+    },
+    {
+      "number": 12,
+      "merged_at": null,
+      "created_at": "2026-11-24T10:00:00Z",
+      "updated_at": "2026-11-24T11:00:00Z",
+      "merge_commit_sha": null,
+      "base": {
+        "ref": "main"
+      },
+      "head": {
+        "sha": "sha-c"
+      },
+      "html_url": "https://github.com/Shaked/x-thread-draft-tool/pull/12"
+    }
   ],
   "runs_by_sha": {
-    "sha-a": [{ "id": 200, "run_attempt": 1, "name": "Tests", "event": "pull_request", "status": "completed", "conclusion": "success", "created_at": "2026-11-25T09:30:00Z", "run_started_at": "2026-11-25T09:30:05Z", "updated_at": "2026-11-25T09:31:35Z" }],
-    "sha-m1": [
-      { "id": 300, "run_attempt": 1, "name": "Tests", "event": "push", "status": "completed", "conclusion": "success", "created_at": "2026-11-25T10:05:00Z", "run_started_at": "2026-11-25T10:05:10Z", "updated_at": "2026-11-25T10:06:40Z" },
-      { "id": 301, "run_attempt": 1, "name": "Smoke test (deployed)", "event": "deployment_status", "status": "completed", "conclusion": "success", "created_at": "2026-11-25T10:12:00Z", "run_started_at": "2026-11-25T10:12:05Z", "updated_at": "2026-11-25T10:13:00Z" }
+    "sha-a": [
+      {
+        "id": 200,
+        "run_attempt": 1,
+        "name": "Tests",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-11-25T09:30:00Z",
+        "run_started_at": "2026-11-25T09:30:05Z",
+        "updated_at": "2026-11-25T09:31:35Z"
+      }
     ],
-    "sha-b": [{ "id": 400, "run_attempt": 1, "name": "Tests", "event": "pull_request", "status": "completed", "conclusion": "success", "created_at": "2026-11-24T11:00:00Z", "run_started_at": "2026-11-24T11:00:05Z", "updated_at": "2026-11-24T11:01:05Z" }],
-    "sha-m2": [{ "id": 401, "run_attempt": 1, "name": "Tests", "event": "push", "status": "completed", "conclusion": "success", "created_at": "2026-11-24T11:30:00Z", "run_started_at": "2026-11-24T11:30:05Z", "updated_at": "2026-11-24T11:31:05Z" }]
+    "sha-m1": [
+      {
+        "id": 300,
+        "run_attempt": 1,
+        "name": "Tests",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-11-25T10:05:00Z",
+        "run_started_at": "2026-11-25T10:05:10Z",
+        "updated_at": "2026-11-25T10:06:40Z"
+      },
+      {
+        "id": 301,
+        "run_attempt": 1,
+        "name": "Smoke test (deployed)",
+        "event": "deployment_status",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-11-25T10:12:00Z",
+        "run_started_at": "2026-11-25T10:12:05Z",
+        "updated_at": "2026-11-25T10:13:00Z"
+      }
+    ],
+    "sha-b": [
+      {
+        "id": 400,
+        "run_attempt": 1,
+        "name": "Tests",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-11-24T11:00:00Z",
+        "run_started_at": "2026-11-24T11:00:05Z",
+        "updated_at": "2026-11-24T11:01:05Z"
+      }
+    ],
+    "sha-m2": [
+      {
+        "id": 401,
+        "run_attempt": 1,
+        "name": "Tests",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-11-24T11:30:00Z",
+        "run_started_at": "2026-11-24T11:30:05Z",
+        "updated_at": "2026-11-24T11:31:05Z"
+      }
+    ]
   },
   "files": {
-    "sha-m1": [{ "filename": "src/app.js" }],
-    "sha-m2": [{ "filename": "docs/readme.md" }]
+    "sha-m1": [
+      {
+        "filename": "src/app.js"
+      }
+    ],
+    "sha-m2": [
+      {
+        "filename": "docs/readme.md"
+      }
+    ]
   },
   "deployments": {
-    "sha-m1": [{ "id": 501, "environment": "Production", "sha": "sha-m1", "created_at": "2026-11-25T10:08:00Z" }]
+    "sha-m1": [
+      {
+        "id": 501,
+        "environment": "Production",
+        "sha": "sha-m1",
+        "created_at": "2026-11-25T10:08:00Z"
+      }
+    ]
   },
   "statuses": {
     "501": [
-      { "state": "pending", "created_at": "2026-11-25T10:08:01Z" },
-      { "state": "success", "created_at": "2026-11-25T10:09:00Z" }
+      {
+        "state": "pending",
+        "created_at": "2026-11-25T10:08:01Z"
+      },
+      {
+        "state": "success",
+        "created_at": "2026-11-25T10:09:00Z"
+      }
     ]
   }
 }

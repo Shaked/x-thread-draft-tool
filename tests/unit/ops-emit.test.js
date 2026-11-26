@@ -14,6 +14,7 @@ import {
 } from '../../scripts/ops-emit.mjs'
 import { githubApi } from '../../scripts/speed-metrics.mjs'
 import { SOURCES } from '../../server/ops/sources.js'
+import { validateBatch } from '../../server/ops/events.js'
 
 // Central metrics M3 (#439, task #449). Offline: every GitHub answer comes from fixtures/ops/api.json.
 const API = JSON.parse(readFileSync(new URL('./fixtures/ops/api.json', import.meta.url), 'utf8'))
@@ -34,7 +35,7 @@ function response(body, remaining) {
  * A fake GitHub: answers each REST path from the fixture (`overrides` replaces parts of it). Every URL is recorded.
  * `remaining` is the rate-limit header; `dropAfterCalls` makes it 99 from that call on.
  */
-function fakeGitHub({ remaining, dropAfterCalls, overrides = {} } = {}) {
+function fakeGitHub({ remaining, dropAfterCalls, totalExtra = 0, overrides = {} } = {}) {
   const asked = []
   const data = { ...API, ...overrides }
   const fetchImpl = async (url) => {
@@ -45,7 +46,14 @@ function fakeGitHub({ remaining, dropAfterCalls, overrides = {} } = {}) {
     const q = u.searchParams
     if (path === '/actions/runs') {
       const sha = q.get('head_sha')
-      return response({ workflow_runs: sha ? data.runs_by_sha[sha] ?? [] : data.runs }, left)
+      if (sha) return response({ workflow_runs: data.runs_by_sha[sha] ?? [] }, left)
+      // The `created` range "YYYY-MM-DD..YYYY-MM-DD" filters by the run's UTC day, as the API does; pages are 100 long.
+      const [from, to] = (q.get('created') ?? '').split('..')
+      const matching = data.runs.filter((r) => r.created_at.slice(0, 10) >= from && r.created_at.slice(0, 10) <= to)
+      const page = Number(q.get('page') ?? 1)
+      const per = Number(q.get('per_page') ?? 100)
+      const slice = matching.slice((page - 1) * per, page * per)
+      return response({ total_count: matching.length + totalExtra, workflow_runs: slice }, left)
     }
     const jobs = path.match(/^\/actions\/runs\/(\d+)\/jobs$/)
     if (jobs) return response({ jobs: data.jobs[jobs[1]] ?? [] }, left)
@@ -231,21 +239,79 @@ describe('ops-emit: review fixes on #472', () => {
       head_sha: 'sha-m1', created_at: '2026-11-25T10:12:00Z', run_started_at: '2026-11-25T10:12:05Z', updated_at: '2026-11-25T10:13:00Z',
       html_url: 'https://github.com/Shaked/x-thread-draft-tool/actions/runs/107', pull_requests: []
     }
-    const { fetchImpl } = fakeGitHub({ overrides: { runs: [...API.runs, running] } })
+    const runsBySha = { ...API.runs_by_sha, 'sha-m1': [...API.runs_by_sha['sha-m1'], running] }
+    const { fetchImpl } = fakeGitHub({ overrides: { runs_by_sha: runsBySha } })
     const events = (await collectRepo(REPO, { ...clients(fetchImpl), now: NOW })).events
     expect(events.filter((e) => e.source === 'speed' && e.id.startsWith('sha-m1:'))).toEqual([])
     // The other merge has no running run, so its rows are still written.
     expect(events.some((e) => e.source === 'speed' && e.id.startsWith('sha-m2:'))).toBe(true)
   })
 
-  it('a rate floor reached inside a merge keeps the events gathered so far and sends no counters or cursor', async () => {
-    // Call 5 (the first deployment status) answers with 99 left: the next request, inside the same merge, must not go out.
-    const { fetchImpl } = fakeGitHub({ remaining: 5000, dropAfterCalls: 5 })
+  it('a merge less than two hours old gets no speed rows yet', async () => {
+    const { fetchImpl } = fakeGitHub()
+    const oneHourAfterMerge = Date.parse('2026-11-25T11:07:30Z')
+    const events = (await collectRepo(REPO, { ...clients(fetchImpl), now: oneHourAfterMerge })).events
+    expect(events.filter((e) => e.source === 'speed' && e.id.startsWith('sha-m1:'))).toEqual([])
+  })
+
+  it('a rate floor reached inside a merge keeps the events gathered so far; counters and cursor, which need only the listing, are still sent', async () => {
+    // Calls 1-4 list the four days, 5 is the jobs call of run 101, 6 the merges, 7 and 8 the first merge's deployment and its status:
+    // call 8 answers with 99 left, so the speed request of the same merge must not go out.
+    const { fetchImpl } = fakeGitHub({ remaining: 5000, dropAfterCalls: 8 })
     const result = await collectRepo(REPO, { ...clients(fetchImpl), now: NOW })
     const keys = result.events.map((e) => `${e.source}/${e.kind}/${e.id}`)
     expect(result.complete).toBe(false)
+    expect(result.countable).toBe(true)
     expect(keys).toEqual(expect.arrayContaining(['ci/run/100.1', 'git/merge/sha-m1', 'deploy/deploy/501']))
     expect(keys.some((k) => k.startsWith('speed/'))).toBe(false)
+    expect(result.counters).toHaveLength(4)
+    expect(result.cursor).toBe('2026-11-24T11:00:00.000Z')
+  })
+
+  it('sends the same bodies the route accepts: every event passes the ingest validator with nothing refused', async () => {
+    const { fetchImpl } = fakeGitHub()
+    const result = await collectRepo(REPO, { ...clients(fetchImpl), now: NOW })
+    const [body] = batchesFor(REPO.repository_id, result)
+    const checked = validateBatch(body, { now: NOW })
+    expect(checked.ok).toBe(true)
+    expect(checked.refused).toEqual([])
+    expect(checked.events).toHaveLength(body.events.length)
+  })
+
+  it('takes the newest success or failure of a deployment that is now inactive, so it is not dropped', async () => {
+    const statuses = {
+      ...API.statuses,
+      501: [
+        { state: 'pending', created_at: '2026-11-25T10:08:01Z' },
+        { state: 'success', created_at: '2026-11-25T10:09:00Z' },
+        { state: 'inactive', created_at: '2026-11-25T11:00:00Z' }
+      ]
+    }
+    const { fetchImpl } = fakeGitHub({ overrides: { statuses } })
+    const events = byKey((await collectRepo(REPO, { ...clients(fetchImpl), now: NOW })).events)
+    expect(events['deploy/deploy/501']).toMatchObject({ status: 'success', ms: 60000 })
+  })
+
+  it('sends a null duration for a merge longer than the route accepts (2^31 - 1 ms)', async () => {
+    const longPr = { number: 9, merged_at: '2026-11-25T10:07:30Z', created_at: '2026-10-01T09:00:00Z', updated_at: '2026-11-25T10:07:30Z', merge_commit_sha: 'sha-long', base: { ref: 'main' }, head: { sha: 'sha-long-head' }, html_url: 'https://github.com/Shaked/x-thread-draft-tool/pull/9' }
+    const { fetchImpl } = fakeGitHub({ overrides: { pulls: [longPr], runs_by_sha: {}, files: {}, deployments: {} } })
+    const result = await collectRepo(REPO, { ...clients(fetchImpl), now: NOW })
+    const merge = byKey(result.events)['git/merge/sha-long']
+    expect(merge.ms).toBeNull()
+    expect(validateBatch(batchesFor(REPO.repository_id, result)[0], { now: NOW }).refused).toEqual([])
+  })
+
+  it('counts a run listed twice (it moved onto another page while the pages were read) once', async () => {
+    const duplicated = [...API.runs, API.runs.find((r) => r.id === 104)]
+    const { fetchImpl } = fakeGitHub({ overrides: { runs: duplicated } })
+    const { counters } = await collectRepo(REPO, { ...clients(fetchImpl), now: NOW })
+    expect(counters.find((c) => c.day === '2026-11-24' && c.status === 'cancelled')).toMatchObject({ count: 1 })
+  })
+
+  it('an answer that holds fewer runs than its total_count is incomplete: no counters, no cursor', async () => {
+    const { fetchImpl } = fakeGitHub({ totalExtra: 5 })
+    const result = await collectRepo(REPO, { ...clients(fetchImpl), now: NOW })
+    expect(result.countable).toBe(false)
     expect(result.counters).toEqual([])
     expect(result.cursor).toBeNull()
   })
