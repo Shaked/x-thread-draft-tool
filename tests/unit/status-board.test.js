@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
-import { boardNeeds, buildBoard, fetchBoardSnapshot, formatBoard, GROUPS, isOwnerQuestion, manualTests, OWNER_RULES, ownerNeeded, prIssue, section } from '../../scripts/status-board.mjs'
+import { boardNeeds, buildBoard, formatBoard, GROUPS, isOwnerQuestion, manualTests, OWNER_RULES, ownerNeeded, prIssue, section } from '../../scripts/status-board.mjs'
 import { lint } from '../../scripts/reply-lint.mjs'
 
 const dir = new URL('./fixtures/status-board/', import.meta.url)
@@ -151,7 +151,12 @@ describe('Opus review findings on #503', () => {
 
   it('a comment with the pull request footer is an agent comment, not an answer from Shaked', () => {
     const late = { user: 'owner', author_association: 'OWNER', created_at: '2026-11-26T11:00:00Z', body: 'Note.\n\nGenerated with [Claude Code](https://claude.com/claude-code)' }
-    expect(ownerNeeded({ labels: [] }, [...comments[301], late], [], { owner: 'owner', url: 'u' })).toHaveLength(1)
+    expect(ownerNeeded({ labels: [] }, [...comments[301], late], [], { owner: 'example', url: 'u' })).toHaveLength(1)
+  })
+
+  it('a collaborator comment does not answer an owner question (Codex finding on #503)', () => {
+    const late = { user: 'helper', author_association: 'COLLABORATOR', created_at: '2026-11-26T11:00:00Z', body: 'CI is green now.' }
+    expect(ownerNeeded({ labels: [] }, [...comments[301], late], [], { owner: 'example', url: 'u' })).toHaveLength(1)
   })
 })
 
@@ -189,15 +194,15 @@ describe('helpers', () => {
     expect(boardNeeds(sessions, snapshot, { comments, pulls }).prs).toEqual([])
   })
 
-  it('fetch adds the issues with an owner question to the janitor snapshot', () => {
-    const calls = []
-    const run = (args) => {
-      calls.push(args.find((a) => a.startsWith('q=')))
-      return args.includes('.items[].number') ? '301\n' : ''
-    }
-    const snap = fetchBoardSnapshot({ repo: 'example/repo', run })
-    expect(snap.markers.question).toEqual([301])
-    expect(calls.at(-1)).toBe('q=repo:example/repo is:issue is:open "question for you" in:comments')
+  it('need asks for the comments of every open issue that has one, so any owner question is found (Codex finding on #503)', () => {
+    // #314 has no session, PR or label; its only comment is an agent question in the "?" form.
+    const issues = snapshot.issues.map((i) => ({ ...i, comments: i.number === 314 ? 1 : 0 }))
+    const snap = { ...snapshot, issues }
+    expect(boardNeeds(sessions, snap, { comments: {}, pulls }).issues).toContain(314)
+    expect(boardNeeds(sessions, snap, { comments: {}, pulls }).issues).not.toContain(305)
+    const q = { user: 'example', author_association: 'OWNER', created_at: '2026-11-26T09:00:00Z', body: `Should print view use A4?\n\nReply \`a4\` or \`letter\`.${FOOTER}` }
+    const b = buildBoard(sessions, snap, { comments: { ...comments, 314: [q] }, pulls })
+    expect(b.rows.find((r) => r.issue === 314)).toMatchObject({ group: 'needs-you' })
   })
 
   it('masks a token a session wrote in its question', () => {

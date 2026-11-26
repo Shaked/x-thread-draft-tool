@@ -28,6 +28,6 @@
   { "number": 408, "title": "Theme switch (#308)", "body": "Implements #308 Task B8" },
   { "number": 409, "title": "Tag filter", "body": "Implements #309 Task B9" }
  ],
- "markers": { "release": [303], "claim": [], "question": [301] },
+ "markers": { "release": [303], "claim": [] },
  "comments": {}
 }

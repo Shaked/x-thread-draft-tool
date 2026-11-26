@@ -5,9 +5,6 @@
 // with issues (scripts/session-janitor.mjs). Template: .claude/skills/reply-style/templates/status-board.md.
 // Command: .claude/commands/status.md (/status).
 //
-//   node scripts/status-board.mjs fetch > snapshot.json
-//       The janitor's snapshot (`janitor.mjs fetch`, gh search only), plus `markers.question`: open issues with a comment
-//       that says "question for you" (an owner question in the reply template).
 //   node scripts/status-board.mjs need sessions.json snapshot.json [--comments f] [--pulls f] [--today ISO] [--since ISO]
 //       Prints the issues whose comments the board still needs, and the open PRs whose checks it needs.
 //   node scripts/status-board.mjs board sessions.json snapshot.json [--comments f] [--pulls f] [--today ISO] [--since ISO]
@@ -15,10 +12,9 @@
 //
 // buildBoard() and formatBoard() are pure: the tests run them on golden fixtures.
 
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { dependencies, fetchSnapshot, REPO, shortName, TRUSTED } from './janitor.mjs'
+import { dependencies, REPO, shortName, TRUSTED } from './janitor.mjs'
 import { analyzeSessions, context, needs as sessionNeeds, quote, STALE_DAYS, validateSessions } from './session-janitor.mjs'
 
 // The manual tests issue: its tests are listed as optional and never make the board red.
@@ -47,7 +43,7 @@ const TRACKERS = new Set(['dispatch', 'janitor', 'tracker'])
 // A needs_action names a decision when it has one of these words.
 // A needs_action names a decision when it asks for one; "nothing for the owner" and the like say there is none.
 const DECISION = /\b(?:decid(?:e|ing)|decision needed|choose|approve|approval|your call|which option|pick (?:one|between|an option))\b/i
-const NO_DECISION = /\b(?:no owner|nothing for (?:the owner|you|shaked)|no decision)\b/i
+const NO_DECISION = /\b(?:no owner|nothing for (?:the owner|you|shaked))\b/i
 const STATE = { working: 'running', review_ready: 'review ready', blocked: 'blocked', failed: 'failed', completed: 'completed' }
 // Janitor findings that become the next step of a row, first one wins.
 const NEXT = ['stuck', 'orphan-claim', 'done-open', 'no-handoff', 'duplicate-session', 'nudge-merge', 'orphan-session', 'stale']
@@ -66,7 +62,8 @@ export function section(body, name) {
 }
 
 const isAgent = (c) => FOOTER.test(String(c.body || '').trim())
-const isHuman = (c, owner) => !isAgent(c) && (TRUSTED.has(c.author_association) || c.user === owner || c.user?.login === owner)
+// Only Shaked answers an owner question: his login, on a comment without the agent footer. A collaborator does not.
+const isHuman = (c, owner) => !isAgent(c) && (c.user === owner || c.user?.login === owner)
 const sorted = (list = []) => [...list].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
 const answered = (list, at, owner) => list.some((c) => isHuman(c, owner) && String(c.created_at) > String(at))
 // An agent comment that records what Shaked decided: "Owner decision, 2026-11-25 (Shaked): ...", "DECISION by Shaked".
@@ -400,36 +397,24 @@ export function formatBoard(board) {
 export function boardNeeds(sessionsDoc, snapshot, { comments = {}, pulls = {}, today, since } = {}) {
   const board = buildBoard(sessionsDoc, snapshot, { comments, pulls, today, since })
   const c = context(sessionsDoc, snapshot, comments)
-  const markers = snapshot.markers || {}
-  const want = new Set([...sessionNeeds(sessionsDoc, snapshot, comments).issues, ...(markers.release || []), ...(markers.question || [])])
+  const want = new Set(sessionNeeds(sessionsDoc, snapshot, comments).issues)
   for (const r of board.rows) if (r.issue) want.add(r.issue)
   for (const i of c.issues.filter((x) => x.state === 'open')) {
-    if (i.labels.some((l) => ['owner', 'held', 'epic'].includes(l)) || i.number === MANUAL_TESTS) want.add(i.number)
+    // Every open issue with a comment: an owner question or a HANDOFF can be in any of them. An unknown count is read too.
+    const count = (snapshot.issues || []).find((y) => y.number === i.number)?.comments
+    if (!(count === 0) || i.labels.some((l) => ['owner', 'held', 'epic'].includes(l)) || i.number === MANUAL_TESTS) want.add(i.number)
   }
   const issues = [...want].filter((n) => c.byNum.get(n)?.state === 'open' && !c.loaded(n)).sort((a, b) => a - b)
   const prs = (snapshot.open_pulls || []).map((p) => p.number).filter((p) => !(pulls[p] || pulls[String(p)])).sort((a, b) => a - b)
   return { issues, prs }
 }
 
-/** The janitor snapshot plus markers.question. `run` is injectable for tests. */
-export function fetchBoardSnapshot({ repo = REPO, run = (args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 << 20 }) } = {}) {
-  const snapshot = fetchSnapshot({ repo, run })
-  const q = `repo:${repo} is:issue is:open "question for you" in:comments`
-  const text = run(['api', '-X', 'GET', 'search/issues', '-f', `q=${q}`, '-f', 'per_page=100', '--paginate', '--jq', '.items[].number'])
-  snapshot.markers.question = text.split('\n').filter(Boolean).map(Number)
-  return snapshot
-}
-
 function main() {
   const [cmd, sessionsFile, snapshotFile, ...rest] = process.argv.slice(2)
-  if (cmd === 'fetch') {
-    process.stdout.write(JSON.stringify(fetchBoardSnapshot(), null, 1) + '\n')
-    return
-  }
   const opt = (name) => { const k = rest.indexOf(name); return k === -1 ? null : rest[k + 1] }
   const json = (f) => (f ? JSON.parse(readFileSync(f, 'utf8')) : {})
   if (!['need', 'board'].includes(cmd) || !sessionsFile || !snapshotFile) {
-    console.error('usage: status-board.mjs fetch | need|board sessions.json snapshot.json [--comments f] [--pulls f] [--today ISO] [--since ISO]')
+    console.error('usage: status-board.mjs need|board sessions.json snapshot.json [--comments f] [--pulls f] [--today ISO] [--since ISO]')
     process.exit(2)
   }
   const doc = json(sessionsFile)

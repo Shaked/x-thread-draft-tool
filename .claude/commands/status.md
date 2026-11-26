@@ -4,7 +4,7 @@ description: Print the status board - tickets, pull requests, Claude sessions, a
 
 Print the status board (#499). Follow the "Status board" section of `.claude/skills/task-janitor/SKILL.md`:
 
-1. `node scripts/status-board.mjs fetch > snapshot.json` (gh search only).
+1. `node scripts/janitor.mjs fetch > snapshot.json` (gh search only).
 2. Dump the sessions into `sessions.json` exactly as in janitor pass 2, step 1 (`list_sessions` with `mine: true`, every page).
 3. `node scripts/status-board.mjs need sessions.json snapshot.json` names the issues whose comments to read and the open PRs
    whose checks and Codex threads to read. Save them as `comments.json` and `pulls.json` (same shape as the janitor).
