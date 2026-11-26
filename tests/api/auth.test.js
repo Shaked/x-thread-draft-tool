@@ -89,9 +89,12 @@ describe('the sign-in pop-up of the admin pages (#552)', () => {
 
   it('a login without popup=1 sets no pop-up cookie and the callback still redirects', async () => {
     const login = await route(apiRequest('/api/auth/login'))
-    expect(login.headers.getSetCookie().some((c) => c.startsWith('xt_oauth_popup'))).toBe(false)
+    expect(login.headers.getSetCookie().some((c) => c.startsWith('xt_oauth_popup=1'))).toBe(false)
+    expect(login.headers.getSetCookie().some((c) => c.startsWith('xt_oauth_popup=;'))).toBe(true)
     mockGithub()
-    expect((await signIn()).status).toBe(302)
+    const done = await signIn()
+    expect(done.status).toBe(302)
+    expect(done.headers.getSetCookie().some((c) => c.startsWith('xt_oauth_popup=;'))).toBe(true)
   })
 })
 

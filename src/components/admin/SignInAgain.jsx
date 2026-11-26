@@ -41,7 +41,14 @@ export default function SignInAgain({ children }) {
       ),
     []
   )
-  useEffect(() => () => clearInterval(watcher.current), [])
+  useEffect(
+    () => () => {
+      clearInterval(watcher.current)
+      window.removeEventListener('message', onMessage.current)
+      resolver.current?.(false)
+    },
+    []
+  )
 
   const open = () => {
     const win = window.open('/api/auth/login?popup=1', 'xt-signin', POPUP_FEATURES)

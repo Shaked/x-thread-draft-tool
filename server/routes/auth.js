@@ -55,7 +55,8 @@ async function login({ request, url }) {
   const cookies = [cookie(STATE_COOKIE, state, { maxAge: 600 })]
   if (returnTo) cookies.push(cookie(RETURN_COOKIE, returnTo, { maxAge: 600 }))
   // `popup=1`: the admin pages open the sign-in in a pop-up (#552). The callback then answers a page that closes the pop-up.
-  if (url.searchParams.get('popup') === '1') cookies.push(cookie(POPUP_COOKIE, '1', { maxAge: 600 }))
+  // Any other sign-in clears it, so an abandoned pop-up cannot turn a later normal sign-in into the pop-up page.
+  cookies.push(url.searchParams.get('popup') === '1' ? cookie(POPUP_COOKIE, '1', { maxAge: 600 }) : cookie(POPUP_COOKIE, '', { maxAge: 0 }))
   return redirect(`https://github.com/login/oauth/authorize?${params}`, cookies)
 }
 
@@ -93,7 +94,7 @@ async function callback({ request, url }) {
 
   // A suspended user gets no session cookie. The app shows the notice at /?suspended=1.
   if (user.suspended_at !== null) {
-    return redirect(`${appOrigin()}/?suspended=1`, [cookie(STATE_COOKIE, '', { maxAge: 0 }), cookie(RETURN_COOKIE, '', { maxAge: 0 })])
+    return redirect(`${appOrigin()}/?suspended=1`, [cookie(STATE_COOKIE, '', { maxAge: 0 }), cookie(RETURN_COOKIE, '', { maxAge: 0 }), cookie(POPUP_COOKIE, '', { maxAge: 0 })])
   }
 
   const token = await createSession(user)
@@ -115,7 +116,8 @@ async function callback({ request, url }) {
   return redirect(`${appOrigin()}${returnTo ?? '/'}`, [
     sessionCookie(token),
     cookie(STATE_COOKIE, '', { maxAge: 0 }),
-    cookie(RETURN_COOKIE, '', { maxAge: 0 })
+    cookie(RETURN_COOKIE, '', { maxAge: 0 }),
+    cookie(POPUP_COOKIE, '', { maxAge: 0 })
   ])
 }
 

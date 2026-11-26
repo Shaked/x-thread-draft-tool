@@ -55,13 +55,12 @@ async function adminWrite(path, body) {
     return await send()
   } catch (err) {
     if (err.code !== 'sign_in_again' || askSignIn === null) throw err
-    const signedIn = await askSignIn()
-    if (!signedIn) {
-      const cancelled = new Error('You did not sign in, so nothing changed.')
-      cancelled.code = 'sign_in_cancelled'
-      throw cancelled
-    }
-    return send()
+    const cancelled = () => Object.assign(new Error('You did not sign in, so nothing changed.'), { code: 'sign_in_cancelled' })
+    if (!(await askSignIn())) throw cancelled()
+    // The pop-up closed. If it was closed without signing in, the repeat is refused again: say so in plain words, never the server text.
+    return send().catch((again) => {
+      throw again.code === 'sign_in_again' ? cancelled() : again
+    })
   }
 }
 

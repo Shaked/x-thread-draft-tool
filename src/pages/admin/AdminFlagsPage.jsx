@@ -52,7 +52,7 @@ export default function AdminFlagsPage() {
         setState({ status: 'ready', flags })
         toast({ message: 'Flag saved.' })
       })
-      .catch((err) => setFailed(err.message || 'Could not save the flag.'))
+      .catch((err) => setFailed(err.code === 'sign_in_cancelled' ? err.message : `Could not save the flag (${err.message || 'no answer'}). Nothing changed.`))
   }
 
   if (state.status === 'loading') return <Skeleton variant="card" lines={3} />
@@ -74,7 +74,7 @@ export default function AdminFlagsPage() {
 
   return (
     <Stack gap={8}>
-      {failed && <Banner tone="danger" role="alert">{`Could not save the flag (${failed}). Nothing changed.`}</Banner>}
+      {failed && <Banner tone="danger" role="alert">{failed}</Banner>}
       <Section title="Look" headingLevel={2} description="Colours, corner radius, shadows and motion for every page and component. Only you see it.">
         <SegmentedControl legend="Look" value={valueOf(state.flags, 'look')} options={LOOKS} onChange={choose('look', setSkin)} />
       </Section>
