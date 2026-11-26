@@ -63,7 +63,7 @@ export default [
 
   // Scripts run on Node from the command line.
   {
-    files: ['scripts/**/*.{js,mjs,cjs}'],
+    files: ['scripts/**/*.{js,mjs,cjs}', 'plugins/*/scripts/**/*.{js,mjs,cjs}'],
     languageOptions: { globals: globals.node },
   },
 
