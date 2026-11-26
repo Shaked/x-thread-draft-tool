@@ -1,4 +1,4 @@
-# Every admin page is now tested with real data
+# Every admin page tested with real data
 
 - Each change now opens every admin page as the admin, on a phone and a computer, and checks that real data shows.
 

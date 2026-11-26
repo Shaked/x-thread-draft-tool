@@ -23,6 +23,8 @@ const login = `admin-area-${Date.now()}`
 // this normal user instead, whose login stays.
 const userLogin = `${login}-user`
 let userToken = ''
+// A throwaway user this test suspends, so the audit log has a row this run wrote (admin suspends are capped at 30 an hour).
+const auditLogin = `${login}-audit`
 
 test.beforeAll(async () => {
   api = await playwrightRequest.newContext({ baseURL: BASE })
@@ -38,6 +40,12 @@ test.beforeAll(async () => {
   expect(draft.ok()).toBeTruthy()
   userToken = (await (await api.post('/api/dev/token', { data: { login: userLogin } })).json()).token as string
   expect(userToken).toBeTruthy()
+  const audited = (await (await api.post('/api/dev/token', { data: { login: auditLogin } })).json()).user.id as string
+  const suspended = await api.post(`/api/admin/users/${audited}/suspend`, {
+    headers: { cookie: `xt_session=${adminCookie}`, origin: APP_ORIGIN, 'x-xt-admin': '1' },
+    data: { confirm_login: auditLogin, reason: 'admin area e2e check' }
+  })
+  expect(suspended.ok(), await suspended.text()).toBeTruthy()
 })
 
 test.afterAll(async () => {
@@ -66,6 +74,9 @@ const ENTRIES: { label: string; path: string; real: (page: Page) => Promise<void
     real: async (page) => {
       await expect(page.getByRole('heading', { name: 'Statistics', level: 2 })).toBeVisible()
       await expect(page.getByText('Active users, 24 hours')).toBeVisible()
+      // At least this test's draft is counted.
+      const drafts = page.locator('dt', { hasText: /^Drafts$/ }).locator('xpath=following-sibling::dd[1]')
+      await expect(drafts).toHaveText(/^[1-9]\d*$/)
       await expect(page.getByRole('table', { name: 'Signups in the last 30 days' })).toBeAttached()
     }
   },
@@ -77,6 +88,8 @@ const ENTRIES: { label: string; path: string; real: (page: Page) => Promise<void
       await expect(page.getByRole('heading', { name: 'By route', level: 2 })).toBeVisible()
       // This test's own requests are counted: at least one route row.
       await expect(page.getByRole('table', { name: 'Requests and times by route' }).getByRole('row').nth(1)).toBeAttached()
+      // The Delivery and CI section loads after the numbers above: wait for it, so its error would be seen too.
+      await expect(page.getByRole('table', { name: 'Delivery events, newest first' })).toBeAttached()
     }
   },
   {
@@ -84,7 +97,8 @@ const ENTRIES: { label: string; path: string; real: (page: Page) => Promise<void
     path: '/admin/flags',
     real: async (page) => {
       await expect(page.getByRole('heading', { name: 'Look', level: 2 })).toBeVisible()
-      await expect(page.getByRole('radio', { name: 'Current (purple)' })).toBeAttached()
+      // The account's look is read: exactly one of the two is chosen (other specs may set either).
+      await expect(page.getByRole('radio', { name: 'Current (purple)' }).or(page.getByRole('radio', { name: 'Rare UI (black, orange)' })).and(page.locator(':checked'))).toHaveCount(1)
       await expect(page.getByRole('heading', { name: 'Components', level: 2 })).toBeVisible()
     }
   },
@@ -110,7 +124,9 @@ const ENTRIES: { label: string; path: string; real: (page: Page) => Promise<void
     path: '/admin/audit',
     real: async (page) => {
       await expect(page.getByRole('heading', { name: 'Audit log', level: 2 })).toBeVisible()
-      await expect(page.getByLabel('Action')).toBeVisible()
+      await expect(page.getByRole('combobox', { name: 'Action' })).toBeVisible()
+      // The row this run wrote: the suspend of its throwaway user.
+      await expect(page.getByRole('row').filter({ hasText: auditLogin }).filter({ hasText: 'suspend_user' }).first()).toBeAttached()
     }
   }
 ]
@@ -126,7 +142,8 @@ async function findUser(page: Page) {
 // No error state and no placeholder on the open page.
 async function noErrorOrPlaceholder(page: Page) {
   await expect(page.getByText(/Could not load/)).toHaveCount(0)
-  await expect(page.getByText('Coming soon', { exact: false })).toHaveCount(0)
+  // The placeholder of an unbuilt page is exactly "Coming soon."; the real changelog may mention the words in its entries.
+  await expect(page.getByText('Coming soon.', { exact: true })).toHaveCount(0)
   await expect(page.getByText('This page could not load')).toHaveCount(0)
   await expect(page.getByRole('alert')).toHaveCount(0)
 }
