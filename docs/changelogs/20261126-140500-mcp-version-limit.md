@@ -3,7 +3,7 @@
 - When an AI app sends an impossibly large draft version, it now gets a plain error that names the limit.
 
 Area: AI apps
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/536
 
 ## Technical details
 
