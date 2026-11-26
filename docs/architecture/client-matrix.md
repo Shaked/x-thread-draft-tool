@@ -38,7 +38,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 
 | Feature | Covers | Needs | Checked |
 |---|---|---|---|
-| Server instructions | instructions | reads_instructions | 2026-11-21 |
+| Server instructions | instructions | reads_instructions | 2026-11-26 |
 | Tool descriptions | tools | none | 2026-11-21 |
 | Tool choice without naming the app | tools | none | 2026-11-21 |
 | Tool titles | tools | reads_tool_title | 2026-11-21 |
@@ -46,8 +46,8 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Error messages | results | none | 2026-11-21 |
 | Thread as text when no view shows | results | none | 2026-11-21 |
 | Options and suggestions display | prompts, results | none | 2026-11-21 |
-| Prompts (slash commands) | prompts | shows_prompts | 2026-11-21 |
-| Skill | skill | reads_resources | 2026-11-21 |
+| Prompts (slash commands) | prompts | shows_prompts | 2026-11-26 |
+| Skill | skill | reads_resources | 2026-11-26 |
 | Thread view | view:thread | renders_ui_views | 2026-11-21 |
 | Drafts view | view:drafts | renders_ui_views | 2026-11-21 |
 | Share card | view:share | renders_ui_views | 2026-11-21 |
@@ -63,7 +63,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 
 | Feature | Server | claude_ai | claude_desktop | chatgpt | grok | claude_code | codex | generic |
 |---|---|---|---|---|---|---|---|---|
-| Server instructions | built: tests/api/mcp-default-use.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
+| Server instructions | built: tests/api/mcp-default-use.test.js | not checked | not checked | not checked | not checked | built: tests/api/mcp-default-use.test.js | not checked | not checked |
 | Tool descriptions | built: tests/api/mcp-default-use.test.js, tests/api/client-matrix.test.js | built: tests/api/mcp-sdk-client.test.js | built: tests/api/mcp-sdk-client.test.js | built: tests/api/mcp-clients.test.js | built: tests/api/mcp-sdk-client.test.js | built: tests/api/mcp-clients.test.js | built: tests/api/mcp-clients.test.js | built: tests/api/mcp-sdk-client.test.js |
 | Tool choice without naming the app | built: tests/api/mcp-discovery.test.js | not checked | not checked | not checked | no: owner saw no call unless the connector is named (#279) | not checked | not checked | not checked |
 | Tool titles | built: tests/api/mcp-schema.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
@@ -71,8 +71,8 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Error messages | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js |
 | Thread as text when no view shows | built: tests/api/mcp-ui.test.js, tests/api/mcp-discovery.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | not checked | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js |
 | Options and suggestions display | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) |
-| Prompts (slash commands) | built: tests/api/mcp-prompts.test.js | not checked | not checked | not checked | no: owner saw no slash commands (#273) | not checked | not checked | not checked |
-| Skill | built: tests/api/mcp-skills.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
+| Prompts (slash commands) | built: tests/api/mcp-prompts.test.js | not checked | not checked | not checked | no: owner saw no slash commands (#273) | built: tests/api/mcp-prompts.test.js | not checked | not checked |
+| Skill | built: tests/api/mcp-skills.test.js | not checked | not checked | not checked | not checked | built: tests/api/mcp-skills.test.js | not checked | not checked |
 | Thread view | built: tests/e2e/mcp-thread-view.spec.ts | built: tests/e2e/mcp-thread-view.spec.ts | not checked | built: tests/e2e/mcp-thread-view.spec.ts | not checked | not checked | not checked | not checked |
 | Drafts view | built: tests/e2e/mcp-drafts-view.spec.ts | built: tests/e2e/mcp-drafts-view.spec.ts | not checked | built: tests/e2e/mcp-drafts-view.spec.ts | not checked | not checked | not checked | not checked |
 | Share card | built: tests/e2e/mcp-share-view.spec.ts | built: tests/e2e/mcp-share-view.spec.ts | not checked | built: tests/e2e/mcp-share-view.spec.ts | not checked | not checked | not checked | not checked |
@@ -88,7 +88,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 
 | Feature | Server | claude_ai | claude_desktop | chatgpt | grok | claude_code | codex | generic |
 |---|---|---|---|---|---|---|---|---|
-| Server instructions | built: tests/api/mcp-default-use.test.js, tests/api/client-matrix.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
+| Server instructions | built: tests/api/mcp-default-use.test.js, tests/api/client-matrix.test.js | not checked | not checked | not checked | not checked | built: tests/api/mcp-default-use.test.js, tests/api/client-matrix.test.js | not checked | not checked |
 | Tool descriptions | built: tests/api/mcp-language.test.js, tests/api/client-matrix.test.js | built: tests/api/mcp-sdk-client.test.js | built: tests/api/mcp-sdk-client.test.js | built: tests/api/mcp-clients.test.js | built: tests/api/mcp-sdk-client.test.js | built: tests/api/mcp-clients.test.js | built: tests/api/mcp-clients.test.js | built: tests/api/mcp-sdk-client.test.js |
 | Tool choice without naming the app | built: tests/api/mcp-discovery.test.js | not checked | not checked | not checked | no: owner saw no call unless the connector is named (#279) | not checked | not checked | not checked |
 | Tool titles | no: one English title per tool | no: one English title per tool | no: one English title per tool | no: one English title per tool | no: one English title per tool | no: one English title per tool | no: one English title per tool | no: one English title per tool |
@@ -96,8 +96,8 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Error messages | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them |
 | Thread as text when no view shows | built: tests/e2e/mcp-grok-view.spec.ts, tests/api/mcp-discovery.test.js | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | not checked | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts |
 | Options and suggestions display | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) |
-| Prompts (slash commands) | built: tests/api/mcp-prompts.test.js, tests/api/client-matrix.test.js | not checked | not checked | not checked | no: owner saw no slash commands (#273) | not checked | not checked | not checked |
-| Skill | built: tests/api/mcp-skills.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
+| Prompts (slash commands) | built: tests/api/mcp-prompts.test.js, tests/api/client-matrix.test.js | not checked | not checked | not checked | no: owner saw no slash commands (#273) | built: tests/api/mcp-prompts.test.js, tests/api/client-matrix.test.js | not checked | not checked |
+| Skill | built: tests/api/mcp-skills.test.js | not checked | not checked | not checked | not checked | built: tests/api/mcp-skills.test.js | not checked | not checked |
 | Thread view | built: tests/e2e/mcp-thread-view.spec.ts | built: tests/e2e/mcp-thread-view.spec.ts | not checked | built: tests/e2e/mcp-thread-view.spec.ts | not checked | not checked | not checked | not checked |
 | Drafts view | built: tests/unit/mcp-ui-drafts.test.js | built: tests/unit/mcp-ui-drafts.test.js | not checked | built: tests/unit/mcp-ui-drafts.test.js | not checked | not checked | not checked | not checked |
 | Share card | built: tests/unit/mcp-ui-share.test.js | built: tests/unit/mcp-ui-share.test.js | not checked | built: tests/unit/mcp-ui-share.test.js | not checked | not checked | not checked | not checked |
