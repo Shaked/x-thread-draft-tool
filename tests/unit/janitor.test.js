@@ -197,6 +197,7 @@ describe('allowed fixes stay narrow', () => {
   it('ignores dependency keywords inside code spans, and reads Q task ids', () => {
     expect(dependencies('Write the line as `Depends on A2` in the body.')).toMatchObject({ refs: [], named: [] })
     expect(dependencies('Example: `Goes before #3`.').before).toEqual([])
+    expect(dependencies('Example:\n```text\nDepends on A2 and #5.\nGoes before #3.\n```\nDepends on #7.')).toMatchObject({ refs: [7], named: [], before: [] })
     const snap = base([issue(1, 'E9 task A1: first', { parent: 7, body: 'Depends on Q1.' }), issue(2, 'E9 task Q1: prerequisite', { parent: 7 })])
     expect(order(snap).order).toEqual([2, 1])
   })

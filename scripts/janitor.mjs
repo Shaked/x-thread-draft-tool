@@ -112,8 +112,16 @@ export function dependencies(body) {
   const refs = new Set()
   const named = new Set()
   const before = new Set()
-  // Code spans are masked first, so a quoted example ("`Depends on A2`") never adds a dependency.
-  for (const line of body.split('\n').map((l) => l.replace(/`[^`]*`/g, (m) => ' '.repeat(m.length)))) {
+  // Fenced blocks are skipped and code spans masked, so a quoted example ("`Depends on A2`") never adds a dependency.
+  let fenced = false
+  const lines = body.split('\n').filter((l) => {
+    if (/^\s*(```|~~~)/.test(l)) {
+      fenced = !fenced
+      return false
+    }
+    return !fenced
+  })
+  for (const line of lines.map((l) => l.replace(/`[^`]*`/g, (m) => ' '.repeat(m.length)))) {
     // "Goes before #n" only at the start of a clause, and never after "not", "until" or "start".
     for (const m of line.matchAll(/(?:^|[.;]\s+)(?:goes\s+)?before\s+#(\d+)/gi)) {
       if (!NEGATION.test(line.slice(Math.max(0, m.index - 20), m.index + m[0].length))) before.add(Number(m[1]))
