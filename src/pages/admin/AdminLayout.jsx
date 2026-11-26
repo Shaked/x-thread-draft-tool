@@ -7,13 +7,14 @@ import SideLayout from '../../ui/SideLayout'
 import Stack from '../../ui/Stack'
 import AdminMetricsPage from './AdminMetricsPage'
 import AdminStatsPage from './AdminStatsPage'
+import ChangelogPage from '../ChangelogPage'
 
-// The menu of the admin area (#482). `soon` entries have no page yet; each names the task that builds it.
+// The menu of the admin area (#482). `soon` entries have no page yet; each names the task that builds it. `page` entries are built.
 const ENTRIES = [
   { path: '', label: 'Statistics' },
   { path: 'metrics', label: 'Metrics', Page: AdminMetricsPage },
   { path: 'flags', label: 'Feature flags', soon: true },
-  { path: 'changelog', label: 'Changelog', soon: true },
+  { path: 'changelog', label: 'Changelog', page: <ChangelogPage /> },
   { path: 'users', label: 'Users', soon: true },
   { path: 'audit', label: 'Audit log', soon: true }
 ]
@@ -42,8 +43,8 @@ export default function AdminLayout() {
       >
         <Routes>
           <Route index element={<AdminStatsPage />} />
-          {ENTRIES.filter((entry) => entry.soon).map((entry) => (
-            <Route key={entry.path} path={entry.path} element={<EmptyState title={entry.label} description="Coming soon." />} />
+          {ENTRIES.filter((entry) => entry.soon || entry.page).map((entry) => (
+            <Route key={entry.path} path={entry.path} element={entry.page ?? <EmptyState title={entry.label} description="Coming soon." />} />
           ))}
           {ENTRIES.filter((entry) => entry.Page).map(({ path, Page: Content }) => (
             <Route key={path} path={path} element={<Content />} />

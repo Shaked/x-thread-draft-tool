@@ -10,7 +10,6 @@ import TokensPage from './pages/TokensPage'
 import AppsPage from './pages/AppsPage'
 import AboutPage from './pages/AboutPage'
 import FlagsPage from './pages/FlagsPage'
-import ChangelogPage from './pages/ChangelogPage'
 import { applyTheme, getTheme } from './utils/theme'
 import { applySkin } from './utils/skin'
 import { clearCachedDrafts } from './utils/draftCache'
@@ -92,8 +91,8 @@ function App() {
             path="/about"
             element={user ? <AboutPage /> : <LoginPage suspended={suspended} />}
           />
-          {/* Admin only (#368): for anyone else this path is unknown, so the catch-all below answers it. */}
-          {user?.admin === true && <Route path="/changelog" element={<ChangelogPage />} />}
+          {/* Admin only (#484): the changelog moved under /admin. For anyone else this path is unknown, so the catch-all below answers it. */}
+          {isAdmin(user) && <Route path="/changelog" element={<Navigate to="/admin/changelog" replace />} />}
           {/* Admin only (#482): for anyone else this path is unknown, so the catch-all below answers it. */}
           {isAdmin(user) && (
             <Route

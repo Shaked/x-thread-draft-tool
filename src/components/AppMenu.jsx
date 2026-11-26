@@ -62,7 +62,7 @@ export default function AppMenu() {
                 Feature flags
               </Button>
               {user?.admin === true && (
-                <Button variant="ghost" fullWidth to="/changelog" onClick={close}>
+                <Button variant="ghost" fullWidth to="/admin/changelog" onClick={close}>
                   Changelog
                 </Button>
               )}
