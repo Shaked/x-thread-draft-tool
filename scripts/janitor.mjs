@@ -85,7 +85,7 @@ export function similarity(a, b) {
 }
 
 const NEGATION = /\b(not|until|start|no longer)\b|n't\b/i
-const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
+export const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 
 // One clause: it ends at the sentence end, at the next dependency keyword, or where the next field starts.
 // Code spans are not dependencies; a "PR #n" or "see #n" is not one either.
