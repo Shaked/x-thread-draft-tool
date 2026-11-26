@@ -414,6 +414,8 @@ test.describe('UI audit', () => {
         await page.getByRole('menuitem', { name: 'Copy thread' }).click()
         const toast = page.locator('.ui-rare-toast')
         await expect(toast).toBeVisible()
+        // toBeVisible() counts opacity 0 as visible: the stack's own item must be fully opaque, so the toast can be seen
+        await expect.poll(() => toast.evaluate((el) => getComputedStyle(el.closest('[data-sonner-toast]')).opacity), 'toast faded out').toBe('1')
         await expect(toast).toHaveAttribute('role', 'alert')
         await expect(toast).toContainText('Failed to copy to clipboard')
         const close = toast.getByRole('button', { name: 'Close message' })

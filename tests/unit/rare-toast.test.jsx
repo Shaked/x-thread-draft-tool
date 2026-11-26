@@ -111,4 +111,17 @@ describe('Toast (Rare UI, feature flag)', () => {
     expect(document.querySelector('.ui-toast--danger')).toBeNull()
     expect(screen.queryByText('Old failure')).toBeNull()
   })
+
+  it('takes a Rare toast away when a toast shows the old way after the flag is switched off', async () => {
+    localStorage.setItem(KIT_KEY, 'rare')
+    const user = userEvent.setup()
+    renderWith({ message: 'Failed to copy to clipboard', tone: 'danger' })
+    await waitFor(() => expect(stack()).not.toBeNull())
+    await user.click(screen.getByRole('button', { name: 'Ask' }))
+    await waitFor(() => expect(card()).not.toBeNull())
+    localStorage.setItem(KIT_KEY, 'default')
+    await user.click(screen.getByRole('button', { name: 'Ask' }))
+    expect(document.querySelector('.ui-toast--danger')).not.toBeNull()
+    await waitFor(() => expect(card()).toBeNull())
+  })
 })

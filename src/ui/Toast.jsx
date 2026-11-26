@@ -22,6 +22,7 @@ export function ToastProvider({ children }) {
   const counter = useRef(0)
   // The Rare show function, while its stack is mounted; null otherwise.
   const rare = useRef(null)
+  const dismissRare = useRef(null)
 
   const hide = useCallback(() => {
     clearTimeout(timer.current)
@@ -29,10 +30,14 @@ export function ToastProvider({ children }) {
   }, [])
 
   const loadRare = useCallback(() => {
-    loadRareToast().then((module) => setRareToaster(() => module.default))
+    // a failed load (offline, or after a deploy) leaves the plain toast working
+    loadRareToast()
+      .then((module) => setRareToaster(() => module.default))
+      .catch(() => {})
   }, [])
-  const onRare = useCallback((show) => {
+  const onRare = useCallback((show, dismiss) => {
     rare.current = show
+    dismissRare.current = dismiss
   }, [])
   useEffect(() => {
     if (getKit() === 'rare') loadRare()
@@ -49,6 +54,9 @@ export function ToastProvider({ children }) {
           return
         }
         loadRare()
+      } else {
+        // the flag is off: a Rare toast still on screen from before must not stay under this one
+        dismissRare.current?.()
       }
       clearTimeout(timer.current)
       counter.current += 1

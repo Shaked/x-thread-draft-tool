@@ -89,15 +89,22 @@ function RareToastCard({ id, tone, message }) {
 export function showRareToast({ message, tone = 'neutral' }) {
   sonnerToast.dismiss()
   return sonnerToast.custom((id) => <RareToastCard id={id} tone={tone} message={message} />, {
-    duration: tone === 'danger' ? Infinity : TOAST_MS
+    duration: tone === 'danger' ? Infinity : TOAST_MS,
+    // a danger message stays until its Close button is pressed: a swipe does not dismiss it
+    dismissible: tone !== 'danger'
   })
 }
 
-// Mounted by the provider in src/ui/Toast.jsx when the Components flag is on. It hands its show function up while mounted.
+// Takes the message on screen away (the provider calls it when a toast shows the old way, for example after the flag is switched off).
+export function dismissRareToast() {
+  sonnerToast.dismiss()
+}
+
+// Mounted by the provider in src/ui/Toast.jsx when the Components flag is on. It hands its show and dismiss functions up while mounted. hotkey is off: sonner's Alt+T would move focus out of the editor.
 export default function RareToaster({ onReady }) {
   useEffect(() => {
-    onReady(showRareToast)
+    onReady(showRareToast, dismissRareToast)
     return () => onReady(null)
   }, [onReady])
-  return <SonnerToaster position={POSITION} visibleToasts={1} className={TOASTER} containerAriaLabel="Notifications" toastOptions={{ unstyled: true }} />
+  return <SonnerToaster position={POSITION} hotkey={[]} visibleToasts={1} className={TOASTER} containerAriaLabel="Notifications" toastOptions={{ unstyled: true }} />
 }
