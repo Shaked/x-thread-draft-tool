@@ -46,9 +46,16 @@ test('the AI app and the user change the same post: the banner shows, the AI tex
   const id = await createDraft('Conflict banner check')
 
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' })
+  // The editor's live check (GET with If-None-Match, every 4 s) must not pick up the AI change before the user types:
+  // then the user's save would succeed and there would be no 412. Until the user has typed, every live check answers 304.
+  let userHasTyped = false
   await context.route(`${ORIGIN}/**`, (route) => {
-    if (new URL(route.request().url()).pathname.startsWith('/api/')) {
-      return route.continue({ headers: { ...route.request().headers(), authorization: bearer } })
+    const request = route.request()
+    if (new URL(request.url()).pathname.startsWith('/api/')) {
+      if (!userHasTyped && request.method() === 'GET' && request.headers()['if-none-match']) {
+        return route.fulfill({ status: 304 })
+      }
+      return route.continue({ headers: { ...request.headers(), authorization: bearer } })
     }
     return route.continue()
   })
@@ -68,6 +75,7 @@ test('the AI app and the user change the same post: the banner shows, the AI tex
 
   // The user types in the same post before the editor has seen the AI change. The next autosave gets 412.
   await second.click()
+  userHasTyped = true
   await second.pressSequentially(' and my words')
 
   const banner = page.getByRole('alert')
