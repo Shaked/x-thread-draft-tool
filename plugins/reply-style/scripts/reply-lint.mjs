@@ -18,6 +18,7 @@
 //   loose-label     a bold or plain "Done:", "Blocked on you:" ... line used instead of its "## " heading
 //   empty-details   a "## Details" heading with nothing under it: leave the heading out
 //   tldr, steps     TL;DR is 2 to 3 lines and says if the owner must act; the step count matches
+//   session-link    a "Waiting for" item that names a session (the word or a session id) has no session link
 //   evidence        the Done section says "checked" or "not checked"
 //   --kind=changelog: a "# " title, then 1 to 5 lines; no label and no code span anywhere (shape, internal-label);
 //                     the Area line is one of reply-style.changelogAreas, or one word when that list is empty.
@@ -34,6 +35,15 @@ import { ConfigError, DEFAULT_CONFIG, loadConfig } from './config.mjs'
 export { DEFAULT_CONFIG }
 
 export const HEADINGS = ['TL;DR', 'What you need to do', 'Waiting for', 'Blocked on you', 'Done']
+/** Every rule name the lint reports. A test fails when one has no failing fixture or is missing from the skill's "Before you send" list. */
+export const RULES = [
+  'bare-label', 'option-letters', 'unchanged', 'blocked', 'waiting-human', 'long-line', 'emoji', 'slop', 'headings', 'loose-label',
+  'empty-details', 'tldr', 'steps', 'session-link', 'evidence', 'internal-label', 'shape', 'app-name', 'empty-section'
+]
+
+// A session link has the shape the commit attribution uses: https://claude.ai/code/session_<id>. Opening it is not checked.
+const SESSION_LINK = /\]\(https:\/\/claude\.ai\/code\/session_[\w-]+[^)\s]*\)/
+const SESSION_WORD = /\bsessions?\b|\bsession_\w+/i
 const LABEL = /(?<![\w#/])(#\d+|[A-Z]\d+(?:\.\d+)?)(?!\w)/g
 const IS_LABEL = /^(#\d+|[A-Z]\d+(?:\.\d+)?)$/
 // Checked on the raw line with quotes and backticks around one capital letter removed.
@@ -103,8 +113,8 @@ function sections(lines) {
   const found = []
   lines.forEach(({ text, n }) => {
     const h = /^##\s+(.*?)\s*$/.exec(text)
-    if (h) found.push({ name: h[1], line: n, body: [] })
-    else if (found.length && text.trim()) found[found.length - 1].body.push(text)
+    if (h) found.push({ name: h[1], line: n, body: [], nums: [] })
+    else if (found.length && text.trim()) { found[found.length - 1].body.push(text); found[found.length - 1].nums.push(n) }
   })
   return found
 }
@@ -115,6 +125,25 @@ function checkDetails(all, fencedLines, add) {
   if (!details || details.body.length) return
   const next = all.find((s) => s.line > details.line)?.line ?? Infinity
   if (!fencedLines.some((n) => n > details.line && n < next)) add(details.line, 'empty-details', 'leave out the "Details" heading when it is empty')
+}
+
+/** Each "Waiting for" item (a "- " line and its continuation lines) that names a session carries a session link. */
+function checkWaitingSessions(waiting, add) {
+  if (!waiting) return
+  const items = [] // a top-level "- " line starts an item; indented lines and sub-bullets belong to it
+  waiting.body.forEach((t, k) => {
+    if (/^[-*+]\s/.test(t) || !items.length) items.push({ line: waiting.nums[k], lines: [] })
+    items[items.length - 1].lines.push(t)
+  })
+  for (const item of items) {
+    const raw = item.lines.join(' ')
+    // A link's text (an issue or PR title) can hold the word "session"; only words outside links name a session.
+    // A link whose text says "session" or a session id stays, so a link to the wrong place is still found.
+    const forWord = raw.replace(/\[([^\]]*)\]\([^)\s]*\)/g, (link, text) => (/^`?(?:sessions?|session_[\w-]+)`?$/i.test(text.trim()) ? link : ''))
+    if (SESSION_WORD.test(forWord) && !SESSION_LINK.test(raw)) {
+      add(item.line, 'session-link', `"${item.lines[0].trim().slice(0, 50)}" names a session: add its session link next to the task link, [session](https://claude.ai/code/session_<id>)`)
+    }
+  }
 }
 
 function checkTemplate(lines, force, add, fencedLines = []) {
@@ -142,6 +171,7 @@ function checkTemplate(lines, force, add, fencedLines = []) {
     }
   }
   checkDetails(all, fencedLines, add)
+  checkWaitingSessions(all[at[2]], add)
   const done = all[at[4]]
   if (done && !/\bchecked\b/i.test(done.body.join(' '))) add(done.line, 'evidence', 'say "checked" or "not checked"')
 }

@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { spawnSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { HEADINGS, lint } from '../../scripts/reply-lint.mjs'
@@ -132,5 +133,27 @@ describe('session-link rule: a link that says session must have the session addr
   })
   it('passes the right session link', () => {
     expect(lint(reply(`- ${task} · [session](https://claude.ai/code/session_01abc): works.`), { template: true }).map((f) => f.rule)).not.toContain('session-link')
+  })
+})
+
+describe('scripts/reply-lint.mjs wrapper (the plugin lint with this repo config)', () => {
+  const SCRIPT = new URL('../../scripts/reply-lint.mjs', import.meta.url).pathname
+  const BAD = new URL('./fixtures/reply-lint/golden/status-report/bad-loose-label.md', import.meta.url).pathname
+  const GOOD = new URL('./fixtures/reply-lint/golden/status-report/good-1.md', import.meta.url).pathname
+
+  it('exits 1 with the findings on a bad reply, and 0 on a good one', () => {
+    const bad = spawnSync('node', [SCRIPT, '--template', BAD], { encoding: 'utf8' })
+    expect(bad.status).toBe(1)
+    expect(bad.stdout).toContain('loose-label')
+    expect(spawnSync('node', [SCRIPT, '--template', GOOD], { encoding: 'utf8' }).status).toBe(0)
+  })
+
+  it('applies this repo config: "Blocked on Shaked" passes, as before the plugin', () => {
+    expect(rules('Blocked on Shaked for the review.')).toEqual([])
+  })
+
+  it('lets --config override the repo file (a missing one exits 2)', () => {
+    const run = spawnSync('node', [SCRIPT, '--config', '/nonexistent/agent-kit.json', GOOD], { encoding: 'utf8' })
+    expect(run.status).toBe(2)
   })
 })

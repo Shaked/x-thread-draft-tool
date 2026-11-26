@@ -100,6 +100,14 @@ describe('config', () => {
     })
   })
 
+  it('--config naming a file that does not exist exits 2 and names the path', () => {
+    const missing = join(makeDir(), 'nope.json')
+    expect(() => loadConfig({ file: missing })).toThrow(/nope\.json does not exist/)
+    const run = spawnSync('node', [LINT, '--config', missing, join(GOLDEN, 'status-report', 'good-1.md')], { encoding: 'utf8' })
+    expect(run.status).toBe(2)
+    expect(run.stderr).toContain(missing)
+  })
+
   it('humans decide which "blocked on" names are a person', () => {
     const kim = loadConfig({ cwd: makeDir({ '.claude/agent-kit.json': { 'reply-style': { humans: ['Kim'] } } }), env: {} })
     expect(lint('Blocked on Kim for the review.', {}, kim)).toEqual([])

@@ -27,7 +27,8 @@ export function decide(input, env = process.env, config = DEFAULT_CONFIG) {
   }
 }
 
-function main() {
+/** Reads the hook input from stdin and prints the block decision, if any. */
+export function main() {
   let input = null
   try {
     input = JSON.parse(readFileSync(0, 'utf8'))

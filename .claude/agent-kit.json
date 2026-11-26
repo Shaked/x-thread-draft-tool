@@ -1,0 +1,10 @@
+{
+  "owner": "Shaked",
+  "ownerLogin": "Shaked",
+  "repo": "Shaked/x-thread-draft-tool",
+  "reply-style": {
+    "humans": ["Shaked", "the owner"],
+    "allowLines": ["^Implements #\\d+ Task "],
+    "changelogAreas": ["Drafts", "Editor", "AI apps", "Admin", "Design", "Speed", "Security", "Docs"]
+  }
+}

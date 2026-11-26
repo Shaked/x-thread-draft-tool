@@ -32,17 +32,18 @@ export function lintComment(body, config = DEFAULT_CONFIG) {
   return lint(String(body), { template: kind !== 'decision' }, config)
 }
 
-function main() {
+/** Reads the comment from COMMENT_BODY or stdin. `argv` is the argument list (default: the process's). */
+export function main(argv = process.argv) {
   const body = process.env.COMMENT_BODY ?? readFileSync(0, 'utf8')
   const kind = agentCommentKind(body)
   if (!kind) {
     console.log('reply-lint-comment: not an agent comment for the owner, skipped')
     return
   }
-  const configAt = process.argv.indexOf('--config')
+  const configAt = argv.indexOf('--config')
   let config
   try {
-    config = loadConfig({ file: configAt === -1 ? undefined : process.argv[configAt + 1] })
+    config = loadConfig({ file: configAt === -1 ? undefined : argv[configAt + 1] })
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error
     console.error(error.message)

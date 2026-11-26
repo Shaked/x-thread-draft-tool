@@ -48,6 +48,6 @@ describe('reply-style Stop hook (no model)', () => {
 
   it('registers the Stop hook in .claude/settings.json', () => {
     const settings = JSON.parse(readFileSync(new URL('../../.claude/settings.json', import.meta.url), 'utf8'))
-    expect(settings.hooks.Stop[0].hooks[0].command).toContain('scripts/reply-style-stop.mjs')
+    expect(settings.hooks.Stop[0].hooks[0].command).toContain('plugins/reply-style/scripts/reply-style-stop.mjs')
   })
 })
