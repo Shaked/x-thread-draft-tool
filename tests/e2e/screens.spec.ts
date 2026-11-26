@@ -283,8 +283,12 @@ test.describe('screens', () => {
 
       // The admin metrics page (#337): light and dark at both widths.
       const metricsReady = (p: Page) => p.getByRole('heading', { name: 'All routes' })
-      await shoot(browser, width, 'admin-metrics', '/admin/metrics', { token: admin, ready: metricsReady })
-      await shoot(browser, width, 'admin-metrics-dark', '/admin/metrics', { token: admin, theme: 'dark', ready: metricsReady })
+      // The admin routes answer a browser session only, not a bearer token (server/session.js).
+      const adminSession = await request.post(`${BASE}/api/dev/session`, { data: { login: `screens-admin-${width}`, admin: true } })
+      const adminCookie = adminSession.headersArray().find((h) => h.name.toLowerCase() === 'set-cookie')?.value.match(/xt_session=([^;]+)/)?.[1]
+      expect(adminCookie).toBeTruthy()
+      await shoot(browser, width, 'admin-metrics', '/admin/metrics', { cookie: adminCookie!, ready: metricsReady })
+      await shoot(browser, width, 'admin-metrics-dark', '/admin/metrics', { cookie: adminCookie!, theme: 'dark', ready: metricsReady })
 
       // The About page (plan U2): light and dark at both widths. Ready once the server's version has loaded.
       const aboutReady = (p: Page) => p.getByRole('heading', { name: 'About', level: 1 })
