@@ -1,6 +1,6 @@
 # Agents can join a metrics service with one skill
 
-- A new plugin `metrics` in the agent-kit marketplace has the skill `metrics-emit`: how a repository joins, the event shape, what never goes in.
+- A new plugin called metrics in the agent-kit marketplace has the skill metrics-emit: how a repository joins, the event shape, what never goes in.
 - This repo reads the skill in place and has its own metrics settings.
 
 Area: Docs
