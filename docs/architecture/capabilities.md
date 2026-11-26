@@ -37,7 +37,7 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | Feature flags (look) | `no: a browser-only preference, stored on the device like the theme` | `no: a browser-only preference with nothing for an assistant to read or change` | `/settings/flags` | The Rare UI look and the real Rare UI components (#406); two switches in localStorage: `xt-skin` (set as `data-skin` on `<html>`) and `xt-kit` (read by the `src/ui` wrapper `ThemePicker`) |
 | Connected apps | `GET /grants`, `DELETE /grants/:id` | `no: S-5: a person disconnects apps on the Settings page` | `/settings/apps` | Own page since #281 |
 | MCP prompts | `no: a prompt is a message template, it has no REST route` | `prompt:thread_from_notes`, `prompt:tighten_draft`, `prompt:review_before_publish`, `prompt:rewrite_hook` | `no: the AI app shows prompts, no page of ours` | Slash commands in the AI app |
-| Admin status | `GET /admin/status` | `admin_status` | `no: the admin badge (Task 8) shows the same fact` | Admin only |
+| Admin status | `GET /admin/status` | `admin_status` | `no: the admin badge (Task 8) shows the same fact` | Admin only. Web surface (#283): the owner's browser session with `x-xt-admin: 1` answers every `/admin/*` route; the UI pages come in #285 and later |
 | Admin list users | `GET /admin/users` | `admin_list_users` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin user details | `GET /admin/users/:id` | `admin_get_user` | `no: planned in #273 Tasks 11 to 14` | Admin only |
 | Admin statistics | `GET /admin/stats` | `admin_stats` | `no: planned in #273 Tasks 11 to 14` | Admin only |
