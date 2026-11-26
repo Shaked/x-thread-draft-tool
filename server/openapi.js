@@ -84,7 +84,8 @@ export const OPENAPI = {
           published_at: { type: ['string', 'null'], format: 'date-time' },
           created_at: { type: 'string', format: 'date-time' },
           updated_at: { type: 'string', format: 'date-time' },
-          version: { type: 'integer', minimum: 1, description: 'Goes up by one on every write. Send it as the If-Match entity tag on a write.' }
+          version: { type: 'integer', minimum: 1, description: 'Goes up by one on every write. Send it as the If-Match entity tag on a write.' },
+          post_count: { type: 'integer', minimum: 0, description: 'Present on GET /drafts/:id: the number of posts.' }
         }
       },
       ApiToken: {

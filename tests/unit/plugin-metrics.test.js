@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
+import { CAUSES, check } from '../../plugins/metrics/scripts/finding-check.mjs'
 import { ConfigError, loadMetricsConfig, missingKeys } from '../../plugins/metrics/scripts/metrics-config.mjs'
 
 const PLUGIN = fileURLToPath(new URL('../../plugins/metrics/', import.meta.url))
@@ -67,6 +68,54 @@ describe('golden config fixtures (sample project acme/sample-app)', () => {
   }
 })
 
+const FINDINGS = join(PLUGIN, 'fixtures', 'finding')
+// The rules each bad finding fixture must fail for, and only those.
+const WANT_FINDING = { 'bad-headings.md': ['headings', 'links'], 'bad-numbers.md': ['numbers'], 'bad-cause.md': ['cause'], 'bad-limit.md': ['limit'], 'bad-links.md': ['links'] }
+
+describe('finding issue template, golden fixtures', () => {
+  it('every bad fixture is listed here, and a good one exists', () => {
+    expect(readdirSync(FINDINGS).filter((f) => f.startsWith('bad-')).sort()).toEqual(Object.keys(WANT_FINDING).sort())
+    expect(readdirSync(FINDINGS).filter((f) => f.startsWith('good-')).length).toBeGreaterThan(0)
+  })
+  it('the one template has a fixture folder with a good and a bad fixture', () => {
+    expect(readdirSync(join(SKILLS, 'metrics-read-act', 'templates'))).toEqual(['finding-issue.md'])
+    expect(readdirSync(FINDINGS).some((f) => f.startsWith('good-'))).toBe(true)
+    expect(readdirSync(FINDINGS).some((f) => f.startsWith('bad-'))).toBe(true)
+  })
+  it('the command line exits 2 for a missing file and for no argument', () => {
+    const script = join(PLUGIN, 'scripts', 'finding-check.mjs')
+    expect(spawnSync('node', [script, join(FINDINGS, 'nope.md')], { encoding: 'utf8' }).status).toBe(2)
+    expect(spawnSync('node', [script], { encoding: 'utf8' }).status).toBe(2)
+    expect(spawnSync('node', [script, join(FINDINGS, 'good-1.md')], { encoding: 'utf8' }).status).toBe(0)
+    expect(spawnSync('node', [script, join(FINDINGS, 'bad-limit.md')], { encoding: 'utf8' }).status).toBe(1)
+  })
+  for (const f of readdirSync(FINDINGS)) {
+    it(f, () => {
+      const rules = [...new Set(check(readFileSync(join(FINDINGS, f), 'utf8')).map((x) => x.rule))].sort()
+      expect(rules).toEqual(f.startsWith('good-') ? [] : [...WANT_FINDING[f]].sort())
+    })
+  }
+  it('good-3 (the sections under "## Details" of a reply template) also passes the reply lint with this repo settings', async () => {
+    const { lint } = await import('../../plugins/reply-style/scripts/reply-lint.mjs')
+    const { loadConfig } = await import('../../plugins/reply-style/scripts/config.mjs')
+    const cfg = loadConfig({ cwd: join(PLUGIN, '..', '..'), env: {} })
+    expect(lint(readFileSync(join(FINDINGS, 'good-3.md'), 'utf8'), { template: true }, cfg)).toEqual([])
+  })
+  it('the skill lists every cause the check accepts, and the template names them', () => {
+    const skill = readFileSync(join(SKILLS, 'metrics-read-act', 'SKILL.md'), 'utf8')
+    const template = readFileSync(join(SKILLS, 'metrics-read-act', 'templates', 'finding-issue.md'), 'utf8')
+    for (const cause of CAUSES) {
+      expect(skill, cause).toContain(`| ${cause} |`)
+      expect(template, cause).toContain(cause)
+    }
+  })
+  it('the skill names the real tools of the service', () => {
+    const skill = readFileSync(join(SKILLS, 'metrics-read-act', 'SKILL.md'), 'utf8')
+    for (const tool of ['admin_metrics_summary', 'admin_metrics_events', 'admin_metrics_series', 'get_job_logs', 'actions_run_trigger', 'issue_write']) expect(skill).toContain(tool)
+    expect(skill).toMatch(/Never change a limit/)
+  })
+})
+
 describe('config', () => {
   it('no file means every value is empty', () => {
     expect(missingKeys(load(undefined))).toEqual(['app', 'repo', 'siteUrl', 'ingestUrl'])
@@ -103,7 +152,7 @@ describe('skills', () => {
   const names = readdirSync(SKILLS)
 
   it('has the skills of this version', () => {
-    expect(names.sort()).toEqual(['metrics-emit'])
+    expect(names.sort()).toEqual(['metrics-emit', 'metrics-read-act'])
   })
 
   for (const name of names) {

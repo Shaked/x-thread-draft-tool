@@ -6,7 +6,8 @@
 //   2. Hebrew stays as written: the user's Hebrew comes back byte for byte, and server text adds no direction marks.
 //   3. each text fits its length limit.
 //   4. (#405) an edit result quotes only the posts the edit changed, never the whole draft again.
-//   5. (#371) the view labels (English and Hebrew) hold no direction mark or invisible character.
+//   5. (#390) the state line of a draft result holds no user text.
+//   6. (#371) the view labels (English and Hebrew) hold no direction mark or invisible character.
 // A part that clients.json says the client does not read (false) is skipped for that client; "not checked" counts
 // as read, the safe case. tests/api/mcp-discovery.test.js runs it and prints the table.
 import { isCleanServerText } from '../../../server/mcp/language.js'
@@ -105,6 +106,11 @@ export function templatesFor(profile, server) {
       const others = before.posts.map((post) => post.text)
       out.push({ group: 'results', name: `edit result (${lang})`, text: server.editText(before, after), keep: `${sample} new`, others })
     }
+    // #390: the state line holds only server words, numbers and links: none of the user's title, post text or image url.
+    if (server.stateLine) {
+      const draft = { id: '2228075f-5ab2-47f6-adf4-5cb80a76e4fa', version: 2, title: sample, posts: [{ id: 'p1', text: sample, images: [{ url: `https://img.example/${encodeURIComponent(sample)}.png` }] }] }
+      out.push({ group: 'results', name: `state line (${lang})`, text: server.stateLine(draft, 'update_post', 'https://app.example'), absent: [sample, encodeURIComponent(sample)] })
+    }
   }
   return out
 }
@@ -132,6 +138,8 @@ export function formatEval(clients, server) {
       else row.length += 1
       // #405: an edit result that quotes posts the edit did not change shows the whole draft again.
       const repeated = (t.others ?? []).filter((other) => t.text.includes(other))
+      const leaked = (t.absent ?? []).filter((user) => t.text.includes(user))
+      if (leaked.length) problems.push(`${where}: holds user text`)
       if (repeated.length) problems.push(`${where}: shows ${repeated.length} posts the edit did not change`)
     }
     rows.push(...Object.values(groups))

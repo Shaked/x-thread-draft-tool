@@ -14,6 +14,7 @@ import { adminTool, listAdminTools } from './admin-tools.js'
 import { mcpAdminReason } from '../admin/role.js'
 import { PREVIOUS_POST } from '../routes/drafts.js'
 import { changeMeta, changesText } from './edit-result.js'
+import { stateLine } from './state-line.js'
 
 const UUID = { type: 'string', format: 'uuid' }
 const TITLE = { type: 'string', maxLength: 500, description: 'Draft title, at most 500 characters.' }
@@ -640,11 +641,20 @@ export async function callTool(name, args, { caller, origin }) {
     if (VIEW_OUTLINE[name] && result._meta) {
       for (const text of EDIT_TOOLS.includes(name) ? editTexts(name, result, origin) : [markdownOf(result)]) result.content.push({ type: 'text', text })
     }
+    addStateLine(result, name, args, origin)
     return result
   } catch (err) {
     console.error('[mcp] tool failed', name, err)
     return toolError('The tool failed. Try again.')
   }
+}
+
+/** #390: every successful draft result ends with the state line (id, version, counts, editor link, next step). */
+function addStateLine(result, name, args, origin) {
+  if (result.isError) return
+  const uploadOnly = name === 'add_image_from_url' && args.postId === undefined && args.replace === undefined
+  const line = stateLine(result.structuredContent?.draft, name, origin, { postId: args.postId ?? args.post_id, uploadOnly })
+  if (line) result.content.push({ type: 'text', text: line })
 }
 
 /** Calls the REST router in-process as `caller`. No Authorization header: the caller is set in runAs. */
