@@ -198,16 +198,25 @@ function checkShipped(c, i) {
   }
 }
 
+// One epic: the same parent, or, only when neither has a parent, the same title prefix. Two different parents never match.
+function sameEpic(x, y) {
+  if (x.parent !== null || y.parent !== null) return x.parent === y.parent
+  const px = taskId(x)?.prefix
+  return Boolean(px) && px === taskId(y)?.prefix
+}
+
+// Nothing has started on the issue: its comments are loaded and show no CLAIM or HANDOFF, and no PR names it.
+function untouched(c, i) {
+  const f = c.facts.get(i.number)
+  return Boolean(c.loaded(i)) && !c.marked('claim', i) && !f.claim && !f.handoffs.length && !c.prsNaming(i.number).length && !c.hasOpenPr(i)
+}
+
 function checkPair(c, x, y) {
   const same = x.title.trim().toLowerCase() === y.title.trim().toLowerCase()
   const ix = taskId(x)
   const sameId = Boolean(ix) && ix.id === taskId(y)?.id && c.scope(x) !== null && c.scope(x) === c.scope(y)
   if (same) {
-    // Allowed only in one epic (same parent or same title prefix) and when the newer one has no CLAIM or HANDOFF.
-    const sameScope = (x.parent !== null && x.parent === y.parent) || (Boolean(ix?.prefix) && ix.prefix === taskId(y)?.prefix)
-    const newer = c.facts.get(y.number)
-    const untouched = Boolean(c.loaded(y)) && !c.marked('claim', y) && !newer.claim && !newer.handoffs.length && !c.prsNaming(y.number).length && !c.hasOpenPr(y)
-    const act = sameScope && untouched ? 'allowed' : 'dispatcher'
+    const act = sameEpic(x, y) && untouched(c, y) ? 'allowed' : 'dispatcher'
     c.add('duplicate', [x.number, y.number], `${ref(x.number)} and ${ref(y.number)} have the same title.`, `Read both; if the bodies match, close {#${y.number}} as a duplicate of {#${x.number}} with a comment.`, act)
   } else if (sameId) {
     c.add('duplicate', [x.number, y.number], `${ref(x.number)} and ${ref(y.number)} have the same task id \`${ix.id}\`.`, `Read both; if the bodies match, close {#${y.number}} as a duplicate of {#${x.number}} with a comment.`)
@@ -244,12 +253,20 @@ function checkRefs(c, i, d) {
   }
 }
 
-function checkMissing(c, i, d) {
+const scopeOf = (i) => i.parent ?? taskId(i)?.prefix ?? null
+
+/** The one issue a bare task id ("M5") names, in the same epic or with the same title prefix; null when none or several. */
+export function resolveTaskId(all, i, id) {
   const own = taskId(i)
+  const hits = all.filter((x) => x.number !== i.number && taskId(x)?.id === id && (scopeOf(x) === scopeOf(i) || (Boolean(own?.prefix) && taskId(x).prefix === own.prefix)))
+  return hits.length === 1 ? hits[0].number : null
+}
+
+function checkMissing(c, i, d) {
   for (const id of d.named) {
-    const hits = c.all.filter((x) => x.number !== i.number && taskId(x)?.id === id && (c.scope(x) === c.scope(i) || (Boolean(own?.prefix) && taskId(x).prefix === own.prefix)))
-    if (hits.length === 1 && !d.refs.includes(hits[0].number)) {
-      c.add('missing-dependency', [i.number, hits[0].number], `${ref(i.number)} names \`${id}\` in "Depends on" without its number.`, `Add \`Depends on: #${hits[0].number}\`.`, 'allowed')
+    const n = resolveTaskId(c.all, i, id)
+    if (n !== null && !d.refs.includes(n)) {
+      c.add('missing-dependency', [i.number, n], `${ref(i.number)} names \`${id}\` in "Depends on" without its number.`, `Add \`Depends on: #${n}\`.`, 'allowed')
     }
   }
   for (const n of d.before) {
@@ -344,7 +361,7 @@ export function analyze(snapshot, { today = new Date().toISOString(), staleDays 
       || (c.loaded(i) || []).some((x) => /\bPR #\d+|\/pull\/\d+/.test(x.body || '')),
     // Merged PRs whose title or body says "Closes", "Fixes", "Resolves" or "Implements #n".
     prsNaming: (n) => [...(snapshot.pulls || [])].filter((p) => new RegExp(`\\b(closes|fixes|resolves|implements)\\s+#${n}\\b`, 'i').test(`${p.title}\n${p.body || ''}`)).map((p) => p.number).sort((a, b) => a - b),
-    scope: (i) => i.parent ?? taskId(i)?.prefix ?? null,
+    scope: scopeOf,
     add: (kind, issues, what, fix, act = 'dispatcher') => out.push({ kind, issues, what, fix, act })
   }
   const owner = String(snapshot.repo || REPO).split('/')[0]
@@ -365,12 +382,15 @@ export function analyze(snapshot, { today = new Date().toISOString(), staleDays 
   return out
 }
 
-/** A valid order of the open tasks: dependencies and "goes before" first, then by number. Tasks in a cycle are left out. */
+/** A valid order of the open tasks: dependencies (numbers and resolved task ids) and "goes before" first, then by number. Tasks in a cycle are left out. */
 export function order(snapshot) {
-  const open = (snapshot.issues || []).map(normalize).filter((i) => i.state === 'open' && i.labels.includes('task'))
+  const all = (snapshot.issues || []).map(normalize)
+  const open = all.filter((i) => i.state === 'open' && i.labels.includes('task'))
   const set = new Set(open.map((i) => i.number))
   const parsed = new Map(open.map((i) => [i.number, dependencies(i.body)]))
-  const need = new Map(open.map((i) => [i.number, parsed.get(i.number).refs.filter((n) => set.has(n) && n !== i.number)]))
+  // Numbers, plus task ids that name exactly one issue ("Depends on: M5").
+  const edges = (i) => [...parsed.get(i.number).refs, ...parsed.get(i.number).named.map((id) => resolveTaskId(all, i, id))]
+  const need = new Map(open.map((i) => [i.number, [...new Set(edges(i))].filter((n) => set.has(n) && n !== i.number)]))
   // "Goes before #n" on task a means #n waits for a.
   for (const [a, d] of parsed) for (const n of d.before) if (set.has(n) && n !== a && !need.get(n).includes(a)) need.get(n).push(a)
   const done = new Set()

@@ -187,6 +187,11 @@ describe('allowed fixes stay narrow', () => {
   const base = (issues, comments = {}) => ({ repo: 'example/repo', issues, pulls: [], open_pulls: [], markers: {}, comments })
   const issue = (number, title, extra = {}) => ({ number, title, state: 'open', labels: [{ name: 'task' }], body: '', updated_at: TODAY, ...extra })
 
+  it('orders a dependency named by task id only', () => {
+    const snap = base([issue(1, 'E9 task A1: first', { body: 'Depends on A2.' }), issue(2, 'E9 task A2: second task')])
+    expect(order(snap).order).toEqual([2, 1])
+  })
+
   it('orders "Depends on #2; goes before #3" as 2, 1, 3', () => {
     const snap = base([issue(1, 'E9 task A1: one', { body: 'Depends on #2; goes before #3.' }), issue(2, 'E9 task A2: two'), issue(3, 'E9 task A3: three')])
     expect(order(snap)).toEqual({ order: [2, 1, 3], left: [] })
@@ -206,6 +211,8 @@ describe('allowed fixes stay narrow', () => {
     const handoff = { 2: [{ created_at: TODAY, author_association: 'OWNER', body: 'HANDOFF A1 - partial\nRELEASE' }] }
     const withHandoff = analyze(base([issue(1, 'Same work'), issue(2, 'Same work')], handoff), { today: TODAY })
     expect(withHandoff.find((f) => f.kind === 'duplicate').act).toBe('dispatcher')
+    const twoParents = analyze(base([issue(1, 'E9 task A1: same', { parent: 7 }), issue(2, 'E9 task A1: same', { parent: 8 })], { 2: [] }), { today: TODAY })
+    expect(twoParents.find((f) => f.kind === 'duplicate').act).toBe('dispatcher')
     const twoEpics = analyze(base([issue(1, 'Same work', { parent: 7 }), issue(2, 'Same work', { parent: 8 })]), { today: TODAY })
     expect(twoEpics.find((f) => f.kind === 'duplicate').act).toBe('dispatcher')
     const noParent = analyze(base([issue(1, 'Same work'), issue(2, 'Same work')], { 2: [] }), { today: TODAY })
