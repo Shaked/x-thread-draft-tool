@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { lint, HEADINGS } from '../../scripts/reply-lint.mjs'
 import { spawnSync } from 'node:child_process'
-import { analyzeSessions, claimOf, describeSnapshot, formatSummary, inScope, KINDS, passOneFindings, summaryCounts, needs, normalizeSession, quote, SESSION_FIELDS, titleIssue, validateSessions } from '../../scripts/session-janitor.mjs'
+import { analyzeSessions, claimOf, describeSnapshot, formatSummary, inScope, KINDS, passOneFindings, splitSummary, summaryCounts, needs, normalizeSession, quote, SESSION_FIELDS, titleIssue, validateSessions } from '../../scripts/session-janitor.mjs'
 
 const load = (name) => JSON.parse(readFileSync(new URL(`./fixtures/session-janitor/${name}`, import.meta.url), 'utf8'))
 const sessions = load('sessions.json')
@@ -282,6 +282,21 @@ describe('the templated summary', () => {
     expect(rows.length).toBe(findings.length)
     for (const row of rows) expect(row).toMatch(/\]\(https:\/\/claude\.ai\/code\/session_\w+\)/)
     expect(rows.filter((r) => !r.includes('| none |')).every((r) => /\]\(https:\/\/github\.com\/example\/repo\/issues\/\d+\)/.test(r))).toBe(true)
+  })
+
+  it('splits a summary over the comment limit into parts that each pass the lint', () => {
+    expect(splitSummary(findings, options)).toEqual([text])
+    const max = 3000
+    const parts = splitSummary(findings, { ...options, pass1: 'Task janitor report.\n' }, max)
+    expect(parts.length).toBeGreaterThan(1)
+    expect(parts.every((p) => p.length <= max)).toBe(true)
+    expect(lint(parts[0], { template: true })).toEqual([])
+    for (const p of parts.slice(1)) expect(lint(p)).toEqual([])
+    const rows = parts.join('\n').split('\n').filter((l) => l.startsWith('| ') && l.includes('`session_'))
+    expect(rows.length).toBe(findings.length)
+    expect(parts[0]).not.toContain('### Pass 1 report')
+    expect(parts[0]).toContain('in the next comments (continued parts)')
+    expect(parts.at(-1)).toContain(`part ${parts.length} of ${parts.length}`)
   })
 
   it('pads a short PR title with "pull request"', () => {

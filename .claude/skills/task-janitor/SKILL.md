@@ -125,8 +125,10 @@ The slash command [`/janitor`](../../commands/janitor.md) runs the steps below. 
    reading its HANDOFF" }]`.
 5. `node scripts/session-janitor.mjs report sessions.json snapshot.json --comments comments.json --pulls pulls.json
    --applied applied.json --pass1 pass1.txt > summary.md`. Run `npm run reply-lint -- --template summary.md`; it
-   must pass. The command prints the summary's size on stderr: over 60 000 characters, leave out `--pass1` and post
-   `pass1.txt` as a second comment.
+   must pass. Each comment stays under 60 000 characters: when the summary is longer, the command first leaves the
+   pass 1 text out, then puts the table rows that do not fit in continuation parts, `summary-2.md`, `summary-3.md` and
+   so on (`--parts <prefix>` sets the name). stderr says how many comments there are and whether pass 1 was left out.
+   Lint each part with `npm run reply-lint -- <file>`; post them in order, then `pass1.txt` if it was left out.
 6. Post it, with the Claude Code footer, on the standing issue #497 (Janitor reports tracker issue). Never open a
    second tracker.
 

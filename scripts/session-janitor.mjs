@@ -16,7 +16,7 @@
 //
 // analyzeSessions() is pure: the tests run it on fixtures.
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { analyze as passOne, commentFacts, describeAll, expand, migrationTables, normalize, REPO, shortName, TRUSTED } from './janitor.mjs'
 
@@ -409,6 +409,46 @@ export function describeSnapshot(snapshot) {
   return names
 }
 
+const TABLE_HEAD = ['| Kind | Session | Issue | Evidence | Proposed action |', '|---|---|---|---|---|']
+
+/** The findings table: one row per finding, with the Claude session and the issue as links. */
+function findingRows(findings, x, repo) {
+  return [...TABLE_HEAD, ...findings.map((f) => {
+    const sessions = f.sessions.length ? f.sessions.map((id) => `[${code(id)}](https://claude.ai/code/${id})`).join(', ') : 'none'
+    const issue = f.issue ? `[${x(ref(f.issue))}](https://github.com/${repo}/issues/${f.issue})` : 'none'
+    return `| ${[LABELS.get(f.kind), sessions, issue, x(f.evidence), `${x(f.action)} \`${f.act}\``].map(cell).join(' | ')} |`
+  })]
+}
+
+/** A continuation comment: more rows of the findings table. Each part describes its labels again, so it reads alone. */
+export function formatPart(findings, { today, repo = REPO, names = new Map(), part, of }) {
+  const seen = new Set()
+  const lines = [`Janitor report, ${String(today).slice(0, 10)}: findings continued, part ${part} of ${of}.`, '', ...findingRows(findings, (t) => expand(t, names, seen), repo)]
+  return lines.join('\n') + '\n'
+}
+
+/**
+ * The summary as comments of at most `max` characters: the templated summary first (all counts, as many rows as fit),
+ * then continuation parts with the other rows. Pass 1 text is left out when the first part does not fit with it.
+ */
+export function splitSummary(findings, options, max = COMMENT_MAX) {
+  const whole = formatSummary(findings, options)
+  if (whole.length <= max) return [whole]
+  const base = { ...options, pass1: '' }
+  let shown = findings.length
+  while (shown > 0 && formatSummary(findings, { ...base, shown }).length > max) shown--
+  const chunks = []
+  let rest = findings.slice(shown)
+  while (rest.length) {
+    let n = rest.length
+    while (n > 1 && formatPart(rest.slice(0, n), { ...options, part: 2, of: 9 }).length > max) n--
+    chunks.push(rest.slice(0, n))
+    rest = rest.slice(n)
+  }
+  const of = chunks.length + 1
+  return [formatSummary(findings, { ...base, shown }), ...chunks.map((c, k) => formatPart(c, { ...options, part: k + 2, of }))]
+}
+
 /** The counts at the top and the TL;DR, up to the "What you need to do" heading. */
 function summaryTop(findings, { counts, today, applied, pass1Findings, dispatcher, owner }) {
   return [
@@ -434,7 +474,7 @@ function summaryTop(findings, { counts, today, applied, pass1Findings, dispatche
  * The summary text (template: .claude/skills/reply-style/templates/janitor-summary.md). Pure: the golden test pins it.
  * counts: { sessions, pages, issues }; applied: [{ issue, what }]; pass1: the pass 1 report text, or ''.
  */
-export function formatSummary(findings, { counts, today, repo = REPO, names = new Map(), applied = [], pass1 = '', pass1Findings = [] }) {
+export function formatSummary(findings, { counts, today, repo = REPO, names = new Map(), applied = [], pass1 = '', pass1Findings = [], shown = findings.length }) {
   const seen = new Set([154])
   const x = (text) => expand(text, names, seen)
   // Pass 1 findings count too: their owner items go to the owner, the rest to the dispatcher. Their text is under Details.
@@ -459,14 +499,8 @@ export function formatSummary(findings, { counts, today, repo = REPO, names = ne
   lines.push('', '## Details', '### Findings')
   if (!findings.length) lines.push('No findings.')
   else {
-    lines.push('| Kind | Session | Issue | Evidence | Proposed action |', '|---|---|---|---|---|')
-    for (const f of findings) {
-      // Both links on every row: the Claude session and the issue open with one click.
-      const sessions = f.sessions.length ? f.sessions.map((id) => `[${code(id)}](https://claude.ai/code/${id})`).join(', ') : 'none'
-      const issue = f.issue ? `[${x(ref(f.issue))}](https://github.com/${repo}/issues/${f.issue})` : 'none'
-      const cells = [LABELS.get(f.kind), sessions, issue, x(f.evidence), `${x(f.action)} \`${f.act}\``].map(cell)
-      lines.push(`| ${cells.join(' | ')} |`)
-    }
+    lines.push(...findingRows(findings.slice(0, shown), x, repo))
+    if (shown < findings.length) lines.push('', `${plural(findings.length - shown, 'more finding is', 'more findings are')} in the next comments (continued parts).`)
   }
   if (pass1.trim()) {
     lines.push('', '### Pass 1 report (task janitor)',
@@ -533,7 +567,7 @@ function main() {
     process.stdout.write(JSON.stringify(findings, null, 1) + '\n')
     return
   }
-  const text = formatSummary(findings, {
+  const parts = splitSummary(findings, {
     counts: summaryCounts(doc, snapshot),
     today,
     repo: snapshot.repo || REPO,
@@ -542,8 +576,12 @@ function main() {
     pass1: opt('--pass1') ? readFileSync(opt('--pass1'), 'utf8') : '',
     pass1Findings: opt('--pass1') ? passOneFindings(snapshot, comments) : []
   })
-  process.stdout.write(text)
-  console.error(`summary: ${text.length} characters${text.length > COMMENT_MAX ? `, over ${COMMENT_MAX}: leave out --pass1 and post pass1.txt as a second comment` : ''}`)
+  process.stdout.write(parts[0])
+  // Over the comment limit: part 1 is printed, the other parts go to files named after --parts (summary-2.md, ...).
+  const prefix = opt('--parts')
+  parts.slice(1).forEach((text, k) => writeFileSync(`${prefix || 'summary'}-${k + 2}.md`, text))
+  const left = opt('--pass1') && !parts[0].includes('### Pass 1 report') ? '; pass 1 text left out: post pass1.txt as its own comment' : ''
+  console.error(`summary: ${parts.length} ${parts.length > 1 ? 'comments' : 'comment'}, ${parts.map((t) => t.length).join(' + ')} characters${left}`)
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

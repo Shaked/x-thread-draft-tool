@@ -17,8 +17,9 @@ Run the janitor. Follow `.claude/skills/task-janitor/SKILL.md` ("Run both passes
    For a duplicate pair, pass 2's `duplicate-issue` finding wins: when it says `dispatcher`, close nothing.
 6. `node scripts/session-janitor.mjs report sessions.json snapshot.json --comments comments.json --pulls pulls.json
    --applied applied.json --pass1 pass1.txt > summary.md`, then `npm run reply-lint -- --template summary.md`.
-   The command prints the size; over 60 000 characters, leave out `--pass1` and post `pass1.txt` as a second comment.
-7. Post `summary.md`, with the Claude Code footer, as a comment on #497 (Janitor reports tracker issue).
+   Over 60 000 characters it splits: stderr names the extra parts (`summary-2.md`, ...) and says if pass 1 was left out.
+7. Post `summary.md`, then any parts and `pass1.txt` if it was left out, each with the Claude Code footer, as comments
+   on #497 (Janitor reports tracker issue).
 
 Never delete anything, never archive a session that is not completed, never close unfinished work, never print a
 secret or a session token. Do not resume or message sessions: list them for the dispatcher.
