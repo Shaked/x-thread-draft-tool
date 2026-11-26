@@ -77,18 +77,25 @@ describe('reply-lint rules', () => {
     const examples = [...templates('telegram-message.md').matchAll(/^Example:\n```text\n([\s\S]*?)```$/gm)].map((m) => m[1])
     expect(examples).toHaveLength(8)
     for (const message of examples) {
-      expect(lint(message, { kind: 'telegram' }), message).toEqual([])
+      expect(lint(message, { kind: 'telegram', app: 'Thread Draft' }), message).toEqual([])
     }
-    expect(rules('Production is live\n[Open](https://x.test)', { kind: 'telegram' })).toEqual(['shape'])
+    expect(rules('Production is live\n[Open](https://x.test)', { kind: 'telegram' })).toEqual(['app-name'])
     // #463: the headline needs its emoji, and a "nothing" section is flagged.
-    expect(rules('**[Production is live](https://x.test)**\nT', { kind: 'telegram' })).toEqual(['shape'])
-    expect(rules('✅ **[Production is live](https://x.test)**\nT\nNothing needed.', { kind: 'telegram' })).toEqual(['empty-section'])
-    expect(rules('✅ **[Production is live](https://x.test)**\nT 🎉', { kind: 'telegram' })).toEqual(['emoji'])
+    expect(rules('**Thread Draft** · [Production is live](https://x.test)\nT', { kind: 'telegram' })).toEqual(['shape'])
+    expect(rules('✅ **Thread Draft** · [Production is live](https://x.test)\nT\nNothing needed.', { kind: 'telegram' })).toEqual(['empty-section'])
+    expect(rules('✅ **Thread Draft** · [Production is live](https://x.test)\nT 🎉', { kind: 'telegram' })).toEqual(['emoji'])
+    // #504: a message without the app name fails, and --app requires that exact name.
+    expect(rules('✅ **[Production is live](https://x.test)**\nT', { kind: 'telegram' })).toEqual(['app-name'])
+    expect(rules('✅ **Production is live**\nT', { kind: 'telegram' })).toEqual(['app-name'])
+    expect(rules('✅ [Production is live](https://x.test)\nT', { kind: 'telegram' })).toEqual(['app-name'])
+    expect(rules('✅ **Thread Draft** ·\nT', { kind: 'telegram' })).toEqual(['app-name'])
+    expect(rules('✅ **Thread Draft** · [Live](https://x.test)\nT', { kind: 'telegram', app: 'Thread Draft' })).toEqual([])
+    expect(rules('✅ **Thread Draft** · [Live](https://x.test)\nT', { kind: 'telegram', app: 'Recipe Box' })).toEqual(['app-name'])
     // A real title that starts with "None" or "Nothing" is not an empty section.
     for (const title of ['None of the drafts are lost on reload', 'Nothing breaks when offline', 'Nothing lost after reload']) {
-      expect(rules(`🙋 **[An issue needs you](https://x.test)**\n${title}`, { kind: 'telegram' }), title).toEqual([])
+      expect(rules(`🙋 **Thread Draft** · [An issue needs you](https://x.test)\n${title}`, { kind: 'telegram' }), title).toEqual([])
     }
     // The headline is the first prose line, even after a fenced block.
-    expect(rules('```\nx\n```\n✅ **[P](https://x.test)**\nT', { kind: 'telegram' })).toEqual([])
+    expect(rules('```\nx\n```\n✅ **Thread Draft** · [P](https://x.test)\nT', { kind: 'telegram' })).toEqual([])
   })
 })
