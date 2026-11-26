@@ -469,3 +469,18 @@ Some components have a second implementation behind the Components feature flag 
 
 - States: stacked under 768 px; a 14 rem side column from 768 px (`--flex-min`).
 - Example: `<SideLayout side={<nav>…</nav>}><Section title="Statistics" /></SideLayout>`
+
+## LoadBoundary
+- File: `src/ui/LoadBoundary.jsx` (also exports `ReloadNotice`)
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `children` | node | required | A `Suspense` with a `React.lazy` part inside. |
+| `fallback` | node | `ReloadNotice` | Shown when the lazy file fails to load. Rare UI parts pass the current component. |
+
+- Why (#551): after a deploy, an open tab asks for a file of the build before. Vercel answers it with `index.html`,
+  the import fails, and without a boundary React removes the whole page. React keeps a failed import, so only a reload helps.
+- `ReloadNotice`: a warning `Banner` (role alert) with a Reload button.
+- Example: `<LoadBoundary fallback={current}><Suspense fallback={current}><RareThemeSelector /></Suspense></LoadBoundary>`

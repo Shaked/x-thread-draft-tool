@@ -14,6 +14,9 @@ import { allowFlags, forgetFlags, setKit, setSkin } from './utils/skin'
 import { clearCachedDrafts } from './utils/draftCache'
 import { ToastProvider } from './ui/Toast'
 import { ConfirmProvider } from './ui/Dialog'
+import LoadBoundary, { ReloadNotice } from './ui/LoadBoundary'
+import Page from './ui/Page'
+import PageHeader from './ui/PageHeader'
 
 // The admin area is its own chunk that only an admin's browser asks for (#285). Keep this the only import of it.
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
@@ -103,9 +106,12 @@ function App() {
             <Route
               path="/admin/*"
               element={
-                <Suspense fallback={<div className="loading">Loading...</div>}>
-                  <AdminLayout />
-                </Suspense>
+                // A deploy since this tab loaded removes the old admin file: a notice with Reload, not an empty page (#551).
+                <LoadBoundary fallback={<Page><PageHeader title="This page could not load" back={{ to: '/', label: '← Back to drafts' }} /><ReloadNotice /></Page>}>
+                  <Suspense fallback={<div className="loading">Loading...</div>}>
+                    <AdminLayout />
+                  </Suspense>
+                </LoadBoundary>
               }
             />
           )}
