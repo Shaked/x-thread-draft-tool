@@ -73,7 +73,9 @@ The `/api/admin/*` routes also answer the owner's browser session. All of these 
 5. `roleOf` in `role.js` says admin for the GitHub id in the session. `ADMIN_DISABLED=1` turns this off too.
 6. Then the one statement that checks revoked, suspended and exists.
 
-The check is `realSession` in `server/session.js`, used only by `server/admin/guard.js`. It ignores view-as. Each web call adds 1 to the per-minute MCP count (120 a minute); past that the answer is 429. The router gate (`adminPathOpen`) is async and never counts. The per-tool route binding applies to MCP only. Web admin changes (any method but GET) need a browser sign-in from the last 12 hours (`WEB_WRITE_MAX_AGE_SECONDS` in `server/admin/guard.js`; a refusal is 403 "Sign in again: ..."). Reads are not limited. This is owner decision O6, and 12 hours is its default. MCP has no such rule.
+The check is `realSession` in `server/session.js`, used only by `server/admin/guard.js`. It ignores view-as. Each web call adds 1 to the per-minute MCP count (120 a minute); past that the answer is 429. The router gate (`adminPathOpen`) is async and never counts. The per-tool route binding applies to MCP only. Web admin changes (any method but GET) need a browser sign-in from the last 7 days (`WEB_WRITE_MAX_AGE_SECONDS` in `server/admin/guard.js`; a refusal is 403 "Sign in again: ..." with the code `sign_in_again`). Reads are not limited. The owner set 7 days on 2026-11-26 (#552); it was 12 hours (O6). MCP has no such rule: the window applies to the web surface only, and the MCP tools keep their own confirm tokens.
+
+When the web gets `sign_in_again`, the admin pages (`SignInAgain` in `src/components/admin/`, wired into `adminApi` in `src/utils/api.js`) open a dialog with one button. It opens `/api/auth/login?popup=1` in a pop-up; the callback sets the session and answers a page that closes the pop-up. The change is then repeated once by itself. If the pop-up is closed without signing in, nothing is saved and the page says "You did not sign in, so nothing changed." This holds for every admin write: flags, suspend, unsuspend and delete.
 
 A delete confirm token is bound to its surface and its binding: the MCP grant on MCP, the browser session's `jti` on web (`bindOf` in `server/admin/confirm.js`). A token opens only on the surface that made it, and only in the session that made it. Another session's token, or a token from the other surface, answers 400 "confirm_token is not valid for this call. Run the dry run again."
 
@@ -81,12 +83,12 @@ The browser pages are under `/admin` (#285): `src/pages/admin/` is one lazy chun
 
 ## Suspend, unsuspend and delete in the browser (#287)
 
-On `/admin/users/:id` the admin sees an Actions section (not for the protected accounts, the admin and CI, which show no buttons). It calls the same routes as the MCP tools, so the same rules hold: the typed login, the 10-minute wait, the confirm token, the 12-hour sign-in rule and one audit row with `details.surface` `web`.
+On `/admin/users/:id` the admin sees an Actions section (not for the protected accounts, the admin and CI, which show no buttons). It calls the same routes as the MCP tools, so the same rules hold: the typed login, the 10-minute wait, the confirm token, the 7-day sign-in rule (with the sign-in pop-up) and one audit row with `details.surface` `web`.
 
 - **Suspend**: a dialog names the user id and what stops working. Type the login exactly to enable the button. The reason is optional (200 characters).
 - **Unsuspend**: a dialog with the same typed login.
 - **Delete user**: its button waits until 10 minutes after the suspension. Step 1 is the dry run (nothing is deleted): a dialog shows the counts, the user id and when the confirm token expires. Step 2: type the login, and the real call goes out with `confirm_token` and `confirm_login`. The token lives in page state only, never in storage.
-- Every server refusal (403 protected, 403 sign in again, 409 wait or content changed, 429 limit) is shown with the server's own message.
+- Every server refusal (403 protected, 409 wait or content changed, 429 limit) is shown with the server's own message.
 
 ## What a suspended user sees
 

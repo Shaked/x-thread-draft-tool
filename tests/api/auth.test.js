@@ -73,6 +73,31 @@ describe('GET /api/auth/login', () => {
   })
 })
 
+describe('the sign-in pop-up of the admin pages (#552)', () => {
+  it('login with popup=1 sets the pop-up cookie, and the callback answers a page that closes the pop-up with a session cookie', async () => {
+    const login = await route(apiRequest('/api/auth/login?popup=1'))
+    expect(login.headers.getSetCookie().some((c) => c.startsWith('xt_oauth_popup=1'))).toBe(true)
+    mockGithub()
+    const res = await route(apiRequest('/api/auth/callback?code=the-code&state=s1', { cookie: 'xt_oauth_state=s1; xt_oauth_popup=1' }))
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/html')
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('xt_session='))).toBe(true)
+    const html = await res.text()
+    expect(html).toContain('xt-signed-in')
+    expect(html).toContain('window.close()')
+  })
+
+  it('a login without popup=1 sets no pop-up cookie and the callback still redirects', async () => {
+    const login = await route(apiRequest('/api/auth/login'))
+    expect(login.headers.getSetCookie().some((c) => c.startsWith('xt_oauth_popup=1'))).toBe(false)
+    expect(login.headers.getSetCookie().some((c) => c.startsWith('xt_oauth_popup=;'))).toBe(true)
+    mockGithub()
+    const done = await signIn()
+    expect(done.status).toBe(302)
+    expect(done.headers.getSetCookie().some((c) => c.startsWith('xt_oauth_popup=;'))).toBe(true)
+  })
+})
+
 describe('GET /api/auth/callback', () => {
   it('rejects a callback whose state does not match the cookie', async () => {
     const res = await route(

@@ -5,6 +5,7 @@ import Page from '../../ui/Page'
 import PageHeader from '../../ui/PageHeader'
 import SideLayout from '../../ui/SideLayout'
 import Stack from '../../ui/Stack'
+import SignInAgain from '../../components/admin/SignInAgain'
 import AdminAuditPage from './AdminAuditPage'
 import AdminMetricsPage from './AdminMetricsPage'
 import AdminFlagsPage from './AdminFlagsPage'
@@ -27,6 +28,7 @@ const ENTRIES = [
 export default function AdminLayout() {
   const { pathname } = useLocation()
   return (
+    <SignInAgain>
     <Page width="wide">
       <PageHeader title="Admin" back={{ to: '/', label: '← Back to drafts' }} />
       <SideLayout
@@ -55,5 +57,6 @@ export default function AdminLayout() {
         </Routes>
       </SideLayout>
     </Page>
+    </SignInAgain>
   )
 }

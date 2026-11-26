@@ -227,7 +227,7 @@ describe('suspend, unsuspend and delete from the browser (#287)', () => {
   const staleCookie = async () => {
     const token = await new SignJWT({ uid: admin.id, gh: '960015', login: 'shaked', jti: `stale-${Math.random()}` })
       .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt(Math.floor(Date.now() / 1000) - 13 * 3600)
+      .setIssuedAt(Math.floor(Date.now() / 1000) - 8 * 86400)
       .setExpirationTime('30d')
       .sign(secretKey())
     return `xt_session=${token}`
@@ -315,7 +315,7 @@ describe('suspend, unsuspend and delete from the browser (#287)', () => {
     expect((await audit('suspend_user')).every((r) => r.outcome === 'refused')).toBe(true)
   })
 
-  it('a sign-in older than 12 hours cannot suspend, unsuspend or delete', async () => {
+  it('a sign-in older than 7 days cannot suspend, unsuspend or delete', async () => {
     const frank = await db.insertUser({ github_id: 7005, login: 'frank' })
     await users(frank.id, 'suspend', { confirm_login: 'frank' })
     await suspendedFor(frank, 11)
@@ -327,7 +327,7 @@ describe('suspend, unsuspend and delete from the browser (#287)', () => {
       ['delete', { dry_run: false, confirm_token: dry.confirm_token, confirm_login: 'frank' }]
     ]) {
       const res = await users(frank.id, action, body, stale)
-      expect({ action, status: res.status, error: (await res.json()).error }).toEqual({ action, status: 403, error: 'Sign in again: admin changes on the web need a sign-in from the last 12 hours.' })
+      expect({ action, status: res.status, error: (await res.json()).error }).toEqual({ action, status: 403, error: 'Sign in again: admin changes on the web need a sign-in from the last 7 days.' })
     }
     expect((await users(frank.id, 'suspend', { confirm_login: 'frank' }, stale)).status).toBe(403)
     expect(await exists(frank)).toBe(true)
