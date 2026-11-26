@@ -18,7 +18,7 @@ const OUT = path.join('test-results', 'ui-audit')
 const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'rare'; kit?: 'rare' }[] = [
   { name: 'about', path: '/about' },
   { name: 'flags', path: '/settings/flags' },
-  { name: 'changelog', path: '/changelog' },
+  { name: 'changelog', path: '/admin/changelog' },
   { name: 'admin-stats', path: '/admin' },
   { name: 'tokens', path: '/settings/tokens' },
   { name: 'apps', path: '/settings/apps' },
@@ -170,15 +170,15 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
     serviceWorkers: 'block'
   })
   // The changelog is admin only (#368): its check signs in as the admin.
-  const token = await devToken(request, `ui-audit-${c.name}-${Date.now()}`, pagePath === '/changelog')
-  const hebrew = c.rtl && pagePath === '/changelog'
+  const token = await devToken(request, `ui-audit-${c.name}-${Date.now()}`, pagePath === '/admin/changelog')
+  const hebrew = c.rtl && pagePath === '/admin/changelog'
   // Signed-in pages: the dev token goes out as a bearer header. The Hebrew pass answers the changelog itself.
   await context.route(`${ORIGIN}/api/**`, (route) => {
     if (hebrew && new URL(route.request().url()).pathname === '/api/changelog') {
       return route.fulfill({ json: HEBREW_CHANGELOG })
     }
     // The admin pages need the admin's browser session (a bearer token never passes): answer the two calls they make.
-    if (pagePath === '/admin') {
+    if (pagePath.startsWith('/admin')) {
       const url = new URL(route.request().url())
       if (url.pathname === '/api/auth/me') {
         return route.fetch({ headers: { ...route.request().headers(), authorization: `Bearer ${token}` } }).then(async (res) => {
