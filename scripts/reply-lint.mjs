@@ -124,7 +124,6 @@ function checkTemplate(lines, force, add) {
 function checkWords(raw, line, n, add, kind = 'reply', headlineAt = 1) {
   const unquoted = raw.replace(/["'`]([A-Z])["'`]/g, '$1')
   if (OPTION_LETTERS.some((re) => re.test(unquoted))) add(n, 'option-letters', 'name each option by what it does, not by a letter')
-  if (kind === 'reply' && LOOSE_LABEL.test(raw)) add(n, 'loose-label', 'use the "## " heading from the template, not a bold or plain label line')
   if (UNCHANGED.test(line)) add(n, 'unchanged', 'say what it is and what happens next')
   for (const m of line.matchAll(BLOCK_WORD)) {
     const before = line.slice(0, m.index)
@@ -189,6 +188,7 @@ export function lint(text, { template = false, kind = 'reply' } = {}) {
       seen.add(m[1])
       if (!described(line, m.index, m.index + m[0].length)) add(n, 'bare-label', `${m[1]}: add a link and 3 to 6 words saying what it is`)
     }
+    if (kind === 'reply' && LOOSE_LABEL.test(raw)) add(n, 'loose-label', 'use the "## " heading from the template, not a bold or plain label line')
     checkWords(raw, line, n, add, kind, headlineAt)
   })
   if (kind === 'reply') checkTemplate(prose, template || findings.some((f) => f.rule === 'loose-label'), add)
