@@ -413,3 +413,17 @@ Some components have a second implementation behind the Components feature flag 
 
 - States: flag off (default): a `SegmentedControl` in a column. Flag on (`xt-kit` = `rare`, Feature flags > Components): Rare UI's theme selector, a 4:3 preview per theme drawn from the colour tokens in that scheme (`data-color-scope`), Match device split light and dark; radios with arrow keys (mirrored in right-to-left), Home and End; a 2 px accent ring on the chosen one. Loads in its own chunk; the segmented control shows until then.
 - Example: `<ThemePicker legend="Theme" value={value} options={[{ value: 'light', label: 'Light' }]} onChange={setValue} />`
+
+## DeleteButton
+- File: `src/ui/DeleteButton.jsx` (flag on: `src/ui/rare/DeleteButton.jsx`, from Rare UI)
+- Status: built
+- Props:
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `label` | string | required | The button's name ("Delete draft"). |
+| `confirm` | `{ title, body, confirmLabel }` | required | The question: the dialog's title, sentence and yes button (flag off), or the panel's name, description and yes button (flag on). |
+| `onConfirm` | function | required | Runs only after a yes. |
+
+- States: flag off (default): a `danger-quiet` small Button that opens the confirm dialog (Cancel focused). Flag on: Rare UI's delete button: a 44 px bin; a press widens it into a panel with Cancel (focused) and the yes button, both 44 px; Escape or Cancel keeps; the lid and walls animate with motion, instant under reduced motion; mirrored in right-to-left. Loads in its own chunk; the Button shows until then.
+- Example: `<DeleteButton label="Delete draft" confirm={{ title: 'Delete this draft?', body: 'Are you sure you want to delete this draft?', confirmLabel: 'Delete draft' }} onConfirm={remove} />`

@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import DeleteButton from '../../src/ui/DeleteButton.jsx'
+import { ConfirmProvider } from '../../src/ui/Dialog.jsx'
 import ThemePicker from '../../src/ui/ThemePicker.jsx'
 import { KIT_KEY } from '../../src/utils/skin.js'
 
@@ -10,6 +13,18 @@ const THEMES = [
   { value: 'dark', label: 'Dark' },
   { value: 'system', label: 'Match device' }
 ]
+
+const CONFIRM = { title: 'Delete this draft?', body: 'Are you sure you want to delete this draft?', confirmLabel: 'Delete draft' }
+
+function renderDelete(onConfirm) {
+  return render(
+    <MemoryRouter>
+      <ConfirmProvider>
+        <DeleteButton label="Delete draft" confirm={CONFIRM} onConfirm={onConfirm} />
+      </ConfirmProvider>
+    </MemoryRouter>
+  )
+}
 
 describe('Rare UI components (feature flag)', () => {
   beforeEach(() => localStorage.clear())
@@ -38,5 +53,36 @@ describe('Rare UI components (feature flag)', () => {
     await user.keyboard('{ArrowLeft}')
     expect(onChange).toHaveBeenLastCalledWith('light')
     expect(within(group).getByRole('radio', { name: 'Light' })).toHaveFocus()
+  })
+
+  it('DeleteButton asks with the dialog with the flag off', async () => {
+    const onConfirm = vi.fn()
+    const user = userEvent.setup()
+    renderDelete(onConfirm)
+    await user.click(screen.getByRole('button', { name: 'Delete draft' }))
+    const dialog = screen.getByRole('dialog', { name: 'Delete this draft?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Delete draft' }))
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('DeleteButton opens the Rare UI panel with the flag on: Cancel first, Escape keeps, yes deletes', async () => {
+    localStorage.setItem(KIT_KEY, 'rare')
+    const onConfirm = vi.fn()
+    const user = userEvent.setup()
+    renderDelete(onConfirm)
+    const trigger = await screen.findByRole('button', { name: 'Delete draft', expanded: false })
+    await user.click(trigger)
+    let panel = screen.getByRole('group', { name: 'Delete this draft?' })
+    expect(panel).toHaveAccessibleDescription('Are you sure you want to delete this draft?')
+    expect(within(panel).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(onConfirm).not.toHaveBeenCalled()
+    expect(trigger).toHaveFocus()
+    await user.click(trigger)
+    panel = screen.getByRole('group', { name: 'Delete this draft?' })
+    await user.click(within(panel).getByRole('button', { name: 'Delete draft' }))
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await act(async () => {})
   })
 })
