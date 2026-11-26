@@ -378,10 +378,15 @@ for (const size of SIZES) {
         for (const [name, value] of Object.entries(ratios)) expect(value, name).toBeGreaterThanOrEqual(4.5)
 
         // Show older: the next entries are added, focus moves to the first new one, the page does not overflow.
+        // The page groups entries by Area, so the new entries are not always the last in DOM order: check the id.
+        const idsOf = () => entries.evaluateAll((els) => els.map((el) => el.id))
         const before = await entries.count()
+        const beforeIds = await idsOf()
         await page.getByRole('button', { name: 'Show older' }).click()
         await expect.poll(() => entries.count()).toBeGreaterThan(before)
-        await expect(entries.nth(before)).toBeFocused()
+        const added = (await idsOf()).filter((id) => !beforeIds.includes(id))
+        await expect.poll(() => page.evaluate(() => document.activeElement?.id ?? '')).toBeTruthy()
+        expect(added).toContain(await page.evaluate(() => document.activeElement?.id ?? ''))
         expect(await overflows(page)).toBe(false)
 
         // The last entry is not covered by the bottom bar once the page is scrolled to its end.
