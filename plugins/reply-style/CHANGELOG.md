@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- The plugin folder has a LICENSE file (MIT), a copy of the repository licence.
+
 ## 0.2.0
 
 - The reply-style skill and its five templates (status report, owner question, handoff, owner action, incident).
