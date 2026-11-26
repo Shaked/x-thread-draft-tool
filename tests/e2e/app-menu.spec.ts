@@ -336,7 +336,7 @@ test('API tokens page at 390 px: no horizontal overflow, a 44 px Create button, 
   }
 })
 
-// The changelog page (settings-menu.md Task 6): reached from the drawer, paged, readable in both themes.
+// The changelog page (settings-menu.md Task 6): reached from the drawer through Admin, paged, readable in both themes.
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
 
 for (const size of SIZES) {
@@ -347,10 +347,12 @@ for (const size of SIZES) {
         if (theme === 'dark') await page.addInitScript(() => localStorage.setItem('xt-theme', 'dark'))
         await page.goto(`${BASE}/`)
         await page.getByRole('heading', { name: 'Your Threads' }).waitFor()
+        // The changelog lives inside the admin (#551): the drawer's one Admin link, then the admin menu.
         await openMenu(page)
-        await drawer(page).getByRole('link', { name: 'Changelog', exact: true }).click()
-        await expect(page).toHaveURL(/\/admin\/changelog$/)
+        await drawer(page).getByRole('link', { name: 'Admin', exact: true }).click()
         await expect(drawer(page)).toHaveCount(0)
+        await page.getByRole('navigation', { name: 'Admin pages' }).getByRole('link', { name: 'Changelog', exact: true }).click()
+        await expect(page).toHaveURL(/\/admin\/changelog$/)
         await expect(page.getByRole('heading', { name: 'Changelog', level: 2 })).toBeVisible()
 
         const entries = page.locator('article')
@@ -430,6 +432,31 @@ for (const size of SIZES) {
   })
 }
 
+// The app menu has one admin entry for the admin, "Admin" to /admin, and nothing else of the admin (#551). Real session, real API.
+for (const size of SIZES) {
+  test(`admin at ${size.name} px: the drawer has exactly one admin link, Admin, and it opens the admin area`, async ({ browser }) => {
+    const { context, page } = await open(browser, size, { cookie: adminCookie })
+    try {
+      await page.goto(`${BASE}/`)
+      await expect(page.getByRole('heading', { name: 'Your Threads' })).toBeVisible()
+      await openMenu(page)
+      const adminLinks = drawer(page).locator('a[href^="/admin"]')
+      await expect(adminLinks).toHaveCount(1)
+      await expect(adminLinks).toHaveAttribute('href', '/admin')
+      await expect(adminLinks).toHaveText('Admin')
+      for (const name of ['Changelog', 'Admin area', 'Feature flags', 'Metrics', 'Users', 'Audit log', 'Statistics']) {
+        await expect(drawer(page).getByText(name, { exact: true }), name).toHaveCount(0)
+      }
+      await expect(drawer(page).getByRole('heading', { name: 'Admin' })).toHaveCount(0)
+      await adminLinks.click()
+      await expect(page).toHaveURL(/\/admin$/)
+      await expect(page.getByRole('navigation', { name: 'Admin pages' })).toBeVisible()
+    } finally {
+      await context.close()
+    }
+  })
+}
+
 // The changelog is admin only (#368): a normal user sees no link to it, and /changelog is an unknown address for them.
 for (const size of SIZES) {
   test(`normal user at ${size.name} px: no changelog link on About or in the drawer, and /changelog goes home`, async ({ browser }) => {
@@ -446,6 +473,9 @@ for (const size of SIZES) {
       expect(new URL(page.url()).pathname).toBe('/')
       await openMenu(page)
       await expect(drawer(page).getByRole('link', { name: 'Changelog', exact: true })).toHaveCount(0)
+      // No admin entry at all for a normal user (#551).
+      await expect(drawer(page).locator('a[href^="/admin"]')).toHaveCount(0)
+      await expect(drawer(page).getByText('Admin', { exact: true })).toHaveCount(0)
     } finally {
       await context.close()
     }

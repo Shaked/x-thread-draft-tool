@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { getKit } from '../utils/skin'
+import LoadBoundary from './LoadBoundary'
 import SegmentedControl from './SegmentedControl'
 
 // Rare UI's theme selector (feature flag "Components", src/utils/skin.js). Its chunk loads only when the flag is on.
@@ -11,8 +12,10 @@ export default function ThemePicker({ legend, value, options, onChange }) {
   const current = <SegmentedControl legend={legend} orientation="column" value={value} options={options} onChange={onChange} />
   if (getKit() !== 'rare') return current
   return (
-    <Suspense fallback={current}>
-      <RareThemeSelector legend={legend} value={value} options={options} onChange={onChange} />
-    </Suspense>
+    <LoadBoundary fallback={current}>
+      <Suspense fallback={current}>
+        <RareThemeSelector legend={legend} value={value} options={options} onChange={onChange} />
+      </Suspense>
+    </LoadBoundary>
   )
 }
