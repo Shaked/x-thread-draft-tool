@@ -16,6 +16,7 @@
 //
 // CLI (the workflows pass every value through environment variables, never inside the shell text):
 //   NOTIFY_KIND, NOTIFY_SHA, NOTIFY_TITLE, NOTIFY_URL, NOTIFY_RUN_URL, NOTIFY_PREVIEW_URL,
+//   NOTIFY_FAIL_ON_ERROR=1 (exit 1 when the send failed; default exit 0)
 //   NOTIFY_HEADLINE, NOTIFY_NUMBER_LINE, NOTIFY_CAUSE_LINE, NOTIFY_ACTION_LINE (kind metrics),
 //   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 // The app identity (issue #504) is read from the environment too, with defaults from DEFAULT_APP:
@@ -297,7 +298,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         ...message,
       })
     : Promise.resolve(console.log('notify skipped: unknown kind'))
+  // Default: always exit 0, so a notice can never fail a workflow. NOTIFY_FAIL_ON_ERROR=1 (the metrics alerts job)
+  // exits 1 when the send failed, so a lost alert makes the run red.
+  let code = 0
   sending
+    .then((result) => {
+      if (process.env.NOTIFY_FAIL_ON_ERROR === '1' && result === 'failed') code = 1
+    })
     .catch((err) => console.log(`notify failed: ${err?.name || 'error'}`))
-    .finally(() => process.exit(0))
+    .finally(() => process.exit(code))
 }

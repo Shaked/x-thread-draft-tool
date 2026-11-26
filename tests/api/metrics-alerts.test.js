@@ -123,6 +123,10 @@ describe('one problem, one message', () => {
     }
     expect(results[0]).toEqual(['errors'])
     expect(results.slice(1).flat()).toEqual([])
+    // It kept firing: the spell started at the first run and was last seen at the last one.
+    const state = (await query('select first_seen, last_sent from metrics_alert_state where kind = $1', ['errors'])).rows[0]
+    expect(new Date(state.first_seen).getTime()).toBe(NOW)
+    expect(new Date(state.last_sent).getTime()).toBe(NOW + 48 * 3600e3)
   })
 
   it('a clear day resets it', async () => {

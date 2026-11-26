@@ -106,6 +106,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NOTIFY_KIND: metrics
+          NOTIFY_FAIL_ON_ERROR: '1'
         run: |
           set -uo pipefail
           # A failed send must not stop the next alert: keep going, then fail the job so the run is red.

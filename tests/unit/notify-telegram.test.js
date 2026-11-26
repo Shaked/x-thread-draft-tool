@@ -396,3 +396,31 @@ describe('speed alert shape (task M7, #446)', () => {
     expect(msg.html.startsWith('🐢 <b>Thread Draft</b> · <a href="https://github.com/owner/repo/issues/9">Smoke &lt;b&gt;</a>')).toBe(true)
   })
 })
+
+describe('CLI exit code (#338)', () => {
+  const run = async (env) => {
+    const { spawnSync } = await import('node:child_process')
+    // fetch is replaced by a stub that answers 500, so nothing leaves the machine and no secret is real.
+    const stub = 'data:text/javascript,globalThis.fetch=async()=>({ok:false,status:500,json:async()=>({})})'
+    return spawnSync(process.execPath, ['--import', stub, 'scripts/notify-telegram.mjs'], {
+      env: { PATH: process.env.PATH, NOTIFY_KIND: 'owner', NOTIFY_TITLE: 'T', NOTIFY_URL: 'https://github.com/a/b/issues/1', TELEGRAM_BOT_TOKEN: '1:FAKE', TELEGRAM_CHAT_ID: '2', ...env },
+      encoding: 'utf8',
+    })
+  }
+
+  it('exits 0 on a failed send by default, and 1 with NOTIFY_FAIL_ON_ERROR=1', async () => {
+    const a = await run({})
+    expect(a.stdout).toContain('notify failed: HTTP 500')
+    expect(a.status).toBe(0)
+    const b = await run({ NOTIFY_FAIL_ON_ERROR: '1' })
+    expect(b.stdout).toContain('notify failed: HTTP 500')
+    expect(b.status).toBe(1)
+    expect(`${b.stdout}${b.stderr}`).not.toContain('1:FAKE')
+  })
+
+  it('exits 0 when the secrets are missing, even with NOTIFY_FAIL_ON_ERROR=1', async () => {
+    const c = await run({ NOTIFY_FAIL_ON_ERROR: '1', TELEGRAM_BOT_TOKEN: '' })
+    expect(c.stdout).toContain('notify skipped')
+    expect(c.status).toBe(0)
+  })
+})
