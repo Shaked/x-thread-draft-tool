@@ -5,4 +5,4 @@
 - Admin history now shows whether each change came from the browser or from an app.
 
 Area: Admin
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/PENDING
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/517
