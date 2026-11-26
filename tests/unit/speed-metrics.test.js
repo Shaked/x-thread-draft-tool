@@ -433,9 +433,9 @@ describe('the gate keeps a streak that is longer than its window (task M7, #446)
   it('a streak that reaches the window keeps the earlier start and count of the same streak', async () => {
     const prev = { active: true, since: '2026-11-01T08:00:00Z', count: 52, clearSince: null }
     const window = Array.from({ length: 40 }, (_, i) => ({ merged_at: new Date(Date.parse('2026-11-25T00:00:00Z') - i * 3600000).toISOString(), kind: 'code', stages: { vercel: {} } }))
-    expect(streakFields(prev, window)).toEqual({ since: '2026-11-01T08:00:00Z', count: 52 })
+    expect(streakFields(prev, window, true)).toEqual({ since: '2026-11-01T08:00:00Z', count: 52 })
     // A streak that ends inside the window is measured in full, so its own start is used.
-    expect(streakFields(prev, window.slice(0, 3)).since).toBe(window[2].merged_at)
+    expect(streakFields(prev, window.slice(0, 3), false).since).toBe(window[2].merged_at)
   })
 })
 
@@ -444,12 +444,12 @@ describe('the gate: streak reset and lookups (task M7, #446)', () => {
 
   it('a gate that went clear starts a new streak: the old start and count are not kept', () => {
     const prev = { active: true, since: '2026-11-24T14:10:00Z', count: 7, clearSince: '2026-11-25T10:00:00Z' }
-    expect(streakFields(prev, [streakRec(9, '2026-11-26T08:00:00Z')])).toEqual({ since: '2026-11-26T08:00:00Z', count: 1 })
+    expect(streakFields(prev, [streakRec(9, '2026-11-26T08:00:00Z')], true)).toEqual({ since: '2026-11-26T08:00:00Z', count: 1 })
   })
 
   it('an unclear streak shorter than the window still counts from its own start', () => {
     const prev = { active: true, since: '2026-11-20T08:00:00Z', count: 7, clearSince: null }
-    expect(streakFields(prev, [streakRec(9, '2026-11-26T08:00:00Z')])).toEqual({ since: '2026-11-26T08:00:00Z', count: 1 })
+    expect(streakFields(prev, [streakRec(9, '2026-11-26T08:00:00Z')], false)).toEqual({ since: '2026-11-26T08:00:00Z', count: 1 })
   })
 
   it('a broken gate marker reads as no state', () => {

@@ -428,10 +428,10 @@ export function readGate(body) {
 
 // The streak start and count. The window holds GATE_WINDOW merges: a streak that reaches it keeps the start and
 // count already stored in the gate, so the reported start does not move forward.
-export function streakFields(prev, streak) {
+export function streakFields(prev, streak, truncated) {
   const start = minDate(streak.map((r) => r.merged_at))
   // Keep the stored start only for the same streak: the gate is not clear, and the window ran out before the streak did.
-  const same = prev?.active && !prev.clearSince && prev.since && streak.length >= GATE_WINDOW
+  const same = prev?.active && !prev.clearSince && prev.since && truncated
   if (same) return { since: Date.parse(prev.since) < Date.parse(start) ? prev.since : start, count: Math.max(prev.count, streak.length) }
   return { since: start, count: streak.length }
 }
@@ -448,7 +448,9 @@ export async function gateStep({ record, streak, recent, api, now, runUrl, docsU
     const sendNow = !state.active
     state.active = true
     state.clearSince = null
-    Object.assign(state, streakFields(prev, streak))
+    // The window ran out while every code merge in it was over its limit: the streak may go on past the window.
+    const truncated = recent.length >= GATE_WINDOW && streak.length === recent.filter((r) => r.kind === 'code' && r.stages.vercel).length
+    Object.assign(state, streakFields(prev, streak, truncated))
     const lines = overLimit(record).map((o) => `${PLAIN_STAGE[o.stage]}: ${secsText(o.value)}, limit ${secsText(o.limit)}`)
     const body = gateBody(state, lines)
     const issue = gate ? await api.updateGateBody(gate.number, body) : await api.createGateIssue(body)
