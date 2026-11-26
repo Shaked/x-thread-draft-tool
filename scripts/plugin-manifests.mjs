@@ -8,7 +8,7 @@
 //        node scripts/plugin-manifests.mjs --bumps    (version bumps, git diff origin/main...HEAD)
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -31,9 +31,14 @@ const FORBIDDEN_WORDS = [
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
 const isText = (value) => typeof value === 'string' && value.trim() !== ''
 
+/** The file's bytes, or null when it is missing or a folder. One read, no check before it (no race). */
 function readBytes(root, path) {
-  const full = join(root, path)
-  return existsSync(full) && statSync(full).isFile() ? readFileSync(full) : null
+  try {
+    return readFileSync(join(root, path))
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'EISDIR' || error.code === 'ENOTDIR') return null
+    throw error
+  }
 }
 
 function readText(root, path) {
@@ -50,7 +55,11 @@ function parseJson(text) {
 }
 
 function isDirectory(path) {
-  return existsSync(path) && statSync(path).isDirectory()
+  try {
+    return statSync(path).isDirectory()
+  } catch {
+    return false
+  }
 }
 
 /** Manifest, file and version problems for the marketplace and every plugin it lists. */
