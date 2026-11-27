@@ -4,5 +4,5 @@
 - No change for people using the app.
 
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/PENDING
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/623
 Screenshot: not needed, docs only
