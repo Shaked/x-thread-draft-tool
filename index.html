@@ -18,12 +18,12 @@
         document.documentElement.dataset.theme = 'light';
       }
     </script>
-    <!-- Sets the look before the first paint (#406): Rare UI for everyone, unless this device last saw the admin and the admin switched the look to the old purple one on /admin/flags. -->
+    <!-- Sets the look (feature flag "rare", admin only) before the first paint: the default look unless this device last saw the admin and the saved choice says rare. -->
     <script>
       try {
-        document.documentElement.dataset.skin = localStorage.getItem('xt-admin') === '1' && localStorage.getItem('xt-skin') === 'default' ? 'default' : 'rare';
+        document.documentElement.dataset.skin = localStorage.getItem('xt-admin') === '1' && localStorage.getItem('xt-skin') === 'rare' ? 'rare' : 'default';
       } catch (e) {
-        document.documentElement.dataset.skin = 'rare';
+        document.documentElement.dataset.skin = 'default';
       }
     </script>
     <title>X Thread Draft Tool</title>

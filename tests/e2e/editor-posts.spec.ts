@@ -127,10 +127,7 @@ test('the counter shows the over-limit state, and Hebrew text is right to left',
   try {
     const first = page.getByLabel('Post 1 text')
     await first.fill('a'.repeat(281))
-    // Rare UI is the default: the counter's rolling digits are hidden from assistive tech and the number is read once (sr-only).
-    const counter = page.locator('.char-counter').first()
-    await expect(counter.locator('.sr-only')).toHaveText('281')
-    await expect(counter).toContainText('/280 (1 over)')
+    await expect(page.locator('.char-counter').first()).toHaveText('281/280 (1 over)')
     await expect(page.locator('.char-counter.over-limit').first()).toBeVisible()
 
     await expect(page.getByLabel('Post 3 text')).toHaveAttribute('dir', 'rtl')

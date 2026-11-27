@@ -5,6 +5,8 @@ import, collect and tests). `tests/shard-sequencer.mjs` uses it to split the uni
 `--shard=n/3` jobs of the Tests workflow (#605). A file missing from the table counts as the table's median,
 and the sequencer prints a warning in the CI log that names it.
 
+Inside a shard the files run slowest first (`sort()` in the same sequencer), so the longest file never starts last.
+
 ## Who refreshes it, and when
 
 - The author of a PR that adds or removes a test file runs `npm run shard-timings` (about 5 minutes; three

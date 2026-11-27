@@ -3,7 +3,6 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ToastProvider, useToast } from '../../src/ui/Toast.jsx'
 import { allowFlags, KIT_KEY } from '../../src/utils/skin.js'
-import { useOldLook } from './helpers/useOldLook.js'
 
 // The toast behind the "Components" feature flag (#406, Rare UI toast), through the provider in src/ui/Toast.jsx.
 // The Rare stack loads in its own chunk, so the flag-on tests wait for it before they press the button.
@@ -38,7 +37,6 @@ describe('Toast (Rare UI, feature flag)', () => {
   })
 
   it('shows the message as today with the flag off, and no Rare UI stack', async () => {
-    useOldLook()
     const user = userEvent.setup()
     renderWith({ message: 'Thread copied!', tone: 'success' })
     await user.click(screen.getByRole('button', { name: 'Ask' }))
@@ -48,6 +46,7 @@ describe('Toast (Rare UI, feature flag)', () => {
   })
 
   it('shows a success message as a visible status card, with the flag on', async () => {
+    localStorage.setItem(KIT_KEY, 'rare')
     const user = userEvent.setup()
     renderWith({ message: 'Thread copied!', tone: 'success' })
     await waitFor(() => expect(stack()).not.toBeNull())
@@ -65,6 +64,7 @@ describe('Toast (Rare UI, feature flag)', () => {
 
   it('keeps a danger message until its 44 px close button is pressed, with the flag on', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
+    localStorage.setItem(KIT_KEY, 'rare')
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderWith({ message: 'Failed to copy to clipboard', tone: 'danger' })
     await waitFor(() => expect(stack()).not.toBeNull())
@@ -85,7 +85,6 @@ describe('Toast (Rare UI, feature flag)', () => {
   })
 
   it('clears a toast that showed the old way while the Rare chunk loaded, once a Rare toast takes over', async () => {
-    useOldLook()
     const user = userEvent.setup()
     function Two() {
       const toast = useToast()
@@ -117,6 +116,7 @@ describe('Toast (Rare UI, feature flag)', () => {
   })
 
   it('takes a Rare toast away when a toast shows the old way after the flag is switched off', async () => {
+    localStorage.setItem(KIT_KEY, 'rare')
     const user = userEvent.setup()
     renderWith({ message: 'Failed to copy to clipboard', tone: 'danger' })
     await waitFor(() => expect(stack()).not.toBeNull())
@@ -128,7 +128,7 @@ describe('Toast (Rare UI, feature flag)', () => {
     await waitFor(() => expect(card()).toBeNull())
   })
 
-  it('hides a success message by itself after 4 s, with Rare UI (the default)', async () => {
+  it('hides a success message by itself after 4 s, with Rare UI chosen', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     localStorage.setItem(KIT_KEY, 'rare')
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
