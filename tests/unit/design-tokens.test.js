@@ -9,12 +9,6 @@ import { describe, expect, it } from 'vitest'
 const SRC = path.resolve('src')
 const TOKENS = 'src/styles/tokens.css'
 
-// Files that still break a rule. The list only shrinks: a listed file that is clean fails the test.
-// Each entry leaves when its page migrates; Task 13 deletes the list.
-const LEGACY = new Set([
-  'src/styles/App.css'
-])
-
 // `style=` props that stay, each with its reason.
 const STYLE_PROP_ALLOWED = new Map([
   ['src/ui/rare/AnimatedCounter.jsx', 'Motion reads a motion value (the wheel offset y) only from the style prop; the file passes `style={style}` with no length or colour']
@@ -206,18 +200,14 @@ describe('token lint: self-check', () => {
 })
 
 describe('token lint: files', () => {
-  it('keeps every file outside LEGACY free of breaks', () => {
-    const broken = [...cssFiles, ...jsFiles]
-      .filter((f) => !LEGACY.has(f.file))
-      .flatMap(violationsOf)
+  it('keeps every file free of breaks', () => {
+    const broken = [...cssFiles, ...jsFiles].flatMap(violationsOf)
     expect(broken).toEqual([])
   })
 
-  it('keeps LEGACY to files that still break a rule', () => {
-    const clean = [...LEGACY].filter((file) => {
-      const entry = files.find((f) => f.file === file)
-      return !entry || violationsOf(entry).length === 0
-    })
-    expect(clean).toEqual([])
+  it('uses no old variable name', () => {
+    const OLD = /var\(--(bg|surface-0|surface|surface-2|border|border-strong|neutral-600|border-soft|text|text-strong|text-soft|muted|accent|accent-hover|accent-text|accent-tint-\d+|danger|danger-hover|danger-tint-\d+|success|success-hover|success-tint-\d+|warning|warning-strong|warning-tint-\d+|focus|overlay-\d+|on-overlay|legacy-[\w-]+)\)/
+    const used = files.filter((f) => f.file !== TOKENS && OLD.test(f.text)).map((f) => f.file)
+    expect(used).toEqual([])
   })
 })

@@ -153,7 +153,7 @@ Decisions (planner):
   | `--accent`, `--accent-hover` | `--color-accent`, `--color-accent-hover` | `--focus` | `--color-focus` |
   | `--accent-text` | `--color-text-on-accent` | `--overlay-30`, `--overlay-70`, `--overlay-90`, `--on-overlay` | `--color-scrim`, `--color-overlay`, `--color-overlay-strong`, `--color-on-overlay` |
 
-  Import order: `src/main.jsx` imports `./styles/tokens.css`, then `./ui/base.css`, then `./styles/App.css`
+  Import order: `src/main.jsx` imports `./styles/tokens.css`, then `./ui/base.css`, then `./App.css`
   (`App.jsx` stops importing `App.css` a second time). Publish stays green until Task 8 (white on `#067647` is 5.69:1;
   today it is 3.36:1).
 
