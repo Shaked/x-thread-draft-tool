@@ -1,0 +1,10 @@
+/* On a narrow screen the bar shortens to "Viewing as <login>" plus Cancel (#291). */
+.view-as-bar__more {
+  display: none;
+}
+
+@media (width >= 600px) {
+  .view-as-bar__more {
+    display: inline;
+  }
+}

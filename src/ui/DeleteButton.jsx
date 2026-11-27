@@ -11,17 +11,17 @@ const RareDeleteButton = lazy(() => import('./rare/DeleteButton.jsx'))
 // It may return a promise; false (or a rejection) means the delete failed, and the Rare button goes back to idle.
 // Flag off (default): a danger-quiet Button and the confirm dialog. Flag on: Rare UI's two-step delete button,
 // whose panel asks the same question (named by `title`, described by `body`).
-export default function DeleteButton({ label, confirm, onConfirm }) {
+export default function DeleteButton({ label, confirm, onConfirm, disabledReason }) {
   const ask = useConfirm()
   const askFirst = async () => {
     if (await ask({ ...confirm, tone: 'danger' })) onConfirm()
   }
   const current = (
-    <Button variant="danger-quiet" size="sm" onClick={askFirst}>
+    <Button variant="danger-quiet" size="sm" onClick={askFirst} disabledReason={disabledReason}>
       {label}
     </Button>
   )
-  if (getKit() !== 'rare') return current
+  if (getKit() !== 'rare' || disabledReason) return current
   return (
     <LoadBoundary fallback={current}>
       <Suspense fallback={current}>

@@ -96,6 +96,12 @@ export const adminApi = {
     const query = before ? `&before=${encodeURIComponent(before)}` : ''
     return request(`/admin/audit?limit=${PAGE_SIZE}${query}`, { headers: { 'x-xt-admin': '1' } }).then((data) => data.events)
   },
+  startViewAs(userId, reason) {
+    return adminWrite('/admin/view-as', { user_id: userId, reason })
+  },
+  endViewAs() {
+    return request('/admin/view-as', { method: 'DELETE', headers: { 'x-xt-admin': '1' } })
+  },
   flags() {
     return request('/admin/flags', { headers: { 'x-xt-admin': '1' } }).then((data) => data.flags)
   },

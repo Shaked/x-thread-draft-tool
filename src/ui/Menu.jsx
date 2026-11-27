@@ -55,6 +55,7 @@ export default function Menu({ trigger, items, title }) {
         variant={trigger.variant}
         icon={trigger.icon}
         disabled={trigger.disabled}
+        disabledReason={trigger.disabledReason}
         loading={trigger.loading}
         title={trigger.title}
         ariaLabel={trigger.label}

@@ -5,6 +5,7 @@ import Banner from '../ui/Banner'
 import Button from '../ui/Button'
 import Count from '../ui/Count'
 import IconButton from '../ui/IconButton'
+import { useViewAs, viewAsReason } from '../utils/viewAs'
 import Input from '../ui/Input'
 import LoadBoundary from '../ui/LoadBoundary'
 import { xLength } from '../utils/xLength.js'
@@ -17,6 +18,9 @@ const MAX_CHARS = 280
 const IMAGE_URL_REGEX = /https?:\/\/[^\s]+?\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?[^\s]*)?/gi
 
 export default function PostBox({ post, index, totalPosts, onChange, onRemove, readOnly = false, dragHandleProps }) {
+  const viewAs = useViewAs()
+  const reason = viewAsReason(viewAs)
+  const locked = isLocked(readOnly, viewAs)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showEmbedInput, setShowEmbedInput] = useState(false)
   const [detectingUrls, setDetectingUrls] = useState(false)
@@ -46,7 +50,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   const isRTL = detectRTL(text)
 
   const handleTextChange = (e) => {
-    if (readOnly) return
+    if (readOnly || viewAs) return
     const newText = e.target.value
     onChange({ ...post, text: newText })
 
@@ -232,6 +236,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           <CopyPostButton disabled={!text} copied={copied} onCopy={handleCopyText} />
           <RemovePostButton
             readOnly={readOnly}
+            reason={reason}
             onRemove={onRemove}
             totalPosts={totalPosts}
             index={index}
@@ -250,12 +255,13 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           className={`post-textarea ${isOverLimit ? 'over-limit' : ''} ${isRTL ? 'rtl' : ''}`}
           dir={isRTL ? 'rtl' : 'ltr'}
           rows={6}
-          readOnly={readOnly}
+          readOnly={locked}
         />
 
         <div className="post-toolbar">
           <ToolbarActions
             readOnly={readOnly}
+            reason={reason}
             showEmojiPicker={showEmojiPicker}
             setShowEmojiPicker={setShowEmojiPicker}
             onEmojiSelect={handleEmojiSelect}
@@ -313,6 +319,9 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
   )
 }
 
+// A post is not editable when the page is read-only or the admin is viewing as a user (#291). Outside PostBox for the lint complexity limit.
+const isLocked = (readOnly, viewAs) => readOnly || Boolean(viewAs)
+
 // The embedded tweet and its remove button. Split out of PostBox to keep it within the lint complexity limit.
 function EmbedArea({ embeddedTweet, embedShown, containerRef, readOnly, onRemove }) {
   return (
@@ -338,6 +347,7 @@ function EmbedArea({ embeddedTweet, embedShown, containerRef, readOnly, onRemove
 // The post's toolbar buttons (emoji, image, embed). Not shown read-only. Split out of PostBox for the lint complexity limit.
 function ToolbarActions({
   readOnly,
+  reason,
   showEmojiPicker,
   setShowEmojiPicker,
   onEmojiSelect,
@@ -354,6 +364,7 @@ function ToolbarActions({
         icon="emoji"
         label="Add emoji"
         pressed={showEmojiPicker}
+        disabledReason={reason}
         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
       />
       {showEmojiPicker && (
@@ -371,6 +382,7 @@ function ToolbarActions({
         icon="image"
         label="Add image"
         disabled={imageCount >= 4}
+        disabledReason={reason}
         onClick={() => imageUploadRef.current?.triggerFileSelect()}
       />
 
@@ -378,6 +390,7 @@ function ToolbarActions({
         icon="link"
         label="Embed tweet"
         pressed={embedActive}
+        disabledReason={reason}
         onClick={() => setShowEmbedInput(!showEmbedInput)}
       />
     </div>
@@ -410,7 +423,7 @@ function CopyPostButton({ disabled, copied, onCopy }) {
 }
 
 // The Remove button on a post when the thread has more than one post. Split out of PostBox for the lint complexity limit.
-function RemovePostButton({ readOnly, onRemove, totalPosts, index }) {
+function RemovePostButton({ readOnly, reason, onRemove, totalPosts, index }) {
   if (readOnly || !onRemove || totalPosts <= 1) return null
   return (
     <Button
@@ -418,6 +431,7 @@ function RemovePostButton({ readOnly, onRemove, totalPosts, index }) {
       size="sm"
       title="Remove post"
       ariaLabel={`Remove post ${index + 1}`}
+      disabledReason={reason}
       onClick={onRemove}
     >
       Remove

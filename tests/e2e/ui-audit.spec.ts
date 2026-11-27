@@ -24,8 +24,10 @@ const OUT = path.join('test-results', 'ui-audit')
 // Pages under audit. A page joins when its migration PR lands (plan section 5, rules for every migration PR).
 // `drafts` are seeded for that page's user (the draft list with rows, one Hebrew title for the RTL pass).
 // skin and kit: 'default' (the old look and components) is the admin's off switch (#406); nothing else is seeded.
-const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default'; wait?: string; signedOut?: boolean; noHeading?: boolean }[] = [
+const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default'; wait?: string; signedOut?: boolean; noHeading?: boolean; viewAs?: boolean }[] = [
   { name: 'about', path: '/about' },
+  // The "Viewing as" bar (#291): the admin views as another user, read-only.
+  { name: 'view-as-bar', path: '/', viewAs: true },
   // Signed-out screens (Task 11): the sign-in page, a draft that needs sign-in (401), and a shared preview that did not load.
   { name: 'login', path: '/', signedOut: true },
   { name: 'login-suspended', path: '/?suspended=1', signedOut: true },
@@ -222,7 +224,7 @@ const DELIVERY_EVENTS = {
   events: [{ at: '2026-11-26T10:00:00.000Z', source: 'ci', kind: 'run', id: '1.2', name: 'Tests', status: 'failure', ms: 61000, link: 'https://github.com/x/y/actions/runs/1' }]
 }
 
-async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default'; signedOut?: boolean; noHeading?: boolean } = {}) {
+async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default'; signedOut?: boolean; noHeading?: boolean; viewAs?: boolean } = {}) {
   const phone = c.width < 800
   const context: BrowserContext = await browser.newContext({
     viewport: { width: c.width, height: phone ? 844 : 800 },
@@ -234,7 +236,7 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   // The changelog is admin only (#368): its check signs in as the admin.
   const token = await devToken(request, `ui-audit-${c.name}-${Date.now()}`, pagePath === '/admin/changelog')
   const hebrew = c.rtl && pagePath === '/admin/changelog'
-  const asAdmin = pagePath.startsWith('/admin') || Boolean(extra.skin || extra.kit)
+  const asAdmin = pagePath.startsWith('/admin') || Boolean(extra.skin || extra.kit || extra.viewAs)
   // Signed-in pages: the dev token goes out as a bearer header. The Hebrew pass answers the changelog itself.
   await context.route(`${ORIGIN}/api/**`, (route) => {
     // A signed-out screen sends no session: the page must answer as it does for a visitor (sign-in, or 401 for a draft).
@@ -249,7 +251,7 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
       if (url.pathname === '/api/auth/me') {
         return route.fetch({ headers: { ...route.request().headers(), authorization: `Bearer ${token}` } }).then(async (res) => {
           const body = await res.json()
-          return route.fulfill({ response: res, json: { ...body, user: { ...body.user, role: 'admin' } } })
+          return route.fulfill({ response: res, json: { ...body, user: { ...body.user, role: 'admin', ...(extra.viewAs ? { view_as: { login: 'alice', user_id: ADMIN_USER.id, expires_at: '2099-01-01T00:00:00.000Z' } } : {}) } } })
         })
       }
       if (url.pathname === '/api/admin/stats') return route.fulfill({ json: ADMIN_STATS })
@@ -411,7 +413,7 @@ test.describe('UI audit', () => {
   for (const pageInfo of MIGRATED) {
     for (const c of CASES) {
       test(`${pageInfo.name} at ${c.name}`, async ({ browser, request }) => {
-        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts, menu: pageInfo.menu, skin: pageInfo.skin, kit: pageInfo.kit, signedOut: pageInfo.signedOut, noHeading: pageInfo.noHeading })
+        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts, menu: pageInfo.menu, skin: pageInfo.skin, kit: pageInfo.kit, signedOut: pageInfo.signedOut, noHeading: pageInfo.noHeading, viewAs: pageInfo.viewAs })
         try {
           if (pageInfo.wait) await expect(page.locator(pageInfo.wait).first()).toBeVisible()
           // No horizontal scroll (plan: scrollWidth <= innerWidth).
@@ -440,6 +442,8 @@ test.describe('UI audit', () => {
 
           // A field in a column is as tall as its label, control and help: no empty band under it (#551, the users search).
           expect(await tallFields(page), 'fields taller than their content').toEqual([])
+
+          if (pageInfo.viewAs) await expect(page.getByRole('status').filter({ hasText: 'Viewing as' })).toBeVisible()
 
           // The admin menu marks the open page, and only that one, with a visible background (#551).
           if (pageInfo.path.startsWith('/admin')) {

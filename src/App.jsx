@@ -2,6 +2,8 @@ import { lazy, Suspense, useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { adminApi, authApi } from './utils/api'
 import { CurrentUserContext, isAdmin } from './utils/currentUser'
+import ViewAsBar from './components/ViewAsBar'
+import { ViewAsContext } from './utils/viewAs'
 import LoginPage from './components/LoginPage'
 import DraftList from './components/DraftList'
 import DraftEditor from './pages/DraftEditor'
@@ -71,9 +73,11 @@ function App() {
 
   return (
     <CurrentUserContext.Provider value={user}>
+    <ViewAsContext.Provider value={user?.view_as ?? null}>
     <ToastProvider>
     <BrowserRouter>
     <ConfirmProvider>
+      <ViewAsBar />
       <div className="app">
         <Routes>
           <Route
@@ -128,6 +132,7 @@ function App() {
     </ConfirmProvider>
     </BrowserRouter>
     </ToastProvider>
+    </ViewAsContext.Provider>
     </CurrentUserContext.Provider>
   )
 }
