@@ -2,6 +2,9 @@ import { useState, useRef, forwardRef, useImperativeHandle } from 'react'
 import { useParams } from 'react-router-dom'
 import { uploadImage, uploadImageFromUrl } from '../utils/images'
 import { beginUpload, endUpload } from '../utils/pendingUploads'
+import Banner from '../ui/Banner'
+import Icon from '../ui/Icon'
+import './ImageUpload.css'
 
 const MAX_IMAGES = 4
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB before compression
@@ -223,7 +226,7 @@ const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
   return (
     <div className="image-upload">
       <div
-        className={`upload-area ${dragActive ? 'drag-active' : ''} ${uploading ? 'uploading' : ''}`}
+        className={`image-upload-area${dragActive ? ' is-drag-active' : ''}${uploading ? ' is-uploading' : ''}`}
         role="button"
         tabIndex={0}
         aria-disabled={!canAddMore || uploading}
@@ -240,25 +243,25 @@ const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
           accept="image/*"
           multiple
           onChange={handleChange}
-          style={{ display: 'none' }}
+          hidden
         />
 
         {uploading || urlLoading ? (
-          <div className="upload-status" role="status" aria-live="polite">
+          <div className="image-upload-status" role="status" aria-live="polite">
             {uploading ? 'Uploading…' : 'Fetching image…'}
           </div>
         ) : (
-          <div className="upload-prompt">
-            <span className="upload-icon" aria-hidden="true">📷</span>
+          <div className="image-upload-prompt">
+            <Icon name="image" size="lg" />
             <span>Drag, paste or click to add images ({images.length} of {MAX_IMAGES})</span>
           </div>
         )}
       </div>
 
       {error && (
-        <div className="upload-error" role="alert">
+        <Banner tone="danger" role="alert">
           {error}
-        </div>
+        </Banner>
       )}
     </div>
   )

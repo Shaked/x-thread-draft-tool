@@ -100,3 +100,36 @@
 .char-counter.over-limit {
   color: var(--color-danger);
 }
+
+/* Media under the text (plan Task 10): the tweet embed area, its URL input and the placeholders shown while a
+   tweet or the emoji picker loads. The placeholders are here, not in TweetEmbed.css, because they show before that
+   module loads. */
+.post-content > .ui-banner {
+  margin-block-start: var(--space-3);
+}
+
+.embed-input {
+  margin-block-start: var(--space-3);
+}
+
+.embedded-tweet-container {
+  margin-block-start: var(--space-3);
+}
+
+.embed-status {
+  padding: var(--space-5);
+  color: var(--color-text-soft);
+  text-align: center;
+}
+
+@media (width < 768px) {
+  .embed-status {
+    min-block-size: var(--embed-min);
+  }
+}
+
+.emoji-picker-loading {
+  padding: var(--space-3);
+  color: var(--color-text-soft);
+  font-size: var(--font-size-sm);
+}

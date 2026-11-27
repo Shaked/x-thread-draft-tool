@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { resolvedTheme, THEME_CHANGE_EVENT } from '../utils/theme'
+import './TweetEmbed.css'
 
 export default function TweetEmbed({ url }) {
   const containerRef = useRef(null)
@@ -93,7 +94,7 @@ export default function TweetEmbed({ url }) {
     return (
       <div className="tweet-embed-error">
         <p>{shownError}</p>
-        <a href={url} target="_blank" rel="noopener noreferrer">
+        <a className="tweet-embed-link" href={url} target="_blank" rel="noopener noreferrer">
           View tweet on X/Twitter
         </a>
       </div>
@@ -103,7 +104,7 @@ export default function TweetEmbed({ url }) {
   return (
     <div className="tweet-embed">
       {loading && (
-        <div className="tweet-embed-loading">
+        <div className="embed-status">
           Loading tweet...
         </div>
       )}

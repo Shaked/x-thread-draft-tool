@@ -1,0 +1,8 @@
+/* The emoji popover above a post's toolbar (EmojiPicker.jsx). Tokens only; logical properties only. */
+.emoji-picker {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  z-index: var(--z-popover);
+  margin-block-start: var(--space-2);
+}

@@ -243,16 +243,41 @@ test.describe('screens', () => {
       await shoot(browser, width, 'tokens-created', '/settings/tokens', { cookie, ready: tokensReady, before: createToken })
       await shoot(browser, width, 'tokens-created-dark', '/settings/tokens', { cookie, theme: 'dark', ready: tokensReady, before: createToken })
 
+    })
+
+
+    // The dialogs and toasts (plan U5), the settings and admin pages (T4, #337, U2). Its own test, so each capture stays
+    // within its own time budget (#328, Opus ruling). Own data: a draft to delete or copy, and sessions.
+    test(`captures the dialog, settings and admin screens at ${width}px`, async ({ browser, request }) => {
+      test.setTimeout(180_000) // the same budget as the other capture tests
+      const run = `dialogs-${width}-${Date.now()}`
+      const owner = await devToken(request, `screens-dialogs-${run}`)
+      const created: { draft: { id: string } } = await apiJson(request, owner, 'POST', '/api/drafts', {
+        title: 'Launch thread',
+        posts: [{ id: 'l1', text: 'Opening post of the dialog screens', images: [], embeddedTweet: null }]
+      })
+      const editorId = created.draft.id
+      const adminSession = await request.post(`${BASE}/api/dev/session`, { data: { login: 'screens-admin', admin: true } })
+      const adminCookie = adminSession.headersArray().find((h) => h.name.toLowerCase() === 'set-cookie')?.value.match(/xt_session=([^;]+)/)?.[1]
+      expect(adminCookie).toBeTruthy()
+      const cookie = await sessionCookie(request, `screens-dialogs-tokens-${width}-${run}`)
+      const tokensReady = (p: Page) => p.getByRole('heading', { name: 'API tokens', level: 1 })
+      const createToken = async (p: Page) => {
+        await p.getByLabel('Token name').fill('Screens check')
+        await p.getByRole('button', { name: 'Create token' }).click()
+        await p.getByRole('status').filter({ hasText: 'Copy this token now.' }).locator('code').waitFor()
+      }
+
       // Dialog and Toast (plan U5), light and dark: delete asks on the draft list, revoke asks on API tokens, a toast after Copy.
       const openDelete = async (p: Page) => {
         await p.getByRole('button', { name: 'Delete draft' }).first().click()
-        await p.getByRole('dialog', { name: 'Delete this draft?' }).waitFor()
+        await p.getByRole('dialog', { name: 'Delete this draft?' }).or(p.getByRole('group', { name: 'Delete this draft?' })).first().waitFor()
         await p.waitForTimeout(400)
       }
       const openRevoke = async (p: Page) => {
         await createToken(p)
         await p.getByRole('button', { name: 'Revoke' }).first().click()
-        await p.getByRole('dialog', { name: 'Revoke this token?' }).waitFor()
+        await p.getByRole('dialog', { name: 'Revoke this token?' }).or(p.getByRole('group', { name: 'Revoke this token?' })).first().waitFor()
         await p.waitForTimeout(400)
       }
       const copyThread = async (p: Page) => {
@@ -387,6 +412,33 @@ test.describe('screens', () => {
       const approve = (p: Page) => p.getByRole('button', { name: 'Approve' })
 
       await shoot(browser, width, 'consent-admin', `/api/oauth/authorize?${query}`, { cookie: cookie!, ready: approve })
+    })
+
+    // The editor's media (plan T10). Its own test: the capture above is at its time budget (#328, Opus ruling).
+    test(`captures the editor media screens at ${width}px`, async ({ browser, request }) => {
+      const run = `media-${width}-${Date.now()}`
+      const editorUser = await devToken(request, `screens-media-${run}`)
+      const imageUrl = `${BASE}/pwa-192x192.png`
+      // The editor's media (plan T10): a draft with one post of three images, and a draft with one post embedding a tweet.
+      // Each screen is a full-page capture, so each scene needs its own draft.
+      const mediaDraft = await apiJson<{ draft: { id: string } }>(request, editorUser, 'POST', '/api/drafts', {
+        title: 'Media thread',
+        posts: [{ id: 'md1', text: 'Three pictures on one post.', images: [imageUrl, imageUrl, imageUrl], embeddedTweet: null }]
+      })
+      const embedDraft = await apiJson<{ draft: { id: string } }>(request, editorUser, 'POST', '/api/drafts', {
+        title: 'Embed thread',
+        posts: [{ id: 'ed1', text: 'A post with a tweet embedded.', images: [], embeddedTweet: 'https://x.com/example/status/1' }]
+      })
+      const openEmoji = async (p: Page) => {
+        await p.getByRole('button', { name: 'Add emoji' }).first().click()
+        await p.getByRole('dialog', { name: 'Emoji picker' }).waitFor()
+      }
+      await shoot(browser, width, 'editor-images', `/draft/${mediaDraft.draft.id}`, { token: editorUser, ready: (p) => p.getByRole('img', { name: 'Preview 1' }) })
+      await shoot(browser, width, 'editor-images-dark', `/draft/${mediaDraft.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.getByRole('img', { name: 'Preview 1' }) })
+      await shoot(browser, width, 'editor-embed', `/draft/${embedDraft.draft.id}`, { token: editorUser, ready: (p) => p.locator('.embedded-tweet-container') })
+      await shoot(browser, width, 'editor-embed-dark', `/draft/${embedDraft.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.locator('.embedded-tweet-container') })
+      await shoot(browser, width, 'editor-emoji', `/draft/${mediaDraft.draft.id}`, { token: editorUser, ready: (p) => p.getByRole('button', { name: 'Add emoji' }), before: openEmoji })
+      await shoot(browser, width, 'editor-emoji-dark', `/draft/${mediaDraft.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.getByRole('button', { name: 'Add emoji' }), before: openEmoji })
     })
   }
 })

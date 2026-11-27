@@ -1,0 +1,49 @@
+/* The embedded tweet preview (TweetEmbed.jsx). Tokens only; logical properties only. */
+.tweet-embed {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+
+.tweet-embed :is(.twitter-tweet, iframe) {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.tweet-embed-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  color: var(--color-text-soft);
+  text-align: center;
+}
+
+.tweet-embed-link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--control-h-md);
+  color: var(--color-accent-soft-text);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+
+.tweet-embed-link:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* Phones: the embed fills the post's width with no frame, and keeps its height while the widget loads. */
+@media (width < 768px) {
+  .tweet-embed {
+    padding: 0;
+    border: 0;
+    min-block-size: var(--embed-min);
+  }
+}

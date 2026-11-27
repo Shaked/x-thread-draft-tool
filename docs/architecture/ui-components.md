@@ -14,7 +14,7 @@ Some components have a second implementation behind the Components feature flag 
 
 | Prop | Type | Default | Notes |
 |---|---|---|---|
-| `name` | `share` \| `agent` \| `x` \| `export` \| `publish` \| `signout` \| `menu` \| `close` \| `chevron` \| `drag` \| `image` \| `link` \| `emoji` \| `plus` \| `compose` \| `sync` | required | Line icon from one set. |
+| `name` | `share` \| `agent` \| `x` \| `export` \| `publish` \| `signout` \| `menu` \| `close` \| `chevron` \| `drag` \| `image` \| `link` \| `emoji` \| `plus` \| `prev` \| `next` \| `compose` \| `sync` | required | Line icon from one set. |
 | `size` | `md` \| `lg` | `md` | 20 px or 24 px (`--icon-size`, `--icon-size-lg`). |
 | `mirror` | boolean | `false` | Flips the icon in right-to-left text (arrows, chevrons). |
 
@@ -157,6 +157,7 @@ Some components have a second implementation behind the Components feature flag 
 | `controls` | string | | The `id` of the element it opens: sets `aria-controls`. |
 | `disabled` | boolean | `false` | |
 | `disabledReason` | string | | As in Button. |
+| `mirror` | boolean | `false` | Flips the icon in right-to-left text (the carousel's previous and next). |
 | `handleProps` | object | | Spread on the `button` before the props above (a drag handle's dnd-kit listeners and attributes). |
 | `onClick` | function | | |
 | `ref` | ref | | Forwarded to the `button`, so a caller can return focus to it (the menu does). |
@@ -250,6 +251,7 @@ Some components have a second implementation behind the Components feature flag 
 | `dir` | `auto` \| `ltr` \| `rtl` | `auto` | Typed Hebrew runs right to left. |
 | `disabled` | boolean | `false` | Half opacity, `not-allowed`. |
 | `ariaLabel` | string | | The accessible name, when there is no `Field` label (the editor's title). |
+| `autoFocus` | boolean | `false` | Focuses the box on mount (the tweet URL box, shown when the embed button is pressed). |
 
 - States: hover (only where hover exists), focus (accent border; the focus ring is the base one), invalid (inside a Field with `error`), disabled. 44 high, 16 px text.
 - Example: `<Input value={name} maxLength={100} onChange={setName} />`

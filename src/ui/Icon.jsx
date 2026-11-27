@@ -17,6 +17,9 @@ const PATHS = {
   link: 'M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1',
   emoji: 'M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18zM8.5 14a4 4 0 0 0 7 0M9 9.5h.01M15 9.5h.01',
   plus: 'M12 5v14M5 12h14',
+  // Image carousel (plan Task 10): previous and next. `mirror` flips them in right-to-left text.
+  prev: 'M15 6l-6 6 6 6',
+  next: 'M9 6l6 6-6 6',
   // Sign-in and loading screens (plan Task 11): the feature list.
   compose: 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4',
   sync: 'M20 12a8 8 0 0 1-14.9 4M4 12a8 8 0 0 1 14.9-4M20 4v4h-4M4 20v-4h4'

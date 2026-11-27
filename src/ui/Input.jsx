@@ -4,7 +4,7 @@ import './Input.css'
 
 // A text box. Inside a Field it takes the label's id and the help or error link; `dir="auto"` makes typed Hebrew run
 // right to left. `onChange` gets the new text, not the event.
-export default function Input({ value, onChange, type = 'text', placeholder, maxLength, dir = 'auto', disabled = false, ariaLabel }) {
+export default function Input({ value, onChange, type = 'text', placeholder, maxLength, dir = 'auto', disabled = false, ariaLabel, autoFocus = false }) {
   const field = useContext(FieldContext)
   return (
     <input
@@ -16,6 +16,7 @@ export default function Input({ value, onChange, type = 'text', placeholder, max
       maxLength={maxLength}
       dir={dir}
       disabled={disabled}
+      autoFocus={autoFocus}
       aria-label={ariaLabel}
       aria-describedby={field?.describedBy}
       aria-invalid={field?.invalid || undefined}
