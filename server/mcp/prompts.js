@@ -35,7 +35,7 @@ const PROMPTS = [
     build: (v) => ({
       intro:
         'Rewrite the notes below as an X/Twitter thread. Put a hook first, one idea per post, keep every fact and invent nothing. ' +
-        'Show the thread to the user, then call `create_draft` with a title and the posts, and give the user the editor link.',
+        'Call `create_draft` with a title and the posts, give the user the editor link, and do not repeat the posts: a card shows them.',
       values: [['Notes', v.notes], ['Goal', v.goal]],
       fallback: null
     })
@@ -51,7 +51,7 @@ const PROMPTS = [
       intro:
         `${v.draftLine} Call \`get_draft_outline\` to see which posts are over the limit, then \`get_draft\` for their text, then propose shorter text for the posts that need it as before and after` +
         `${v.max_chars ? `, each at most ${v.max_chars} characters` : ''}. ` +
-        'After the user agrees, call `update_post` once for each changed post. Never call `update_draft` with posts.',
+        'Show the before and after of each post as block quotes, not a block of code. After the user agrees, call `update_post` once for each changed post, then say in one line what changed. Never call `update_draft` with posts.',
       values: [],
       fallback: NO_DRAFT
     })
@@ -81,8 +81,8 @@ const PROMPTS = [
     arguments: [draftArg, goalArg('what the hook should do, its tone or its language')],
     build: (v) => ({
       intro:
-        `${v.draftLine} Call \`get_draft\`, then offer three alternative first posts. ` +
-        'After the user picks one, call `update_post` on the first post.',
+        `${v.draftLine} Call \`get_draft\`, then offer three alternative first posts as a numbered list, each post as a block quote, not a block of code. ` +
+        'End with one question: which one to use. After the user picks one, call `update_post` on the first post with the version from `get_draft`.',
       values: [['Goal', v.goal]],
       fallback: NO_DRAFT
     })

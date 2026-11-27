@@ -230,6 +230,9 @@ describe.each([MODERN, LEGACY])('skills, protocol %s', (version) => {
   it('the body has the Hebrew and RTL section, the safety sentence and the four prompts', async () => {
     const text = await readSkillText(version)
     expect(text).toContain('## Hebrew and RTL')
+    // Plan section 3 (#388): the working rules R1 to R9, the image lines and one sample answer.
+    expect(text).toContain('## Working on a draft')
+    for (const phrase of ['R1. Edit at once', 'R8. Copy block', '### Images', '### Sample answer', 'Show the posts only when no card shows them']) expect(text, phrase).toContain(phrase)
     expect(text).toContain(CONTENT_NOTE)
     for (const name of PROMPTS) expect(text).toContain(`\`${name}\``)
     expect(text).toContain('posts nothing to\n   X/Twitter')
