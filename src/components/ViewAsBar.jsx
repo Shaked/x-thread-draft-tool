@@ -8,6 +8,9 @@ import './ViewAsBar.css'
 // A full page load, never a client navigation: none of the target's data may stay in React state.
 const leave = (userId) => window.location.assign(`/admin/users/${encodeURIComponent(userId)}`)
 
+// setTimeout runs at once for a delay above this (about 24.8 days), which here would reload the page in a loop.
+const MAX_DELAY_MS = 2 ** 31 - 1
+
 const timeOf = (iso) => new Date(iso).toISOString().slice(11, 16) + ' UTC'
 
 // The one fixed bar shown on every page while the admin views as a user (#291). Cancel ends it on the server, then reloads.
@@ -20,7 +23,7 @@ export default function ViewAsBar() {
 
   useEffect(() => {
     if (expiresAt === null) return undefined
-    const timer = setTimeout(() => leave(userId), Math.max(0, expiresAt - Date.now()))
+    const timer = setTimeout(() => leave(userId), Math.min(MAX_DELAY_MS, Math.max(0, expiresAt - Date.now())))
     return () => clearTimeout(timer)
   }, [expiresAt, userId])
 

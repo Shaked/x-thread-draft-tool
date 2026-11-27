@@ -78,6 +78,24 @@ describe('ViewAsBar', () => {
   })
 })
 
+describe('ViewAsBar with a far-away end time', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    cleanup()
+  })
+
+  it('does not reload at once (a timer delay over 2^31 ms would fire immediately)', async () => {
+    const assign = vi.fn()
+    Object.defineProperty(window, 'location', { value: { ...window.location, assign }, configurable: true, writable: true })
+    vi.useFakeTimers()
+    wrap(<ViewAsBar />, { ...VIEW_AS, expires_at: '2099-01-01T00:00:00.000Z' })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60 * 1000)
+    })
+    expect(assign).not.toHaveBeenCalled()
+  })
+})
+
 describe('controls while viewing as a user', () => {
   const REASON = 'Not available while viewing as alice'
   beforeEach(() => {
