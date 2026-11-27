@@ -99,7 +99,7 @@ async function slow(q, now) {
 }
 
 // A3: the database over 700 MB, or n_429 over 100 in 24 hours, or ops_events over 100 000 rows.
-async function capacity(q, now, dbBytes) {
+async function capacity(q, now, dbBytes, limits) {
   const from = since(now, 24)
   const to = floorHour(now) + HOUR_MS
   const { r } = await totals(q, from, to)
@@ -134,12 +134,12 @@ async function capacity(q, now, dbBytes) {
       value: r
     }
   }
-  if (opsRows > LIMITS.capacityOpsRows) {
+  if (opsRows > limits.capacityOpsRows) {
     return {
       kind: 'capacity',
       headline: 'Metrics alert: the ops events table is too big',
       numberLine: (since) =>
-        `Capacity: ops_events holds ${opsRows} rows. The limit is ${LIMITS.capacityOpsRows} (${over(opsRows, LIMITS.capacityOpsRows)} over), since ${utc(since)}.`,
+        `Capacity: ops_events holds ${opsRows} rows. The limit is ${limits.capacityOpsRows} (${over(opsRows, limits.capacityOpsRows)} over), since ${utc(since)}.`,
       causeLine: NOT_KNOWN,
       actionLine: needs,
       value: opsRows
@@ -154,8 +154,8 @@ async function capacity(q, now, dbBytes) {
  * `last_sent` holds the last time the alert was seen firing; `first_seen` the start of the current spell.
  * Returns [{ kind, headline, numberLine, causeLine, actionLine, since }] for the new alerts only.
  */
-export async function runAlerts(q, { now, dbBytes }) {
-  const fired = [await errors(q, now), await slow(q, now), await capacity(q, now, dbBytes)]
+export async function runAlerts(q, { now, dbBytes, limits = LIMITS }) {
+  const fired = [await errors(q, now), await slow(q, now), await capacity(q, now, dbBytes, limits)]
   const kinds = ['errors', 'slow', 'capacity']
   const out = []
   for (let i = 0; i < kinds.length; i += 1) {

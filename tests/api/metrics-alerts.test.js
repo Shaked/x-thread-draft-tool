@@ -98,18 +98,25 @@ describe('A3 capacity: database over 700 MB, n_429 over 100 in 24 hours, ops_eve
     expect(alert.causeLine).toBe('Likely cause: GET /drafts had 101 of them.')
   })
 
-  it('ops_events fires over 100 000 rows by count, not at 100 000', async () => {
+  it('the ops_events limit is 100 000 rows', () => {
+    expect(LIMITS.capacityOpsRows).toBe(100000)
+  })
+
+  it('ops_events fires over the limit by count, not at it', async () => {
+    // The real limit (100 000) is pinned above. The boundary is tested with a limit of 100 rows, so the test stays fast.
+    const limits = { ...LIMITS, capacityOpsRows: 100 }
     const insert = (count) =>
       query(
         `insert into ops_events (repo_id, source, kind, id, at, name, status)
          select 1, 'ci', 'run', 'x' || g, now(), 'n', 'ok' from generate_series(1, $1::int) g`,
         [count]
       )
-    await insert(100000)
-    expect(await run()).toEqual([])
+    await insert(100)
+    expect(await run({ limits })).toEqual([])
     await query("insert into ops_events (repo_id, source, kind, id, at, name, status) values (1, 'ci', 'run', 'last', now(), 'n', 'ok')")
-    const [alert] = await run()
-    expect(alert.numberLine).toContain('ops_events holds 100001 rows')
+    const [alert] = await run({ limits })
+    expect(alert.numberLine).toContain('ops_events holds 101 rows')
+    expect(alert.numberLine).toContain('The limit is 100 ')
   })
 })
 
