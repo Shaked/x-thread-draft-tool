@@ -1,0 +1,1 @@
+Fixed a flaky unit test (#619, Implements #273 Task 5 (flake)): `admin-access-pages` read the path before the session check finished, because the skeleton's "Loading…" text satisfied its wait. It now waits for the skeleton to go and for the redirect to run. No app code changed.
