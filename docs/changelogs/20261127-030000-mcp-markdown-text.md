@@ -1,9 +1,10 @@
-# AI apps without views get readable markdown
+# AI apps without views get readable text
 
-- `list_drafts` adds a table, `export_draft` a fenced block, `create_share_link` a link with its expiry; the JSON stays first.
-- Images show as links only from our storage, and a quoted post only as an x.com or twitter.com status link; a long thread is cut at 8000 characters with the count left out.
+- The draft list, an export and a share link now come with plain readable text for AI apps that show no cards.
+- Images show as links only from our own storage, and a long thread is cut at 8000 characters.
 
 Area: AI apps
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/588
 
 ## Technical details
 
