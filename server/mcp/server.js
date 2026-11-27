@@ -1,6 +1,7 @@
 // The MCP server at POST /api/mcp (plan Task 7.6). Streamable HTTP, stateless, JSON responses only.
 // Specification: revision 2026-07-28 (stateless, server/discover, per-request _meta and headers),
 // with the initialize handshake kept for clients on 2025-11-25 and 2025-06-18.
+import { logError } from '../log-error.js'
 import { runAs } from '../caller-context.js'
 import { HttpError } from '../http.js'
 import { adminListReason, callTool, hasTool, isAdminCaller, isAdminToolName, listTools } from './tools.js'
@@ -233,7 +234,7 @@ export async function handleMcp(request) {
       noteOutcome('rpcError')
       return rpcError(id, err.code, err.message, err.status, err.data)
     }
-    console.error('[mcp] unhandled error', err)
+    logError('[mcp] unhandled error', err)
     return rpcError(id, -32603, 'Internal error', 500)
   }
 }
