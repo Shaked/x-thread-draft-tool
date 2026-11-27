@@ -84,7 +84,7 @@ export const staleResponse = (draft) =>
  * The If-Match tag a write checks in its WHERE: null for no check (no header, or `*`), -1 for a tag
  * that never matches a version (a weak tag, or a number beyond int range), else the version.
  */
-function tagOf(expected) {
+export function tagOf(expected) {
   if (expected === null || expected.any === true) return null
   return expected.weak || !(Number.isSafeInteger(expected.version) && expected.version <= 2147483647) ? -1 : expected.version
 }

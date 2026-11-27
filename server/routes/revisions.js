@@ -1,13 +1,17 @@
-// Read the history of a draft (E273 task H5, #378): list the revisions, read one with its diff.
+// Read the history of a draft (E273 task H5, #378): list the revisions, read one with its diff. Restore a revision
+// (E273 task H6, #379): write its state as the new current state.
 // Owner only, like GET /drafts/:id: a non-owner, an unknown draft and an unknown revision are all 404; a view-as
-// caller is refused (403). Every route is one SQL statement after the session check (query budget: 2 per call).
-// Draft text is in the answer for the owner and nowhere else: this file logs nothing, and the diff comes from the
-// bounded src/utils/revisionDiff.js.
+// caller is refused (403). The reads are one SQL statement after the session check (query budget: 2 per call).
+// Draft text is in the answer for the owner and nowhere else. This file logs nothing except through logError, which
+// never logs a message. The diff comes from the bounded src/utils/revisionDiff.js.
 import { query } from '../db.js'
 import { HttpError, json } from '../http.js'
 import { requireUser } from '../session.js'
+import { listBlobPrefix } from '../blob.js'
+import { imageUrlsFrom, isOwnedBlobUrl } from '../draft-images.js'
+import { logError } from '../log-error.js'
 import { diffDrafts, summaryLine } from '../../src/utils/revisionDiff.js'
-import { isUuid, notFound, refuseWhenViewing } from './drafts.js'
+import { COLUMNS, etagHeaders, ifMatchOf, isUuid, notFound, refuseWhenViewing, staleResponse, tagOf } from './drafts.js'
 
 const DEFAULT_LIMIT = 30
 const MAX_LIMIT = 100
@@ -186,7 +190,110 @@ async function getRevision({ request, params, url }) {
   return json({ revision: meta(row.rev), state, against: label, diff: diffDrafts(from, state) })
 }
 
+// The state at a revision, in one statement, with the current draft (owned, published flag, version) in the same answer.
+const RESTORE_READ = `with d as (select id, title, posts, version, is_published from drafts where id = $1 and user_id = $2),
+      r as (select seq from draft_revisions where draft_id = $1 and seq = $3 and exists (select 1 from d))
+ select exists (select 1 from d) as owned,
+        exists (select 1 from r) as found,
+        (select to_jsonb(d) from d) as draft,
+        (select title from draft_revisions where draft_id = $1 and seq <= $3 and title is not null
+          order by seq desc limit 1) as title,
+        (select post_order from draft_revisions where draft_id = $1 and seq <= $3 and post_order is not null
+          order by seq desc limit 1) as post_order,
+        (select coalesce(jsonb_object_agg(x.post_id, x.body), '{}'::jsonb)
+           from (select distinct on (post_id) post_id, body from draft_post_versions
+                  where draft_id = $1 and seq <= $3 order by post_id, seq desc) x
+          where x.body is not null) as bodies`
+
+// The one write of a restore. The WHERE re-checks: owner, not published, the If-Match version, and that the state differs
+// (a restore of the current state writes nothing). The actor is set here and only here: kind 'restore', the label. The
+// trigger reads both once and never merges a restore into the revision before it.
+const RESTORE_WRITE = `update drafts
+    set title = $3,
+        posts = $4::jsonb,
+        version = version + 1,
+        updated_at = now(),
+        last_actor_kind = 'restore',
+        last_label = $5
+  where id = $1 and user_id = $2 and not is_published
+    and ($6::int is null or version = $6::int)
+    and not ($3::text = title and $4::jsonb = posts)
+  returning ${COLUMNS}`
+
+/**
+ * The posts of a restore without the images whose file is gone. Only this user's own Blob files count (a URL
+ * of another object, or not a Blob URL, is kept as it is). One listing of the user's draft folder, at most. If the
+ * listing is cut off (truncated), nothing is dropped: an image missing from a partial listing may still exist.
+ * A listing that fails is a 503 with nothing written.
+ */
+async function postsWithImagesThatExist(uid, posts) {
+  const owned = imageUrlsFrom(posts).filter((url) => isOwnedBlobUrl(url, uid))
+  if (owned.length === 0) return { posts, dropped: 0 }
+  let listing
+  try {
+    listing = await listBlobPrefix(`drafts/${uid}/`)
+  } catch (err) {
+    logError('[revisions] restore: listing the image files failed', err)
+    throw new HttpError(503, 'The image files could not be checked. Nothing was restored; try again.')
+  }
+  if (listing.truncated) return { posts, dropped: 0 }
+  const present = new Set(listing.files.map((file) => file.url))
+  let dropped = 0
+  const kept = posts.map((post) => {
+    if (!Array.isArray(post?.images)) return post
+    const images = post.images.filter((image) => {
+      const url = typeof image === 'string' ? image : image?.url
+      const gone = typeof url === 'string' && isOwnedBlobUrl(url, uid) && !present.has(url)
+      if (gone) dropped += 1
+      return !gone
+    })
+    return images.length === post.images.length ? post : { ...post, images }
+  })
+  return { posts: kept, dropped }
+}
+
+/**
+ * POST /api/drafts/:id/revisions/:seq/restore: writes the state at `seq` as the new current state (owner only). A new
+ * version and a revision "Restored revision <seq>"; later revisions stay. A stale If-Match is 412 with the current draft
+ * and nothing written; a published draft is 409. Restoring the current state is a 200 with no write. Answer:
+ * { draft, restored_from, images_not_restored }. A view-as caller is refused by the router's write check (403).
+ */
+async function restoreRevision({ request, params }) {
+  const session = await requireUser(request)
+  if (!isUuid(params.id)) throw notFound()
+  if (!/^\d+$/.test(params.seq) || Number(params.seq) > MAX_SEQ) throw notFound()
+  const seq = Number(params.seq)
+  const tag = tagOf(ifMatchOf(request))
+
+  const { rows } = await query(RESTORE_READ, [params.id, session.uid, seq])
+  const row = rows[0]
+  if (!row?.owned || !row.found) throw notFound()
+  if (row.draft.is_published) throw new HttpError(409, 'This draft is published. Duplicate it to edit.')
+  const state = stateOf(row.title, row.post_order, row.bodies)
+  const { posts, dropped } = await postsWithImagesThatExist(session.uid, state.posts)
+  const label = `Restored revision ${seq}`
+  const restored = { restored_from: seq, images_not_restored: dropped }
+
+  // Like writeOrAnswer in drafts.js: the UPDATE first; when it writes nothing, the draft is read again to say why.
+  for (let attempt = 1; ; attempt++) {
+    const { rows: written } = await query(RESTORE_WRITE, [params.id, session.uid, state.title, JSON.stringify(posts), label, tag])
+    if (written[0]) return json({ draft: written[0], ...restored }, 200, etagHeaders(written[0].version))
+    const { rows: found } = await query(
+      `select ${COLUMNS}, ($3::text = title and $4::jsonb = posts) as same
+         from drafts where id = $1 and user_id = $2`,
+      [params.id, session.uid, state.title, JSON.stringify(posts)]
+    )
+    if (!found[0]) throw notFound()
+    const { same, ...draft } = found[0]
+    if (draft.is_published) throw new HttpError(409, 'This draft is published. Duplicate it to edit.')
+    if (same) return json({ draft, ...restored }, 200, etagHeaders(draft.version))
+    // A tag was sent, or this was the third try: a stale answer. Without a tag, the UPDATE is retried.
+    if (tag !== null || attempt >= 3) return staleResponse(draft)
+  }
+}
+
 export const revisionRoutes = [
   { method: 'GET', path: '/drafts/:id/revisions', handler: listRevisions },
-  { method: 'GET', path: '/drafts/:id/revisions/:seq', handler: getRevision }
+  { method: 'GET', path: '/drafts/:id/revisions/:seq', handler: getRevision },
+  { method: 'POST', path: '/drafts/:id/revisions/:seq/restore', handler: restoreRevision }
 ]

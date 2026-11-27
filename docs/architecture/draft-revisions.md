@@ -1,6 +1,6 @@
 # Draft revisions (tables and trigger)
 
-Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`). Plan: `docs/plans/revisions-and-encryption.md` section 2. Only `server/routes/revisions.js` reads the tables (list and read one revision, #378); the history view and restore are later tasks. Checked on 2026-11-27.
+Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`). Plan: `docs/plans/revisions-and-encryption.md` section 2. Only `server/routes/revisions.js` reads the tables (list and read one revision, #378) and writes a restore (#379); the history view and the MCP tools are later tasks. Checked on 2026-11-27.
 
 ## Tables
 - `draft_revisions(draft_id, seq, version, created_at, actor_kind, actor_name, label, title, post_order)`, key `(draft_id, seq)`. `title` only when it changed; `post_order` (post ids) only when posts were added, removed or moved.
@@ -29,3 +29,10 @@ The key function treats posts that are not a JSON array (a bad old row) as empty
 - `GET /drafts/:id/revisions?before=<seq>&limit=1..100`: one statement reads the page, the state just before its oldest revision and the post rows inside the page; the page is then replayed oldest to newest and each step is summarised with `summaryLine(diffDrafts(before, after))`.
 - `GET /drafts/:id/revisions/:seq?against=<seq>|current`: one statement rebuilds the state at `seq` (and at `against`) as described above; `diff = diffDrafts(against, seq)`.
 - Both use the shared, bounded `src/utils/revisionDiff.js`. Owner only (404 for anything else), 403 for view-as, two queries per call (the session check and the statement), no logging.
+
+## Restore (`POST /drafts/:id/revisions/:seq/restore`, #379)
+- One `UPDATE` writes the state at `seq` (title, then the posts in its order) as the new current state. It sets `version + 1`, `last_actor_kind = 'restore'` and `last_label = 'Restored revision <seq>'`, so the trigger makes a new revision that is never merged. Nothing else sets the actor columns of this route; the other writers are not changed by it.
+- The WHERE re-checks the owner, `not is_published`, the `If-Match` version (a stale tag is a 412 with the current draft) and that the state differs (a restore of the current state writes nothing and answers 200). Concurrent writes with the same tag: one wins, the other is 412.
+- Images: a post's image whose file is gone is dropped and counted in `images_not_restored`. Only this user's own Blob files are checked (one listing of `drafts/<user id>/`). A cut-off listing (truncated) drops nothing. A failed listing is a 503 with nothing written.
+- The tests are in `tests/api/draft-revisions-restore.test.js`; the leak scan covers the route.
+
