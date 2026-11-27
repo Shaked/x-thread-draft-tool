@@ -36,6 +36,7 @@ Task #294 wrote these rules. Task #295 added the workflow `.github/workflows/wee
 
 1. **Skill facts.** Read `.claude/skills/product-care.md`. For each fact, check its source. Update only what was
    checked, with the source and today's date (see the skill's update rule).
+   The run also checks `.claude/skills/ui-design.md`, with the same update rules as `product-care.md`: small text fixes after Opus validation; a change to a rule, a token value or a component contract is a PR with the label `owner`.
 2. **Protocol and client changes.** The MCP protocol versions in `server/mcp/server.js`, the pins in `package.json`,
    and the client sources in the skill. Client text changes go to every client and to both languages (AGENTS.md).
 3. **Dependencies and advisories.** `npm audit` and dependency versions (`npm outdated`).
