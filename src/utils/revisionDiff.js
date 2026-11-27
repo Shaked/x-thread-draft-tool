@@ -140,35 +140,55 @@ function runs(ops) {
   return out
 }
 
+// Longest middle (text left after the common start and end) that is segmented. Above it the middle is one deletion
+// and one insertion, without segmenting, so one diff never costs more than this.
+const WORD_DIFF_MAX_MIDDLE_CHARS = 40000
+
+// A cut is safe where a word starts: the character before it is a space, the one at it is not a space and not a
+// combining mark. Both texts are cut at the same kind of place, so no word or grapheme cluster is split. The start
+// and the end of the text are always safe.
+const isWordStart = (text, at) =>
+  at === 0 ||
+  at === text.length ||
+  (/\s/u.test(text[at - 1]) && !/\s/u.test(text[at]) && !/\p{M}/u.test(text[at]))
+
+/** Word-level changes of two middles, tokenized here. Falls back to one deletion and one insertion. */
+function middleOps(before, after) {
+  const fallback = [
+    ...(before ? [{ op: 'del', value: before }] : []),
+    ...(after ? [{ op: 'ins', value: after }] : [])
+  ]
+  if (before.length + after.length > WORD_DIFF_MAX_MIDDLE_CHARS) return fallback
+  const x = tokenize(before)
+  const y = tokenize(after)
+  if (x.length + y.length > WORD_DIFF_CAP) return fallback
+  return myers(x, y) ?? fallback
+}
+
 /**
  * Word diff of two texts: [{ op: 'same' | 'del' | 'ins', text }]. The cut is Intl.Segmenter's word cut, so
  * grapheme clusters are never split. Joining the 'same' and 'ins' parts gives `after`; 'same' and 'del' give `before`.
- * The common start and end are taken off first. When the rest is above WORD_DIFF_CAP tokens, or needs more than
- * WORD_DIFF_MAX_EDITS edits, the rest is one 'del' and one 'ins' (still exact on both sides).
+ * The common start and end are taken off first, on characters, moved to word starts; only the middle is segmented.
+ * When the middle is over WORD_DIFF_MAX_MIDDLE_CHARS, over WORD_DIFF_CAP tokens, or needs more than
+ * WORD_DIFF_MAX_EDITS edits, it is one 'del' and one 'ins' (still exact on both sides).
  */
 export function diffWords(before, after) {
-  const x = tokenize(before)
-  const y = tokenize(after)
-  let start = 0
-  while (start < x.length && start < y.length && x[start] === y[start]) start++
-  let endX = x.length
-  let endY = y.length
-  while (endX > start && endY > start && x[endX - 1] === y[endY - 1]) {
-    endX--
-    endY--
+  const shorter = Math.min(before.length, after.length)
+  let p = 0
+  while (p < shorter && before[p] === after[p]) p++
+  while (p > 0 && !(isWordStart(before, p) && isWordStart(after, p))) p--
+  let q = 0
+  while (q < shorter - p && before[before.length - 1 - q] === after[after.length - 1 - q]) q++
+  let cutBefore = before.length - q
+  let cutAfter = after.length - q
+  while (cutBefore < before.length && !(isWordStart(before, cutBefore) && isWordStart(after, cutAfter))) {
+    cutBefore++
+    cutAfter++
   }
-  const middleX = x.slice(start, endX)
-  const middleY = y.slice(start, endY)
-  const exact = middleX.length + middleY.length <= WORD_DIFF_CAP ? myers(middleX, middleY) : null
   const ops = []
-  for (let i = 0; i < start; i++) ops.push({ op: 'same', value: x[i] })
-  if (exact) {
-    ops.push(...exact)
-  } else {
-    if (middleX.length) ops.push({ op: 'del', value: middleX.join('') })
-    if (middleY.length) ops.push({ op: 'ins', value: middleY.join('') })
-  }
-  for (let i = endX; i < x.length; i++) ops.push({ op: 'same', value: x[i] })
+  if (p) ops.push({ op: 'same', value: before.slice(0, p) })
+  ops.push(...middleOps(before.slice(p, cutBefore), after.slice(p, cutAfter)))
+  if (cutBefore < before.length) ops.push({ op: 'same', value: before.slice(cutBefore) })
   return runs(ops)
 }
 

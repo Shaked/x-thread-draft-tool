@@ -340,11 +340,33 @@ describe('revision diff core (#377)', () => {
   })
 
   it('the edit limit: more edits than WORD_DIFF_MAX_EDITS (within the token cap) gives one deletion and one insertion', () => {
-    // 600 words, 1,199 tokens: under the token cap, but no common word, so about 1,200 edits, above the 1,000 limit.
-    const before = Array.from({ length: 600 }, (_, i) => `w${i}`).join(' ')
-    const after = 'c0'
+    // The two texts share their spaces, so the common part is 399 spaces and the exact diff needs 1,100 edits:
+    // above WORD_DIFF_MAX_EDITS (1,000), under WORD_DIFF_CAP (1,898 tokens). Without the limit it is 1,199 parts.
+    const before = Array.from({ length: 400 }, (_, i) => `a${i}`).join(' ')
+    const after = Array.from({ length: 550 }, (_, i) => `b${i}`).join(' ')
     const parts = diffWords(before, after)
     expect(parts.map((p) => p.op)).toEqual(['del', 'ins'])
+    expect(parts.filter((p) => p.op !== 'ins').map((p) => p.text).join('')).toBe(before)
+    expect(parts.filter((p) => p.op !== 'del').map((p) => p.text).join('')).toBe(after)
+  })
+
+  it('one 125 KB post with a tiny edit at the end is fast and rebuilds exactly (Node 20 in CI)', () => {
+    // Codex measured the full segmentation of this case at about 5 s on Node 20; only the changed end is segmented now.
+    const before = 'word '.repeat(25000)
+    const after = `${before}edit`
+    const started = performance.now()
+    const parts = diffWords(before, after)
+    expect(performance.now() - started).toBeLessThan(500)
+    expect(parts.filter((p) => p.op !== 'ins').map((p) => p.text).join('')).toBe(before)
+    expect(parts.filter((p) => p.op !== 'del').map((p) => p.text).join('')).toBe(after)
+  })
+
+  it('one 125 KB post rewritten in full is bounded and rebuilds exactly', () => {
+    const before = Array.from({ length: 25000 }, (_, i) => `alpha${i}`).join(' ')
+    const after = Array.from({ length: 25000 }, (_, i) => `beta${i}`).join(' ')
+    const started = performance.now()
+    const parts = diffWords(before, after)
+    expect(performance.now() - started).toBeLessThan(500)
     expect(parts.filter((p) => p.op !== 'ins').map((p) => p.text).join('')).toBe(before)
     expect(parts.filter((p) => p.op !== 'del').map((p) => p.text).join('')).toBe(after)
   })
