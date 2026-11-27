@@ -72,7 +72,7 @@ async function listRevisions({ request, params, url }) {
                from (select distinct on (post_id) post_id, body from draft_post_versions
                       where draft_id = $1 and seq < (select seq from low) order by post_id, seq desc) x
               where x.body is not null) as base_bodies,
-            (select coalesce(jsonb_agg(jsonb_build_array(v.seq, v.post_id, v.body)), '[]'::jsonb)
+            (select coalesce(jsonb_agg(jsonb_build_array(v.seq, v.post_id, v.body, v.body is null)), '[]'::jsonb)
                from draft_post_versions v
               where v.draft_id = $1 and v.seq >= (select seq from low) and v.seq <= (select seq from high)) as changes`,
     [params.id, session.uid, before, limit]
@@ -83,19 +83,29 @@ async function listRevisions({ request, params, url }) {
   // Replay from the oldest shown revision up: apply its post rows, its title and its order, then diff with the state before.
   const revisions = row.revisions // oldest first
   const changesBySeq = new Map()
-  for (const [seq, postId, body] of row.changes) {
+  // A post of a draft can be a JSON null (an old row): only the flag says "removed", never the body.
+  for (const [seq, postId, body, removed] of row.changes) {
     if (!changesBySeq.has(seq)) changesBySeq.set(seq, [])
-    changesBySeq.get(seq).push([postId, body])
+    changesBySeq.get(seq).push([postId, body, removed])
+  }
+  // The summary reads only the structure of the diff (which posts changed, were added, removed or moved), never the
+  // words. So each text is swapped for a short stand-in, one per distinct text: equal texts stay equal and different
+  // ones stay different, and the word diff runs on a few characters, not on a long post.
+  const standIns = new Map()
+  const light = (post) => {
+    if (post === null || typeof post !== 'object' || typeof post.text !== 'string') return post
+    if (!standIns.has(post.text)) standIns.set(post.text, `#${standIns.size}`)
+    return { ...post, text: standIns.get(post.text) }
   }
   let title = row.base_title
   let order = row.base_order
-  const bodies = { ...(row.base_bodies ?? {}) }
+  const bodies = Object.fromEntries(Object.entries(row.base_bodies ?? {}).map(([id, post]) => [id, light(post)]))
   let previous = row.base_order === null && row.base_title === null ? EMPTY : stateOf(title, order, bodies)
   const items = []
   for (const rev of revisions) {
-    for (const [postId, body] of changesBySeq.get(rev.seq) ?? []) {
-      if (body === null) delete bodies[postId]
-      else bodies[postId] = body
+    for (const [postId, body, removed] of changesBySeq.get(rev.seq) ?? []) {
+      if (removed) delete bodies[postId]
+      else bodies[postId] = light(body)
     }
     if (rev.title !== null) title = rev.title
     if (rev.post_order !== null) order = rev.post_order

@@ -191,6 +191,27 @@ describe('GET /drafts/:id/revisions/:seq', () => {
     expect((await route(apiRequest(`/api/drafts/${draft.id}/revisions/5`))).status).toBe(401)
   })
 
+  it('the list of many revisions that each rewrite a long post stays fast (the summary does no word diff)', async () => {
+    const big = (tag) => Array.from({ length: 20000 }, (_, i) => `w${i % 89}${tag}${i}`).join(' ')
+    const { rows } = await db.pg.query(
+      "insert into drafts (user_id, title, posts, last_actor_kind, last_actor_name, last_label) values ($1, 'Many', $2::jsonb, 'user', 'alice', 'a') returning id",
+      [alice.id, j([post('p', big('0'))])]
+    )
+    for (let i = 1; i <= 40; i++) {
+      await db.pg.query(
+        "update drafts set posts = $2::jsonb, version = version + 1, last_actor_kind = 'user', last_actor_name = 'alice', last_label = $3 where id = $1",
+        [rows[0].id, j([post('p', big(String(i)))]), `r${i}`]
+      )
+    }
+    const started = Date.now()
+    const res = await get(`/api/drafts/${rows[0].id}/revisions?limit=100`)
+    const out = await body(res)
+    expect(res.status).toBe(200)
+    expect(out.revisions).toHaveLength(41)
+    expect(out.revisions[0].summary).toBe('changed post 1')
+    expect(Date.now() - started).toBeLessThan(1500)
+  })
+
   it('a very long post is diffed without blocking (the bounded word diff)', async () => {
     const big = (tag) => Array.from({ length: 30000 }, (_, i) => `w${i % 97}${tag}${i}`).join(' ')
     const { rows } = await db.pg.query(
@@ -207,5 +228,93 @@ describe('GET /drafts/:id/revisions/:seq', () => {
     expect(res.status).toBe(200)
     expect(list.status).toBe(200)
     expect(Date.now() - started).toBeLessThan(2000)
+  })
+})
+
+// A draft can hold a JSON null in posts (an old row, saved before the routes checked posts). A removed post (SQL NULL
+// body) and a stored null post (jsonb null body) must not look alike, so the list and the read agree at every page size.
+describe('null posts and the odd histories', () => {
+  const states = new Map() // draft id -> seq -> state as written
+
+  async function seed(posts, writes, { actor = ['user', 'alice'] } = {}) {
+    const { rows } = await db.pg.query(
+      "insert into drafts (user_id, title, posts, last_actor_kind, last_actor_name, last_label) values ($1, 'Odd', $2::jsonb, $3, $4, 'start') returning id",
+      [alice.id, j(posts), actor[0], actor[1]]
+    )
+    const id = rows[0].id
+    const seqs = new Map()
+    states.set(id, seqs)
+    const record = async () => {
+      const { rows: last } = await db.pg.query('select max(seq) as seq from draft_revisions where draft_id = $1', [id])
+      const { rows: now } = await db.pg.query('select title, posts from drafts where id = $1', [id])
+      seqs.set(last[0].seq, now[0]) // a merged write overwrites its revision's state
+    }
+    await record()
+    for (const [i, write] of writes.entries()) {
+      await db.pg.query(
+        'update drafts set title = coalesce($2, title), posts = coalesce($3::jsonb, posts), version = version + 1, last_actor_kind = $4, last_actor_name = $5, last_label = $6 where id = $1',
+        [id, write.title ?? null, write.posts ? j(write.posts) : null, write.actor?.[0] ?? 'user', write.actor?.[1] ?? 'alice', write.label === undefined ? `w${i}` : write.label]
+      )
+      await record()
+    }
+    return id
+  }
+
+  const summaries = async (id, limit) => {
+    const out = []
+    let before = null
+    do {
+      const page = await body(await get(`/api/drafts/${id}/revisions?limit=${limit}${before === null ? '' : `&before=${before}`}`))
+      out.push(...page.revisions.map((r) => [r.seq, r.summary]))
+      before = page.next_before
+    } while (before !== null)
+    return out.sort((a, b) => b[0] - a[0])
+  }
+
+  it('a null post is not a removed post: the list says the same at limit 1 and at limit 30, and as the read', async () => {
+    const id = await seed(
+      [null, post('a', 'one')],
+      [{ posts: [null, post('a', 'two')] }, { posts: [null, post('a', 'two'), post('b', 'new')] }]
+    )
+    const one = await summaries(id, 1)
+    const thirty = await summaries(id, 30)
+    expect(one).toEqual(thirty)
+    expect(one).toHaveLength(3)
+    for (const [seq, summary] of thirty) {
+      const detail = await body(await get(`/api/drafts/${id}/revisions/${seq}`))
+      expect(detail.state).toEqual(states.get(id).get(seq))
+      expect(summary).toBe(summaryLine(detail.diff))
+    }
+  })
+
+  it('merges, restores, a removed post, revision 0, duplicate ids and posts with no id all rebuild and summarise the same way', async () => {
+    const noId = { text: 'legacy', images: [], embeddedTweet: null }
+    const id = await seed(
+      [post('d', 'first'), post('d', 'second'), noId],
+      [
+        { posts: [post('d', 'first'), post('d', 'second 2'), noId], label: null }, // merges into the first revision (same actor, no label)
+        { posts: [post('d', 'first'), post('d', 'second 2'), noId, post('z', 'zed')], actor: ['mcp', 'claude'], label: null },
+        { posts: [post('d', 'first'), post('z', 'zed')], actor: ['restore', 'alice'], label: 'Restored revision 1' },
+        { posts: [post('z', 'zed'), post('d', 'first')], actor: ['system', null], label: 'moved' }
+      ]
+    )
+    // An old draft: its revision rows are gone, so the first write stores revision 0.
+    const { rows } = await db.pg.query("insert into drafts (user_id, title, posts) values ($1, 'Old', $2::jsonb) returning id", [alice.id, j([post('o', 'old')])])
+    await db.pg.query('delete from draft_revisions where draft_id = $1', [rows[0].id])
+    states.set(rows[0].id, new Map([[0, { title: 'Old', posts: [post('o', 'old')] }]]))
+    await db.pg.query("update drafts set posts = $2::jsonb, version = version + 1, last_actor_kind = 'user', last_actor_name = 'alice', last_label = 'x' where id = $1", [rows[0].id, j([post('o', 'older')])])
+    states.get(rows[0].id).set(1, { title: 'Old', posts: [post('o', 'older')] })
+
+    for (const draftId of [id, rows[0].id]) {
+      const seqs = [...states.get(draftId).keys()]
+      const listed = await summaries(draftId, 2)
+      expect(listed.map(([seq]) => seq).sort((a, b) => a - b)).toEqual(seqs.sort((a, b) => a - b))
+      expect(await summaries(draftId, 30)).toEqual(listed)
+      for (const [seq, summary] of listed) {
+        const detail = await body(await get(`/api/drafts/${draftId}/revisions/${seq}`))
+        expect(detail.state).toEqual(states.get(draftId).get(seq))
+        expect(summary).toBe(summaryLine(detail.diff))
+      }
+    }
   })
 })

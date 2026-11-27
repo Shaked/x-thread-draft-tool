@@ -237,6 +237,27 @@ beforeAll(async () => {
   await rest('admin view-as: one draft', { path: `/drafts/${draftEn.id}`, cookie: viewAsCookie, headers: ADMIN_WEB })
   await rest('admin view-as: stale patch', { method: 'PATCH', path: `/drafts/${draftEn.id}`, cookie: viewAsCookie, headers: { ...ADMIN_WEB, 'if-match': '"99999"' }, body: { title: `${EN} viewed` } })
 
+  // The revision routes (#378): alice reads her own history (owner answers, not scanned for the marker). Every other caller
+  // gets no text: bob 404, the admin's own cookie 404, view-as 403, an MCP bearer on REST 401. The error answers (404 and a
+  // 400 that carries the marker in `against`) are scanned with the other errors.
+  for (const draft of [draftEn, draftHe]) {
+    await rest('alice REST revisions list', { path: `/drafts/${draft.id}/revisions`, cookie: aliceCookie })
+    await rest('alice REST revision read', { path: `/drafts/${draft.id}/revisions/1`, cookie: aliceCookie })
+    await rest('alice REST revision read against current', { path: `/drafts/${draft.id}/revisions/1?against=current`, cookie: aliceCookie })
+    await rest('bob REST revisions list', { path: `/drafts/${draft.id}/revisions`, cookie: bobCookie })
+    await rest('bob REST revision read', { path: `/drafts/${draft.id}/revisions/1`, cookie: bobCookie })
+    await rest('bob REST revision read against current', { path: `/drafts/${draft.id}/revisions/1?against=current`, cookie: bobCookie })
+    await rest('admin own cookie: revisions list', { path: `/drafts/${draft.id}/revisions`, cookie: adminCookie, headers: ADMIN_WEB })
+    await rest('admin own cookie: revision read', { path: `/drafts/${draft.id}/revisions/1`, cookie: adminCookie, headers: ADMIN_WEB })
+    await rest('admin view-as: revisions list', { path: `/drafts/${draft.id}/revisions`, cookie: viewAsCookie, headers: ADMIN_WEB })
+    await rest('admin view-as: revision read', { path: `/drafts/${draft.id}/revisions/1?against=current`, cookie: viewAsCookie, headers: ADMIN_WEB })
+    await rest('admin bearer token: revisions list', { path: `/drafts/${draft.id}/revisions`, headers: { authorization: `Bearer ${adminMcp}` } })
+    await rest('admin bearer token: revision read', { path: `/drafts/${draft.id}/revisions/1`, headers: { authorization: `Bearer ${adminMcp}` } })
+  }
+  await rest('error: revision not found (alice REST)', { path: `/drafts/${draftEn.id}/revisions/99999`, cookie: aliceCookie })
+  await rest('error: revision bad against (alice REST, marker in the query)', { path: `/drafts/${draftEn.id}/revisions/1?against=${encodeURIComponent(EN)}`, cookie: aliceCookie })
+  await rest('error: revision bad limit (alice REST, marker in the query)', { path: `/drafts/${draftEn.id}/revisions?limit=${encodeURIComponent(HE)}`, cookie: aliceCookie })
+
   // Every admin REST route the router has, called once through the website surface as the admin. GET of one user
   // uses alice's id; a route that changes a user or a flag gets the nil id (no user, no change); metrics series names a metric (requests).
   const bodyFor = { 'POST /admin/flags': {}, 'POST /admin/users/:id/suspend': {}, 'POST /admin/users/:id/unsuspend': {}, 'POST /admin/users/:id/delete': {} }
@@ -309,7 +330,7 @@ describe('plaintext leak scan (issue #384)', () => {
 
   it('no error answer holds a piece of a marker, except the owner-only stale-save answer', () => {
     const errors = seen.filter(([where]) => where.startsWith('error:') && !OWNER_ONLY_ANSWERS.includes(where))
-    expect(errors).toHaveLength(2)
+    expect(errors).toHaveLength(5)
     expect(leaksIn(errors)).toEqual([])
   })
 
@@ -320,6 +341,17 @@ describe('plaintext leak scan (issue #384)', () => {
     expect(others).toHaveLength(2)
     for (const [where, text] of others) expect(statusOf(text), where).not.toBe(412)
     expect(leaksIn(others)).toEqual([])
+  })
+
+  it('the revision routes answer the owner with 200 and everyone else with no text (#378)', () => {
+    const own = seen.filter(([where]) => where.startsWith('alice REST revision'))
+    expect(own).toHaveLength(6)
+    expect(own.map(([where, text]) => [where, statusOf(text)]).filter(([, status]) => status !== 200)).toEqual([])
+    const status = (prefix) => seen.filter(([where]) => where.startsWith(prefix)).map(([, text]) => statusOf(text))
+    expect(status('admin own cookie: revision')).toEqual([404, 404, 404, 404])
+    expect(status('admin view-as: revision')).toEqual([403, 403, 403, 403])
+    expect(status('admin bearer token: revision')).toEqual([401, 401, 401, 401])
+    expect(status('error: revision')).toEqual([404, 400, 400])
   })
 
   it('no admin answer holds a piece of a marker: REST, MCP and "view as"', () => {
