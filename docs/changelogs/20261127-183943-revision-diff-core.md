@@ -3,7 +3,7 @@
 - Nothing changes on screen yet. The app can now compare two versions of a draft, post by post and word by word, and rebuild the newer one from the older one plus the difference.
 
 Area: Drafts
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/PENDING
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/615
 
 ## Technical details
 
