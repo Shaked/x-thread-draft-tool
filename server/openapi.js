@@ -447,7 +447,8 @@ export const OPENAPI = {
           403: { description: 'A view-as caller cannot change drafts', content: errorContent() },
           404: NOT_FOUND,
           409: { description: 'The draft is published. Duplicate it to edit.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
-          412: PRECONDITION_FAILED
+          412: PRECONDITION_FAILED,
+          503: { description: 'The image files could not be checked (the Blob listing failed). Nothing was written; try again.', content: errorContent() }
         }
       }
     },

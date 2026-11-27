@@ -30,6 +30,12 @@ beforeAll(async () => {
   bobCookie = await db.cookieFor(bob)
 })
 
+/** The one admin account of this file (github_id 960015 is the admin id). */
+async function adminAccount() {
+  const { rows } = await db.pg.query('select * from users where github_id = 960015')
+  return rows[0] ?? db.insertUser({ github_id: 960015, login: 'shaked' })
+}
+
 const post = (id, text, images = []) => ({ id, text, images, embeddedTweet: null })
 const blobUrl = (name) => `https://store.public.blob.vercel-storage.com/drafts/${alice.id}/d/${name}`
 
@@ -113,7 +119,7 @@ describe('restore a revision (#379)', () => {
     expect(await revisionsOf(id)).toEqual(revisionsBefore)
   })
 
-  it('a weak or malformed If-Match is 400 (the same parser as PATCH), and nothing is written', async () => {
+  it('a weak If-Match is 412 (a weak tag never matches a write) and a malformed one is 400: the same parser as PATCH, nothing written', async () => {
     const id = await seedDraft(HISTORY())
     const before = await stored(id)
     expect((await restoreReq(id, 1, { ifMatch: 'W/"1"' })).status).toBe(412)
@@ -151,7 +157,7 @@ describe('restore a revision (#379)', () => {
   it('a view-as caller is refused (403) and nothing is written', async () => {
     const id = await seedDraft(HISTORY())
     const before = await stored(id)
-    const admin = await db.insertUser({ github_id: 960015, login: 'shaked' })
+    const admin = await adminAccount()
     const adminCookie = await db.cookieFor(admin)
     const claim = await sealViewAs({
       adminUid: admin.id,
@@ -279,5 +285,42 @@ describe('restore a revision (#379)', () => {
     const after = await stored(id)
     expect(after.version).toBe(before.version + 1)
     expect((await revisionsOf(id)).length).toBe(HISTORY().length + 1)
+  })
+
+  it('a suspended user gets 403 and the draft is untouched', async () => {
+    const id = await seedDraft(HISTORY())
+    const before = await stored(id)
+    await db.pg.query("update users set suspended_at = now(), suspended_reason = 'test' where id = $1", [alice.id])
+    try {
+      const res = await restoreReq(id, 1, { ifMatch: await tagOf(id) })
+      expect(res.status).toBe(403)
+      expect(await stored(id)).toEqual(before)
+    } finally {
+      await db.pg.query('update users set suspended_at = null, suspended_reason = null where id = $1', [alice.id])
+    }
+  })
+
+  it('a personal xt_ token restores like PATCH does: the same answer and the same If-Match rule', async () => {
+    const created = await route(apiRequest('/api/tokens', { method: 'POST', cookie: aliceCookie, body: { name: 'restore test', expires_in_days: 7 } }))
+    const { token } = await created.json()
+    const id = await seedDraft(HISTORY())
+    const bearer = { authorization: `Bearer ${token}` }
+    const restored = await route(apiRequest(`/api/drafts/${id}/revisions/1/restore`, { method: 'POST', headers: { ...bearer, 'if-match': await tagOf(id) } }))
+    expect(restored.status).toBe(200)
+    expect((await restored.json()).draft.title).toBe('Start')
+    const stale = await route(apiRequest(`/api/drafts/${id}/revisions/2/restore`, { method: 'POST', headers: { ...bearer, 'if-match': '"999"' } }))
+    expect(stale.status).toBe(412)
+    const patched = await route(apiRequest(`/api/drafts/${id}`, { method: 'PATCH', body: { title: 'Patched' }, headers: { ...bearer, 'if-match': '"999"' } }))
+    expect(patched.status).toBe(412)
+  })
+
+  it('the admin, signed in on their own account, gets 404 for another user\'s draft and the draft is untouched', async () => {
+    const id = await seedDraft(HISTORY())
+    const before = await stored(id)
+    const admin = await adminAccount()
+    const adminCookie = await db.cookieFor(admin)
+    const res = await restoreReq(id, 1, { cookie: adminCookie, ifMatch: await tagOf(id) })
+    expect(res.status).toBe(404)
+    expect(await stored(id)).toEqual(before)
   })
 })
