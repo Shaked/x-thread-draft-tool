@@ -1,5 +1,11 @@
-# Contract text in the server instructions, prompts and skill (#388)
+# AI apps edit first, then show a shorter reply
 
-- Server instructions gain the options sentence of plan section 2.3 ("numbered block quotes"); the format eval (#365) refuses the words "code block", so that sentence does not name one.
-- Prompts: `rewrite_hook` and `tighten_draft` show options and before/after as block quotes; `tighten_draft` says in one line what changed; `thread_from_notes` does not repeat the posts a card shows.
-- Skill: new "Working on a draft" section (R1 to R9, the image lines, one sample answer); workflow steps 1 and 2 follow the contract.
+- AI apps change a draft at once when asked, then say in one line what changed.
+- Options and before-and-after text come back as numbered quotes, and the saved thread is not repeated when a card shows it.
+
+Area: AI apps
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/578
+
+## Technical details
+
+`server/mcp/server.js` (instructions), `server/mcp/prompts.js` (rewrite_hook, tighten_draft, thread_from_notes), `server/mcp/skills.js` ("Working on a draft", workflow steps 1 and 2). Tests in `tests/api/mcp-default-use.test.js`, `mcp-prompts.test.js`, `mcp-skills.test.js`. Discovery score and `baseline.json` unchanged. Implements #388.
