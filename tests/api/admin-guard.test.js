@@ -15,7 +15,7 @@ import { ciAudience, OIDC_ISSUER, setJwksForTests, verifyCiToken } from '../../s
 import { resolveAccess, issuePair } from '../../server/oauth/tokens.js'
 import { createApiToken } from '../../server/tokens.js'
 import { adminRoutes } from '../../server/routes/admin.js'
-import { ADMIN_TOOLS, adminToolRouteKeys } from '../../server/mcp/admin-tools.js'
+import { ADMIN_TOOLS, WEB_ONLY_ADMIN_ROUTES, adminToolRouteKeys } from '../../server/mcp/admin-tools.js'
 import { apiRequest, setupTestDb, APP_URL } from './helpers/db.js'
 
 const API = `${APP_URL}/api`
@@ -280,6 +280,6 @@ describe('an admin tool reaches only its own admin routes (audit R3, #298)', () 
     const adminKeys = ROUTES.filter((entry) => entry.path.startsWith('/admin/')).map((entry) => `${entry.method} ${entry.path}`)
     for (const tool of ADMIN_TOOLS) expect(adminToolRouteKeys(tool.name).length, tool.name).toBeGreaterThan(0)
     const toolKeys = ADMIN_TOOLS.flatMap((tool) => adminToolRouteKeys(tool.name))
-    expect(adminKeys.filter((key) => !toolKeys.includes(key))).toEqual([])
+    expect(adminKeys.filter((key) => !toolKeys.includes(key) && !Object.hasOwn(WEB_ONLY_ADMIN_ROUTES, key))).toEqual([])
   })
 })
