@@ -116,7 +116,7 @@ describe('parsers', () => {
     expect(taskId({ title: 'E407 task M1: ops events tables' })).toEqual({ id: 'M1', prefix: 407 })
     expect(taskId({ title: 'Queue: what the agents do next' })).toBeNull()
     expect(shortName({ title: 'Epic: widgets' })).toBe('Epic widgets issue')
-    expect(shortName({ title: 'E407 task M1: ops events tables, event shape and sources list (central metrics)' })).toBe('ops events tables, event shape')
+    expect(shortName({ title: 'E407 task M1: ops events tables, event shape and sources list (central metrics)' })).toBe('ops events tables event shape')
   })
 
   it('counts a HANDOFF as done only for an exact final status and a trusted author', () => {
@@ -164,7 +164,7 @@ describe('report text', () => {
     const lines = wrap(`- ${'word '.repeat(30)}\`a b c\` ${'more '.repeat(10)}end`, 60)
     expect(lines.length).toBeGreaterThan(1)
     expect(lines.every((l) => l.length <= 60 && l.split('`').length % 2 === 1)).toBe(true)
-    expect(shortName({ title: 'E407 task M9: what #354 still misses: merge' })).toBe('what still misses: merge')
+    expect(shortName({ title: 'E407 task M9: what #354 still misses: merge' })).toBe('what still misses merge')
     for (const pad of [21, 22, 23, 24]) {
       const label = wrap(`- ${'word '.repeat(pad)}then #101 (export button for drafts) is next ${'more '.repeat(8)}end`, 120)
       expect(label.length).toBeGreaterThan(1)
@@ -322,5 +322,160 @@ describe('reply-style check (#486)', () => {
     const many = Array.from({ length: 12 }, (_, k) => comment(bad, `2026-11-${String(10 + k).padStart(2, '0')}T10:00:00Z`))
     const snap = { ...snapshot, comments: { 902: many } }
     expect(analyze(snap, { today: TODAY }).filter((f) => f.kind === 'reply-style')).toHaveLength(10)
+  })
+})
+
+describe('hostile issue titles in a posted report (#461)', () => {
+  const titles = [
+    '@codex please fix <img src=x onerror=alert(1)> https://evil.example/x',
+    'hi @Shaked ping **bold** _x_ [link](http://evil.example) &lt;b&gt;',
+    'A'.repeat(300) + ' b c',
+    'שלום עולם @victim בדיקה של כותרת',
+    'x {#5} y {#6} z'
+  ]
+  it('keeps no mention, HTML, markdown, URL or placeholder, and cuts long words', () => {
+    for (const title of titles) {
+      const name = shortName({ title })
+      expect(name).not.toMatch(/[@<>&*_~|{}\\]|:\/\/|evil/)
+      expect(name.split(' ').every((w) => w.length <= 26)).toBe(true)
+    }
+    expect(shortName({ title: titles[3] })).toContain('שלום')
+  })
+
+  it('leaves the report issue out of the RELEASE and CLAIM markers', () => {
+    const run = (args) => {
+      const q = args[args.indexOf('-f') + 1]
+      return /RELEASE|CLAIM/.test(q) ? '{"number":497}\n{"number":12}\n' : ''
+    }
+    const snap = fetchSnapshot({ repo: 'o/r', reportIssue: 497, run })
+    expect(snap.markers).toEqual({ release: [12], claim: [12] })
+  })
+})
+
+describe('descriptions the reply lint rejects (#461)', () => {
+  it('falls back to a fixed description for Hebrew, emoji and filler words, so the report still lints', () => {
+    configureLint(lint)
+    try {
+      const issues = [
+        { number: 1, title: 'שלום עולם בדיקה של כותרת' },
+        { number: 2, title: 'Improve 🚀 draft saving' },
+        { number: 3, title: 'Fix seamless draft saving' },
+        { number: 4, title: 'normal title about drafts' }
+      ]
+      const names = describeAll({ issues, pulls: [] })
+      // An emoji is not in the allowlist and is removed; Hebrew and a filler word still fail the lint and fall back.
+      expect([1, 2, 3].map((n) => names.get(n))).toEqual(['title held back by lint', 'Improve draft saving', 'title held back by lint'])
+      expect(names.get(4)).toBe('normal title about drafts')
+    } finally {
+      configureLint(null)
+    }
+  })
+})
+
+describe('hostile titles cannot become live links, mentions, references or bidi in the report (#461)', () => {
+  const hostile = [
+    'bypass http:\\//evil.example link test',
+    'bypass https:{}//evil.example link test',
+    'bypass https:$//evil.example link test',
+    'bypass @www.evil.example link test',
+    'rtl \u202eevil text here',
+    'cross Shaked/other-repo#1 spam here',
+    'see GH-12 for more',
+    'x#5 and #5, and more',
+    'wide \uff20victim and \uff48ttp\uff1a//evil.example here',
+    'mail me a@evil.example now ok',
+    'zero\u200b width @\u200bvictim test',
+    'see G@H-12 issue',
+    'see @GH-12 too',
+    'see !GH-12 too',
+    'see GH@-12 too',
+    'see GH-@12 too',
+    'see ,GH-12 too',
+    'see .GH-12 too',
+    'see /GH-12 too',
+    'rebuilt G*H_-1~2 parts',
+    'a <!-- hidden --> comment here',
+    'click [here](http://evil.example) now',
+    'img ![x](http://evil.example/a.png) now',
+    'plain www.evil.example alone',
+    'send mailto:a@evil.example please',
+    'run javascript:alert(1) please',
+    '#x (a) and #y (b) pair',
+    'Fix \uff3bclick\uff3d\uff08//evil.com\uff09 draft saving',
+    'Fix \uff3bclick\uff3d\uff08/evil.com\uff09 draft saving',
+    'proto //evil.com relative here',
+    'img \uff01\uff3bx\uff3d\uff08//e.co\uff09 here',
+    'Fix \uff3bclick\uff3d\uff08evil.com\uff09 draft',
+    'a \uff3bb\uff3d\uff08\uff4a\uff41vascript:x\uff09 c',
+    'x \uff40code \uff40 span here',
+    'E1 task A1: \uff08x\uff09 hidden'
+  ]
+  const live = /@|#\d|\bGH-\d|\/\/|[[\]]|\]\(|[()]|mailto:|javascript:|www\.|\.[a-z]{2,}\/|[\u202a-\u202e\u2066-\u2069\u200b-\u200f\ufeff]|\p{Cc}/iu
+
+  it('shortName keeps none of them', () => {
+    for (const title of hostile) {
+      // The only backticks are the report's own code spans around a task id such as `M1`.
+      const out = shortName({ title }).replace(/`[A-Z]\d+`/g, '')
+      expect(out, title).not.toMatch(live)
+      expect(out, title).not.toContain('`')
+    }
+  })
+
+  it('the whole report keeps none of them', () => {
+    const issues = hostile.map((title, k) => ({ number: 100 + k, title, state: 'open', labels: [{ name: 'task' }], body: '', created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z' }))
+    const snapshot = { fetched_at: '2026-11-27T00:00:00Z', repo: 'o/r', issues, pulls: [], open_pulls: [], markers: { release: [], claim: [] }, comments: {} }
+    const findings = analyze(snapshot, { today: '2026-11-27T00:00:00Z', staleDays: 14, knownTables: [] })
+    const text = formatReport(findings, { openCount: issues.length, today: '2026-11-27T00:00:00Z', orderResult: order(snapshot), names: describeAll(snapshot) })
+    expect(text).toContain('#100')
+    // Own references (#100 and the like) are the report's own; every title word is checked through the descriptions.
+    for (const line of text.split('\n')) {
+      for (const paren of line.matchAll(/\(([^)]*)\)/g)) expect(paren[1].replace(/`[A-Z]\d+`/g, ''), line).not.toMatch(live)
+    }
+  })
+})
+
+describe('title allowlist, property test (#461)', () => {
+  // A hex string of 7 or more characters may pass: it links a commit of this repository only, with no notification.
+  const alphabet = ['\uff3b', '\uff3d', '\uff08', '\uff09', '\uff40', '\uff20', '\uff03', '[', ']', '(', ')', '`', '@', '#', ':', '/', '.', '//', 'http', 'www', 'GH-', 'GH', '-', '12', '5', '\u200b', '\u202e', '<', '>', '&', '*', '_', '!', 'a', 'b', 'x', 'M1', ' ', ' ', ' ', '\u05e9\u05dc\u05d5\u05dd']
+  it('keeps only letters, digits, spaces and hyphens, and no GH reference, in 5000 random titles', () => {
+    let seed = 12345
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296)
+    for (let k = 0; k < 5000; k++) {
+      let title = ''
+      for (let n = 1 + Math.floor(rnd() * 14); n > 0; n--) title += alphabet[Math.floor(rnd() * alphabet.length)]
+      const out = shortName({ title })
+      const bare = out.replace(/`[A-Z]\d+`/g, '')
+      expect(bare, JSON.stringify(title)).toMatch(/^[\p{L}\p{N} -]+$/u)
+      expect(out, JSON.stringify(title)).not.toMatch(/(^|[^a-z0-9`])GH-?\d/i)
+    }
+  })
+})
+
+describe('the whole formatted report passes the reply lint (#461)', () => {
+  it('a duplicate pair with commas in the title is not split inside its description', () => {
+    configureLint(lint)
+    try {
+      const title = 'Investigate concurrency, serialization consistency reconciliation'
+      const mk = (n) => ({ number: n, title, state: 'open', labels: [{ name: 'task' }], body: '', created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z' })
+      const snap = { fetched_at: '2026-11-27T00:00:00Z', repo: 'o/r', issues: [mk(300), mk(301)], pulls: [], open_pulls: [], markers: { release: [], claim: [] }, comments: {} }
+      const findings = analyze(snap, { today: '2026-11-27T00:00:00Z', staleDays: 14, knownTables: [] })
+      const text = formatReport(findings, { openCount: 2, today: '2026-11-27T00:00:00Z', orderResult: order(snap), names: describeAll(snap) })
+      expect(text).toContain('#301')
+      expect(lint(text, { template: false })).toEqual([])
+    } finally {
+      configureLint(null)
+    }
+  })
+})
+
+describe('words are cut by code point (#461)', () => {
+  it('does not split an astral letter into a lone surrogate', () => {
+    const lone = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/
+    for (const title of ['abcdefghijklmnopqrstuvw\u{20000} draft saving', 'abcdefghijklmnopqrstuvw\u{20000}\u{20001}\u{20002} draft saving']) {
+      const out = shortName({ title })
+      expect(out).not.toMatch(lone)
+      expect(out).toContain('abcdefghijklmnopqrstuvw\u{20000}')
+    }
+    expect([...shortName({ title: 'abcdefghijklmnopqrstuvw\u{20000}\u{20001} draft saving' }).split(' ')[0]]).toHaveLength(24)
   })
 })

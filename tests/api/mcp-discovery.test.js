@@ -133,23 +133,27 @@ describe('frozen corpus statistics', () => {
   const before = run(tools)
 
   // Every score of every tool except `target`, for every phrase, in both modes and both pools, must be bit-identical.
-  const expectOthersUnchanged = (after, target, label) => {
+  // Mismatches are collected and checked once: a matcher call per score would cost seconds.
+  const othersChanged = (after, target, label) => {
+    const diffs = []
     const same = (a, b, where) => {
-      expect(Object.keys(b.scores).sort(), where).toEqual(Object.keys(a.scores).sort())
-      for (const name of Object.keys(a.scores)) if (name !== target) expect(b.scores[name], `${where} -> ${name}`).toBe(a.scores[name])
+      const names = Object.keys(a.scores)
+      if (names.length !== Object.keys(b.scores).length) diffs.push(`${where}: different tools`)
+      for (const name of names) if (name !== target && !Object.is(b.scores[name], a.scores[name])) diffs.push(`${where} -> ${name}: ${a.scores[name]} became ${b.scores[name]}`)
     }
     for (const mode of MODES) {
       before.modes[mode].phrases.forEach((row, n) => same(row, after.modes[mode].phrases[n], `${label} ${mode} normal "${row.text}"`))
       before.modes[mode].negativeRows.forEach((row, n) => same(row, after.modes[mode].negativeRows[n], `${label} ${mode} normal negative "${row.text}"`))
     }
     before.adminRows.forEach((row, n) => same(row, after.adminRows[n], `${label} ${row.mode} normal+admin "${row.text}"`))
+    return diffs
   }
 
   it('(a) changing one tool description, through evaluate(), leaves every other tool score bit-identical in both pools and both modes', () => {
     const words = (t) => ({ description: `${t.description} publish tweet schedule quickly twitter שרשור new words zzqqxx` })
-    for (const target of ['create_draft', 'list_drafts', 'whoami']) expectOthersUnchanged(run(edit(tools, target, words)), target, target)
+    for (const target of ['create_draft', 'list_drafts', 'whoami']) expect(othersChanged(run(edit(tools, target, words)), target, target).slice(0, 5), target).toEqual([])
     const adminTarget = admin[0].name
-    expectOthersUnchanged(run(tools, edit(admin, adminTarget, words)), adminTarget, adminTarget)
+    expect(othersChanged(run(tools, edit(admin, adminTarget, words)), adminTarget, adminTarget).slice(0, 5), adminTarget).toEqual([])
     // The edit really does touch shared words (so live statistics would have moved the others).
     expect(run(edit(tools, 'create_draft', words)).modes.tools_only.phrases.some((row, n) => row.scores.create_draft !== before.modes.tools_only.phrases[n].scores.create_draft)).toBe(true)
   })

@@ -23,7 +23,9 @@ import { APP_URL, apiRequest, setupTestDb } from './helpers/db.js'
 
 // Tables where draft text may live. Each entry says why it is allowed; every other table must hold no piece.
 const DRAFT_TABLES = new Set([
-  'drafts' // the draft rows; plain text today. After encryption, locked drafts hold ciphertext here.
+  'drafts', // the draft rows; plain text today. After encryption, locked drafts hold ciphertext here.
+  'draft_revisions', // revision titles (#375): draft text, copied by the trigger from drafts.title
+  'draft_post_versions' // post bodies per revision (#375): draft text, copied by the trigger from drafts.posts
 ])
 
 // Error answers that may hold draft text, each with its reason. The stale-save answer (412, #359) returns
@@ -350,6 +352,14 @@ describe('plaintext leak scan (issue #384)', () => {
   it('the draft tables hold both markers (a control: the scan would see them if they were elsewhere)', async () => {
     const { rows } = await db.pg.query('select * from drafts')
     const text = JSON.stringify(rows, asText)
+    expect(text).toContain(EN)
+    expect(text).toContain(HE)
+  })
+
+  it('the revision tables hold the markers too, so they belong in the draft-table allow-list (#375)', async () => {
+    const { rows } = await db.pg.query('select title, post_order from draft_revisions')
+    const { rows: bodies } = await db.pg.query('select body from draft_post_versions')
+    const text = JSON.stringify([rows, bodies], asText)
     expect(text).toContain(EN)
     expect(text).toContain(HE)
   })
