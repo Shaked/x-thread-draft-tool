@@ -1,6 +1,6 @@
 {
   "name": "agent-kit",
-  "description": "Generic skills, hooks, commands and scripts for agents that work on a repository: reply templates and their lint, metrics skills, and the task janitor.",
+  "description": "Generic skills, hooks, commands and scripts for agents that work on a repository: reply templates and their lint, metrics skills, the task janitor, and a contract-tests method.",
   "owner": {
     "name": "Shaked"
   },
@@ -22,6 +22,12 @@
       "source": "./plugins/task-janitor",
       "version": "0.1.0",
       "description": "Task janitor for an issue tracker and Claude Code sessions: a read-only report, a session matcher, a status board, and their commands."
+    },
+    {
+      "name": "contract-tests",
+      "source": "./plugins/contract-tests",
+      "version": "0.1.0",
+      "description": "A method for end-to-end contract tests that run without a person, a client binary, a browser sign-in or a model call."
     }
   ]
 }
