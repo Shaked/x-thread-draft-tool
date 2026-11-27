@@ -50,9 +50,7 @@
     "area": "Docs",
     "title": "The code check covers the whole project",
     "lines": [
-      "The code check runs on the whole project.",
-      "Long functions were split into smaller ones, and the build step was moved out of the check.",
-      "It replaces an older change that was out of date."
+      "The code check runs on the whole project."
     ]
   },
   {
@@ -112,7 +110,7 @@
     "area": "AI apps",
     "title": "Older AI apps can connect now",
     "lines": [
-      "A request with no version header is handled as the older protocol version, 2025-03-26, instead of being refused.",
+      "A request with no version header is handled as the older protocol version instead of being refused.",
       "The log now records the other site when a request from it is refused."
     ]
   },
@@ -144,7 +142,7 @@
     "area": "AI apps",
     "title": "Image removal through AI apps fixed",
     "lines": [
-      "Removing an image now also checks older image entries in your other drafts before deleting the file.",
+      "Removing an image now also checks image entries saved in another format in your other drafts.",
       "The file is deleted only if it is yours and none of your other drafts uses it.",
       "A successful removal no longer returns a forbidden error."
     ]
@@ -156,14 +154,14 @@
     "title": "Edits made during an image upload are kept",
     "lines": [
       "Adding an image from a link to a post keeps edits made while the upload runs.",
-      "The window in which this can go wrong is short, but it is not zero."
+      "A very short gap remains in which an edit can still be lost."
     ]
   },
   {
     "file": "docs/changelogs/20261113-080706-mcp-m5-post-tools.md",
     "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/85",
     "area": "AI apps",
-    "title": "AI apps can change one post at a time",
+    "title": "AI apps can change one post",
     "lines": [
       "AI apps can add, change, remove or move one post without resending the rest of the thread.",
       "Published drafts cannot be changed this way."
@@ -195,7 +193,7 @@
     "file": "docs/changelogs/20261113-082023-mcp-m8-rate-limit.md",
     "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/88",
     "area": "AI apps",
-    "title": "AI apps are limited to 120 calls a minute",
+    "title": "AI apps limited to 120 calls a minute",
     "lines": [
       "Each user can make 120 tool calls a minute through AI apps.",
       "A call over the limit gets a tool error, not a protocol error.",
@@ -371,9 +369,9 @@
     "file": "docs/changelogs/20261113-184335-vercel-ignore-git-env.md",
     "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/96",
     "area": "Docs",
-    "title": "A test can no longer commit to the repo",
+    "title": "Tests can no longer commit to the repo",
     "lines": [
-      "The Vercel ignore test can no longer write commits into the project's repository."
+      "A deployment test can no longer write commits into the project's repository."
     ]
   },
   {
@@ -424,7 +422,7 @@
     "file": "docs/changelogs/20261114-013535-mcp-schema-conformance.md",
     "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/105",
     "area": "AI apps",
-    "title": "A test checks AI app results against official schemas",
+    "title": "AI app results are checked against schemas",
     "lines": [
       "A new test checks that the results of the AI app connector match the official MCP schemas, for two protocol versions.",
       "This change adds a test only."

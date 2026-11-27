@@ -1,4 +1,4 @@
-# A test checks AI app results against official schemas
+# AI app results are checked against schemas
 
 - A new test checks that the results of the AI app connector match the official MCP schemas, for two protocol versions.
 - This change adds a test only.

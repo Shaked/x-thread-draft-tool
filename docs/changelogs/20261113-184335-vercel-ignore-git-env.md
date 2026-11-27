@@ -1,6 +1,6 @@
-# A test can no longer commit to the repo
+# Tests can no longer commit to the repo
 
-- The Vercel ignore test can no longer write commits into the project's repository.
+- A deployment test can no longer write commits into the project's repository.
 
 Area: Docs
 Link: https://github.com/Shaked/x-thread-draft-tool/pull/96
