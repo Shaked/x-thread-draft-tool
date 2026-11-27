@@ -430,6 +430,26 @@ describe('revision diff core (#377)', () => {
     }
   })
 
+  it('a large post whose id changes is a rewrite with no word count, and it is fast', () => {
+    const big = 'word '.repeat(25000)
+    const a = { title: 'T', posts: [{ id: 'a', text: big, images: [], embeddedTweet: null }] }
+    const b = { title: 'T', posts: [{ id: 'b', text: `${big}edit`, images: [], embeddedTweet: null }] }
+    const started = performance.now()
+    const d = diffDrafts(a, b)
+    expect(performance.now() - started).toBeLessThan(500)
+    expect(d.rewritten.map((r) => [r.fromId, r.toId])).toEqual([['a', 'b']])
+    expect(d.rewritten[0].words).toBeNull()
+    expect(applyDiff(a, d)).toEqual(b)
+  })
+
+  it('a rewrite of a short post keeps its word diff when enough words are shared', () => {
+    const a = { title: 'T', posts: [{ id: 'a', text: 'We ship the new editor today for every writer', images: [], embeddedTweet: null }] }
+    const b = { title: 'T', posts: [{ id: 'b', text: 'We ship the new editor today for every writer and team', images: [], embeddedTweet: null }] }
+    const d = diffDrafts(a, b)
+    expect(d.rewritten[0].words).not.toBeNull()
+    expect(applyDiff(a, d)).toEqual(b)
+  })
+
   it('a 1 MB draft: a few edits, a move and an add are found, and the rebuild matches', () => {
     const posts = []
     for (let i = 0; i < 3600; i++) posts.push({ id: `m${i}`, text: `${'Word '.repeat(55)}${i} 👍🏽`, images: [], embeddedTweet: null })

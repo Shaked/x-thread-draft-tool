@@ -143,6 +143,8 @@ function runs(ops) {
 // Longest middle (text left after the common start and end) that is segmented. Above it the middle is one deletion
 // and one insertion, without segmenting, so one diff never costs more than this.
 const WORD_DIFF_MAX_MIDDLE_CHARS = 40000
+// Longest pair of texts (both sides together) that get a word count for a rewrite. See rewriteWords.
+const REWRITE_MAX_CHARS = 10000
 
 const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 
@@ -257,6 +259,9 @@ function imageChanges(before, after) {
 
 /** Word diff for a rewritten post, or null when fewer than 30 % of the words are shared (it would be noise). */
 function rewriteWords(before, after) {
+  // Counting the words of a long post takes a full segmentation (seconds for a 125 KB post on Node 20), so a rewrite
+  // of more than REWRITE_MAX_CHARS characters is shown as before and after, without a word diff.
+  if (before.length + after.length > REWRITE_MAX_CHARS) return null
   const x = wordTokens(before)
   const y = wordTokens(after)
   const total = Math.max(x.length, y.length)
