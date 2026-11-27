@@ -22,7 +22,7 @@
             "top1": 4,
             "top3": 4,
             "total": 4,
-            "margin": 0.703
+            "margin": 0.749
           },
           "he": {
             "top1": 4,
@@ -92,7 +92,7 @@
             "top1": 2,
             "top3": 2,
             "total": 4,
-            "margin": -2.803
+            "margin": -2.755
           },
           "he": {
             "top1": 1,
@@ -120,13 +120,13 @@
             "top1": 4,
             "top3": 4,
             "total": 4,
-            "margin": 0.378
+            "margin": 0.333
           },
           "he": {
             "top1": 3,
             "top3": 4,
             "total": 4,
-            "margin": -1.173
+            "margin": -1.211
           }
         },
         "delete_draft": {
@@ -196,7 +196,7 @@
             "top1": 0,
             "top3": 4,
             "total": 4,
-            "margin": -0.038
+            "margin": -0.021
           }
         },
         "reorder": {
@@ -210,7 +210,7 @@
             "top1": 3,
             "top3": 4,
             "total": 4,
-            "margin": -0.017
+            "margin": 0
           }
         },
         "add_post": {
@@ -218,7 +218,7 @@
             "top1": 2,
             "top3": 3,
             "total": 4,
-            "margin": -0.252
+            "margin": -0.186
           },
           "he": {
             "top1": 0,
@@ -230,7 +230,7 @@
         "remove_post": {
           "en": {
             "top1": 1,
-            "top3": 2,
+            "top3": 3,
             "total": 4,
             "margin": -2.6
           },
@@ -274,13 +274,13 @@
             "top1": 1,
             "top3": 1,
             "total": 4,
-            "margin": -4.842
+            "margin": -4.872
           },
           "he": {
             "top1": 2,
             "top3": 4,
             "total": 4,
-            "margin": -4.139
+            "margin": -4.178
           }
         },
         "move_image": {
@@ -288,21 +288,21 @@
             "top1": 2,
             "top3": 3,
             "total": 4,
-            "margin": -2.616
+            "margin": -2.653
           },
           "he": {
             "top1": 2,
             "top3": 4,
             "total": 4,
-            "margin": -2.858
+            "margin": -2.755
           }
         },
         "remove_images": {
           "en": {
-            "top1": 2,
-            "top3": 2,
+            "top1": 3,
+            "top3": 3,
             "total": 4,
-            "margin": -2.623
+            "margin": -1.433
           },
           "he": {
             "top1": 0,
@@ -342,7 +342,7 @@
             "top1": 4,
             "top3": 4,
             "total": 4,
-            "margin": 0.744
+            "margin": 0.793
           },
           "he": {
             "top1": 4,
@@ -412,7 +412,7 @@
             "top1": 2,
             "top3": 2,
             "total": 4,
-            "margin": -2.716
+            "margin": -2.667
           },
           "he": {
             "top1": 1,
@@ -440,13 +440,13 @@
             "top1": 4,
             "top3": 4,
             "total": 4,
-            "margin": 0.445
+            "margin": 0.363
           },
           "he": {
             "top1": 3,
             "top3": 4,
             "total": 4,
-            "margin": -1.126
+            "margin": -1.165
           }
         },
         "delete_draft": {
@@ -454,7 +454,7 @@
             "top1": 2,
             "top3": 2,
             "total": 4,
-            "margin": -2.028
+            "margin": -2.01
           },
           "he": {
             "top1": 1,
@@ -516,7 +516,7 @@
             "top1": 0,
             "top3": 4,
             "total": 4,
-            "margin": -0.05
+            "margin": -0.028
           }
         },
         "reorder": {
@@ -530,7 +530,7 @@
             "top1": 3,
             "top3": 4,
             "total": 4,
-            "margin": -0.022
+            "margin": 0
           }
         },
         "add_post": {
@@ -538,7 +538,7 @@
             "top1": 2,
             "top3": 3,
             "total": 4,
-            "margin": -0.256
+            "margin": -0.187
           },
           "he": {
             "top1": 0,
@@ -550,7 +550,7 @@
         "remove_post": {
           "en": {
             "top1": 1,
-            "top3": 2,
+            "top3": 3,
             "total": 4,
             "margin": -2.51
           },
@@ -586,7 +586,7 @@
             "top1": 0,
             "top3": 0,
             "total": 4,
-            "margin": -3.948
+            "margin": -3.878
           }
         },
         "replace_image": {
@@ -594,13 +594,13 @@
             "top1": 1,
             "top3": 1,
             "total": 4,
-            "margin": -4.401
+            "margin": -4.438
           },
           "he": {
             "top1": 2,
             "top3": 4,
             "total": 4,
-            "margin": -4.005
+            "margin": -4.044
           }
         },
         "move_image": {
@@ -608,21 +608,21 @@
             "top1": 2,
             "top3": 3,
             "total": 4,
-            "margin": -2.526
+            "margin": -2.564
           },
           "he": {
             "top1": 2,
             "top3": 4,
             "total": 4,
-            "margin": -2.776
+            "margin": -2.667
           }
         },
         "remove_images": {
           "en": {
-            "top1": 2,
-            "top3": 2,
+            "top1": 3,
+            "top3": 3,
             "total": 4,
-            "margin": -2.533
+            "margin": -1.389
           },
           "he": {
             "top1": 0,
@@ -769,7 +769,7 @@
       "intent": "shorten",
       "lang": "en",
       "text": "cut the opening down a bit",
-      "reason": "top-3 miss at run: ranked 17, create_thread_from_text first"
+      "reason": "top-3 miss at run: ranked 17, remove_image first"
     },
     {
       "kind": "top3",
@@ -952,14 +952,6 @@
       "mode": "with_instructions",
       "intent": "remove_post",
       "lang": "en",
-      "text": "take out the last tweet",
-      "reason": "top-3 miss at run: ranked 4, add_post first"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "remove_post",
-      "lang": "en",
       "text": "the third post is not needed, cut it",
       "reason": "top-3 miss at run: ranked 10, remove_image first"
     },
@@ -1025,7 +1017,7 @@
       "intent": "options",
       "lang": "en",
       "text": "what else could the first post say?",
-      "reason": "top-3 miss at run: ranked 9, move_post first"
+      "reason": "top-3 miss at run: ranked 10, move_post first"
     },
     {
       "kind": "top3",
@@ -1073,7 +1065,7 @@
       "intent": "replace_image",
       "lang": "en",
       "text": "Use a different photo instead of the old one",
-      "reason": "top-3 miss at run: ranked 14, get_draft first"
+      "reason": "top-3 miss at run: ranked 13, get_draft first"
     },
     {
       "kind": "top3",
@@ -1081,7 +1073,7 @@
       "intent": "replace_image",
       "lang": "en",
       "text": "Replace the image in my thread everywhere it is used",
-      "reason": "top-3 miss at run: ranked 9, publish_draft first"
+      "reason": "top-3 miss at run: ranked 10, publish_draft first"
     },
     {
       "kind": "top3",
@@ -1089,15 +1081,7 @@
       "intent": "move_image",
       "lang": "en",
       "text": "Put the photo of the last post before the text",
-      "reason": "top-3 miss at run: ranked 4, add_post first"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "remove_images",
-      "lang": "en",
-      "text": "Take all photos off my thread",
-      "reason": "top-3 miss at run: ranked 17, list_drafts first"
+      "reason": "top-3 miss at run: ranked 6, add_post first"
     },
     {
       "kind": "top3",
@@ -1448,14 +1432,6 @@
       "mode": "tools_only",
       "intent": "remove_post",
       "lang": "en",
-      "text": "take out the last tweet",
-      "reason": "top-3 miss at run: ranked 4, add_post first"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "remove_post",
-      "lang": "en",
       "text": "the third post is not needed, cut it",
       "reason": "top-3 miss at run: ranked 10, remove_image first"
     },
@@ -1521,7 +1497,7 @@
       "intent": "options",
       "lang": "en",
       "text": "what else could the first post say?",
-      "reason": "top-3 miss at run: ranked 9, move_post first"
+      "reason": "top-3 miss at run: ranked 10, move_post first"
     },
     {
       "kind": "top3",
@@ -1585,15 +1561,7 @@
       "intent": "move_image",
       "lang": "en",
       "text": "Put the photo of the last post before the text",
-      "reason": "top-3 miss at run: ranked 9, add_post first"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "remove_images",
-      "lang": "en",
-      "text": "Take all photos off my thread",
-      "reason": "top-3 miss at run: ranked 17, list_drafts first"
+      "reason": "top-3 miss at run: ranked 10, add_post first"
     },
     {
       "kind": "top3",
