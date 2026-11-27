@@ -1,6 +1,7 @@
 # Editor images, tweet embed and emoji picker use the new design
 
-- The image carousel, the image drop area, the tweet URL box and the emoji picker now use the same colours, buttons and spacing as the rest of the app. The carousel's previous and next buttons are larger and easier to press.
+- The image carousel, the image drop area, the tweet URL box and the emoji picker use the same colours, buttons and spacing as the rest of the app.
+- The carousel's previous and next buttons are larger and easier to press.
 - Adding, pasting or removing images, the carousel, the tweet embed and inserting emoji work as before.
 
 Area: Design
