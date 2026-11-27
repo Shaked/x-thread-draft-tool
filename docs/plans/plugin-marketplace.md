@@ -210,6 +210,21 @@ Keys the issue named and the plan leaves out, with the reason:
 The templates and fixtures take their examples from a neutral sample project: `acme/sample-app`, owner "Sam",
 issues `#12` and `#34`.
 
+Keys for task-janitor (decided in #509, 2026-11-27). Same file, section `task-janitor`; the two shared keys are the ones above.
+
+| Key | Default | Used for |
+|---|---|---|
+| `repo` (shared) | empty | The GitHub search in `fetch`; the links in the summary and the board |
+| `owner` (shared) | `the owner` | The owner's name in findings, and the owner patterns (an answer by the owner counts) |
+| `task-janitor.replyLint` | not set | Path to the reply-style lint module. Not set or not loadable: the report says "Reply style: not checked" (see 4.4) |
+| `task-janitor.manualTestsIssue` | not set | A whole number: the issue whose tests are optional on the status board; not set, no such issue |
+| `task-janitor.reportIssue` | not set | A whole number: where `/janitor` posts its summary; not set, the command prints the summary and posts nothing |
+| `task-janitor.dispatcherIssue` | not set | A whole number: named in the summary's dispatcher line; not set, the line says "The dispatcher" |
+
+Decided fixed in 0.1.0, not settings: the labels `held`, `owner`, `parked`, `cleanup`, `weekly`, `reply-style-fail`, `epic`, `task`, `dispatch`, `janitor`, `tracker`; the markers `CLAIM`, `HANDOFF`, `RELEASE`; `IGNORED_FILES` (the paths that do not count as code). They are the workflow's conventions, written in the skill; a project that uses other names needs a new key, and that is a minor version. `ownerLogin` is not used by the janitor: the owner is the owner of `repo`.
+
+Each key is a whole number or a path, and a wrong type stops the command with exit 2 and the key named (test in `tests/unit/task-janitor-plugin.test.js`).
+
 ### 4.4 Plugins that use each other
 `scripts/janitor.mjs` imports the reply lint to check recent HANDOFF comments. Plugins are cached apart and never
 read above their root, so the `task-janitor` plugin cannot import the `reply-style` script by path. Decision: that

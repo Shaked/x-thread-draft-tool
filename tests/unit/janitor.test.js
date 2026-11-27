@@ -15,9 +15,11 @@ import {
   wrap
 } from '../../scripts/janitor.mjs'
 import { lint } from '../../scripts/reply-lint.mjs'
+import { configureLint } from '../../scripts/janitor.mjs'
 
 const snapshot = JSON.parse(readFileSync(new URL('./fixtures/janitor/snapshot.json', import.meta.url), 'utf8'))
 const TODAY = '2026-11-25T12:00:00Z'
+configureLint(lint)
 const findings = analyze(snapshot, { today: TODAY, knownTables: ['widget_rows'] })
 const find = (kind, ...issues) => findings.filter((f) => f.kind === kind && issues.every((n) => f.issues.includes(n)))
 

@@ -51,7 +51,7 @@ describe('reply-lint rules', () => {
   })
 
   it('every reply template has the fixed headings in order', () => {
-    const dirs = [new URL('../../plugins/reply-style/skills/reply-style/templates/', import.meta.url), new URL('../../.claude/reply-style-templates/', import.meta.url)]
+    const dirs = [new URL('../../plugins/reply-style/skills/reply-style/templates/', import.meta.url), new URL('../../.claude/reply-style-templates/', import.meta.url), new URL('../../plugins/task-janitor/skills/task-janitor/templates/', import.meta.url)]
     const files = dirs.flatMap((dir) => readdirSync(dir).filter((f) => !OTHER_KINDS.includes(f)).map((f) => new URL(f, dir)))
     expect(files.length).toBeGreaterThanOrEqual(7)
     for (const file of files) {
