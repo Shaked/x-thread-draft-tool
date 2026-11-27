@@ -49,7 +49,11 @@
         { "lang": "he", "text": "שנה את הציוץ השני בשרשור", "expect": ["update_post"] },
         { "lang": "he", "text": "ערוך את הפוסט הראשון בשרשור על קפה", "expect": ["update_post"] },
         { "lang": "he", "text": "תכתוב מחדש את הציוץ השלישי", "expect": ["update_post"] },
-        { "lang": "he", "text": "תתקן את הנוסח של הפוסט האחרון", "expect": ["update_post"] }
+        { "lang": "he", "text": "תתקן את הנוסח של הפוסט האחרון", "expect": ["update_post"] },
+        { "lang": "en", "text": "change the last tweet to say we launch on Monday", "expect": ["update_post"] },
+        { "lang": "en", "text": "fix the spelling mistake in the third tweet", "expect": ["update_post"] },
+        { "lang": "he", "text": "תשנה את הפוסט האחרון כך שיגיד שאנחנו משיקים ביום שני", "expect": ["update_post"] },
+        { "lang": "he", "text": "תתקן את שגיאת הכתיב בפוסט 3", "expect": ["update_post"] }
       ]
     },
     {
@@ -62,7 +66,11 @@
         { "lang": "he", "text": "קצר את הפוסט הרביעי, הוא ארוך מדי", "expect": ["update_post"] },
         { "lang": "he", "text": "תקצר לי את הציוץ השני", "expect": ["update_post"] },
         { "lang": "he", "text": "הציוץ הזה ארוך מדי, תקצר אותו", "expect": ["update_post"] },
-        { "lang": "he", "text": "תקצר את הפוסט האחרון בשרשור", "expect": ["update_post"] }
+        { "lang": "he", "text": "תקצר את הפוסט האחרון בשרשור", "expect": ["update_post"] },
+        { "lang": "en", "text": "make the second post shorter", "expect": ["update_post"] },
+        { "lang": "en", "text": "cut the opening down a bit", "expect": ["update_post"] },
+        { "lang": "he", "text": "תקצר קצת את הפתיחה", "expect": ["update_post"] },
+        { "lang": "he", "text": "תעשה את הפוסט השני קצר יותר", "expect": ["update_post"] }
       ]
     },
     {
@@ -168,6 +176,84 @@
         { "lang": "he", "text": "מתי האפליקציה עודכנה לאחרונה?", "expect": ["app_version"] },
         { "lang": "he", "text": "מה הקומיט שרץ עכשיו?", "expect": ["app_version"] }
       ]
+    },
+    {
+      "id": "add_hook",
+      "phrases": [
+        { "lang": "en", "text": "add a hook at the start", "expect": ["update_post", "add_post"] },
+        { "lang": "en", "text": "write a stronger opening tweet", "expect": ["update_post", "add_post"] },
+        { "lang": "en", "text": "make the first tweet grab attention", "expect": ["update_post", "add_post"] },
+        { "lang": "en", "text": "my opening post is weak, please improve it", "expect": ["update_post", "add_post"] },
+        { "lang": "he", "text": "תוסיף פתיח", "expect": ["update_post", "add_post"] },
+        { "lang": "he", "text": "תכתוב ציוץ פתיחה חזק יותר", "expect": ["update_post", "add_post"] },
+        { "lang": "he", "text": "תדאג שהציוץ הראשון ימשוך תשומת לב", "expect": ["update_post", "add_post"] },
+        { "lang": "he", "text": "הפתיחה חלשה, תתקן אותה", "expect": ["update_post", "add_post"] }
+      ]
+    },
+    {
+      "id": "reorder",
+      "phrases": [
+        { "lang": "en", "text": "swap posts 2 and 3", "expect": ["move_post"] },
+        { "lang": "en", "text": "move the last tweet to the top", "expect": ["move_post"] },
+        { "lang": "en", "text": "put the third post first", "expect": ["move_post"] },
+        { "lang": "en", "text": "change the order of the tweets", "expect": ["move_post"] },
+        { "lang": "he", "text": "תחליף בין הציוץ השני לשלישי", "expect": ["move_post"] },
+        { "lang": "he", "text": "תעביר את הפוסט האחרון להתחלה", "expect": ["move_post"] },
+        { "lang": "he", "text": "תשים את הפוסט השלישי ראשון", "expect": ["move_post"] },
+        { "lang": "he", "text": "תשנה את סדר הציוצים", "expect": ["move_post"] }
+      ]
+    },
+    {
+      "id": "add_post",
+      "phrases": [
+        { "lang": "en", "text": "add another tweet at the end that says thanks", "expect": ["add_post"] },
+        { "lang": "en", "text": "add a post after the second one", "expect": ["add_post"] },
+        { "lang": "en", "text": "add one more tweet asking people to follow me", "expect": ["add_post"] },
+        { "lang": "en", "text": "append a closing tweet", "expect": ["add_post"] },
+        { "lang": "he", "text": "תוסיף ציוץ בסוף שאומר תודה", "expect": ["add_post"] },
+        { "lang": "he", "text": "תוסיף פוסט אחרי השני", "expect": ["add_post"] },
+        { "lang": "he", "text": "עוד ציוץ אחד עם קריאה לפעולה", "expect": ["add_post"] },
+        { "lang": "he", "text": "תוסיף ציוץ סיום", "expect": ["add_post"] }
+      ]
+    },
+    {
+      "id": "remove_post",
+      "phrases": [
+        { "lang": "en", "text": "drop the fourth tweet", "expect": ["remove_post"] },
+        { "lang": "en", "text": "remove the post about pricing", "expect": ["remove_post"] },
+        { "lang": "en", "text": "take out the last tweet", "expect": ["remove_post"] },
+        { "lang": "en", "text": "the third post is not needed, cut it", "expect": ["remove_post"] },
+        { "lang": "he", "text": "תוריד את הציוץ הרביעי", "expect": ["remove_post"] },
+        { "lang": "he", "text": "תסיר את הפוסט על המחיר", "expect": ["remove_post"] },
+        { "lang": "he", "text": "תוציא את הציוץ האחרון", "expect": ["remove_post"] },
+        { "lang": "he", "text": "הפוסט השלישי מיותר, תוריד אותו", "expect": ["remove_post"] }
+      ]
+    },
+    {
+      "id": "split",
+      "phrases": [
+        { "lang": "en", "text": "split this text into tweets and save it", "expect": ["create_thread_from_text", "split_text"] },
+        { "lang": "en", "text": "break this article into a thread", "expect": ["create_thread_from_text", "split_text"] },
+        { "lang": "en", "text": "turn this paragraph into posts", "expect": ["create_thread_from_text", "split_text"] },
+        { "lang": "en", "text": "cut this into tweets for X", "expect": ["create_thread_from_text", "split_text"] },
+        { "lang": "he", "text": "תחלק את הטקסט הזה לציוצים ותשמור", "expect": ["create_thread_from_text", "split_text"] },
+        { "lang": "he", "text": "תפרק את המאמר הזה לשרשור", "expect": ["create_thread_from_text", "split_text"] },
+        { "lang": "he", "text": "תהפוך את הפסקה הזאת לפוסטים", "expect": ["create_thread_from_text", "split_text"] },
+        { "lang": "he", "text": "תחלק את זה לציוצים בשביל X", "expect": ["create_thread_from_text", "split_text"] }
+      ]
+    },
+    {
+      "id": "options",
+      "phrases": [
+        { "lang": "en", "text": "give me three other openings for my thread", "expect": ["get_draft", "get_draft_outline"] },
+        { "lang": "en", "text": "suggest other ways to say my second tweet", "expect": ["get_draft", "get_draft_outline"] },
+        { "lang": "en", "text": "what else could the first post say?", "expect": ["get_draft", "get_draft_outline"] },
+        { "lang": "en", "text": "show me a few versions of the last tweet", "expect": ["get_draft", "get_draft_outline"] },
+        { "lang": "he", "text": "תן לי שלוש אפשרויות אחרות לפתיח", "expect": ["get_draft", "get_draft_outline"] },
+        { "lang": "he", "text": "תציע ניסוחים אחרים לציוץ השני", "expect": ["get_draft", "get_draft_outline"] },
+        { "lang": "he", "text": "מה עוד אפשר לכתוב בפוסט הראשון?", "expect": ["get_draft", "get_draft_outline"] },
+        { "lang": "he", "text": "תראה לי כמה גרסאות לציוץ האחרון", "expect": ["get_draft", "get_draft_outline"] }
+      ]
     }
   ],
   "negatives": [
@@ -177,11 +263,15 @@
     { "lang": "en", "text": "What is a tweetstorm?" },
     { "lang": "en", "text": "Why do people use threads on X?" },
     { "lang": "en", "text": "Who invented the hashtag?" },
+    { "lang": "en", "text": "What is a good length for a thread?" },
+    { "lang": "en", "text": "How many tweets should a thread have?" },
     { "lang": "he", "text": "מה זה שרשור?" },
     { "lang": "he", "text": "מה האורך המקסימלי של ציוץ?" },
     { "lang": "he", "text": "איך כותבים פתיחה טובה לשרשור?" },
     { "lang": "he", "text": "מה ההבדל בין ציוץ לפוסט?" },
     { "lang": "he", "text": "למה שרשורים עובדים טוב?" },
-    { "lang": "he", "text": "עדיף לפרסם בבוקר או בערב?" }
+    { "lang": "he", "text": "עדיף לפרסם בבוקר או בערב?" },
+    { "lang": "he", "text": "מה אורך טוב לשרשור?" },
+    { "lang": "he", "text": "כמה ציוצים כדאי שיהיו בשרשור?" }
   ]
 }
