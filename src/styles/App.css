@@ -248,105 +248,6 @@ a {
   }
 }
 
-/* Login Page */
-.login-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 20px;
-}
-
-.login-container {
-  max-width: 500px;
-  width: 100%;
-  background-color: var(--surface);
-  border-radius: 16px;
-  padding: 40px;
-  text-align: center;
-}
-
-.login-header h1 {
-  font-size: 2rem;
-  margin-bottom: 10px;
-}
-
-.login-header p {
-  color: var(--muted);
-  margin-bottom: 30px;
-}
-
-.login-features {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  margin-bottom: 30px;
-  text-align: left;
-}
-
-.feature {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--text);
-}
-
-.feature-icon {
-  font-size: 24px;
-}
-
-.github-login-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  padding: 12px 24px;
-  background-color: var(--accent);
-  color: var(--accent-text);
-  border: none;
-  border-radius: 24px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.github-login-btn:hover:not(:disabled) {
-  background-color: var(--accent-hover);
-}
-
-.github-login-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.login-error {
-  margin-top: 15px;
-  padding: 12px;
-  background-color: var(--danger-tint-20);
-  border: 1px solid var(--danger);
-  border-radius: 8px;
-  color: var(--danger);
-  font-size: 14px;
-}
-
-.login-footer {
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-}
-
-.login-footer p {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.github-login-btn:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
 /* Draft Editor Page */
 .draft-editor {
   min-height: 100vh;
@@ -407,31 +308,6 @@ a {
   min-height: 400px;
 }
 
-.loading-screen,
-.error-screen {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  text-align: center;
-  padding: 20px;
-}
-
-.error-screen .error {
-  max-width: 500px;
-}
-
-.error-screen h2 {
-  font-size: 24px;
-  margin-bottom: 15px;
-  color: var(--danger);
-}
-
-.error-screen p {
-  color: var(--muted);
-  margin-bottom: 20px;
-}
-
 .posts-list {
   display: flex;
   flex-direction: column;
@@ -450,14 +326,6 @@ a {
   /* The thread panel is full width on phones; the banners around it keep the page gutter like the header above. */
   .editor-content .ui-banner {
     margin-inline: var(--page-gutter);
-  }
-
-  .login-container {
-    padding: 30px 20px;
-  }
-
-  .login-header h1 {
-    font-size: 1.6rem;
   }
 
 }
@@ -493,4 +361,9 @@ a {
   font-size: var(--font-size-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* The Hebrew Rare UI credit link stays on one line (About page, #406). */
+.about-credit-link {
+  white-space: nowrap;
 }

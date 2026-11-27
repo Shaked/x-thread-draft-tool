@@ -119,6 +119,13 @@ What the server does, in order:
 - Every row has `details.surface`: `mcp` or `web`. The `details` field never holds a secret.
 - Read it with `admin_audit_log`, newest first. The browser page is `/admin/audit` (#288): the same rows, 50 at a time; its action filter works on the rows already loaded.
 
+## View as a user (web only)
+
+- `POST /api/admin/view-as` with `{ user_id, reason }` (reason 3 to 200 characters) starts viewing the app as a user for 30 minutes. `DELETE /api/admin/view-as` ends it. Both need the admin web session; MCP has no tool for them (`WEB_ONLY_ADMIN_ROUTES` in `server/mcp/admin-tools.js`, each with its reason).
+- A protected, suspended or missing user is refused (403, 409, 404) and a `refused` audit row is written. A start writes `view_as_start` with the reason and `expires_at`; an explicit end writes `view_as_end` (an expiry writes no row).
+- The end is immediate: the claim carries the start row's id (`vid`), and the session check refuses a claim whose `vid` has a `view_as_end` row.
+- At most 30 starts per hour per admin. While viewing, `GET /api/auth/me` returns `user.view_as`, `user.actor` and `user.role: 'admin'`. The admin cannot read drafts while viewing (owner decision).
+
 ## Scale note
 
 The stats query (`GET /api/admin/stats`) is one statement of scalar subqueries, and the tables are small today. When `users` passes about 10 000 rows, add an index on `mcp_rate_limits(minute)` and on `users(created_at)` before the stats get slow.

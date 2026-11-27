@@ -121,7 +121,7 @@ export default function AboutPage() {
             </p>
             <p lang="he" dir="rtl">
               המראה וחלק מהרכיבים לקוחים מ-
-              <a href="https://rareui.com" target="_blank" rel="noreferrer">
+              <a href="https://rareui.com" target="_blank" rel="noreferrer" dir="ltr" className="about-credit-link">
                 Rare UI (rareui.com)
               </a>
               , לפי הרישיון שלו:{' '}

@@ -295,6 +295,16 @@ const ADMIN_TRIGGERS = {
   admin_delete_user: ['remove a user and all their content', 'למחוק משתמש וכל התוכן שלו']
 }
 
+/**
+ * Admin routes that have no admin tool, each with its reason (#290). The mcp-coverage and admin-guard tests accept an /admin
+ * route only when an admin tool lists it or it is listed here; any other /admin route fails them. The admin guard gives an
+ * MCP caller a 404 for these, because no tool lists them (adminToolRouteKeys).
+ */
+export const WEB_ONLY_ADMIN_ROUTES = Object.freeze({
+  'POST /admin/view-as': 'view-as shows the website as another user; an AI app has no website view',
+  'DELETE /admin/view-as': 'view-as shows the website as another user; an AI app has no website view'
+})
+
 /** The REST routes of the admin tools, as route keys ("METHOD /admin/users/:id" style, as the router names them). */
 export const ADMIN_TOOL_REST_ROUTES = [...new Set(Object.values(ADMIN_REST_ROUTES).flat().map((key) => key.replace(NIL_ID, ':id')))]
 

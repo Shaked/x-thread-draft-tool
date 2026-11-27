@@ -24,8 +24,14 @@ const OUT = path.join('test-results', 'ui-audit')
 // Pages under audit. A page joins when its migration PR lands (plan section 5, rules for every migration PR).
 // `drafts` are seeded for that page's user (the draft list with rows, one Hebrew title for the RTL pass).
 // skin and kit: 'default' (the old look and components) is the admin's off switch (#406); nothing else is seeded.
-const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default' }[] = [
+const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default'; wait?: string; signedOut?: boolean; noHeading?: boolean }[] = [
   { name: 'about', path: '/about' },
+  // Signed-out screens (Task 11): the sign-in page, a draft that needs sign-in (401), and a shared preview that did not load.
+  { name: 'login', path: '/', signedOut: true },
+  { name: 'login-suspended', path: '/?suspended=1', signedOut: true },
+  { name: 'editor-401', path: '/draft/:first', signedOut: true, drafts: [{ title: 'Signed-out audit', posts: [{ id: 's1', text: 'Private draft', images: [], embeddedTweet: null }] }] },
+  { name: 'editor-404', path: '/draft/missing-draft' },
+  { name: 'preview-error', path: '/x-thread-preview/missing-token', signedOut: true, noHeading: true },
   { name: 'flags', path: '/admin/flags' },
   { name: 'changelog', path: '/admin/changelog' },
   { name: 'admin-stats', path: '/admin' },
@@ -85,6 +91,13 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
         ]
       }
     ]
+  },
+  // A post whose embedded link is not a tweet: the editor shows the tweet error (the link is the only text link in it).
+  {
+    name: 'editor-embed-error',
+    path: '/draft/:first',
+    wait: '.tweet-embed-error',
+    drafts: [{ title: 'Embed audit', posts: [{ id: 'b1', text: 'Post with a link that is not a tweet', images: [], embeddedTweet: 'https://x.com/nobody' }] }]
   },
   // The theme selector in the open menu, with Rare UI (the default): the menu case with no seeds.
   { name: 'drafts-menu-kit', path: '/', menu: true, drafts: [{ title: 'Second thread', posts: [{ id: 'e1', text: 'Some text', images: [], embeddedTweet: null }] }] },
@@ -209,7 +222,7 @@ const DELIVERY_EVENTS = {
   events: [{ at: '2026-11-26T10:00:00.000Z', source: 'ci', kind: 'run', id: '1.2', name: 'Tests', status: 'failure', ms: 61000, link: 'https://github.com/x/y/actions/runs/1' }]
 }
 
-async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default' } = {}) {
+async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default'; signedOut?: boolean; noHeading?: boolean } = {}) {
   const phone = c.width < 800
   const context: BrowserContext = await browser.newContext({
     viewport: { width: c.width, height: phone ? 844 : 800 },
@@ -224,6 +237,8 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   const asAdmin = pagePath.startsWith('/admin') || Boolean(extra.skin || extra.kit)
   // Signed-in pages: the dev token goes out as a bearer header. The Hebrew pass answers the changelog itself.
   await context.route(`${ORIGIN}/api/**`, (route) => {
+    // A signed-out screen sends no session: the page must answer as it does for a visitor (sign-in, or 401 for a draft).
+    if (extra.signedOut) return route.continue()
     if (hebrew && new URL(route.request().url()).pathname === '/api/changelog') {
       return route.fulfill({ json: HEBREW_CHANGELOG })
     }
@@ -266,7 +281,9 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   if (extra.skin) await page.addInitScript((value) => localStorage.setItem('xt-skin', value), extra.skin)
   if (extra.kit) await page.addInitScript((value) => localStorage.setItem('xt-kit', value), extra.kit)
   await page.goto(`${BASE}${pagePath.replace(':first', firstDraftId)}`, { waitUntil: 'networkidle' })
-  await expect(extra.heading ? page.getByRole('heading', { name: extra.heading, level: 1 }) : page.getByRole('heading', { level: 1 })).toBeVisible()
+  // A screen without a page heading (the shared preview's error) is ready when its alert shows.
+  if (extra.noHeading) await expect(page.getByRole('alert')).toBeVisible()
+  else await expect(extra.heading ? page.getByRole('heading', { name: extra.heading, level: 1 }) : page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(page.getByText('Loading…')).toHaveCount(0)
   // The metrics page loads its numbers after the shell: audit the tables and the chart, not the error banner.
   if (pagePath === '/admin/metrics') {
@@ -282,7 +299,7 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   }
   // A Rare UI component loads in its own chunk: wait until it has replaced the current one.
   // Rare UI is the default: a page with the menu open or with drafts shows a Rare component (not on the old-components cases).
-  if (extra.kit !== 'default' && (extra.menu || extra.drafts?.length)) await expect(page.locator('[class*="ui-rare-"]').first()).toBeVisible()
+  if (extra.kit !== 'default' && !extra.signedOut && (extra.menu || extra.drafts?.length)) await expect(page.locator('[class*="ui-rare-"]').first()).toBeVisible()
   return { context, page }
 }
 
@@ -303,6 +320,24 @@ async function smallTargets(page: Page): Promise<string[]> {
     }
     return found
   }, EXEMPT_TARGETS.map((entry) => entry.selector))
+}
+
+// Visible links whose colour is the body text colour and that have no underline: they look like plain text (WCAG 1.4.1).
+// Buttons (.ui-button) and list rows (.ui-list-item__link) are controls styled on purpose, so they are left out.
+async function plainTextLinks(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const bodyColour = getComputedStyle(document.body).color
+    const found: string[] = []
+    for (const el of document.querySelectorAll('a[href]')) {
+      if (el.classList.contains('ui-button') || el.classList.contains('ui-list-item__link')) continue
+      const style = getComputedStyle(el)
+      const box = el.getBoundingClientRect()
+      if (box.width === 0 || box.height === 0 || style.visibility === 'hidden') continue
+      if (style.color !== bodyColour || style.textDecorationLine.includes('underline')) continue
+      found.push(`"${(el.textContent || '').trim().slice(0, 40)}" ${style.color}`)
+    }
+    return found
+  })
 }
 
 // Fields inside a column (Stack) taller than their visible children and the gaps between them.
@@ -376,8 +411,9 @@ test.describe('UI audit', () => {
   for (const pageInfo of MIGRATED) {
     for (const c of CASES) {
       test(`${pageInfo.name} at ${c.name}`, async ({ browser, request }) => {
-        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts, menu: pageInfo.menu, skin: pageInfo.skin, kit: pageInfo.kit })
+        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts, menu: pageInfo.menu, skin: pageInfo.skin, kit: pageInfo.kit, signedOut: pageInfo.signedOut, noHeading: pageInfo.noHeading })
         try {
+          if (pageInfo.wait) await expect(page.locator(pageInfo.wait).first()).toBeVisible()
           // No horizontal scroll (plan: scrollWidth <= innerWidth).
           const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }))
           expect(widths.scroll, 'horizontal scroll').toBeLessThanOrEqual(widths.inner)
@@ -391,6 +427,16 @@ test.describe('UI audit', () => {
           }
 
           expect(await scaleAndColourProblems(page, undefined, pageInfo.skin === 'default' ? RADIUS_PX : RADIUS_PX_RARE), 'ui- elements off the scale or the theme colours').toEqual([])
+
+          // Text links keep their underline unless they differ from the body text in colour (WCAG 1.4.1, #406 light look).
+          expect(await plainTextLinks(page), 'links that look like plain text').toEqual([])
+
+          // The admin's Look switch on a phone: each option is at most 44 px tall, so its label does not take a third line (#406).
+          if (pageInfo.path === '/admin/flags' && c.width < 800) {
+            const heights = await page.getByRole('group', { name: 'Look' }).locator('.ui-segmented__option').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+            expect(heights.length, 'Look options').toBe(2)
+            expect(heights.filter((h) => h > 44), 'Look options taller than 44 px').toEqual([])
+          }
 
           // A field in a column is as tall as its label, control and help: no empty band under it (#551, the users search).
           expect(await tallFields(page), 'fields taller than their content').toEqual([])

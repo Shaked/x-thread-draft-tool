@@ -262,7 +262,13 @@ export const OPENAPI = {
               user: {
                 type: ['object', 'null'],
                 properties: {
-                  role: { type: 'string', description: 'Browser session only (#282). Absent for API token callers.' }
+                  role: { type: 'string', description: 'Browser session only (#282). Absent for API token callers. While viewing as a user it stays the real session role.' },
+                  view_as: {
+                    type: 'object',
+                    description: 'Only while viewing the app as this user (#290). `user` is then the viewed user.',
+                    properties: { login: { type: 'string' }, user_id: { type: 'string' }, expires_at: { type: 'string', format: 'date-time' } }
+                  },
+                  actor: { type: 'object', description: 'Only while viewing as a user (#290): the signed-in person behind the view.', properties: { login: { type: 'string' } } }
                 }
               },
               auth: { type: ['string', 'null'], enum: ['session', 'token', null] }

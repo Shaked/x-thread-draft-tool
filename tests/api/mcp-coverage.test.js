@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { ROUTES } from '../../server/router.js'
 import { TOOL_REST_ROUTES } from '../../server/mcp/tools.js'
-import { ADMIN_TOOL_REST_ROUTES } from '../../server/mcp/admin-tools.js'
+import { ADMIN_TOOL_REST_ROUTES, WEB_ONLY_ADMIN_ROUTES } from '../../server/mcp/admin-tools.js'
 
 // Excluded routes. A key ending in "/*" matches that path and everything below it. A key with a
 // method ("POST /images") matches only that method. Each has the reason it is not a tool.
@@ -46,6 +46,7 @@ describe('REST routes and MCP tools', () => {
       (route) =>
         !TOOL_REST_ROUTES.includes(routeKey(route)) &&
         !ADMIN_TOOL_REST_ROUTES.includes(routeKey(route)) &&
+        !Object.hasOwn(WEB_ONLY_ADMIN_ROUTES, routeKey(route)) &&
         !Object.keys(EXCLUDED).some((key) => matchesExclusion(route, key))
     ).map(routeKey)
     expect(uncovered).toEqual([])
@@ -65,7 +66,13 @@ describe('REST routes and MCP tools', () => {
   it('no admin route is excluded: every /admin route is an admin tool route', () => {
     const adminRoutes = ROUTES.filter((route) => route.path === '/admin' || route.path.startsWith('/admin/')).map(routeKey)
     expect(adminRoutes.length).toBeGreaterThan(0)
-    expect(adminRoutes.filter((key) => !ADMIN_TOOL_REST_ROUTES.includes(key))).toEqual([])
+    // A route with no tool must be named in WEB_ONLY_ADMIN_ROUTES, each with a reason; nothing else passes (#290).
+    expect(adminRoutes.filter((key) => !ADMIN_TOOL_REST_ROUTES.includes(key) && !Object.hasOwn(WEB_ONLY_ADMIN_ROUTES, key))).toEqual([])
+    for (const [key, reason] of Object.entries(WEB_ONLY_ADMIN_ROUTES)) {
+      expect(ADMIN_TOOL_REST_ROUTES, key).not.toContain(key)
+      expect(adminRoutes, key).toContain(key)
+      expect(reason.split(/\s+/).length, key).toBeGreaterThanOrEqual(3)
+    }
     expect(Object.keys(EXCLUDED).filter((key) => key.includes('/admin'))).toEqual([])
   })
 

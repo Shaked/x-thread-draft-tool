@@ -1,7 +1,8 @@
 // #371 (Task C2 of #273): the three MCP views in Hebrew, in jsdom. How the view picks the language (setLang), the Hebrew
 // labels in the thread view, the drafts list and the share card, and that every label the code uses is in the table with
 // both languages. The Playwright check in the fixture host is tests/e2e/mcp-ui-hebrew.spec.ts.
-import { readFileSync } from 'node:fs'
+import './helpers/page-globals.js'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { draftRow, renderList } from '../../server/mcp/ui/drafts.js'
@@ -173,10 +174,12 @@ describe('the share card in Hebrew', () => {
 describe('the label table', () => {
   const read = (file) => readFileSync(join(process.cwd(), 'server/mcp/ui', file), 'utf8')
   const table = labels()
+  // The renderers in render/ (#292) ask for labels too.
+  const FILES = ['client.js', 'drafts.js', 'share-card.js', 'share.js', 'thread.js', ...readdirSync(join(process.cwd(), 'server/mcp/ui/render')).map((name) => 'render/' + name)]
 
   it('every label the code asks for is in the table', () => {
     const missing = []
-    for (const file of ['client.js', 'drafts.js', 'share-card.js', 'share.js', 'thread.js']) {
+    for (const file of FILES) {
       for (const [, view, key] of [...read(file).matchAll(/\btr\('(\w+)', '(\w+)'/g)]) {
         if (!table[view] || !table[view][key]) missing.push(`${file}: ${view}.${key}`)
       }
@@ -185,7 +188,7 @@ describe('the label table', () => {
   })
 
   it('every key in the table is used by the code (no dead label)', () => {
-    const source = ['client.js', 'drafts.js', 'share-card.js', 'share.js', 'thread.js'].map(read).join('\n')
+    const source = FILES.map(read).join('\n')
     const dead = []
     for (const [view, keys] of Object.entries(table)) {
       for (const key of Object.keys(keys)) {

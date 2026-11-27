@@ -16,6 +16,7 @@ import { ToastProvider } from './ui/Toast'
 import { ConfirmProvider } from './ui/Dialog'
 import LoadBoundary, { ReloadNotice } from './ui/LoadBoundary'
 import Page from './ui/Page'
+import Skeleton from './ui/Skeleton'
 import PageHeader from './ui/PageHeader'
 
 // The admin area is its own chunk that only an admin's browser asks for (#285). Keep this the only import of it.
@@ -60,8 +61,10 @@ function App() {
 
   if (loading) {
     return (
-      <div className="app loading-screen">
-        <div className="loading">Loading...</div>
+      <div className="app">
+        <Page width="narrow">
+          <Skeleton lines={3} />
+        </Page>
       </div>
     )
   }

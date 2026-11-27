@@ -57,7 +57,7 @@ async function verifiedPayload(request) {
  * revoked or the user is gone. One statement answers all three questions (revoked? suspended? still there?),
  * so suspension adds no round trip.
  */
-async function stateOf(payload, targetUid = null) {
+async function stateOf(payload, targetUid = null, vid = null) {
   // Outside the try: a database error is a server error, never "signed out".
   // The normal statement is unchanged. With a view-as target (#289) the same statement also loads the target.
   const { rows } =
@@ -72,9 +72,10 @@ async function stateOf(payload, targetUid = null) {
           `select exists(select 1 from revoked_sessions where jti = $1) as revoked,
                   (select suspended_at from users where id = $2) as suspended_at,
                   exists(select 1 from users where id = $2) as found,
-                  (select to_jsonb(t) from (select id, github_id::text as github_id, login, suspended_at is not null as suspended
-                                            from users where id = $3) t) as target`,
-          [payload.jti, payload.uid, targetUid]
+                  case when exists(select 1 from admin_audit where action = 'view_as_end' and outcome = 'done' and details->>'vid' = $4) then null
+                       else (select to_jsonb(t) from (select id, github_id::text as github_id, login, suspended_at is not null as suspended
+                                                      from users where id = $3) t) end as target`,
+          [payload.jti, payload.uid, targetUid, vid]
         )
   const row = rows[0]
   if (row.revoked || !row.found) return null
@@ -91,7 +92,8 @@ async function sessionState(request) {
 /**
  * The view-as claim that applies to this session (#289), or null. Only authenticate calls it, only on the cookie path.
  * The claim must be valid, name this session's admin uid and jti, and the session must be the admin's. A claim that does
- * not hold is ignored, never an error: the caller stays the admin.
+ * not hold is ignored, never an error: the caller stays the admin. An ended claim (a `view_as_end` row for its `vid`, #290)
+ * is dead at once: stateOf answers no target for it, in the same statement.
  */
 async function viewAsClaim(request, payload) {
   const raw = viewAsCookieValue(request)
@@ -99,7 +101,7 @@ async function viewAsClaim(request, payload) {
   if (roleOf(payload.gh) !== 'admin') return null
   const claim = await openViewAs(raw)
   if (claim === null || claim.admin_uid !== payload.uid || claim.admin_jti !== payload.jti) return null
-  if (typeof claim.target_uid !== 'string') return null
+  if (typeof claim.target_uid !== 'string' || typeof claim.vid !== 'string') return null
   return claim
 }
 
@@ -202,7 +204,7 @@ export async function authenticate(request) {
   const payload = await verifiedPayload(request)
   if (payload === null) return null
   const claim = await viewAsClaim(request, payload)
-  const state = await stateOf(payload, claim === null ? null : claim.target_uid)
+  const state = await stateOf(payload, claim === null ? null : claim.target_uid, claim?.vid)
   if (!state) return null
   if (state.suspended) throw new HttpError(403, SUSPENDED_MESSAGE)
   noteCaller('web')

@@ -3,6 +3,7 @@
 // plus its retry uses 2 of the 5 and a finished delete uses 1.
 export const ADMIN_LIMITS = Object.freeze({
   suspend: { actions: ['suspend_user', 'unsuspend_user'], perHour: 30 },
+  viewAs: { actions: ['view_as_start'], perHour: 30 },
   delete: { actions: ['delete_user'], perHour: 5, outcomes: ['started'] }
 })
 

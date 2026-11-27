@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { draftsApi, authApi } from '../utils/api'
 import { useDraftLive, updatedLabel } from '../utils/useDraftLive'
 import { uploadsPending } from '../utils/pendingUploads'
@@ -20,6 +20,8 @@ import Input from '../ui/Input'
 import { idsFromTheirs, mergeDraftEdits } from '../utils/draftMerge'
 import PageHeader from '../ui/PageHeader'
 import Stack from '../ui/Stack'
+import Page from '../ui/Page'
+import Skeleton from '../ui/Skeleton'
 
 // A post saved before ids were required has none. An object without a string id gets a new one, so
 // the next save is accepted. Anything else is returned as it is, so the server still refuses it.
@@ -432,9 +434,9 @@ export default function DraftEditor({ user }) {
 
   if (loading) {
     return (
-      <div className="draft-editor loading-screen">
-        <div className="loading">Loading draft...</div>
-      </div>
+      <Page width="narrow">
+        <Skeleton lines={4} />
+      </Page>
     )
   }
 
@@ -442,14 +444,10 @@ export default function DraftEditor({ user }) {
 
   if (!draft) {
     return (
-      <div className="draft-editor error-screen">
-        <div className="error">
-          <h2>Draft Not Found</h2>
-          <Link to="/" className="btn btn-primary">
-            Back to Home
-          </Link>
-        </div>
-      </div>
+      <LoadScreen
+        title="Draft Not Found"
+        action={<Button variant="primary" to="/">Back to Home</Button>}
+      />
     )
   }
 
@@ -582,44 +580,45 @@ export default function DraftEditor({ user }) {
   )
 }
 
+// A screen for a draft that did not open: a title, a line, and one action. Signed-out screens have no bar (no sign-out).
+function LoadScreen({ title, description, action, signedOut = false }) {
+  return (
+    <Page width="narrow">
+      <Stack gap={4}>
+        <PageHeader title={title} subtitle={description} menu={false} bar={!signedOut} />
+        {action}
+      </Stack>
+    </Page>
+  )
+}
+
 // The screen for a draft that did not load. Kept out of DraftEditor so the editor's complexity stays within the lint limit.
 function LoadError({ error }) {
   if (error.status === 401) {
     return (
-      <div className="draft-editor error-screen">
-        <div className="error">
-          <h2>Sign in to open this draft</h2>
-          <p>Drafts are private. Sign in with the account that owns this draft.</p>
-          <button className="btn btn-primary" onClick={() => authApi.login()}>
-            Sign in with GitHub
-          </button>
-        </div>
-      </div>
+      <LoadScreen
+        signedOut
+        title="Sign in to open this draft"
+        description="Drafts are private. Sign in with the account that owns this draft."
+        action={<Button variant="primary" onClick={() => authApi.login()}>Sign in with GitHub</Button>}
+      />
     )
   }
 
   if (error.status === 404) {
     return (
-      <div className="draft-editor error-screen">
-        <div className="error">
-          <h2>Draft not found</h2>
-          <Link to="/" className="btn btn-primary">
-            Back to Home
-          </Link>
-        </div>
-      </div>
+      <LoadScreen
+        title="Draft not found"
+        action={<Button variant="primary" to="/">Back to Home</Button>}
+      />
     )
   }
 
   return (
-    <div className="draft-editor error-screen">
-      <div className="error">
-        <h2>Error</h2>
-        <p>{error.message}</p>
-        <Link to="/" className="btn btn-primary">
-          Back to Home
-        </Link>
-      </div>
-    </div>
+    <LoadScreen
+      title="Error"
+      description={error.message}
+      action={<Button variant="primary" to="/">Back to Home</Button>}
+    />
   )
 }

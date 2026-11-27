@@ -50,7 +50,15 @@ export function viewAsCookieValue(request) {
   return parseCookies(request)[VIEW_AS_COOKIE]
 }
 
-/** Strict, so no cross-site request carries it. The start route (Task 16) sets it with the same attributes. */
+/** The claim's lifetime in seconds, for the `expires_at` of the start row (#290). */
+export const VIEW_AS_SECONDS = MAX_AGE_SECONDS
+
+/** The Set-Cookie value that starts viewing: same attributes as the clearing one, so no cross-site request carries it. */
+export function viewAsCookie(token) {
+  return cookie(VIEW_AS_COOKIE, token, { maxAge: MAX_AGE_SECONDS, sameSite: 'Strict' })
+}
+
+/** Strict, so no cross-site request carries it. */
 export function clearViewAsCookie() {
   return cookie(VIEW_AS_COOKIE, '', { maxAge: 0, sameSite: 'Strict' })
 }

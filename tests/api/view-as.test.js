@@ -72,7 +72,8 @@ describe('the view-as claim in authenticate', () => {
   it('applies a valid claim for the admin session: the caller is the target', async () => {
     const user = await me(await withClaim(alice))
     expect(user.login).toBe('alice')
-    expect(user.role).toBe('user')
+    // The role is the real session's (#290), so the admin UI stays while viewing.
+    expect(user.role).toBe('admin')
   })
 
   it('a claim with no session gives null', async () => {
@@ -157,7 +158,7 @@ describe('read-only while viewing', () => {
       [
         '/admin/audit', '/admin/flags', '/admin/flags', '/admin/metrics', '/admin/metrics/events', '/admin/metrics/series',
         '/admin/metrics/summary', '/admin/stats', '/admin/status', '/admin/users', '/admin/users/:id', '/admin/users/:id/delete',
-        '/admin/users/:id/suspend', '/admin/users/:id/unsuspend', '/auth/device/poll', '/auth/device/start', '/auth/logout', '/mcp',
+        '/admin/users/:id/suspend', '/admin/users/:id/unsuspend', '/admin/view-as', '/admin/view-as', '/auth/device/poll', '/auth/device/start', '/auth/logout', '/mcp',
         '/oauth/authorize', '/oauth/authorize', '/oauth/logout', '/oauth/register', '/oauth/revoke', '/oauth/token',
         '/ops/events', '/ops/metrics-daily', '/share/:token', '/threads/split'
       ].sort()

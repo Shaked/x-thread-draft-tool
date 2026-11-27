@@ -318,6 +318,28 @@ test.describe('screens', () => {
       await shoot(browser, width, 'about-dark', '/about', { token: owner, theme: 'dark', ready: aboutReady, before: aboutLoaded })
     })
 
+    // Task 11: the sign-in page in dark, the screens of a draft that did not open (401, 404), and the shared preview in dark.
+    test(`captures the signed-out and draft-error screens at ${width}px`, async ({ browser, request }) => {
+      const run = `errors-${width}-${Date.now()}`
+      const owner = await devToken(request, `screens-errors-${run}`)
+      const created: { draft: { id: string } } = await apiJson(request, owner, 'POST', '/api/drafts', {
+        title: 'Draft for the error screens',
+        posts: [{ id: 'e1', text: 'Opening post', images: [], embeddedTweet: null }]
+      })
+      const editorId = created.draft.id
+
+      await shoot(browser, width, 'login-dark', '/', { theme: 'dark', ready: (p) => p.getByRole('button', { name: 'Sign in with GitHub' }) })
+      await shoot(browser, width, 'login-suspended-dark', '/?suspended=1', { theme: 'dark', ready: (p) => p.getByRole('alert').getByText('This account is suspended.') })
+      await shoot(browser, width, 'editor-401', `/draft/${editorId}`, { ready: (p) => p.getByRole('heading', { name: 'Sign in to open this draft' }) })
+      await shoot(browser, width, 'editor-401-dark', `/draft/${editorId}`, { theme: 'dark', ready: (p) => p.getByRole('heading', { name: 'Sign in to open this draft' }) })
+      await shoot(browser, width, 'editor-404', `/draft/missing-${run}`, { token: owner, ready: (p) => p.getByRole('heading', { name: 'Draft not found' }) })
+      await shoot(browser, width, 'editor-404-dark', `/draft/missing-${run}`, { token: owner, theme: 'dark', ready: (p) => p.getByRole('heading', { name: 'Draft not found' }) })
+
+      // A share link is one use: the dark preview gets its own.
+      const previewToken = (await apiJson<{ token: string }>(request, owner, 'POST', `/api/drafts/${editorId}/share-tokens`)).token
+      await shoot(browser, width, 'preview-dark', `/x-thread-preview/${previewToken}`, { theme: 'dark', ready: (p) => p.frameLocator('iframe[title="Thread preview"]').getByText('Opening post') })
+    })
+
     // The OAuth approval pages (server HTML, plan T3): signed out, and signed in with a browser session.
     test(`captures the approval pages at ${width}px`, async ({ browser, request }) => {
       const redirect = 'http://localhost:4000/cb'

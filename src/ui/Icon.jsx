@@ -19,7 +19,10 @@ const PATHS = {
   plus: 'M12 5v14M5 12h14',
   // Image carousel (plan Task 10): previous and next. `mirror` flips them in right-to-left text.
   prev: 'M15 6l-6 6 6 6',
-  next: 'M9 6l6 6-6 6'
+  next: 'M9 6l6 6-6 6',
+  // Sign-in and loading screens (plan Task 11): the feature list.
+  compose: 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4',
+  sync: 'M20 12a8 8 0 0 1-14.9 4M4 12a8 8 0 0 1 14.9-4M20 4v4h-4M4 20v-4h4'
 }
 
 // Moved from src/components/Icon.jsx (plan task 2). `size` md is 20 px, lg is 24 px; `mirror` flips it in RTL.
