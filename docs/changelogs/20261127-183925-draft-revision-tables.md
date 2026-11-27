@@ -4,7 +4,7 @@
 - Nothing is deleted automatically; every revision is kept.
 
 Area: Drafts
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/616
 
 ## Technical details
 
