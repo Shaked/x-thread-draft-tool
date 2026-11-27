@@ -26,11 +26,14 @@ export function compact(source, tight = false) {
 // The spaces around these operators, outside string literals, are not needed: a=b, a&&b, a?b:c. (Not + or -: a + +b.)
 const SPACED = / (=>|===|!==|==|!=|>=|<=|\?\?|&&|\|\||[=?:<>]) /g
 
-/** The code with the spaces around the operators in SPACED removed; the text of string literals is left as it is. */
+// A string, or a regex literal (after one of ( , = : [ ! & | ? { } ; or return, so a division is not taken for one): both are left as they are.
+const REGEX_OR_STRING = /('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|(?<=[(,=:[!&|?{};]\s*|\breturn\s+|^)\/(?![/*])(?:[^/\\\n[]|\\.|\[(?:[^\]\\\n]|\\.)*\])+\/[a-z]*)/
+
+/** The code with the spaces around the operators in SPACED, after a comma or colon and between ) and { and inside { }, and a ; before }, the space before return, throw and else, the spaces around + - and * (unless a + or - follows), removed, the space after if, for, while, catch, switch and function before (, const written let, true and false written !0 and !1, undefined written void 0; the text of string literals is left as it is. */
 function tighten(code) {
   return code
-    .split(/('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*")/)
-    .map((part, i) => (i % 2 === 1 ? part : part.replace(SPACED, '$1')))
+    .split(REGEX_OR_STRING)
+    .map((part, i) => (i % 2 === 1 ? part : part.replace(SPACED, '$1').replace(/([,:]) /g, '$1').replace(/\) \{/g, '){').replace(/\b(if|for|while|catch|switch|function) \(/g, '$1(').replace(/ ([+*-]) (?![+-])/g, '$1').replace(/;\}/g, '}').replace(/\breturn (?=[[{(!]|$)/g, 'return').replace(/\) (return|throw)\b/g, ')$1').replace(/\} else\b/g, '}else').replace(/\belse \{/g, 'else{').replace(/\{ /g, '{').replace(/ \}/g, '}').replace(/\bconst\b/g, 'let').replace(/\btrue\b/g, '!0').replace(/\bfalse\b/g, '!1').replace(/\bundefined\b/g, 'void 0')))
     .join('')
 }
 
@@ -42,7 +45,9 @@ function labelsSource(sections) {
 
 /** The page script: the label sections, then each function's source, then the starter, compacted. */
 export function pageScript(sections, functions, starter) {
-  return compact([labelsSource(sections), ...functions.map((fn) => fn.toString())].join('\n'), true) + '\n' + compact(starter)
+  const code = compact([labelsSource(sections), ...functions.map((fn) => fn.toString().replace(/\/\*[\s\S]*?\*\//g, ''))].join('\n'), true)
+  // A line that ends in ; and has no // is joined to the next (the compact tests pin compact itself, so this is a step of its own).
+  return code.replace(/^([^\n]*;)\n/gm, (m, line) => (line.includes('//') ? m : line)) + '\n' + compact(starter)
 }
 
 /** CSS without comments, line breaks or the spaces around { } : ; and , (no selector here has a space before a colon). */

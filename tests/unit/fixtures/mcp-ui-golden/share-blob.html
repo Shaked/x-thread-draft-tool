@@ -9,178 +9,26 @@
 </head>
 <body>
 <main id="root"><p>Loading link…</p></main>
-<script>function labels() { return {"common":{"tool_error":["The tool returned an error.","הכלי החזיר שגיאה."],"cannot_show":["This view cannot show that result.","התצוגה הזו לא יכולה להציג את התוצאה."],"no_host":["Could not connect to the host.","לא ניתן להתחבר לאפליקציה המארחת."]},"share":{"title":["Share link","קישור לשיתוף"],"create":["Create share link","צור קישור לשיתוף"],"create_failed":["The link could not be created.","לא ניתן היה ליצור את הקישור."],"preview":["Preview link","קישור לתצוגה מקדימה"],"markdown":["Markdown link","קישור ל-Markdown"],"open":["Open","פתח"],"copy":["Copy","העתק"],"copied":["Copied","הועתק"],"select_copy":["Select and copy","סמן והעתק"],"stop":["Stop this link","עצור את הקישור הזה"],"sure":["Are you sure? The link stops working at once.","בטוח? הקישור יפסיק לעבוד מיד."],"yes_stop":["Yes, stop this link","כן, עצור את הקישור"],"cancel":["Cancel","ביטול"],"waiting":["Waiting for your OK in the chat","ממתין לאישור שלך בצ׳אט"],"stop_failed":["The link could not be stopped.","לא ניתן היה לעצור את הקישור."],"no_answer":["No answer from the host. Try again.","אין תשובה מהאפליקציה המארחת. נסה שוב."],"not_allowed":["Your app does not allow this here.","האפליקציה שלך לא מאפשרת זאת כאן."],"stopped":["Stopped","נעצר"],"once":["Works once","עובד פעם אחת"],"until":["Works until it expires","עובד עד שהתוקף יפוג"],"expired":["Expired","פג תוקף"],"expires_in":["Expires in {left} ({time})","התוקף יפוג בעוד {left} ({time})"]}} }
-function bridge(on) {const pending=new Map();
-let nextId=1;
-const state={hostContext: null,hostCapabilities: {},delivered: false,sizing: false};
-function post(message) {window.parent.postMessage({jsonrpc: "2.0",...message}, "*");}
-function request(method, params, ms) {const id=nextId++;
-return new Promise((resolve, reject)=>{const timer=setTimeout(()=>{pending.delete(id);
-reject(new Error(method + " timed out"));}, ms||15e3);
-pending.set(id, {resolve,reject,timer});
-post({id,method,params});});}
-function observeSize() {if (state.sizing) return;
-state.sizing=true;
-const report=()=>{post({method: "ui/notifications/size-changed",params: {width: Math.ceil(window.innerWidth),height: Math.ceil(document.body.getBoundingClientRect().height)}});};
-if (typeof ResizeObserver==="function") new ResizeObserver(report).observe(document.body);
-report();}
-function setContext(params) {state.hostContext={...state.hostContext,...params};
-if (on.context) on.context(state.hostContext);}
-window.addEventListener("message", (event)=>{if (event.source!==window.parent) return;
-const msg=event.data;
-if (!msg||msg.jsonrpc!=="2.0") return;
-if (msg.id!==undefined&&msg.method===undefined) {const waiting=pending.get(msg.id);
-if (!waiting) return;
-pending.delete(msg.id);
-clearTimeout(waiting.timer);
-if (msg.error) waiting.reject(new Error(msg.error.message||"request failed"));
-else waiting.resolve(msg.result);
-return;};
-if (msg.method==="ui/notifications/tool-input") {if (on.input) on.input(msg.params&&msg.params.arguments);} else if (msg.method==="ui/notifications/tool-result") {state.delivered=true;
-if (on.result) on.result(msg.params||{});
-observeSize();} else if (msg.method==="ui/notifications/host-context-changed") {setContext(msg.params);} else if (msg.method==="ui/resource-teardown") {if (msg.id!==undefined) post({id: msg.id,result: {}});
-if (on.teardown) on.teardown();} else if (msg.id!==undefined) {post({id: msg.id,error: {code: -32601,message: "Method not found: " + msg.method}});}});
-request("ui/initialize", {protocolVersion: "2026-01-26",appInfo: {name: "x-thread-draft-tool",version: "1"},appCapabilities: {}}).then((result)=>{setContext(result&&result.hostContext||{});
-state.hostCapabilities=result&&result.hostCapabilities||{};
-post({method: "ui/notifications/initialized",params: {}});
-observeSize();}, (err)=>{observeSize();
-if (on.error) on.error(err);});
-return {/** Asks the host to open a link. Only https links are sent. */
-openLink(url) {const safe=safeUrl(url, null);
-if (!safe) return Promise.reject(new Error("link refused"));
-return request("ui/open-link", { url: safe });},/**
-* Calls one of the server's tools as the signed-in user, with a 15 s wait unless ms is given. The write actions pass
-* 120000: the host may ask the user first. A view calls a write tool only when canCallTools() is true (plan Task 7).
-*/
-callTool(name, args, ms) {return request("tools/call", {name,arguments: args||{}}, ms);},/** True when the host says it can proxy tool calls from the view (hostCapabilities.serverTools). */
-canCallTools() {return Boolean(state.hostCapabilities&&state.hostCapabilities.serverTools);},context() {return state.hostContext;},delivered() {return state.delivered;}};}
-function tr(view, key, vars) {const entry=labels()[view][key];
-let text=entry[document.documentElement.lang==="he"?1:0];
-for (const name of Object.keys(vars||{})) text=text.split("{" + name + "}").join(String(vars[name]));
-return text;}
-function setLang(locale, sample) {const text=String(sample||"");
-const hebrew=(text.match(/[\u0590-\u05FF]/g)||[]).length>(text.match(/[A-Za-z]/g)||[]).length;
-const he=typeof locale==="string"&&locale.trim()!==""?/^(he|iw)(?![a-z])/i.test(locale.trim()):hebrew;
-const root=document.documentElement;
-root.setAttribute("lang", he?"he":"en");
-if (he) root.setAttribute("dir", "rtl");
-else root.removeAttribute("dir");
-return he?"he":"en";}
-function safeUrl(url, allowedHosts) {let parsed;
-try {parsed=new URL(String(url));} catch {return null;};
-if (parsed.protocol!=="https:") return null;
-if (Array.isArray(allowedHosts)&&allowedHosts.length>0&&!allowedHosts.includes(parsed.hostname)) return null;
-return parsed.href;}
-function el(tag, attrs, children) {const node=document.createElement(tag);
-const allowed=["href","alt","dir","title"];
-for (const name of Object.keys(attrs||{})) {if (!allowed.includes(name)) continue;
-if (name==="href") {const safe=safeUrl(attrs[name], null);
-if (safe) node.setAttribute("href", safe);} else {node.setAttribute(name, attrs[name]);}};
-for (const child of children||[]) {node.appendChild(typeof child==="string"?document.createTextNode(child):child);};
-return node;}
-function linkButton(label, url, open) {const button=el("button", {}, [label]);
-if (open) button.addEventListener("click", ()=>open(url));
-return button;}
-function shareFrom(result) {const body=result&&result.structuredContent||{};
-const preview=(0,__vite_ssr_import_0__.safeUrl)(body.preview_url, null);
-const markdown=(0,__vite_ssr_import_0__.safeUrl)(body.markdown_url, null);
-if (!preview||!markdown) return null;
-const expires=Date.parse(body.expires_at);
-const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const token=typeof body.token==="string"&&uuid.test(body.token)?body.token:null;
-const draftId=typeof body.draft_id==="string"&&uuid.test(body.draft_id)?body.draft_id:null;
-return {preview,markdown,expiresAt: isNaN(expires)?null:expires,oneTime: body.one_time===true,token,draftId};}
-function countdownText(expiresAt, now) {const left=Math.max(0, Math.ceil((expiresAt - now) / 1e3));
-const pad=(n)=>n<10?"0" + n:String(n);
-const h=Math.floor(left / 3600);
-const m=Math.floor(left % 3600 / 60);
-const s=left % 60;
-return h>0?h + ":" + pad(m) + ":" + pad(s):m + ":" + pad(s);}
-function localTime(expiresAt, locale) {const when=new Date(expiresAt);
-const options={hour: "2-digit",minute: "2-digit"};
-try {return when.toLocaleTimeString(locale||undefined, options);} catch {return when.toLocaleTimeString(undefined, options);}}
-function canCopy() {return typeof navigator!=="undefined"&&Boolean(navigator.clipboard)&&typeof navigator.clipboard.writeText==="function";}
-function copyButton(field) {const button=(0,__vite_ssr_import_0__.el)("button", {}, [(0,__vite_ssr_import_0__.tr)("share", "copy")]);
-button.addEventListener("click", function() {let done;
-try {done=navigator.clipboard.writeText(field.value);} catch (err) {done=Promise.reject(err);};
-Promise.resolve(done).then(function() {button.textContent=(0,__vite_ssr_import_0__.tr)("share", "copied");}, function() {button.textContent=(0,__vite_ssr_import_0__.tr)("share", "select_copy");
-field.focus();
-field.select();});});
-return button;}
-function linkRow(label, url, ctx, buttons) {const field=document.createElement("input");
-field.readOnly=true;
-field.setAttribute("dir", "ltr");
-field.value=url;
-field.addEventListener("focus", function() {field.select();});
-const open=(0,__vite_ssr_import_0__.linkButton)((0,__vite_ssr_import_0__.tr)("share", "open"), url, ctx.open);
-const actions=(0,__vite_ssr_import_0__.el)("div", {}, [open]);
-buttons.push(open);
-if (canCopy()) {const copy=copyButton(field);
-buttons.push(copy);
-actions.appendChild(copy);};
-return (0,__vite_ssr_import_0__.el)("section", {}, [(0,__vite_ssr_import_0__.el)("p", {}, [label]),field,actions]);}
-function stopControl(share, ctx, note, finish) {const stop=(0,__vite_ssr_import_0__.el)("button", {}, [(0,__vite_ssr_import_0__.tr)("share", "stop")]);
-const question=(0,__vite_ssr_import_0__.el)("p", {}, [(0,__vite_ssr_import_0__.tr)("share", "sure")]);
-const yes=(0,__vite_ssr_import_0__.el)("button", {}, [(0,__vite_ssr_import_0__.tr)("share", "yes_stop")]);
-const no=(0,__vite_ssr_import_0__.el)("button", {}, [(0,__vite_ssr_import_0__.tr)("share", "cancel")]);
-const row=(0,__vite_ssr_import_0__.el)("div", {}, [stop]);
-const ask=(0,__vite_ssr_import_0__.el)("div", {}, [question,yes,no]);
-ask.hidden=true;
-const box=(0,__vite_ssr_import_0__.el)("div", {}, [row, ask]);
-stop.addEventListener("click", function() {row.hidden=true;
-ask.hidden=false;});
-no.addEventListener("click", function() {ask.hidden=true;
-row.hidden=false;});
-yes.addEventListener("click", function() {yes.disabled=true;
-no.disabled=true;
-note.textContent=(0,__vite_ssr_import_0__.tr)("share", "waiting");
-let call;
-try {call=ctx.revoke(share.draftId, share.token);} catch (err) {call=Promise.reject(err);};
-Promise.resolve(call).then(function(result) {if (result&&result.isError) {const first=result.content&&result.content[0];
-note.textContent=first&&first.text?first.text:(0,__vite_ssr_import_0__.tr)("share", "stop_failed");
-yes.disabled=false;
-no.disabled=false;
-ask.hidden=true;
-row.hidden=false;
-return;};
-note.textContent="";
-finish((0,__vite_ssr_import_0__.tr)("share", "stopped"));}, function(err) {const timedOut=/timed out$/.test(String(err&&err.message));
-note.textContent=timedOut?(0,__vite_ssr_import_0__.tr)("share", "no_answer"):(0,__vite_ssr_import_0__.tr)("share", "not_allowed");
-if (timedOut) {yes.disabled=false;
-no.disabled=false;
-ask.hidden=true;
-row.hidden=false;} else {box.remove();}});});
-return box;}
-function renderShare(root, share, ctx) {root.textContent="";
-root.appendChild((0,__vite_ssr_import_0__.el)("header", {}, [(0,__vite_ssr_import_0__.el)("h1", {}, [(0,__vite_ssr_import_0__.tr)("share", "title")])]));
-const status=(0,__vite_ssr_import_0__.el)("p", {}, []);
-const note=(0,__vite_ssr_import_0__.el)("p", { dir: "auto" }, []);
-root.appendChild(status);
-root.appendChild(note);
-const buttons=[];
-root.appendChild(linkRow((0,__vite_ssr_import_0__.tr)("share", "preview"), share.preview, ctx, buttons));
-root.appendChild(linkRow((0,__vite_ssr_import_0__.tr)("share", "markdown"), share.markdown, ctx, buttons));
-const kind=share.oneTime?(0,__vite_ssr_import_0__.tr)("share", "once"):(0,__vite_ssr_import_0__.tr)("share", "until");
-let timer=null;
-let stopBox=null;
-const finish=function(text) {if (timer) clearInterval(timer);
-status.textContent=text;
-buttons.forEach(function(button) {button.disabled=true;});
-if (stopBox) stopBox.remove();
-stopBox=null;};
-if (typeof ctx.revoke==="function"&&share.draftId&&share.token) {stopBox=stopControl(share, ctx, note, finish);
-root.appendChild(stopBox);};
-if (share.expiresAt===null) {status.textContent=kind;
-return function() {};};
-const tick=function() {const now=ctx.now();
-if (now>=share.expiresAt) {finish(kind + " · " + (0,__vite_ssr_import_0__.tr)("share", "expired"));
-return true;};
-status.textContent=kind + " · " + (0,__vite_ssr_import_0__.tr)("share", "expires_in", {left: countdownText(share.expiresAt, now),time: localTime(share.expiresAt, ctx.locale)});
-return false;};
-if (!tick()) {timer=setInterval(function() {if (tick()) clearInterval(timer);}, 1e3);};
-return function() {if (timer) clearInterval(timer);};}
-function renderNote(root, message) {root.textContent="";
-root.appendChild((0,__vite_ssr_import_0__.el)("p", { dir: "auto" }, [message]));}
+<script>function labels(){return{"common":{"tool_error":["The tool returned an error.","הכלי החזיר שגיאה."],"cannot_show":["This view cannot show that result.","התצוגה הזו לא יכולה להציג את התוצאה."],"no_host":["Could not connect to the host.","לא ניתן להתחבר לאפליקציה המארחת."]},"share":{"title":["Share link","קישור לשיתוף"],"create":["Create share link","צור קישור לשיתוף"],"create_failed":["The link could not be created.","לא ניתן היה ליצור את הקישור."],"preview":["Preview link","קישור לתצוגה מקדימה"],"markdown":["Markdown link","קישור ל-Markdown"],"open":["Open","פתח"],"copy":["Copy","העתק"],"copied":["Copied","הועתק"],"select_copy":["Select and copy","סמן והעתק"],"stop":["Stop this link","עצור את הקישור הזה"],"sure":["Are you sure? The link stops working at once.","בטוח? הקישור יפסיק לעבוד מיד."],"yes_stop":["Yes, stop this link","כן, עצור את הקישור"],"cancel":["Cancel","ביטול"],"waiting":["Waiting for your OK in the chat","ממתין לאישור שלך בצ׳אט"],"stop_failed":["The link could not be stopped.","לא ניתן היה לעצור את הקישור."],"no_answer":["No answer from the host. Try again.","אין תשובה מהאפליקציה המארחת. נסה שוב."],"not_allowed":["Your app does not allow this here.","האפליקציה שלך לא מאפשרת זאת כאן."],"stopped":["Stopped","נעצר"],"once":["Works once","עובד פעם אחת"],"until":["Works until it expires","עובד עד שהתוקף יפוג"],"expired":["Expired","פג תוקף"],"expires_in":["Expires in {left} ({time})","התוקף יפוג בעוד {left} ({time})"]}}}
+function bridge(on){let pending=new Map();let nextId=1;let state={hostContext:null,hostCapabilities:{},delivered:!1,sizing:!1};function post(message){window.parent.postMessage({jsonrpc:"2.0",...message},"*")}
+function request(method,params,ms){let id=nextId++;return new Promise((resolve,reject)=>{let timer=setTimeout(()=>{pending.delete(id);reject(new Error(method+" timed out"))},ms||15e3);pending.set(id,{resolve,reject,timer});post({id,method,params})})}
+function observeSize(){if(state.sizing)return;state.sizing=!0;let report=()=>{post({method:"ui/notifications/size-changed",params:{width:Math.ceil(window.innerWidth),height:Math.ceil(document.body.getBoundingClientRect().height)}})};if(typeof ResizeObserver==="function") new ResizeObserver(report).observe(document.body);report()}
+function setContext(params){state.hostContext={...state.hostContext,...params};if(on.context) on.context(state.hostContext)}
+window.addEventListener("message",(event)=>{if(event.source!==window.parent)return;let msg=event.data;if(!msg||msg.jsonrpc!=="2.0")return;if(msg.id!==void 0&&msg.method===void 0){let waiting=pending.get(msg.id);if(!waiting)return;pending.delete(msg.id);clearTimeout(waiting.timer);if(msg.error) waiting.reject(new Error(msg.error.message||"request failed"));else waiting.resolve(msg.result);return};if(msg.method==="ui/notifications/tool-input"){if(on.input) on.input(msg.params&&msg.params.arguments)}else if(msg.method==="ui/notifications/tool-result"){state.delivered=!0;if(on.result) on.result(msg.params||{});observeSize()}else if(msg.method==="ui/notifications/host-context-changed"){setContext(msg.params)}else if(msg.method==="ui/resource-teardown"){if(msg.id!==void 0) post({id:msg.id,result:{}});if(on.teardown) on.teardown()}else if(msg.id!==void 0){post({id:msg.id,error:{code:-32601,message:"Method not found: "+msg.method}})}});request("ui/initialize",{protocolVersion:"2026-01-26",appInfo:{name:"x-thread-draft-tool",version:"1"},appCapabilities:{}}).then((result)=>{setContext(result&&result.hostContext||{});state.hostCapabilities=result&&result.hostCapabilities||{};post({method:"ui/notifications/initialized",params:{}});observeSize()},(err)=>{observeSize();if(on.error) on.error(err)});return{openLink(url){let safe=safeUrl(url,null);if(!safe)return Promise.reject(new Error("link refused"));return request("ui/open-link",{url:safe})},callTool(name,args,ms){return request("tools/call",{name,arguments:args||{}},ms)},canCallTools(){return Boolean(state.hostCapabilities&&state.hostCapabilities.serverTools)},context(){return state.hostContext},delivered(){return state.delivered}}}
+function tr(view,key,vars){let entry=labels()[view][key];let text=entry[document.documentElement.lang==="he"?1:0];for(let name of Object.keys(vars||{})) text=text.split("{"+name+"}").join(String(vars[name]));return text}
+function setLang(locale,sample){let text=String(sample||"");let hebrew=(text.match(/[\u0590-\u05FF]/g)||[]).length>(text.match(/[A-Za-z]/g)||[]).length;let he=typeof locale==="string"&&locale.trim()!==""?/^(he|iw)(?![a-z])/i.test(locale.trim()):hebrew;let root=document.documentElement;root.setAttribute("lang",he?"he":"en");if(he) root.setAttribute("dir","rtl");else root.removeAttribute("dir");return he?"he":"en"}
+function safeUrl(url,allowedHosts){let parsed;try {parsed=new URL(String(url))} catch {return null};if(parsed.protocol!=="https:")return null;if(Array.isArray(allowedHosts)&&allowedHosts.length>0&&!allowedHosts.includes(parsed.hostname))return null;return parsed.href}
+function el(tag,attrs,children){let node=document.createElement(tag);let allowed=["href","alt","dir","title"];for(let name of Object.keys(attrs||{})){if(!allowed.includes(name)) continue;if(name==="href"){let safe=safeUrl(attrs[name],null);if(safe) node.setAttribute("href",safe)}else{node.setAttribute(name,attrs[name])}};for(let child of children||[]){node.appendChild(typeof child==="string"?document.createTextNode(child):child)};return node}
+function linkButton(label,url,open){let button=el("button",{},[label]);if(open) button.addEventListener("click",()=>open(url));return button}
+function shareFrom(result){let body=result&&result.structuredContent||{};let preview=(0,__vite_ssr_import_0__.safeUrl)(body.preview_url,null);let markdown=(0,__vite_ssr_import_0__.safeUrl)(body.markdown_url,null);if(!preview||!markdown)return null;let expires=Date.parse(body.expires_at);let uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;let token=typeof body.token==="string"&&uuid.test(body.token)?body.token:null;let draftId=typeof body.draft_id==="string"&&uuid.test(body.draft_id)?body.draft_id:null;return{preview,markdown,expiresAt:isNaN(expires)?null:expires,oneTime:body.one_time===!0,token,draftId}}
+function countdownText(expiresAt,now){let left=Math.max(0,Math.ceil((expiresAt-now) / 1e3));let pad=(n)=>n<10?"0"+n:String(n);let h=Math.floor(left / 3600);let m=Math.floor(left % 3600 / 60);let s=left % 60;return h>0?h+":"+pad(m)+":"+pad(s):m+":"+pad(s)}
+function localTime(expiresAt,locale){let when=new Date(expiresAt);let options={hour:"2-digit",minute:"2-digit"};try {return when.toLocaleTimeString(locale||void 0,options)} catch {return when.toLocaleTimeString(void 0,options)}}
+function canCopy(){return typeof navigator!=="undefined"&&Boolean(navigator.clipboard)&&typeof navigator.clipboard.writeText==="function"}
+function copyButton(field){let button=(0,__vite_ssr_import_0__.el)("button",{},[(0,__vite_ssr_import_0__.tr)("share","copy")]);button.addEventListener("click",function(){let done;try {done=navigator.clipboard.writeText(field.value)} catch(err){done=Promise.reject(err)};Promise.resolve(done).then(function(){button.textContent=(0,__vite_ssr_import_0__.tr)("share","copied")},function(){button.textContent=(0,__vite_ssr_import_0__.tr)("share","select_copy");field.focus();field.select()})});return button}
+function linkRow(label,url,ctx,buttons){let field=document.createElement("input");field.readOnly=!0;field.setAttribute("dir","ltr");field.value=url;field.addEventListener("focus",function(){field.select()});let open=(0,__vite_ssr_import_0__.linkButton)((0,__vite_ssr_import_0__.tr)("share","open"),url,ctx.open);let actions=(0,__vite_ssr_import_0__.el)("div",{},[open]);buttons.push(open);if(canCopy()){let copy=copyButton(field);buttons.push(copy);actions.appendChild(copy)};return(0,__vite_ssr_import_0__.el)("section",{},[(0,__vite_ssr_import_0__.el)("p",{},[label]),field,actions])}
+function stopControl(share,ctx,note,finish){let stop=(0,__vite_ssr_import_0__.el)("button",{},[(0,__vite_ssr_import_0__.tr)("share","stop")]);let question=(0,__vite_ssr_import_0__.el)("p",{},[(0,__vite_ssr_import_0__.tr)("share","sure")]);let yes=(0,__vite_ssr_import_0__.el)("button",{},[(0,__vite_ssr_import_0__.tr)("share","yes_stop")]);let no=(0,__vite_ssr_import_0__.el)("button",{},[(0,__vite_ssr_import_0__.tr)("share","cancel")]);let row=(0,__vite_ssr_import_0__.el)("div",{},[stop]);let ask=(0,__vite_ssr_import_0__.el)("div",{},[question,yes,no]);ask.hidden=!0;let box=(0,__vite_ssr_import_0__.el)("div",{},[row,ask]);stop.addEventListener("click",function(){row.hidden=!0;ask.hidden=!1});no.addEventListener("click",function(){ask.hidden=!0;row.hidden=!1});yes.addEventListener("click",function(){yes.disabled=!0;no.disabled=!0;note.textContent=(0,__vite_ssr_import_0__.tr)("share","waiting");let call;try {call=ctx.revoke(share.draftId,share.token)} catch(err){call=Promise.reject(err)};Promise.resolve(call).then(function(result){if(result&&result.isError){let first=result.content&&result.content[0];note.textContent=first&&first.text?first.text:(0,__vite_ssr_import_0__.tr)("share","stop_failed");yes.disabled=!1;no.disabled=!1;ask.hidden=!0;row.hidden=!1;return};note.textContent="";finish((0,__vite_ssr_import_0__.tr)("share","stopped"))},function(err){let timedOut=/timed out$/.test(String(err&&err.message));note.textContent=timedOut?(0,__vite_ssr_import_0__.tr)("share","no_answer"):(0,__vite_ssr_import_0__.tr)("share","not_allowed");if(timedOut){yes.disabled=!1;no.disabled=!1;ask.hidden=!0;row.hidden=!1}else{box.remove()}})});return box}
+function renderShare(root,share,ctx){root.textContent="";root.appendChild((0,__vite_ssr_import_0__.el)("header",{},[(0,__vite_ssr_import_0__.el)("h1",{},[(0,__vite_ssr_import_0__.tr)("share","title")])]));let status=(0,__vite_ssr_import_0__.el)("p",{},[]);let note=(0,__vite_ssr_import_0__.el)("p",{dir:"auto"},[]);root.appendChild(status);root.appendChild(note);let buttons=[];root.appendChild(linkRow((0,__vite_ssr_import_0__.tr)("share","preview"),share.preview,ctx,buttons));root.appendChild(linkRow((0,__vite_ssr_import_0__.tr)("share","markdown"),share.markdown,ctx,buttons));let kind=share.oneTime?(0,__vite_ssr_import_0__.tr)("share","once"):(0,__vite_ssr_import_0__.tr)("share","until");let timer=null;let stopBox=null;let finish=function(text){if(timer) clearInterval(timer);status.textContent=text;buttons.forEach(function(button){button.disabled=!0});if(stopBox) stopBox.remove();stopBox=null};if(typeof ctx.revoke==="function"&&share.draftId&&share.token){stopBox=stopControl(share,ctx,note,finish);root.appendChild(stopBox)};if(share.expiresAt===null){status.textContent=kind;return function(){}};let tick=function(){let now=ctx.now();if(now>=share.expiresAt){finish(kind+" · "+(0,__vite_ssr_import_0__.tr)("share","expired"));return !0};status.textContent=kind+" · "+(0,__vite_ssr_import_0__.tr)("share","expires_in",{left:countdownText(share.expiresAt,now),time:localTime(share.expiresAt,ctx.locale)});return !1};if(!tick()){timer=setInterval(function(){if(tick()) clearInterval(timer)},1e3)};return function(){if(timer) clearInterval(timer)}}
+function renderNote(root,message){root.textContent="";root.appendChild((0,__vite_ssr_import_0__.el)("p",{dir:"auto"},[message]))}
 (function () {var root = document.getElementById('root');
 var link = null;
 var shown = false;
