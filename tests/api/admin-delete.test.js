@@ -166,6 +166,8 @@ describe('admin_delete_user', () => {
     }
     expect((await db.pg.query('select count(*)::int as n from oauth_tokens t join oauth_grants g on g.id = t.grant_id where g.user_id = $1', [gone.id])).rows[0].n).toBe(0)
     expect(fileCount(gone)).toBe(0)
+    // The revision rows of the deleted user's draft went with it; the other user's remain (one draft, one post each).
+    expect((await db.pg.query('select (select count(*)::int from draft_revisions) as r, (select count(*)::int from draft_post_versions) as v')).rows[0]).toEqual({ r: 1, v: 1 })
     expect(await userExists(other)).toBe(true)
     expect(fileCount(other)).toBe(2)
     for (const [table, column] of [['drafts', 'user_id'], ['api_tokens', 'user_id'], ['oauth_grants', 'user_id'], ['share_tokens', 'created_by'], ['mcp_rate_limits', 'user_id']]) {

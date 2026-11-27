@@ -6,12 +6,13 @@ Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`).
 - `draft_revisions(draft_id, seq, version, created_at, actor_kind, actor_name, label, title, post_order)`, key `(draft_id, seq)`. `title` only when it changed; `post_order` (post ids) only when posts were added, removed or moved.
 - `post_id` is a history key from `draft_post_keys()`: `i` + SHA-256 of the post id + `:` + the occurrence number of that id, or `n` + position for a post with no id. Fixed length (client ids are unbounded) and collision-free, so duplicate ids, odd ids and legacy posts are all kept.
 - `draft_post_versions(draft_id, post_id, seq, body)`, key `(draft_id, post_id, seq)`. One row per changed post (the whole post object); `body` null means removed.
-- `drafts.last_actor_kind`, `last_actor_name`, `last_label`: set by a write, read by the trigger. Nullable; no existing row is rewritten.
+- `drafts.last_actor_kind`, `last_actor_name`, `last_label`: **one-shot.** A write sets them, the trigger reads them and then clears them on the row (a nested update with all three null). A later write that sets nothing has no actor and no label, so one label or one restore never carries over. Writes with no actor (all null) merge with each other within 2 minutes. Nullable; no existing row is rewritten.
 - Both new tables reference `drafts` with `on delete cascade`, so they go with the draft and with the user. The admin delete-user preview counts them (`draft_revisions`, `revision_posts`).
 - **They hold draft text** (titles, post bodies). The leak scan (`tests/api/plaintext-leak-scan.test.js`) lists them as draft tables; no log, error or admin answer may carry their text.
 - No retention: every revision is kept (owner default for H1-Q1, 2026-11-27).
 
 ## Trigger `draft_revisions_trg` (after insert or update on drafts, per row)
+0. The actor values are read and cleared first (also in rewrite mode).
 1. `app.revision_mode = 'rewrite'` (set with `set local`): no revision.
 2. Only `version`, flags or timestamps changed: no revision.
 3. An old draft with no revisions: revision 0 (`system`, "Before history started") holds the old state first.
@@ -21,3 +22,5 @@ Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`).
 Rebuild revision `n`: the newest non-null `post_order` at or before `n`, then the newest `body` per id at or before `n`.
 
 Note for lock and encryption tasks: a rewrite that changes bodies without a revision means later revisions diff against the rewritten state; rebuilding an older revision gives the bodies as they were then.
+
+The key function treats posts that are not a JSON array (a bad old row) as empty, so no write on such a row fails.
