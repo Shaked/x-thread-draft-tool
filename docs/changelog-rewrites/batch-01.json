@@ -1,0 +1,433 @@
+[
+  {
+    "file": "docs/changelogs/20261111-000704-oauth-return-path-limit.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/71",
+    "area": "Docs",
+    "title": "The sign-in request size limit is documented",
+    "lines": [
+      "The API guide now says a sign-in request that must survive GitHub sign-in can be at most 2,000 characters.",
+      "Longer requests cannot be kept through GitHub sign-in."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261111-001101-draft-list-login-look.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/72",
+    "area": "Design",
+    "title": "Friendlier draft list and login",
+    "lines": [
+      "Draft list buttons have plain labels: Duplicate, Delete draft and New draft.",
+      "Action buttons measure 44 pixels.",
+      "A visible ring shows which control has keyboard focus.",
+      "Screen readers announce status messages."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261111-222740-sharing-preview-look.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/73",
+    "area": "Design",
+    "title": "Sharing and preview look updated",
+    "lines": [
+      "The Agent link button has a plain label.",
+      "Status tooltips are announced to screen readers and stay on screen at 390 pixels.",
+      "The export panel has one main action.",
+      "Controls are 44 pixels tall and have a visible focus ring."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261111-223338-settings-look.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/74",
+    "area": "Design",
+    "title": "Settings page layout changed",
+    "lines": [
+      "Connected apps now sits below the page heading.",
+      "The deployment banner no longer appears on every page.",
+      "It is now one small About line at the bottom of Settings."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261111-224403-eslint-gate.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/75",
+    "area": "Docs",
+    "title": "The code check covers the whole project",
+    "lines": [
+      "The code check runs on the whole project.",
+      "Long functions were split into smaller ones, and the build step was moved out of the check.",
+      "It replaces an older change that was out of date."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261112-233952-runbook-finished.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/76",
+    "area": "Docs",
+    "title": "Hardening plan shows finished work",
+    "lines": [
+      "Each task's status line in the hardening plan now names its merged pull request.",
+      "Four tasks are parked for later.",
+      "The current plan points to the finished plan and the parked tasks."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261112-234208-mcp-clients-plan.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/78",
+    "area": "Docs",
+    "title": "Plan for connecting AI apps",
+    "lines": [
+      "A written plan covers connecting Claude Code, Claude, Codex and ChatGPT to the app, in numbered steps.",
+      "A reminder prints the plan's rules at the start of each work session and after a summary of the chat."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261112-234700-runbook-preview-names.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/77",
+    "area": "Docs",
+    "title": "Preview names and storage status recorded",
+    "lines": [
+      "The stable preview has one name for its code branch and another for its database branch.",
+      "The storage step has no preview deployment, and the final record says it was not run."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261112-235305-agents-owner-reporting.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/79",
+    "area": "Docs",
+    "title": "Owner reporting rules are written down",
+    "lines": [
+      "Every item is numbered, and owner questions are answered in one template table.",
+      "Decisions are recorded in the ledger."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-001005-mcp-m1-oauth-loopback.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/81",
+    "area": "AI apps",
+    "title": "Claude Code and Codex can now sign in",
+    "lines": [
+      "Sign-in accepts a return address on any local port.",
+      "Sign-in no longer needs the extra resource setting that Codex leaves out."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-001139-mcp-m2-transport.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/82",
+    "area": "AI apps",
+    "title": "Older AI apps can connect now",
+    "lines": [
+      "A request with no version header is handled as the older protocol version, 2025-03-26, instead of being refused.",
+      "The log now records the other site when a request from it is refused."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-001721-mcp-m3-tool-metadata.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/83",
+    "area": "AI apps",
+    "title": "AI apps get clearer tool details and links",
+    "lines": [
+      "Every tool has a title and four hints that tell AI apps which actions need a confirmation.",
+      "Share links come with a preview link and a Markdown link.",
+      "Draft results include a link to the editor."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-002146-mcp-m4-tools-coverage.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/84",
+    "area": "AI apps",
+    "title": "AI apps can show accounts and make threads",
+    "lines": [
+      "AI apps can show the connected account, make a thread in one call, and remove an image.",
+      "Adding an image from a link can now name the post it goes to.",
+      "A test now fails when a route has no AI tool and is not skipped on purpose."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-002445-mcp-m4-remove-image-refs.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/84",
+    "area": "AI apps",
+    "title": "Image removal through AI apps fixed",
+    "lines": [
+      "Removing an image now counts how many other drafts use it.",
+      "Only files owned by your account are deleted.",
+      "A successful removal no longer returns a forbidden error."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-002739-mcp-m4-image-reread.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/84",
+    "area": "AI apps",
+    "title": "Edits made during an image upload are kept",
+    "lines": [
+      "Adding an image from a link to a post keeps edits made while the upload runs.",
+      "The window in which this can go wrong is short, but it is not zero."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-080706-mcp-m5-post-tools.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/85",
+    "area": "AI apps",
+    "title": "AI apps can change one post at a time",
+    "lines": [
+      "AI apps can add, change, remove or move one post without resending the rest of the thread.",
+      "Published drafts cannot be changed this way."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-081243-mcp-m6-export-numbering.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/86",
+    "area": "Editor",
+    "title": "AI apps can export numbered threads",
+    "lines": [
+      "A draft can be exported as numbered text, the same as the numbered copy in the app.",
+      "The same numbered text is available through the API and the AI app tools."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-081800-mcp-m7-pin-address.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/87",
+    "area": "Security",
+    "title": "Remote links cannot reach private addresses",
+    "lines": [
+      "Metadata documents and remote images now connect only to the address that was checked.",
+      "If a site switches to a private address after the check, the app still does not connect to it.",
+      "Any host whose answer includes a private address is refused.",
+      "Redirects are still not followed."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-082023-mcp-m8-rate-limit.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/88",
+    "area": "AI apps",
+    "title": "AI apps are limited to 120 calls a minute",
+    "lines": [
+      "Each user can make 120 tool calls a minute through AI apps.",
+      "A call over the limit gets a tool error, not a protocol error.",
+      "Records older than one day are cleared during the regular token cleanup."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-082611-mcp-m9-docs-smoke.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/89",
+    "area": "Docs",
+    "title": "A connector guide for AI apps",
+    "lines": [
+      "A new guide covers tool groups, four setup recipes, what is not available, disconnecting and troubleshooting.",
+      "The four setup recipes have not yet been checked against current client docs.",
+      "The guide is linked from several pages, including the README and the API guide.",
+      "The public smoke check now covers three more sign-in details."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-082756-mcp-m10-connect-ui.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/90",
+    "area": "AI apps",
+    "title": "Settings lists four AI apps to connect",
+    "lines": [
+      "Settings has a Connect an AI app section with Claude, Claude Code, ChatGPT and Codex CLI.",
+      "Each entry has a copy button for the connector address or the exact command.",
+      "The page says each app needs approving once with GitHub sign-in."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-083956-mcp-m12-finish.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/91",
+    "area": "Docs",
+    "title": "The AI app connection plan is finished",
+    "lines": [
+      "The plan is marked completed, and the session reminder no longer prints anything.",
+      "Four runs with real AI apps are still left for the owner to do.",
+      "The platform guide has a line about the Connect an AI app section in Settings."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-134903-mcp-five-requests-e2e.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/92",
+    "area": "Docs",
+    "title": "A test now runs five AI app requests",
+    "lines": [
+      "A new automated test sends the five checklist requests to the server.",
+      "It covers a one-time share link and a sign-in refresh before the last list.",
+      "It checks the server only, with no person. Runs with real AI apps stay with the owner."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-151035-agents-human-steps-rule.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/93",
+    "area": "Docs",
+    "title": "Rules for end-to-end tests and owner steps",
+    "lines": [
+      "A fixed model settles questions about end-to-end work.",
+      "An end-to-end test that needs a person is redesigned, not accepted.",
+      "Steps for the owner are written once, with exact steps and the reply that unblocks them."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-151941-mcp-claude-code-e2e.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/93",
+    "area": "Docs",
+    "title": "A Claude Code sign-in test is added",
+    "lines": [
+      "A test now signs Claude Code in through the app's connector, with no person involved.",
+      "It runs only through the clients test command, not before each commit."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-153333-knip-script-binary.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/93",
+    "area": "Docs",
+    "title": "The unused-code check allows one more tool",
+    "lines": [
+      "The unused-code check now allows the script tool, which the sign-in test uses.",
+      "This fixes a failing unit test check."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-153446-codex-wait-for-prompt.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/94",
+    "area": "Docs",
+    "title": "Codex sign-in test waits for its prompt",
+    "lines": [
+      "The Codex sign-in test waits for the Callback URL prompt before it sends the redirect.",
+      "Input sent too early could be dropped, which made the clients check time out."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-153637-codex-strict-exit.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/94",
+    "area": "Docs",
+    "title": "Codex sign-in test fails on errors",
+    "lines": [
+      "The Codex sign-in test now fails when Codex exits with an error.",
+      "It passes only when Codex prints \"Successfully logged in\".",
+      "The dev server and login process are always stopped, even on failure."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-153729-claude-strict-exit.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/93",
+    "area": "Docs",
+    "title": "Claude Code sign-in test fails on errors",
+    "lines": [
+      "The Claude Code sign-in test now fails when the tool exits with an error.",
+      "It passes only when the tool prints \"Authenticated with x-thread\".",
+      "The dev server and login process are always stopped, even on failure."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-154048-codex-callback-get.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/94",
+    "area": "Docs",
+    "title": "Codex sign-in test follows the redirect",
+    "lines": [
+      "The Codex sign-in test now opens the approval redirect the way a browser does.",
+      "Pasting the redirect in did not finish sign-in during the clients check.",
+      "A failure now prints the end of Codex's output."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-154214-remove-real-claude-login.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/93",
+    "area": "Docs",
+    "title": "Tests no longer use real AI app logins",
+    "lines": [
+      "Tests no longer use real AI apps or their accounts.",
+      "Each AI app setup is checked through the real server code, with no app, account or token.",
+      "The separate clients check script and its command were removed."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-155037-o1-post-patch.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/95",
+    "area": "Editor",
+    "title": "One post can change without resending the thread",
+    "lines": [
+      "Changing one post's text now saves only that post.",
+      "A repeat of the same change writes nothing new.",
+      "If the draft changed since it was read, the change is refused.",
+      "If a save fails partway, its changes are undone.",
+      "Each draft keeps a version number that goes up with every change."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-155611-refresh-resource.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/98",
+    "area": "Security",
+    "title": "Sign-in refresh checks the resource",
+    "lines": [
+      "A refresh request for a different resource is refused with an invalid target error.",
+      "The refusal does not use up the refresh token.",
+      "A refresh request with no resource still works."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-155700-mcp-contract-suite.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/100",
+    "area": "Docs",
+    "title": "A test checks the AI app sign-in flow",
+    "lines": [
+      "A new test plays the part of an AI app through the whole sign-in and tool flow.",
+      "Each tool's input rules are checked strictly.",
+      "It needs no app, account, person or AI model, and refuses any other outside request."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-184335-vercel-ignore-git-env.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/96",
+    "area": "Docs",
+    "title": "A test can no longer commit to the repo",
+    "lines": [
+      "The Vercel ignore test can no longer write commits into the project's repository."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-222712-mcp-sdk-client.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/101",
+    "area": "Docs",
+    "title": "A test uses the official MCP client",
+    "lines": [
+      "A new test uses the official MCP client library to run the full sign-in and tool flow inside the app.",
+      "It makes no network calls and needs no app, person or AI model."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-225112-o1-part2.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/102",
+    "area": "Editor",
+    "title": "Draft saves now check for conflicts",
+    "lines": [
+      "Saving or publishing a whole draft now happens as one step.",
+      "If the draft changed since it was read, the save is refused.",
+      "Repeating a save that already happened changes nothing.",
+      "AI apps can give a new post an ID of their own.",
+      "Repeating an add with the same ID writes nothing, and different text under that ID is refused."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261113-235334-mcp-plan-tracker-done.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/103",
+    "area": "Docs",
+    "title": "The AI app plan shows every step done",
+    "lines": [
+      "The AI app connection plan marks every step done, with the pull request for each step.",
+      "The current plan says all steps are merged."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-013510-mcp-plan-m13-m16.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/104",
+    "area": "Docs",
+    "title": "Plan adds AI app prompts and wording",
+    "lines": [
+      "The AI app plan has a new section on prompts, skills, Hebrew text and the wording that triggers on X and Twitter.",
+      "It records the owner's decisions of 2026-11-14.",
+      "This change is documentation only."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-013535-mcp-schema-conformance.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/105",
+    "area": "AI apps",
+    "title": "A test checks AI app results against official schemas",
+    "lines": [
+      "A new test checks that the results of the AI app connector match the official MCP schemas, for two protocol versions.",
+      "This change adds a test only."
+    ]
+  }
+]
