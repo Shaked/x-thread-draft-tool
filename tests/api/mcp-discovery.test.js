@@ -26,8 +26,8 @@ const toolNames = new Set(tools.map((t) => t.name))
 const URL_RE = /^https:\/\/\S+$/
 
 describe('discovery corpus', () => {
-  it('has 13 intents, each with at least 4 English and 4 Hebrew phrases', () => {
-    expect(intents).toHaveLength(13)
+  it('has 19 intents, each with at least 4 English and 4 Hebrew phrases', () => {
+    expect(intents).toHaveLength(19)
     for (const intent of intents) {
       for (const lang of ['en', 'he']) {
         expect(intent.phrases.filter((p) => p.lang === lang).length, `${intent.id} ${lang}`).toBeGreaterThanOrEqual(4)
@@ -53,8 +53,8 @@ describe('discovery corpus', () => {
     }
   })
 
-  it('has 6 negatives per language, and no negative phrase is a save request', () => {
-    for (const lang of ['en', 'he']) expect(negatives.filter((n) => n.lang === lang)).toHaveLength(6)
+  it('has 8 negatives per language, and no negative phrase is a save request', () => {
+    for (const lang of ['en', 'he']) expect(negatives.filter((n) => n.lang === lang)).toHaveLength(8)
     for (const n of negatives) expect(n.text).not.toMatch(/write|draft|כתוב|טיוטה|תכתוב/i)
   })
 
