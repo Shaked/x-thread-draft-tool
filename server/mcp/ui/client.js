@@ -216,6 +216,7 @@ export function labels() {
       text: ['Text', 'טקסט'],
       before: ['Before', 'לפני'],
       add_image: ['Add image', 'הוסף תמונה'],
+      images: ['Images: {n}', 'תמונות: {n}'],
       upload_link: ['Upload link: ', 'קישור להעלאה: ']
     },
     drafts: {
@@ -331,7 +332,7 @@ export function postNode(thread, index, total, open) {
   if (links.length > 0) body.appendChild(el('ul', {}, links.map((url) => el('li', {}, [linkButton(url, url, open)]))))
   const pics = imagesNode(images, thread.imageOrigin, open)
   if (pics) body.appendChild(pics)
-  if (thread.addImage && post && typeof post.id === 'string' && images.length < 4) body.appendChild(thread.addImage(post.id))
+  if (thread.addImage && post && post.id && images.length < 4) body.appendChild(thread.addImage(post.id))
   const card = tweetNode(post, open)
   if (card) body.appendChild(card)
   if (count) {

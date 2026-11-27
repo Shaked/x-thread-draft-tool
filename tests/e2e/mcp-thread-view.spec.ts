@@ -238,7 +238,8 @@ const WITH_POST_IDS = {
   ...SAVED_WITH_ID,
   structuredContent: { draft: { ...SAVED_WITH_ID.structuredContent.draft, posts: SAVED_WITH_ID.structuredContent.draft.posts.map((post, i) => ({ ...post, id: `post-${i + 1}` })) } }
 }
-const ADDED = { content: [{ type: 'text', text: 'added' }], structuredContent: { ok: true } }
+// What add_image_from_url answers for a post: the draft outline, where the post now has 3 images (it had 2).
+const ADDED = { content: [{ type: 'text', text: 'added' }], structuredContent: { draft: { posts: [{ id: 'post-1', image_count: 3 }] } } }
 const REFUSED = { content: [{ type: 'text', text: 'no' }], isError: true }
 const LINK = { content: [{ type: 'text', text: 'link' }], structuredContent: { upload: { link: 'https://app.example/upload#tok', post: 1, slots: 2 } } }
 
@@ -257,12 +258,13 @@ async function replies(page: Page, list: unknown[], holdFirst = false) {
 }
 const hostCalls = (page: Page) => page.evaluate(() => (window as any).__calls.map((c: any) => ({ name: c.name, arguments: c.arguments })))
 
-test('"Add image" sends the shrunk file as bytes to add_image_from_url and says Added', async ({ page }) => {
+test('"Add image" sends the shrunk file as bytes to add_image_from_url and shows the new image count of the post', async ({ page }) => {
   await load(page, WITH_POST_IDS, { caps: { serverTools: {} }, reply: ADDED })
   const frame = page.frameLocator('#view')
   await expect(frame.getByRole('button', { name: 'Add image' })).toHaveCount(3)
   await frame.locator('input[type=file]').first().setInputFiles(IMAGE_FILE)
-  await expect(frame.getByText('Added', { exact: true })).toBeVisible()
+  await expect(frame.getByText('Images: 3')).toBeVisible()
+  await expect(frame.getByRole('button', { name: 'Add image' }).first()).toBeEnabled()
   const calls = await hostCalls(page)
   expect(calls).toHaveLength(1)
   expect(calls[0].name).toBe('add_image_from_url')
@@ -280,6 +282,15 @@ test('when the host refuses the bytes, the view asks for an upload link and show
   const calls = await hostCalls(page)
   expect(calls.map((c: any) => c.name)).toEqual(['add_image_from_url', 'add_image_from_url'])
   expect(calls[1].arguments).toEqual({ draftId: DRAFT_ID, postId: 'post-1', upload_link: true })
+})
+
+test('an answer that is not an outline of the post (a number here) is not taken as success: the view asks for a link', async ({ page }) => {
+  await load(page, WITH_POST_IDS, { caps: { serverTools: {} } })
+  await replies(page, [5, LINK])
+  const frame = page.frameLocator('#view')
+  await frame.locator('input[type=file]').first().setInputFiles(IMAGE_FILE)
+  await expect(frame.getByText('Upload link: https://app.example/upload#tok')).toBeVisible()
+  await expect(frame.getByText('Images: 3')).toHaveCount(0)
 })
 
 test('when the host does not answer the bytes in time, the view asks for an upload link', async ({ page }) => {
