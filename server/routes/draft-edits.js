@@ -7,6 +7,7 @@ import { HttpError, json, readJson } from '../http.js'
 import { requireUser } from '../session.js'
 import { deleteBlobUrls } from '../blob.js'
 import { isOwnedBlobUrl } from '../draft-images.js'
+import { takeFresh } from '../fresh-uploads.js'
 import { xLength } from '../../src/utils/xLength.js'
 import { COLUMNS, etagHeaders, ifMatchOf, isUuid, preconditionHolds, staleResponse, usedImageUrls } from './drafts.js'
 import { storeRemoteImage } from './images.js'
@@ -227,9 +228,9 @@ async function addImage({ request, params }) {
   if (rows[0].is_published) throw new HttpError(409, PUBLISHED_ERROR)
   const early = plan('pending')(withMissingPostIds(rows[0].posts))
   if (early.error) throw new HttpError(early.status, early.error)
-  // #419: a file the caller already uploaded (POST /images, the bytes path of the tool) is attached as it is: nothing is
-  // fetched and nothing is deleted when the edit fails; the caller owns that file and cleans it up.
-  const own = isOwnedBlobUrl(body.url, session.uid)
+  // #419: a file this process stored for the caller a moment ago (POST /images, the bytes path of the tool) is attached as it is:
+  // nothing is fetched and nothing is deleted when the edit fails; the caller cleans that file up. Any other url is fetched.
+  const own = takeFresh(session.uid, body.url)
   const { url } = own ? { url: body.url } : await storeRemoteImage(session.uid, params.id, body.url)
   const discard = () => (own ? Promise.resolve() : deleteBlobUrls([url]).catch(() => {}))
   let response

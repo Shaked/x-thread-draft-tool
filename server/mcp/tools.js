@@ -633,15 +633,15 @@ function addStateLine(result, name, args, origin) {
 
 
 /**
- * #419: the image comes as base64 `data`. Same checks as POST /images (type from the bytes, metadata removed, size, storage
- * cap), which the tool calls in-process with the raw bytes. Every refusal happens before any upload; with postId or replace
+ * #419: the image comes as base64 `data`. Same checks as POST /images (type from the bytes, metadata removed, size), which the tool calls in-process with the raw bytes. Every refusal happens before any upload; with postId or replace
  * the stored file is attached by the same routes as a url, and removed again when that fails.
  */
 async function addImageBytes(args, ctx) {
   const refuse = (text) => json({ error: text }, 422)
   if (args.url !== undefined || args.upload_link === true) return refuse('Give data or url, not both, and no upload_link with data.')
+  if (typeof args.data !== 'string') return refuse('data must be a string: the image bytes as base64.')
   if (args.mime === undefined) return refuse(`data needs mime: ${IMAGE_MIMES.join(', ')}.`)
-  if (!IMAGE_MIMES.includes(args.mime)) return refuse(`mime must be one of ${IMAGE_MIMES.join(', ')}.`)
+  if (typeof args.mime !== 'string' || !IMAGE_MIMES.includes(args.mime)) return refuse(`mime must be one of ${IMAGE_MIMES.join(', ')}.`)
   if (args.data.length > MAX_IMAGE_DATA_CHARS) return refuse('The image is over 700,000 bytes (933,336 base64 characters). Use REST POST /images with the API token (curl --data-binary) or the upload link (upload_link: true with postId).')
   if (args.data.length === 0 || !BASE64_RE.test(args.data)) return refuse('data is not valid base64. Send the bytes of one PNG, JPEG, WebP or GIF file as standard base64.')
   const bytes = new Uint8Array(Buffer.from(args.data, 'base64'))
@@ -663,7 +663,10 @@ async function addImageBytes(args, ctx) {
       return viaRoute(ctx, res, (body) => ({ url: body.url, postId: args.postId }))
     }
     const current = await fetchOwnedDraft(ctx, args.draftId)
-    if (current.failure) return current.failure
+    if (current.failure) {
+      await discard()
+      return current.failure
+    }
     const draft = { ...outline(current.draft), url: editorUrl(ctx.origin, current.draft.id) }
     return withBefore(withViewPosts(json({ draft, url }), current.draft.posts), current.draft)
   } catch (err) {

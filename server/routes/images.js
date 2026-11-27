@@ -7,6 +7,7 @@ import { usedImageUrls } from './drafts.js'
 import { fetchRemoteImage } from '../remote-image.js'
 import { prepareImage } from '../image-safety.js'
 import { recordImage } from '../image-ledger.js'
+import { rememberFresh } from '../fresh-uploads.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const MAX_BYTES = 4 * 1024 * 1024 // Vercel's request body limit is 4.5 MB
@@ -19,6 +20,7 @@ export async function storeChecked(uid, draftId, raw) {
   const pathname = `drafts/${uid}/${draftId}/${crypto.randomUUID()}.${EXTENSIONS[contentType]}`
   const blob = await putBlob(pathname, bytes, { contentType })
   await recordImage(uid, blob.url, bytes.byteLength)
+  rememberFresh(uid, blob.url)
   return blob.url
 }
 

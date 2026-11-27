@@ -11,7 +11,7 @@ import { deleteBlobUrls, putBlob } from '../../server/blob.js'
 import { route } from '../../server/router.js'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { setResolverForTests } from '../../server/remote-image.js'
-import { APP_URL, setupTestDb } from './helpers/db.js'
+import { APP_URL, apiRequest, setupTestDb } from './helpers/db.js'
 import { exifPayload, jpegSegment, makeGif, makeJpeg, makePng, makeWebp, SVG } from './helpers/images.js'
 
 const MCP = `${APP_URL}/api/mcp`
@@ -151,6 +151,7 @@ describe('add_image_from_url with data and mime', () => {
     const draft = await db.insertDraft(alice.id, { posts: [post('p1', 4)] })
     const res = await tool('add_image_from_url', { draftId: draft.id, postId: 'p1', data: b64(makePng()), mime: 'image/png' })
     expect(res.error).toMatch(/already has 4 images/)
+    expect(putBlob).toHaveBeenCalledTimes(1)
     const stored = putBlob.mock.results.length ? (await putBlob.mock.results[0].value).url : null
     expect(deleteBlobUrls).toHaveBeenCalledWith([stored])
     expect((await postsOf(draft.id))[0].images).toHaveLength(4)
@@ -206,5 +207,61 @@ describe('add_image_from_url with data and mime', () => {
     const res = await tool('add_image_from_url', { draftId: draft.id, postId: 'p1', data: b64(makePng()), mime: 'image/png' })
     expect(res.error).toMatch(/not found/i)
     expect(putBlob).not.toHaveBeenCalled()
+  })
+
+  it('refuses data and mime of the wrong type with no upload', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: [post('p1')] })
+    expect((await tool('add_image_from_url', { draftId: draft.id, postId: 'p1', data: 1234, mime: 'image/png' })).error).toBeTruthy()
+    expect((await tool('add_image_from_url', { draftId: draft.id, postId: 'p1', data: ['A'.repeat(933_340)], mime: 'image/png' })).error).toBeTruthy()
+    expect((await tool('add_image_from_url', { draftId: draft.id, postId: 'p1', data: b64(makePng()), mime: 42 })).error).toBeTruthy()
+    expect(putBlob).not.toHaveBeenCalled()
+  })
+
+  it('replace with a stale version deletes the uploaded file and never fetches', async () => {
+    const draft = await db.insertDraft(alice.id, { posts: [post('p1', 1)] })
+    const old = (await postsOf(draft.id))[0].images[0].url
+    const res = await tool('add_image_from_url', { draftId: draft.id, replace: old, version: 99, data: b64(makePng()), mime: 'image/png' })
+    expect(res.error).toBeTruthy()
+    expect(putBlob).toHaveBeenCalledTimes(1)
+    expect(deleteBlobUrls).toHaveBeenCalledWith([(await putBlob.mock.results[0].value).url])
+    expect((await postsOf(draft.id))[0].images).toEqual([{ url: old }])
+    expect(fetch).not.toHaveBeenCalled()
+  })
+})
+
+// #419: POST /drafts/:id/images attaches without a fetch only a file this process just stored for the caller.
+describe('POST /drafts/:id/images and files stored by POST /images', () => {
+  const attach = (cookie, draftId, url) => route(apiRequest(`/api/drafts/${draftId}/images`, { method: 'POST', cookie, body: { url, post_id: 'p1' } }))
+  const upload = async (cookie, draftId) => (await (await route(apiRequest(`/api/images?draftId=${draftId}`, { method: 'POST', cookie, headers: { 'content-type': 'image/png' }, body: makePng() }))).json()).url
+
+  it('attaches a just uploaded file as it is, once: no fetch', async () => {
+    const cookie = await db.cookieFor(alice)
+    const draft = await db.insertDraft(alice.id, { posts: [post('p1')] })
+    const url = await upload(cookie, draft.id)
+    expect((await attach(cookie, draft.id, url)).status).toBe(200)
+    expect(fetch).not.toHaveBeenCalled()
+    expect((await postsOf(draft.id))[0].images).toEqual([{ url }])
+  })
+
+  it('does not delete that file when the edit fails (the caller owns it)', async () => {
+    const cookie = await db.cookieFor(alice)
+    const draft = await db.insertDraft(alice.id, { posts: [post('p1', 4)] })
+    const url = await upload(cookie, draft.id)
+    expect((await attach(cookie, draft.id, url)).status).toBe(422)
+    expect(deleteBlobUrls).not.toHaveBeenCalled()
+  })
+
+  it('fetches a url of another Blob store even under the caller\'s own prefix', async () => {
+    const cookie = await db.cookieFor(alice)
+    const draft = await db.insertDraft(alice.id, { posts: [post('p1')] })
+    await attach(cookie, draft.id, `https://other-store.public.blob.vercel-storage.com/drafts/${alice.id}/d/x.png`)
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('fetches a url of this store that this process did not just store', async () => {
+    const cookie = await db.cookieFor(alice)
+    const draft = await db.insertDraft(alice.id, { posts: [post('p1')] })
+    await attach(cookie, draft.id, `https://store.public.blob.vercel-storage.com/drafts/${alice.id}/d/never-stored.png`)
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 })
