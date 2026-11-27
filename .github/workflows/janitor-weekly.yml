@@ -6,7 +6,7 @@ name: Janitor (weekly, read-only)
 # HANDOFF, so they stay in the /janitor command (pass 2 needs Claude session tools, also /janitor).
 # Comments are not loaded here, so the report says which issues need them read.
 #
-# Turn it off: set the repository variable JANITOR_AUTO to `off` (or false, 0; any case), or disable the workflow in the Actions tab.
+# Turn it off: set the repository variable JANITOR_AUTO to `off` (or false; any case), or disable the workflow in the Actions tab.
 # Manual run: Actions tab, "Janitor (weekly, read-only)", Run workflow. `dry_run` prints the report and posts nothing.
 # See docs/operations/task-janitor.md.
 
@@ -32,10 +32,13 @@ concurrency:
 jobs:
   janitor:
     name: Janitor pass 1 (read-only)
-    # Off switch: JANITOR_AUTO set to off, OFF, false or 0 (contains() compares case-insensitively). A schedule run always uses the default branch
-    # (and its event has no `repository`), so only a manual run is checked for the branch.
+    # Off switch: JANITOR_AUTO set to off or false (any case: != compares strings ignoring case). An unset variable is
+    # null in an `if:`, and GitHub coerces null to the number 0, which equals "0": so a list with "0" matched an unset
+    # variable and skipped every run (the first version). `0` is therefore not an off value. A schedule event has no
+    # `repository`, so only a manual run is checked for the default branch. Test: tests/unit/janitor-weekly-workflow.test.js
+    # (it evaluates this condition with GitHub's rules).
     if: >-
-      !contains(fromJSON('["off","false","0"]'), vars.JANITOR_AUTO) &&
+      vars.JANITOR_AUTO != 'off' && vars.JANITOR_AUTO != 'false' &&
       (github.event_name == 'schedule' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
     runs-on: ubuntu-latest
     timeout-minutes: 10

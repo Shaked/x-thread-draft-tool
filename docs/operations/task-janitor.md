@@ -21,7 +21,7 @@ text with the reply-style lint and posts it as one comment on the reports issue 
 - The allowed safe fixes need a reader of each HANDOFF, so they stay in `/janitor`. The workflow has no setting for them.
 - Pass 2 (Claude sessions) needs the session tools, so it stays in `/janitor` too. CI does not load comments: the report names
   the issues whose comments need reading.
-- Turn it off: set the repository variable `JANITOR_AUTO` to `off` (also `false` or `0`, any case), or disable the workflow in the Actions tab.
+- Turn it off: set the repository variable `JANITOR_AUTO` to `off` (also `false`, any case), or disable the workflow in the Actions tab.
 - It posts the pass 1 report inside the `status-report` template (the report under `Details`), not the `/janitor` summary (the reports issue says so in one line).
 - Issue titles are written by anyone: a title goes through an allowlist (`plainWords` in `janitor.mjs`): NFKC, then only letters, digits, spaces and hyphens stay, so no mention, link, markup or reference can come from a title.
 - CI workflows that post comments may use `gh` and sign as the workflow; agent sessions may not (dispatcher decision, 2026-11-27, reversible).

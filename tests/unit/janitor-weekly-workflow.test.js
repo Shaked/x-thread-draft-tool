@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { readFileSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
+import { evaluate } from './helpers/gh-expression.js'
 
 // Guard for task J2 (#461): the weekly janitor stays read-only with minimal permissions.
 const W = readFileSync(new URL('../../.github/workflows/janitor-weekly.yml', import.meta.url), 'utf8')
@@ -19,17 +20,45 @@ describe('weekly janitor workflow', () => {
     expect(code).toMatch(/^\s+workflow_dispatch:/m)
   })
 
-  it('can be turned off (any case), runs on schedule, and a manual run only on the default branch', () => {
-    // Line-based, not a nested regex: the condition is the lines between `if: >-` and `runs-on:`.
-    const lines = code.split('\n')
+  // The job `if:` condition, read line by line (not a nested regex): the lines between `if: >-` and `runs-on:`.
+  const jobIf = (source) => {
+    const lines = source.split('\n')
     const from = lines.findIndex((l) => /^\s+if: >-$/.test(l))
     const to = lines.findIndex((l, i) => i > from && /^\s+runs-on:/.test(l))
     expect(from).toBeGreaterThan(-1)
-    const cond = lines.slice(from + 1, to).join(' ').replace(/\s+/g, ' ').trim()
-    expect(cond).toBe(
-      "!contains(fromJSON('[\"off\",\"false\",\"0\"]'), vars.JANITOR_AUTO) && " +
-        "(github.event_name == 'schedule' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch))"
-    )
+    return lines.slice(from + 1, to).filter((l) => !/^\s*#/.test(l)).join(' ').replace(/\s+/g, ' ').trim()
+  }
+  // The same context a run has: a schedule event has no `repository`; a manual run has it (default branch main).
+  const run = (cond, { event = 'workflow_dispatch', ref = 'refs/heads/main', value } = {}) =>
+    evaluate(cond, {
+      vars: value === undefined ? {} : { JANITOR_AUTO: value },
+      github: { event_name: event, ref, event: event === 'schedule' ? {} : { repository: { default_branch: 'main' } } }
+    })
+
+  it('runs by default and turns off with off or false (any case): the condition, evaluated with GitHub rules', () => {
+    const cond = jobIf(code)
+    // Unset is null in an `if:`; a variable set to nothing is ''. 0 is not an off value (documented).
+    for (const value of [undefined, '', 'on', 'ON', 'true', 'TRUE', '1', 'no', '0']) {
+      for (const event of ['schedule', 'workflow_dispatch']) expect(run(cond, { event, value }), `${event} ${JSON.stringify(value)}`).toBe(true)
+    }
+    for (const value of ['off', 'OFF', 'Off', 'false', 'FALSE', 'False']) {
+      for (const event of ['schedule', 'workflow_dispatch']) expect(run(cond, { event, value }), `${event} ${value}`).toBe(false)
+    }
+  })
+
+  it('a manual run from another branch or a tag is skipped, whatever the variable says', () => {
+    const cond = jobIf(code)
+    for (const ref of ['refs/heads/other', 'refs/tags/v1', 'refs/pull/5/merge']) {
+      for (const value of [undefined, 'on', 'off']) expect(run(cond, { ref, value }), `${ref} ${value}`).toBe(false)
+    }
+  })
+
+  it('the condition of the first version skipped every run: the evaluator shows why', () => {
+    // From the merge 0ce9153: an unset variable is null, null is coerced to 0 and equals "0" in the list.
+    const old = "!contains(fromJSON('[\"off\",\"false\",\"0\"]'), vars.JANITOR_AUTO) && " +
+      "(github.event_name == 'schedule' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch))"
+    expect(run(old, { event: 'schedule' })).toBe(false)
+    expect(run(old, { value: 'on' })).toBe(true)
   })
 
   it('pins every action by commit sha', () => {
