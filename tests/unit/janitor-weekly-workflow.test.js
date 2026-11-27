@@ -26,8 +26,10 @@ describe('weekly janitor workflow', () => {
     const to = lines.findIndex((l, i) => i > from && /^\s+runs-on:/.test(l))
     expect(from).toBeGreaterThan(-1)
     const cond = lines.slice(from + 1, to).join(' ').replace(/\s+/g, ' ').trim()
+    // An unset variable is loosely equal to "0" and to an empty list item, so neither contains() nor a `0` test may be used.
+    expect(cond).not.toMatch(/contains\(|'0'/)
     expect(cond).toBe(
-      "!contains(fromJSON('[\"off\",\"false\",\"0\"]'), vars.JANITOR_AUTO) && " +
+      "vars.JANITOR_AUTO != 'off' && vars.JANITOR_AUTO != 'false' && " +
         "(github.event_name == 'schedule' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch))"
     )
   })
