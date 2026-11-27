@@ -19,6 +19,7 @@ import { readSkillResource } from '../../server/mcp/skills.js'
 import { listAdminTools } from '../../server/mcp/admin-tools.js'
 import { fenceProblems } from '../eval/discovery/format.mjs'
 import { APP_URL, setupTestDb } from './helpers/db.js'
+import { makePng } from './helpers/images.js'
 
 const MCP = `${APP_URL}/api/mcp`
 const MODERN = '2026-07-28'
@@ -101,7 +102,7 @@ beforeAll(async () => {
   seen.create_thread_from_text = await call('create_thread_from_text', { text: `${EN}\n\n${HE}`, title: 'Thread' })
   seen.error = await call('update_post', { id: RANDOM_ID, post_id: 'p1', text: 'x' })
   setResolverForTests(async () => [{ address: '93.184.216.34', family: 4 }])
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([137, 80, 78, 71]), { headers: { 'content-type': 'image/png' } })))
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(makePng(), { headers: { 'content-type': 'image/png' } })))
   const firstPost = (await current()).posts[0]
   seen.add_image_from_url = await call('add_image_from_url', { draftId: id, url: 'https://example.com/n.png', postId: firstPost.id, position: 1 })
   const imageUrl = (await current()).posts[0].images[0].url

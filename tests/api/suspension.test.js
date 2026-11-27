@@ -3,6 +3,7 @@
 // everything works again after unsuspending. A second user is never affected.
 import { createHash, randomBytes } from 'node:crypto'
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose'
+import { makePng } from './helpers/images.js'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../server/blob.js', () => ({
@@ -10,7 +11,7 @@ vi.mock('../../server/blob.js', () => ({
   deleteBlobUrls: vi.fn(async () => {})
 }))
 vi.mock('../../server/remote-image.js', () => ({
-  fetchRemoteImage: vi.fn(async () => ({ bytes: new Uint8Array([1, 2, 3]), contentType: 'image/png' }))
+  fetchRemoteImage: vi.fn(async () => ({ bytes: (await import('./helpers/images.js')).makePng() }))
 }))
 
 import { route } from '../../server/router.js'
@@ -188,7 +189,7 @@ const probes = {
   'image upload': {
     ok: 201,
     send: (w) =>
-      route(apiRequest(`/api/images?draftId=${w.draft.id}`, { method: 'POST', cookie: w.cookie, headers: { 'content-type': 'image/png' }, body: new Uint8Array([1, 2, 3]) }))
+      route(apiRequest(`/api/images?draftId=${w.draft.id}`, { method: 'POST', cookie: w.cookie, headers: { 'content-type': 'image/png' }, body: makePng() }))
   },
   'image from URL': {
     ok: 201,

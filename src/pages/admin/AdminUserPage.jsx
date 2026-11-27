@@ -108,6 +108,7 @@ function UserDetails({ id }) {
               { term: 'Images', value: show(user.images) },
               { term: 'Image files', value: show(user.image_files) },
               { term: 'Image size', value: imageSize },
+              { term: 'Stored image bytes (database)', value: user.stored_bytes === undefined || user.stored_bytes === null ? '–' : bytes(user.stored_bytes) },
               { term: 'Active API tokens', value: show(user.api_tokens_active) },
               { term: 'API tokens, total', value: show(user.api_tokens_total) },
               { term: 'Connected apps', value: Array.isArray(user.connected_apps) ? user.connected_apps.length : show(user.connected_apps) },

@@ -13,6 +13,7 @@ import { route } from '../../server/router.js'
 import { usedImageUrls } from '../../server/routes/drafts.js'
 import { query } from '../../server/db.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
+import { contains, exifPayload, HTML, makeGif, makeJpeg, makePng, makeWebp, pngChunk, SVG } from './helpers/images.js'
 
 let db
 let alice
@@ -39,7 +40,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-const upload = (cookie, { type = 'image/png', bytes = new Uint8Array([1, 2, 3]), draftId = draft.id } = {}) =>
+const upload = (cookie, { type = 'image/png', bytes = makePng(), draftId = draft.id } = {}) =>
   route(
     apiRequest(`/api/images?draftId=${draftId}`, {
       method: 'POST',
@@ -63,10 +64,104 @@ describe('POST /api/images', () => {
     expect(options).toEqual({ contentType: 'image/png' })
   })
 
-  it('rejects a non-image content type with 415', async () => {
-    const res = await upload(aliceCookie, { type: 'text/plain' })
-    expect(res.status).toBe(415)
+  it('decides the type from the bytes: a PNG sent as octet-stream or text/plain is accepted as a PNG', async () => {
+    for (const type of ['application/octet-stream', 'text/plain']) {
+      vi.mocked(putBlob).mockClear()
+      expect((await upload(aliceCookie, { type })).status).toBe(201)
+      expect(vi.mocked(putBlob).mock.calls[0][2]).toEqual({ contentType: 'image/png' })
+    }
+  })
+
+  it('accepts png, jpg, webp and gif and stores each with the type of its bytes', async () => {
+    const cases = [[makePng(), 'png', 'image/png'], [makeJpeg(), 'jpg', 'image/jpeg'], [makeWebp(), 'webp', 'image/webp'], [makeGif(), 'gif', 'image/gif']]
+    for (const [bytes, ext, mime] of cases) {
+      vi.mocked(putBlob).mockClear()
+      expect((await upload(aliceCookie, { bytes, type: 'image/png' })).status).toBe(201)
+      const [pathname, , options] = vi.mocked(putBlob).mock.calls[0]
+      expect(pathname).toMatch(new RegExp(`\\.${ext}$`))
+      expect(options).toEqual({ contentType: mime })
+    }
+  })
+
+  it('refuses SVG, HTML and a file with the wrong magic, even with an image header; the error names the types that work', async () => {
+    for (const bytes of [SVG, HTML, new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])]) {
+      const res = await upload(aliceCookie, { bytes, type: 'image/svg+xml' })
+      expect(res.status).toBe(415)
+      expect((await res.json()).error).toMatch(/PNG, JPEG, WebP or GIF/)
+    }
     expect(putBlob).not.toHaveBeenCalled()
+  })
+
+  it('removes GPS and text from a JPEG but keeps its Orientation', async () => {
+    const res = await upload(aliceCookie, { bytes: makeJpeg({ exif: exifPayload(6), xmp: true, comment: true }), type: 'image/jpeg' })
+    expect(res.status).toBe(201)
+    const stored = vi.mocked(putBlob).mock.calls[0][1]
+    expect(contains(stored, 'http://ns.adobe.com')).toBe(false)
+    expect(contains(stored, 'secret')).toBe(false)
+    expect(Buffer.from(stored).includes(Buffer.from([0x88, 0x25]))).toBe(false) // GPS pointer tag gone
+    const exif = Buffer.from(stored).indexOf(Buffer.from('Exif'))
+    expect(exif).toBeGreaterThan(0)
+    expect(stored[exif + 6 + 8 + 2 + 9]).toBe(6) // the value byte of the Orientation entry
+    expect(stored.at(-1)).toBe(0xd9)
+  })
+
+  it('removes tEXt, iTXt, zTXt and eXIf chunks from a PNG', async () => {
+    const chunks = ['tEXt', 'iTXt', 'zTXt', 'eXIf'].map((t) => pngChunk(t, [...'GPSDATA'].map((c) => c.charCodeAt(0))))
+    expect((await upload(aliceCookie, { bytes: makePng(chunks) })).status).toBe(201)
+    const stored = vi.mocked(putBlob).mock.calls[0][1]
+    for (const t of ['tEXt', 'iTXt', 'zTXt', 'eXIf', 'GPSDATA']) expect(contains(stored, t)).toBe(false)
+    expect(contains(stored, 'IDAT')).toBe(true)
+  })
+
+  it('removes EXIF and XMP chunks from a WebP and fixes its size and flags', async () => {
+    expect((await upload(aliceCookie, { bytes: makeWebp({ exif: true, xmp: true }), type: 'image/webp' })).status).toBe(201)
+    const stored = vi.mocked(putBlob).mock.calls[0][1]
+    expect(contains(stored, 'EXIF')).toBe(false)
+    expect(contains(stored, 'XMP ')).toBe(false)
+    expect(stored[4] | (stored[5] << 8) | (stored[6] << 16)).toBe(stored.length - 8)
+    expect(stored[20] & 0x0c).toBe(0)
+  })
+
+  it('keeps nothing after the end marker: JPEG after EOI, PNG after IEND, GIF comments and application blocks', async () => {
+    const text = (t) => [...t].map((c) => c.charCodeAt(0))
+    const jpeg = Uint8Array.from([...makeJpeg(), ...text('GPS:32.08,34.78')])
+    const png = Uint8Array.from([...makePng(), ...pngChunk('zzzz', text('GPS:32.08')), ...text('GPS:3')])
+    const gif = Uint8Array.from([...makeGif().slice(0, -1), 0x21, 0xfe, 3, ...text('GPS'), 0, 0x21, 0xff, 11, ...text('XMP DataXMP'), 2, 1, 1, 0, 0x3b])
+    for (const bytes of [jpeg, png, gif]) {
+      vi.mocked(putBlob).mockClear()
+      expect((await upload(aliceCookie, { bytes })).status).toBe(201)
+      expect(contains(vi.mocked(putBlob).mock.calls[0][1], 'GPS')).toBe(false)
+    }
+  })
+
+  it('drops unknown PNG chunks (zxIf), and JPEG APP12', async () => {
+    const text = (t) => [...t].map((c) => c.charCodeAt(0))
+    expect((await upload(aliceCookie, { bytes: makePng([pngChunk('zxIf', text('GPSDATA'))]) })).status).toBe(201)
+    expect(contains(vi.mocked(putBlob).mock.calls[0][1], 'GPSDATA')).toBe(false)
+    const withExtra = makeJpeg({ app12: true })
+    vi.mocked(putBlob).mockClear()
+    expect((await upload(aliceCookie, { bytes: withExtra })).status).toBe(201)
+    expect(contains(vi.mocked(putBlob).mock.calls[0][1], 'GPSDATA')).toBe(false)
+  })
+
+  it('refuses a damaged or truncated JPEG, PNG, WebP and GIF with 400 and stores nothing', async () => {
+    for (const bytes of [makeJpeg().slice(0, 30), makePng().slice(0, 40), makeWebp().slice(0, 25), makeGif().slice(0, 10)]) {
+      const res = await upload(aliceCookie, { bytes })
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toMatch(/PNG, JPEG, WebP or GIF/)
+    }
+    expect(putBlob).not.toHaveBeenCalled()
+  })
+
+  it('counts the stored bytes of the user in the database and lowers them when the file is deleted', async () => {
+    const { storedBytes } = await import('../../server/image-ledger.js')
+    const { forgetImages } = await import('../../server/image-ledger.js')
+    const res = await upload(aliceCookie)
+    const { url } = await res.json()
+    expect(await storedBytes(alice.id)).toEqual({ stored_bytes: makePng().length, stored_files: 1 })
+    expect(await storedBytes(bob.id)).toEqual({ stored_bytes: 0, stored_files: 0 })
+    await forgetImages([url])
+    expect(await storedBytes(alice.id)).toEqual({ stored_bytes: 0, stored_files: 0 })
   })
 
   it('rejects an image over 4 MB with 413', async () => {

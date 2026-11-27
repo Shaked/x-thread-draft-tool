@@ -5,6 +5,7 @@ import { cleanLogin, cleanName } from '../admin/clean.js'
 import { ADMIN_LIMITS, withinAdminLimit } from '../admin/limits.js'
 import { isProtectedGithubId, protectedGithubIds } from '../admin/identity.js'
 import { listBlobPrefix } from '../blob.js'
+import { storedBytes } from '../image-ledger.js'
 import { deleteUser } from '../admin/delete-user.js'
 import { query, transaction } from '../db.js'
 import { VIEW_AS_SECONDS, clearViewAsCookie, openViewAs, sealViewAs, viewAsCookie, viewAsCookieValue } from '../admin/view-as.js'
@@ -112,7 +113,13 @@ const getUser = async ({ params }) => {
   } catch (err) {
     console.error('[admin] image listing failed', err)
   }
-  return json({ user: { ...found.user, ...images } })
+  let stored = { stored_bytes: null, stored_files: null }
+  try {
+    stored = await storedBytes(found.row.id)
+  } catch (err) {
+    console.error('[admin] stored bytes failed', err)
+  }
+  return json({ user: { ...found.user, ...images, ...stored } })
 }
 
 /** The host of a return address, or null. Only the host leaves the server: never the path or query. */

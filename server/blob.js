@@ -1,4 +1,5 @@
 import { setBlobKeyFunction, isBlobUrl } from './draft-images.js'
+import { forgetImages } from './image-ledger.js'
 
 // The Vercel Blob implementation by default. The local dev server swaps in a filesystem one.
 // The SDK is loaded on first use, so routes that never touch images do not pay for it at cold start.
@@ -36,6 +37,7 @@ export async function deleteBlobUrls(urls) {
   if (blobUrls.length === 0) return
   try {
     await impl.del(blobUrls)
+    await forgetImages(blobUrls)
   } catch (error) {
     console.error('[blob] delete failed', error)
   }

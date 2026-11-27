@@ -12,6 +12,7 @@ import { route } from '../../server/router.js'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { setResolverForTests } from '../../server/remote-image.js'
 import { APP_URL, setupTestDb } from './helpers/db.js'
+import { makePng } from './helpers/images.js'
 
 const MCP = `${APP_URL}/api/mcp`
 let db
@@ -33,7 +34,7 @@ beforeEach(async () => {
   )
   token = (await issuePair(rows[0].id)).access_token
   setResolverForTests(async () => [{ address: '93.184.216.34', family: 4 }])
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([137, 80, 78, 71]), { headers: { 'content-type': 'image/png' } })))
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(makePng(), { headers: { 'content-type': 'image/png' } })))
   return () => {
     setResolverForTests(null)
     vi.unstubAllGlobals()
