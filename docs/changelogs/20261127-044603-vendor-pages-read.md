@@ -1,6 +1,6 @@
 # Vendor prices and limits re-read for central metrics
 
-- The central metrics plan now quotes the live vendor pages for Grafana, Axiom, Better Stack, Honeycomb, Sentry, Vercel drains and GitHub artifacts, with the date read.
+- The central metrics plan now quotes live vendor pages (Grafana, Axiom, Better Stack, Honeycomb, Sentry, Vercel, GitHub).
 
 Area: Docs
 Link: https://github.com/Shaked/x-thread-draft-tool/pull/589
