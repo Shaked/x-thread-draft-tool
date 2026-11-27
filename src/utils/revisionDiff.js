@@ -25,7 +25,7 @@ const WORDS = new Intl.Segmenter(undefined, { granularity: 'word' })
 const REWRITE_SHARE = 0.3
 // Work limits for the word diff. Above them the middle of the text is shown as one deletion and one insertion,
 // which still rebuilds both sides exactly. Posts can be up to a long draft, so the limits keep one diff bounded.
-// WORD_DIFF_CAP: tokens left in both texts after the common start and end are removed.
+// WORD_DIFF_CAP: tokens left in both middles after the common tokens at their start and end are removed.
 // WORD_DIFF_MAX_EDITS: inserts plus deletes the exact diff may need.
 export const WORD_DIFF_CAP = 2000
 const WORD_DIFF_MAX_EDITS = 1000
@@ -144,25 +144,50 @@ function runs(ops) {
 // and one insertion, without segmenting, so one diff never costs more than this.
 const WORD_DIFF_MAX_MIDDLE_CHARS = 40000
 
-// A cut is safe where a word starts: the character before it is a space, the one at it is not a space and not a
-// combining mark. Both texts are cut at the same kind of place, so no word or grapheme cluster is split. The start
-// and the end of the text are always safe.
-const isWordStart = (text, at) =>
-  at === 0 ||
-  at === text.length ||
-  (/\s/u.test(text[at - 1]) && !/\s/u.test(text[at]) && !/\p{M}/u.test(text[at]))
+const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 
-/** Word-level changes of two middles, tokenized here. Falls back to one deletion and one insertion. */
+// A cut is safe where a word starts: the character before it is a space and the cut falls between grapheme
+// clusters, so no word and no cluster (skin tones, ZWJ sequences, astral marks, halfwidth marks) is split. A
+// space always starts a cluster, so the clusters of a short window from that space are the clusters of the text.
+// The start and the end of the text are always safe.
+const isWordStart = (text, at) => {
+  if (at === 0 || at === text.length) return true
+  const code = text.charCodeAt(at)
+  if (code >= 0xdc00 && code <= 0xdfff) return false // inside a surrogate pair
+  if (!/\s/u.test(text[at - 1]) || /\s/u.test(text[at])) return false
+  return GRAPHEMES.segment(text.slice(at - 1, at + 64)).containing(1)?.index === 1
+}
+
+const changeOps = (before, after) => [
+  ...(before ? [{ op: 'del', value: before }] : []),
+  ...(after ? [{ op: 'ins', value: after }] : [])
+]
+const sameOps = (tokens) => tokens.map((value) => ({ op: 'same', value }))
+
+/**
+ * Word-level changes of two middles, tokenized here. The tokens common to the start and the end are kept, so the
+ * cap and the diff apply to the changed tokens only. Above the cap, or without an exact diff, the changed tokens
+ * are one deletion and one insertion.
+ */
 function middleOps(before, after) {
-  const fallback = [
-    ...(before ? [{ op: 'del', value: before }] : []),
-    ...(after ? [{ op: 'ins', value: after }] : [])
-  ]
-  if (before.length + after.length > WORD_DIFF_MAX_MIDDLE_CHARS) return fallback
+  if (before.length + after.length > WORD_DIFF_MAX_MIDDLE_CHARS) return changeOps(before, after)
   const x = tokenize(before)
   const y = tokenize(after)
-  if (x.length + y.length > WORD_DIFF_CAP) return fallback
-  return myers(x, y) ?? fallback
+  let start = 0
+  while (start < x.length && start < y.length && x[start] === y[start]) start++
+  let endX = x.length
+  let endY = y.length
+  while (endX > start && endY > start && x[endX - 1] === y[endY - 1]) {
+    endX--
+    endY--
+  }
+  const changed = endX - start + (endY - start)
+  const body = changed > WORD_DIFF_CAP ? null : myers(x.slice(start, endX), y.slice(start, endY))
+  return [
+    ...sameOps(x.slice(0, start)),
+    ...(body ?? changeOps(x.slice(start, endX).join(''), y.slice(start, endY).join(''))),
+    ...sameOps(x.slice(endX))
+  ]
 }
 
 /**
@@ -187,7 +212,7 @@ export function diffWords(before, after) {
   }
   const ops = []
   if (p) ops.push({ op: 'same', value: before.slice(0, p) })
-  ops.push(...middleOps(before.slice(p, cutBefore), after.slice(p, cutAfter)))
+  for (const op of middleOps(before.slice(p, cutBefore), after.slice(p, cutAfter))) ops.push(op)
   if (cutBefore < before.length) ops.push({ op: 'same', value: before.slice(cutBefore) })
   return runs(ops)
 }

@@ -101,6 +101,24 @@ function graphemeBoundaries(s) {
   return set
 }
 
+// Every part boundary of diffWords(x, y) falls between grapheme clusters of both texts, and the parts rebuild both.
+function expectWholeGraphemes(x, y) {
+  const parts = diffWords(x, y)
+  expect(parts.filter((p) => p.op !== 'del').map((p) => p.text).join('')).toBe(y)
+  expect(parts.filter((p) => p.op !== 'ins').map((p) => p.text).join('')).toBe(x)
+  for (const [text, keep] of [
+    [y, (p) => p.op !== 'del'],
+    [x, (p) => p.op !== 'ins']
+  ]) {
+    const bounds = graphemeBoundaries(text)
+    let offset = 0
+    for (const p of parts.filter(keep)) {
+      offset += p.text.length
+      expect(bounds.has(offset), `a part ends inside a grapheme in ${JSON.stringify(text)}`).toBe(true)
+    }
+  }
+}
+
 const emptyDiff = (d) =>
   d.title === null && d.added.length === 0 && d.removed.length === 0 && d.edited.length === 0 && d.moved.length === 0 && d.rewritten.length === 0
 
@@ -369,6 +387,47 @@ describe('revision diff core (#377)', () => {
     expect(performance.now() - started).toBeLessThan(500)
     expect(parts.filter((p) => p.op !== 'ins').map((p) => p.text).join('')).toBe(before)
     expect(parts.filter((p) => p.op !== 'del').map((p) => p.text).join('')).toBe(after)
+  })
+
+  it('no part ends inside a grapheme cluster: skin tones, ZWJ families, astral marks, a halfwidth voiced mark', () => {
+    const cases = [
+      ['a b', 'a \u{1F3FD}b'],
+      ['a b', 'a \u{1F468}\u200D\u{1F469}\u200D\u{1F467}b'],
+      ['a b', 'a \u{1D165}b'],
+      ['a b', 'a \uFF9Eb'],
+      ['a \u{1F3FD} b', 'a \u{1F3FD} c \uFF9E'],
+      ['x \u{1F3FD}', 'x \u{1F3FD}\u{1F3FD} z']
+    ]
+    for (const [x, y] of cases) expectWholeGraphemes(x, y)
+  })
+
+  it('fuzz: 1,000 seeded pairs with spaces next to clusters that must not be split', () => {
+    const rand = rng(9090)
+    const pieces = ['a', 'b', ' ', ' ', '\u{1F3FD}', '\u{1F468}\u200D\u{1F469}', '\u{1D165}', '\uFF9E', 'e\u0301', '\u65E5', '\u200D', '\u{1F1EE}\u{1F1F1}']
+    const text = () => Array.from({ length: Math.floor(rand() * 14) }, () => pieces[Math.floor(rand() * pieces.length)]).join('')
+    for (let i = 0; i < 1000; i++) {
+      const x = text()
+      const y = rand() < 0.5 ? text() : x.slice(0, Math.floor(rand() * (x.length + 1))) + text()
+      expectWholeGraphemes(x, y)
+    }
+  })
+
+  it('a long text with no spaces keeps its fine diff: Japanese, Thai and Chinese with one character inserted', () => {
+    const samples = [
+      '日本語の文章をテストします。',
+      'ภาษาไทยทดสอบการเปรียบเทียบ',
+      '中文测试文本的比较和差异。'
+    ]
+    for (const sample of samples) {
+      const before = sample.repeat(Math.ceil(3000 / sample.length))
+      const cut = Math.floor(before.length / 2)
+      const after = `${before.slice(0, cut)}字${before.slice(cut)}`
+      const parts = diffWords(before, after)
+      const changed = parts.filter((p) => p.op !== 'same')
+      expect(changed.map((p) => p.text).join('').length).toBeLessThan(10)
+      expect(parts.filter((p) => p.op !== 'ins').map((p) => p.text).join('')).toBe(before)
+      expect(parts.filter((p) => p.op !== 'del').map((p) => p.text).join('')).toBe(after)
+    }
   })
 
   it('a 1 MB draft: a few edits, a move and an add are found, and the rebuild matches', () => {
