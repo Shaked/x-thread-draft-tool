@@ -1,6 +1,6 @@
 // Server-side image fetch for POST /api/images/from-url (replaces the browser CORS path).
-// SSRF guard: only http(s); every resolved address must be public; redirects are refused;
-// 10 s timeout; image content type; at most 4 MB. The connection uses the checked address
+// SSRF guard: only http(s); every resolved address must be public; up to 3 redirects, each hop
+// re-checked (URL rules, DNS, pinned connection) under one shared 10 s limit; at most 4 MB. The connection uses the checked address
 // (pinnedFetch), so a DNS rebind after the check cannot reach a private address.
 import { lookup as dnsLookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
@@ -8,6 +8,8 @@ import { HttpError } from './http.js'
 
 const MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024
 const TIMEOUT_MS = 10_000
+const MAX_REDIRECTS = 3
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 
 let lookup = dnsLookup
 
@@ -52,7 +54,7 @@ export function isPrivateAddress(address) {
   return true // not an IP at all: refuse
 }
 
-/** Fetches a public image and returns its bytes and content type, or throws an HttpError. */
+/** Parses and checks one URL (every redirect hop too): http(s) only, no credentials. */
 function parseRemoteUrl(input) {
   let url
   try {
@@ -122,16 +124,34 @@ async function readImageBody(response) {
 }
 
 export async function fetchRemoteImage(input) {
-  const url = parseRemoteUrl(input)
+  let url = parseRemoteUrl(input)
+  const deadline = Date.now() + TIMEOUT_MS
 
   let response
-  try {
-    response = await pinnedFetch(url, { resolve: lookup, timeoutMs: TIMEOUT_MS, headers: { accept: 'image/*' } })
-  } catch (err) {
-    if (err instanceof AddressRefusedError) throw new HttpError(400, err.message)
-    throw new HttpError(502, 'Could not fetch the image')
+  for (let hop = 0; ; hop++) {
+    const remaining = deadline - Date.now()
+    if (remaining <= 0) throw new HttpError(502, 'Could not fetch the image')
+    try {
+      response = await pinnedFetch(url, { resolve: lookup, timeoutMs: remaining, headers: { accept: 'image/*' } })
+    } catch (err) {
+      if (err instanceof AddressRefusedError) throw new HttpError(400, err.message)
+      throw new HttpError(502, 'Could not fetch the image')
+    }
+    if (!REDIRECT_STATUSES.has(response.status)) break
+    const location = response.headers.get('location')
+    response.body?.cancel().catch(() => {})
+    if (!location) throw new HttpError(502, 'The image link redirects without a target. Ask the user for the direct image link or to add it in the editor.')
+    if (hop >= MAX_REDIRECTS) {
+      throw new HttpError(400, 'The image link redirects too many times. Ask the user for the direct image link or to add it in the editor.')
+    }
+    let next
+    try {
+      next = new URL(location, url).href
+    } catch {
+      throw new HttpError(400, 'Invalid URL')
+    }
+    url = parseRemoteUrl(next)
   }
-  if (response.status >= 300 && response.status < 400) throw new HttpError(400, 'Redirects are not followed')
   if (!response.ok) throw new HttpError(502, `Image host returned HTTP ${response.status}`)
 
   const declared = Number(response.headers.get('content-length') || 0)

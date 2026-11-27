@@ -88,10 +88,73 @@ describe('POST /api/images/from-url', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 
-  it('refuses redirects', async () => {
-    globalThis.fetch.mockResolvedValue(new Response(null, { status: 302, headers: { location: 'http://10.0.0.1/x' } }))
+  const redirect = (location, status = 302) => new Response(null, { status, headers: { location } })
+
+  it('follows a 302 to a public image and stores it', async () => {
+    globalThis.fetch.mockResolvedValueOnce(redirect('https://cdn.example.com/b.png'))
+    globalThis.fetch.mockResolvedValueOnce(imageResponse(makePng()))
+    const res = await fromUrl('https://example.com/a.png')
+    expect(res.status).toBe(201)
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+    expect(String(globalThis.fetch.mock.calls[1][0])).toBe('https://cdn.example.com/b.png')
+    expect(globalThis.fetch.mock.calls[1][1]).toMatchObject({ redirect: 'manual' })
+  })
+
+  it('resolves a relative Location against the current URL', async () => {
+    globalThis.fetch.mockResolvedValueOnce(redirect('/img/b.png'))
+    globalThis.fetch.mockResolvedValueOnce(imageResponse(makePng()))
+    expect((await fromUrl('https://example.com/a.png')).status).toBe(201)
+    expect(String(globalThis.fetch.mock.calls[1][0])).toBe('https://example.com/img/b.png')
+  })
+
+  it.each([
+    ['a private IP', 'http://10.0.0.1/x'],
+    ['a name that resolves to a private IP', 'http://rebind.test/x'],
+    ['credentials', 'https://user:pass@example.com/x'],
+    ['ftp', 'ftp://example.com/x']
+  ])('refuses a 302 to %s before the second fetch', async (_name, location) => {
+    globalThis.fetch.mockResolvedValue(redirect(location))
     const res = await fromUrl('https://example.com/a.png')
     expect(res.status).toBe(400)
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-resolves every hop', async () => {
+    const resolver = vi.fn(async () => [{ address: PUBLIC_IP, family: 4 }])
+    setResolverForTests(resolver)
+    globalThis.fetch.mockResolvedValueOnce(redirect('https://b.example/x'))
+    globalThis.fetch.mockResolvedValueOnce(redirect('https://c.example/x'))
+    globalThis.fetch.mockResolvedValueOnce(imageResponse(makePng()))
+    expect((await fromUrl('https://a.example/x')).status).toBe(201)
+    expect(resolver.mock.calls.map((c) => c[0])).toEqual(['a.example', 'b.example', 'c.example'])
+  })
+
+  it('accepts 3 redirects and refuses a 4th', async () => {
+    globalThis.fetch.mockImplementation(async () => redirect('https://example.com/next'))
+    const res = await fromUrl('https://example.com/a.png')
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/redirects too many times/)
+    expect(globalThis.fetch).toHaveBeenCalledTimes(4)
+  })
+
+  it('shares one time limit across all hops', async () => {
+    const seen = []
+    globalThis.fetch.mockImplementation(async (_url, init) => {
+      seen.push(init.signal)
+      return redirect('https://example.com/next')
+    })
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      globalThis.fetch.mockImplementationOnce(async () => {
+        vi.setSystemTime(Date.now() + 10_001)
+        return redirect('https://example.com/next')
+      })
+      const res = await fromUrl('https://example.com/a.png')
+      expect(res.status).toBe(502)
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('refuses a response that is not an image', async () => {
