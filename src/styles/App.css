@@ -619,6 +619,7 @@ a {
   text-decoration: underline;
   display: flex;
   align-items: center;
+  justify-content: center;
   min-height: var(--hit-min);
   margin-top: 10px;
 }
