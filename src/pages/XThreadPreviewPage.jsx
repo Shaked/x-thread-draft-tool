@@ -56,9 +56,12 @@ export default function XThreadPreviewPage() {
 
   if (html !== null) return <PreviewFrame html={html} />
 
+  // The loading state is announced to screen readers (it was a status line before the Skeleton).
   return (
     <Page width="narrow">
-      <Skeleton lines={3} />
+      <div role="status" aria-live="polite">
+        <Skeleton lines={3} />
+      </div>
     </Page>
   )
 }

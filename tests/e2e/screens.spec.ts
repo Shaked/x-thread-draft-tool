@@ -293,7 +293,6 @@ test.describe('screens', () => {
       await shoot(browser, width, 'about-dark', '/about', { token: owner, theme: 'dark', ready: aboutReady, before: aboutLoaded })
     })
 
-    // The OAuth approval pages (server HTML, plan T3): signed out, and signed in with a browser session.
     // Task 11: the sign-in page in dark, the screens of a draft that did not open (401, 404), and the shared preview in dark.
     test(`captures the signed-out and draft-error screens at ${width}px`, async ({ browser, request }) => {
       const run = `errors-${width}-${Date.now()}`
@@ -316,6 +315,7 @@ test.describe('screens', () => {
       await shoot(browser, width, 'preview-dark', `/x-thread-preview/${previewToken}`, { theme: 'dark', ready: (p) => p.frameLocator('iframe[title="Thread preview"]').getByText('Opening post') })
     })
 
+    // The OAuth approval pages (server HTML, plan T3): signed out, and signed in with a browser session.
     test(`captures the approval pages at ${width}px`, async ({ browser, request }) => {
       const redirect = 'http://localhost:4000/cb'
       const registered = await request.post(`${BASE}/api/oauth/register`, { data: { client_name: 'Grok', redirect_uris: [redirect] } })
