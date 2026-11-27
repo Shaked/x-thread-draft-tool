@@ -121,6 +121,7 @@
   --page-w-narrow: 640px;    /* settings, about, changelog */
   --page-w: 880px;           /* draft list, editor */
   --page-w-wide: 1200px;     /* admin tables */
+  --app-w: 1400px;           /* the app shell's widest width */
   --page-gutter: var(--space-4);
   --card-pad: var(--space-4);
   --flex-min: 14rem;         /* narrowest text or field that shares a row (fields, list text, code) */

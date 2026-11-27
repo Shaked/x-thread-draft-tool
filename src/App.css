@@ -14,6 +14,7 @@ a {
 .app {
   min-height: 100vh;
   padding: var(--space-5);
+  max-width: var(--app-w);
   margin-inline: auto;
 }
 
@@ -46,6 +47,12 @@ a {
 .posts-list {
   display: flex;
   flex-direction: column;
+}
+
+/* Editor page: visible focus ring that wins over the single-element focus rules of the components inside it. */
+.draft-editor :is(a, button, input, textarea, [role="button"]):focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
 }
 
 /* The changelog page's Technical details text: line breaks kept, long words wrap, mono font. */
