@@ -1,6 +1,6 @@
 {
   "name": "agent-kit",
-  "description": "Generic skills, hooks and scripts for agents that work on a repository: reply templates and their lint, metrics skills, and a contract-tests method.",
+  "description": "Generic skills, hooks and scripts for agents that work on a repository: reply templates and their lint, metrics skills, a branch, pull request and check workflow, and a contract-tests method.",
   "owner": {
     "name": "Shaked"
   },
@@ -22,6 +22,12 @@
       "source": "./plugins/contract-tests",
       "version": "0.1.0",
       "description": "A method for end-to-end contract tests that run without a person, a client binary, a browser sign-in or a model call."
+    },
+    {
+      "name": "pr-workflow",
+      "source": "./plugins/pr-workflow",
+      "version": "0.1.0",
+      "description": "Branch, commit, pull request and check-reading workflow for agents, with one helper over the GitHub REST API."
     }
   ]
 }
