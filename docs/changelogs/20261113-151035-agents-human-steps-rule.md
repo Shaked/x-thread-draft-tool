@@ -1,6 +1,6 @@
 # Rules for end-to-end tests and owner steps
 
-- A fixed model settles questions about end-to-end work.
+- One named model designs the fix for end-to-end work but does not decide matters only the owner can decide.
 - An end-to-end test that needs a person is redesigned, not accepted.
 - Steps for the owner are written once, with exact steps and the reply that unblocks them.
 
