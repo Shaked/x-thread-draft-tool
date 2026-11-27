@@ -1,4 +1,5 @@
 import { HttpError, error, json } from './http.js'
+import { logError } from './log-error.js'
 import { adminPathOpen } from './admin/guard.js'
 import { adminRoutes } from './routes/admin.js'
 import { authRoutes } from './routes/auth.js'
@@ -128,7 +129,7 @@ async function dispatch(request) {
   } catch (err) {
     noteError(err)
     if (err instanceof HttpError) return error(err.status, err.message, err.code)
-    console.error('[api] unhandled error', err)
+    logError('[api] unhandled error', err)
     return error(500, 'Server error')
   }
 }

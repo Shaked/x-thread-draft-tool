@@ -1,5 +1,6 @@
 // MCP tools for drafts (plan Task 7.6). Each tool calls the existing REST handler in-process
 // through server/router.js, as the token's user, so validation and ownership checks are reused.
+import { logError } from '../log-error.js'
 import { route } from '../router.js'
 import { json } from '../http.js'
 import { outline } from '../draft-stats.js'
@@ -619,7 +620,7 @@ export async function callTool(name, args, { caller, origin }) {
     addStateLine(result, name, args, origin)
     return result
   } catch (err) {
-    console.error('[mcp] tool failed', name, err)
+    logError(`[mcp] tool failed ${name}`, err)
     return toolError('The tool failed. Try again.')
   }
 }
