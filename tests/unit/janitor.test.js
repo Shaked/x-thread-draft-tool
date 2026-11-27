@@ -450,3 +450,20 @@ describe('title allowlist, property test (#461)', () => {
     }
   })
 })
+
+describe('the whole formatted report passes the reply lint (#461)', () => {
+  it('a duplicate pair with commas in the title is not split inside its description', () => {
+    configureLint(lint)
+    try {
+      const title = 'Investigate concurrency, serialization consistency reconciliation'
+      const mk = (n) => ({ number: n, title, state: 'open', labels: [{ name: 'task' }], body: '', created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z' })
+      const snap = { fetched_at: '2026-11-27T00:00:00Z', repo: 'o/r', issues: [mk(300), mk(301)], pulls: [], open_pulls: [], markers: { release: [], claim: [] }, comments: {} }
+      const findings = analyze(snap, { today: '2026-11-27T00:00:00Z', staleDays: 14, knownTables: [] })
+      const text = formatReport(findings, { openCount: 2, today: '2026-11-27T00:00:00Z', orderResult: order(snap), names: describeAll(snap) })
+      expect(text).toContain('#301')
+      expect(lint(text, { template: false })).toEqual([])
+    } finally {
+      configureLint(null)
+    }
+  })
+})
