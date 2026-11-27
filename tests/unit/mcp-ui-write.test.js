@@ -1,6 +1,7 @@
 // Plan Task 7 (#189): the write actions in the views, in jsdom. "Stop this link" (share card) and "Create share link"
 // (thread view) send exactly one tools/call per confirmed click, nothing before the confirm step, and show the
 // waiting and refusal lines. The Playwright checks are in tests/e2e/mcp-share-view.spec.ts and mcp-thread-view.spec.ts.
+import './helpers/page-globals.js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderShare, shareFrom } from '../../server/mcp/ui/share.js'
 import { createShareNode } from '../../server/mcp/ui/thread.js'

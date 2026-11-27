@@ -1,8 +1,10 @@
-/* global window, document, ResizeObserver */
+/* global window, document, ResizeObserver, endLine, imagesNode, numberNode, startLine, tweetNode */
 // Browser code for the MCP views (plan Task 1 D1 and D2, Task 3). No imports and no module-level constants:
 // index.js and thread.js copy these functions into each view with Function.prototype.toString(), and the unit tests
 // call them in jsdom. Draft text reaches the page only through text nodes and a fixed list of attributes (plan
 // rule 9). Nothing here loads anything from another host, and nothing here sends data except postMessage (rule 10).
+// The parts of a post (imagesNode, tweetNode, numberNode, startLine, endLine) are in render/ and what the host can do is
+// in hosts.js: page globals here, like every function in the view; tests/unit/setup.js installs them for the unit tests.
 
 /** The bridge to the host: JSON-RPC 2.0 over postMessage with window.parent. `on` takes the callbacks. */
 export function bridge(on) {
@@ -317,37 +319,18 @@ export function postNode(thread, index, total, open) {
   const post = thread.posts[index]
   const { text, cut } = postText(post)
   const images = post && Array.isArray(post.images) ? post.images : []
-  const tweet = post && typeof post.embeddedTweet === 'string' ? tweetFrom(post.embeddedTweet) : null
   const count = thread.counts ? thread.counts[index] : null
   const initial = Array.from(String(thread.title || '?').trim())[0] || '?'
   const body = el('div', {}, [
-    el('header', {}, [el('strong', {}, [tr('thread', 'draft')]), el('span', {}, [' ' + (index + 1) + '/' + total])]),
+    numberNode(index, total),
     el('p', { dir: 'auto' }, [text])
   ])
   const links = cut ? [] : linksIn(text)
   if (links.length > 0) body.appendChild(el('ul', {}, links.map((url) => el('li', {}, [linkButton(url, url, open)]))))
-  if (images.length > 0) {
-    const items = []
-    images.forEach((img, n) => {
-      const url = typeof img === 'string' ? img : img && img.url
-      const safe = safeImage(url, thread.imageOrigin)
-      if (safe) {
-        const pic = document.createElement('img')
-        pic.setAttribute('src', safe)
-        pic.setAttribute('alt', tr('thread', 'image_alt', { n: n + 1, total: images.length }))
-        pic.loading = 'lazy'
-        items.push(el('li', {}, [pic]))
-      } else if (safeUrl(url, null)) {
-        items.push(el('li', {}, [linkButton(safeUrl(url, null), safeUrl(url, null), open)]))
-      }
-    })
-    if (items.length > 0) body.appendChild(el('ol', {}, items))
-  }
-  if (tweet) {
-    body.appendChild(
-      el('section', {}, [el('p', {}, [tweet.label]), linkButton(tr('thread', 'open_on_x'), tweet.href, open)])
-    )
-  }
+  const pics = imagesNode(images, thread.imageOrigin, open)
+  if (pics) body.appendChild(pics)
+  const card = tweetNode(post, open)
+  if (card) body.appendChild(card)
   if (count) {
     const over = count.over_limit === true
     const label = count.chars + '/280' + (over ? tr('thread', 'over_by', { n: count.chars - 280 }) : '')
@@ -403,12 +386,12 @@ export function renderThread(root, thread, open) {
     root.appendChild(el('p', {}, [tr('thread', 'no_posts')]))
     return
   }
-  const list = el('div', {}, [el('p', { dir: 'auto' }, [tr('thread', 'start')])])
+  const list = el('div', {}, [startLine()])
   root.appendChild(list)
   const first = 25
   const showRange = (from, to) => {
     for (let i = from; i < to; i++) list.appendChild(postNode(thread, i, total, open))
-    if (to === total) list.appendChild(el('p', { dir: 'auto' }, [tr('thread', 'end')]))
+    if (to === total) list.appendChild(endLine())
   }
   showRange(0, Math.min(total, first))
   if (total > first) {

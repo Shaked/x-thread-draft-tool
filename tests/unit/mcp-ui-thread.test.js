@@ -1,6 +1,7 @@
 // Plan Task 3 (#173): the X-style thread view in jsdom. Counter text, the image rule (D4), the embedded tweet card
 // (D5), long drafts, the banner for an unsaved text, and draft text as plain text in every place it can appear
 // (rule 9). The Playwright check of the same view is in tests/e2e/mcp-thread-view.spec.ts.
+import './helpers/page-globals.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bridge, changesFrom, clampInset, headerNode, linksIn, renderChanges, renderThread, safeImage, threadFrom, tweetFrom, underEditorBase } from '../../server/mcp/ui/client.js'
 import { readUiResource, uiResourceUri } from '../../server/mcp/ui/index.js'
