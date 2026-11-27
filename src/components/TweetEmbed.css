@@ -24,14 +24,13 @@
 }
 
 .tweet-embed-link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--control-h-md);
   color: var(--color-accent-soft-text);
   font-weight: var(--font-weight-semibold);
-  text-decoration: none;
-  overflow-wrap: anywhere;
-}
-
-.tweet-embed-link:hover {
   text-decoration: underline;
+  overflow-wrap: anywhere;
 }
 
 .tweet-embed-link:focus-visible {
