@@ -98,7 +98,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   mkdirSync(join(root, 'server', 'generated'), { recursive: true })
   writeFileSync(join(root, 'server', 'generated', 'build-info.js'), `export default ${JSON.stringify(info, null, 2)}\n`)
   const dir = join(root, 'docs', 'changelogs')
-  const files = readdirSync(dir).map((name) => ({ name, text: readFileSync(join(dir, name), 'utf8') }))
+  const files = readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.isFile()).map(({ name }) => ({ name, text: readFileSync(join(dir, name), 'utf8') }))
   const entries = changelogEntries(files)
   writeFileSync(join(root, 'server', 'generated', 'changelog.js'), `export default ${JSON.stringify(entries, null, 2)}\n`)
   console.log(`[build-info] commit ${info.commit ? info.commit.slice(0, 7) : 'none'}, schema ${info.schema}, ${entries.length} changelog entries`)
