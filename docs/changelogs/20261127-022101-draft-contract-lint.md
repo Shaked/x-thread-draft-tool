@@ -1,0 +1,3 @@
+- Contract lint (`tests/api/draft-contract.test.js`, plan 5.1) on the real server text and results; `npm run eval:contract` (score table plus the format table, `tests/eval/contract/format.mjs`), run by the pre-commit hook only when a contract file is staged.
+- `clients.json` gets `observed` (ChatGPT and Grok owner reports, each with its issue link); values unchanged; shape test added. Client matrix: rows for R1 to R9 and image counts; "Options and suggestions display" renamed to "Options and post text as quotes (R4 to R6)".
+- `docs/agents/mcp.md`: "Working on a draft" with R1 to R9 in one line each.

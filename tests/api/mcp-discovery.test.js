@@ -178,3 +178,18 @@ describe('per client (#365)', () => {
     expect(fenceProblems('Put each inside its own ``` block.')).toEqual([])
   })
 })
+
+// #395 (task W6): the owner observations in clients.json. An observation is a report that names its issue; it never sets a
+// `value` (those stay "not checked" unless a document was read).
+describe('client observations', () => {
+  it('each observed entry has a date, what the owner saw, and the issue it came from', () => {
+    for (const [name, profile] of Object.entries(clients.clients)) {
+      for (const observation of profile.observed ?? []) {
+        expect(observation.date, name).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+        expect(observation.what.length, name).toBeGreaterThan(10)
+        expect(observation.source, name).toMatch(/^https:\/\/github\.com\/Shaked\/x-thread-draft-tool\/issues\/\d+$/)
+      }
+    }
+    expect(clients.clients.chatgpt.observed.length).toBeGreaterThan(0)
+  })
+})
