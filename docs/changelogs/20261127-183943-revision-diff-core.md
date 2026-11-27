@@ -1,6 +1,6 @@
 # Draft comparison core is ready, no visible change
 
-- Nothing changes on screen yet. The app can now compare two versions of a draft, post by post and word by word, and rebuild the newer one from the older one plus the difference.
+- Nothing changes on screen yet. The app can now compare two draft versions, post by post and word by word.
 
 Area: Drafts
 Link: https://github.com/Shaked/x-thread-draft-tool/pull/615
