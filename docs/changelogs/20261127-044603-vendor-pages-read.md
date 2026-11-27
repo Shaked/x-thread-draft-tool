@@ -3,7 +3,7 @@
 - The central metrics plan now quotes the live vendor pages for Grafana, Axiom, Better Stack, Honeycomb, Sentry, Vercel drains and GitHub artifacts, with the date read.
 
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/TBD
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/589
 
 ## Technical details
 
