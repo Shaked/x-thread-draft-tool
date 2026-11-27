@@ -65,6 +65,19 @@ function resolved(file, specifier) {
 }
 
 describe('the admin identity is read in one place', () => {
+  it('the view-as cookie is read only by server/admin/view-as.js, and never by readSession or sessionState (#289)', () => {
+    const offenders = sourceFiles().filter((file) => file !== 'server/admin/view-as.js' && file !== GENERATED_CHANGELOG && /xt_view_as/.test(read(file)))
+    expect(offenders).toEqual([])
+    const session = read('server/session.js')
+    // The function bodies, from their declaration to the next top-level declaration.
+    const body = (name) => session.match(new RegExp(`(?:async )?function ${name}\\([\\s\\S]*?\\n}\\n`))?.[0] ?? ''
+    for (const name of ['readSession', 'sessionState', 'realSession', 'verifiedPayload']) {
+      expect(body(name).length).toBeGreaterThan(0)
+      expect(body(name)).not.toMatch(/viewAs|ViewAs|view-as/)
+    }
+    expect(body('authenticate')).toMatch(/viewAsClaim/)
+  })
+
   it('no file under server/ or src/ except identity.js contains the admin id 960015', () => {
     const offenders = sourceFiles().filter((file) => file !== IDENTITY && file !== GENERATED_CHANGELOG && /\b960015\b/.test(read(file)))
     expect(offenders).toEqual([])

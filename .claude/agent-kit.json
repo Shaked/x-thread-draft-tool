@@ -22,15 +22,19 @@
     ],
     "extraTemplates": {
       "changelog-entry": ".claude/reply-style-templates/changelog-entry.md",
-      "telegram-message": ".claude/reply-style-templates/telegram-message.md",
-      "janitor-summary": ".claude/reply-style-templates/janitor-summary.md",
-      "status-board": ".claude/reply-style-templates/status-board.md"
+      "telegram-message": ".claude/reply-style-templates/telegram-message.md"
     },
     "writingSkills": [
       "pstack-unslop",
       "pstack-technical-writing",
       "pstack-bro"
     ]
+  },
+  "task-janitor": {
+    "manualTestsIssue": 430,
+    "reportIssue": 497,
+    "dispatcherIssue": 154,
+    "replyLint": "plugins/reply-style/scripts/reply-lint.mjs"
   },
   "metrics": {
     "app": "X Thread Draft Tool",

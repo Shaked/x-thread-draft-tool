@@ -1,6 +1,6 @@
 {
   "name": "agent-kit",
-  "description": "Generic skills, hooks and scripts for agents that work on a repository: reply templates and their lint, and metrics skills.",
+  "description": "Generic skills, hooks, commands and scripts for agents that work on a repository: reply templates and their lint, metrics skills, the task janitor, a pr-workflow, and a contract-tests method.",
   "owner": {
     "name": "Shaked"
   },
@@ -16,6 +16,24 @@
       "source": "./plugins/metrics",
       "version": "0.2.0",
       "description": "Two skills for a central metrics service: join it with a repository, and read its summary and act on it."
+    },
+    {
+      "name": "task-janitor",
+      "source": "./plugins/task-janitor",
+      "version": "0.1.0",
+      "description": "Task janitor for an issue tracker and Claude Code sessions: a read-only report, a session matcher, a status board, and their commands."
+    },
+    {
+      "name": "contract-tests",
+      "source": "./plugins/contract-tests",
+      "version": "0.1.0",
+      "description": "A method for end-to-end contract tests that run without a person, a client binary, a browser sign-in or a model call."
+    },
+    {
+      "name": "pr-workflow",
+      "source": "./plugins/pr-workflow",
+      "version": "0.1.0",
+      "description": "Branch, commit, pull request and check-reading workflow for agents, with one helper over the GitHub REST API."
     }
   ]
 }

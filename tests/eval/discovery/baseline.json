@@ -48,14 +48,14 @@
         "edit_post": {
           "en": {
             "top1": 0,
-            "top3": 2,
-            "total": 4,
+            "top3": 4,
+            "total": 6,
             "margin": -2.93
           },
           "he": {
             "top1": 1,
-            "top3": 1,
-            "total": 4,
+            "top3": 3,
+            "total": 6,
             "margin": -2.416
           }
         },
@@ -63,13 +63,13 @@
           "en": {
             "top1": 2,
             "top3": 3,
-            "total": 4,
+            "total": 6,
             "margin": -4.613
           },
           "he": {
-            "top1": 1,
-            "top3": 2,
-            "total": 4,
+            "top1": 2,
+            "top3": 3,
+            "total": 6,
             "margin": -3.792
           }
         },
@@ -184,6 +184,90 @@
             "total": 4,
             "margin": 0
           }
+        },
+        "add_hook": {
+          "en": {
+            "top1": 0,
+            "top3": 2,
+            "total": 4,
+            "margin": -1.614
+          },
+          "he": {
+            "top1": 0,
+            "top3": 4,
+            "total": 4,
+            "margin": -0.038
+          }
+        },
+        "reorder": {
+          "en": {
+            "top1": 2,
+            "top3": 2,
+            "total": 4,
+            "margin": -1.612
+          },
+          "he": {
+            "top1": 3,
+            "top3": 4,
+            "total": 4,
+            "margin": -0.017
+          }
+        },
+        "add_post": {
+          "en": {
+            "top1": 2,
+            "top3": 3,
+            "total": 4,
+            "margin": -0.252
+          },
+          "he": {
+            "top1": 0,
+            "top3": 1,
+            "total": 4,
+            "margin": -2.72
+          }
+        },
+        "remove_post": {
+          "en": {
+            "top1": 1,
+            "top3": 2,
+            "total": 4,
+            "margin": -2.6
+          },
+          "he": {
+            "top1": 0,
+            "top3": 0,
+            "total": 4,
+            "margin": -2.258
+          }
+        },
+        "split": {
+          "en": {
+            "top1": 4,
+            "top3": 4,
+            "total": 4,
+            "margin": 1.679
+          },
+          "he": {
+            "top1": 3,
+            "top3": 3,
+            "total": 4,
+            "margin": -2.407
+          }
+        },
+        "options": {
+          "en": {
+            "top1": 0,
+            "top3": 1,
+            "total": 4,
+            "margin": -4.029
+          },
+          "he": {
+            "top1": 0,
+            "top3": 0,
+            "total": 4,
+            "margin": -4.25
+          }
         }
       },
       "negatives": {
@@ -242,14 +326,14 @@
         "edit_post": {
           "en": {
             "top1": 0,
-            "top3": 2,
-            "total": 4,
+            "top3": 4,
+            "total": 6,
             "margin": -3.137
           },
           "he": {
             "top1": 1,
-            "top3": 1,
-            "total": 4,
+            "top3": 3,
+            "total": 6,
             "margin": -2.188
           }
         },
@@ -257,13 +341,13 @@
           "en": {
             "top1": 2,
             "top3": 3,
-            "total": 4,
+            "total": 6,
             "margin": -4.611
           },
           "he": {
-            "top1": 1,
-            "top3": 2,
-            "total": 4,
+            "top1": 2,
+            "top3": 3,
+            "total": 6,
             "margin": -3.401
           }
         },
@@ -377,6 +461,90 @@
             "top3": 4,
             "total": 4,
             "margin": 0
+          }
+        },
+        "add_hook": {
+          "en": {
+            "top1": 0,
+            "top3": 2,
+            "total": 4,
+            "margin": -1.538
+          },
+          "he": {
+            "top1": 0,
+            "top3": 4,
+            "total": 4,
+            "margin": -0.05
+          }
+        },
+        "reorder": {
+          "en": {
+            "top1": 2,
+            "top3": 2,
+            "total": 4,
+            "margin": -1.526
+          },
+          "he": {
+            "top1": 3,
+            "top3": 4,
+            "total": 4,
+            "margin": -0.022
+          }
+        },
+        "add_post": {
+          "en": {
+            "top1": 2,
+            "top3": 3,
+            "total": 4,
+            "margin": -0.256
+          },
+          "he": {
+            "top1": 0,
+            "top3": 1,
+            "total": 4,
+            "margin": -2.639
+          }
+        },
+        "remove_post": {
+          "en": {
+            "top1": 1,
+            "top3": 2,
+            "total": 4,
+            "margin": -2.51
+          },
+          "he": {
+            "top1": 0,
+            "top3": 0,
+            "total": 4,
+            "margin": -2.195
+          }
+        },
+        "split": {
+          "en": {
+            "top1": 4,
+            "top3": 4,
+            "total": 4,
+            "margin": 1.142
+          },
+          "he": {
+            "top1": 3,
+            "top3": 3,
+            "total": 4,
+            "margin": -2.363
+          }
+        },
+        "options": {
+          "en": {
+            "top1": 0,
+            "top3": 1,
+            "total": 4,
+            "margin": -3.899
+          },
+          "he": {
+            "top1": 0,
+            "top3": 0,
+            "total": 4,
+            "margin": -3.948
           }
         }
       },
@@ -870,6 +1038,406 @@
       "lang": null,
       "text": "Is it better to post threads in the morning or the evening?",
       "reason": "admin pool: admin_suspend_user ranks first for this normal phrase"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "shorten",
+      "lang": "en",
+      "text": "make the second post shorter",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "shorten",
+      "lang": "en",
+      "text": "cut the opening down a bit",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "shorten",
+      "lang": "he",
+      "text": "תקצר קצת את הפתיחה",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "add_hook",
+      "lang": "en",
+      "text": "write a stronger opening tweet",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "add_hook",
+      "lang": "en",
+      "text": "my opening post is weak, please improve it",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "reorder",
+      "lang": "en",
+      "text": "swap posts 2 and 3",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "reorder",
+      "lang": "en",
+      "text": "change the order of the tweets",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "add_post",
+      "lang": "en",
+      "text": "append a closing tweet",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "add_post",
+      "lang": "he",
+      "text": "תוסיף ציוץ בסוף שאומר תודה",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "add_post",
+      "lang": "he",
+      "text": "עוד ציוץ אחד עם קריאה לפעולה",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "add_post",
+      "lang": "he",
+      "text": "תוסיף ציוץ סיום",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_post",
+      "lang": "en",
+      "text": "take out the last tweet",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_post",
+      "lang": "en",
+      "text": "the third post is not needed, cut it",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "תוריד את הציוץ הרביעי",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "תסיר את הפוסט על המחיר",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "תוציא את הציוץ האחרון",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "הפוסט השלישי מיותר, תוריד אותו",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "split",
+      "lang": "he",
+      "text": "תפרק את המאמר הזה לשרשור",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "en",
+      "text": "give me three other openings for my thread",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "en",
+      "text": "suggest other ways to say my second tweet",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "en",
+      "text": "what else could the first post say?",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "he",
+      "text": "תן לי שלוש אפשרויות אחרות לפתיח",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "he",
+      "text": "תציע ניסוחים אחרים לציוץ השני",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "he",
+      "text": "מה עוד אפשר לכתוב בפוסט הראשון?",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "he",
+      "text": "תראה לי כמה גרסאות לציוץ האחרון",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "shorten",
+      "lang": "en",
+      "text": "make the second post shorter",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "shorten",
+      "lang": "en",
+      "text": "cut the opening down a bit",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "shorten",
+      "lang": "he",
+      "text": "תקצר קצת את הפתיחה",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "add_hook",
+      "lang": "en",
+      "text": "write a stronger opening tweet",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "add_hook",
+      "lang": "en",
+      "text": "my opening post is weak, please improve it",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "reorder",
+      "lang": "en",
+      "text": "swap posts 2 and 3",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "reorder",
+      "lang": "en",
+      "text": "change the order of the tweets",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "add_post",
+      "lang": "en",
+      "text": "append a closing tweet",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "add_post",
+      "lang": "he",
+      "text": "תוסיף ציוץ בסוף שאומר תודה",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "add_post",
+      "lang": "he",
+      "text": "עוד ציוץ אחד עם קריאה לפעולה",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "add_post",
+      "lang": "he",
+      "text": "תוסיף ציוץ סיום",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_post",
+      "lang": "en",
+      "text": "take out the last tweet",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_post",
+      "lang": "en",
+      "text": "the third post is not needed, cut it",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "תוריד את הציוץ הרביעי",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "תסיר את הפוסט על המחיר",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "תוציא את הציוץ האחרון",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "הפוסט השלישי מיותר, תוריד אותו",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "split",
+      "lang": "he",
+      "text": "תפרק את המאמר הזה לשרשור",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "en",
+      "text": "give me three other openings for my thread",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "en",
+      "text": "suggest other ways to say my second tweet",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "en",
+      "text": "what else could the first post say?",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "he",
+      "text": "תן לי שלוש אפשרויות אחרות לפתיח",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "he",
+      "text": "תציע ניסוחים אחרים לציוץ השני",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "he",
+      "text": "מה עוד אפשר לכתוב בפוסט הראשון?",
+      "reason": "added by Task 2; tool text fixed in #279"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "he",
+      "text": "תראה לי כמה גרסאות לציוץ האחרון",
+      "reason": "added by Task 2; tool text fixed in #279"
     }
   ]
 }

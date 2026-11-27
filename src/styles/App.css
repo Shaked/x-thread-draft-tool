@@ -823,3 +823,8 @@ a {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* The Hebrew Rare UI credit link stays on one line (About page, #406). */
+.about-credit-link {
+  white-space: nowrap;
+}

@@ -155,9 +155,14 @@ jobs:
           echo "::add-mask::$token"
           XT_BASE_URL=http://127.0.0.1:8787 XT_TOKEN="$token" npm run smoke
 
-  e2e:
-    name: E2E tests (playwright)
+  # E2E runs in three shards (#470: the single job was the slowest CI job, 2 min 6 s of a 2 min 9 s run).
+  e2e-shard:
+    name: E2E tests shard ${{ matrix.shard }}/3
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
 
@@ -188,13 +193,13 @@ jobs:
         run: npx playwright install chromium
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
 
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: playwright-report
           retention-days: 14
           if-no-files-found: ignore
@@ -203,7 +208,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ui-audit
+          name: ui-audit-${{ matrix.shard }}
           path: test-results/ui-audit
           retention-days: 14
 
@@ -211,10 +216,27 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-screens
+          name: e2e-screens-${{ matrix.shard }}
           path: test-results/screens
           retention-days: 14
           if-no-files-found: ignore
+
+  # The check that branch protection reads for E2E (same name as before the shards). It never skips.
+  e2e:
+    name: E2E tests (playwright)
+    needs: [e2e-shard]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every shard passed
+        env:
+          SHARDS: ${{ needs.e2e-shard.result }}
+        run: |
+          echo "e2e shards: $SHARDS"
+          if [ "$SHARDS" != "success" ]; then
+            echo "::error::An E2E shard did not succeed"
+            exit 1
+          fi
 
   screens:
     name: UI screenshots (manual)

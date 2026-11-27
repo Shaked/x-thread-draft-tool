@@ -16,7 +16,7 @@ Nothing.
 <Or one numbered step per `owner` finding, with its issue.>
 
 ## Waiting for
-- [#154 dispatcher queue issue](https://github.com/Shaked/x-thread-draft-tool/issues/154): acts on the <n> `dispatcher` findings below.
+- [dispatcher queue issue](<dispatcher issue link>): acts on the <n> `dispatcher` findings below.
   Expected: its next pass, time not known.
 - For an agent session: [<task, 3 to 6 words>](<task link>) · [session](https://claude.ai/code/session_<id>): <what it is doing>. Expected: <time, or "not known">.
 
@@ -43,4 +43,4 @@ Nothing.
 ### Pass 1 report (task janitor)
 For a duplicate pair, the `duplicate-issue` row above wins over the fix written below.
 
-<The output of `node scripts/janitor.mjs report`, when the run includes it.>
+<The output of `node $JANITOR/janitor.mjs report`, when the run includes it.>
