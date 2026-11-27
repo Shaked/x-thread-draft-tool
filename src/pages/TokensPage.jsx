@@ -17,6 +17,7 @@ import Section from '../ui/Section'
 import Select from '../ui/Select'
 import Skeleton from '../ui/Skeleton'
 import Stack from '../ui/Stack'
+import { useViewAsReason } from '../utils/viewAs'
 
 const EXPIRY_OPTIONS = [1, 3, 7]
 
@@ -31,6 +32,7 @@ const statusOf = (token) => {
 
 export default function TokensPage() {
   const ask = useConfirm()
+  const reason = useViewAsReason()
   const [tokens, setTokens] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -59,7 +61,7 @@ export default function TokensPage() {
 
   const handleCreate = async (event) => {
     event.preventDefault()
-    if (!name.trim() || busy) return
+    if (!name.trim() || busy || reason) return
     setBusy(true)
     setError(null)
     try {
@@ -125,7 +127,7 @@ export default function TokensPage() {
                   onChange={(value) => setDays(Number(value))}
                 />
               </Field>
-              <Button type="submit" variant="primary" loading={busy} loadingLabel="Creating…" disabled={!name.trim()}>
+              <Button type="submit" variant="primary" loading={busy} loadingLabel="Creating…" disabled={!name.trim()} disabledReason={reason}>
                 Create token
               </Button>
             </Inline>
@@ -171,7 +173,7 @@ export default function TokensPage() {
                       ]}
                       actions={
                         !revoked && (
-                          <Button variant="danger-quiet" size="sm" onClick={() => handleRevoke(token.id)}>
+                          <Button variant="danger-quiet" size="sm" onClick={() => handleRevoke(token.id)} disabledReason={reason}>
                             Revoke
                           </Button>
                         )

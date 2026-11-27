@@ -16,10 +16,11 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import Button from '../ui/Button'
+import { useViewAsReason } from '../utils/viewAs'
 import PostBox from './PostBox'
 import './ThreadComposer.css'
 
-function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly, updated = false }) {
+function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly, locked = readOnly, updated = false }) {
   const {
     attributes,
     listeners,
@@ -48,7 +49,7 @@ function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly, u
         onChange={onUpdate}
         onRemove={onRemove}
         readOnly={readOnly}
-        dragHandleProps={!readOnly ? { ...attributes, ...listeners } : undefined}
+        dragHandleProps={!locked ? { ...attributes, ...listeners } : undefined}
       />
     </div>
   )
@@ -56,6 +57,7 @@ function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly, u
 
 // highlightIds: posts another app just changed (#363). Their wrapper gets a short highlight (see ThreadComposer.css).
 export default function ThreadComposer({ posts, onPostsChange, readOnly = false, highlightIds = [] }) {
+  const reason = useViewAsReason()
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
@@ -138,7 +140,7 @@ export default function ThreadComposer({ posts, onPostsChange, readOnly = false,
               <div key={post.id}>
                 {!readOnly && (
                   <div className="thread-insert">
-                    <Button variant="ghost" icon="plus" fullWidth onClick={() => insertPostAt(index)}>
+                    <Button variant="ghost" icon="plus" fullWidth onClick={() => insertPostAt(index)} disabledReason={reason}>
                       Insert post here
                     </Button>
                   </div>
@@ -150,6 +152,7 @@ export default function ThreadComposer({ posts, onPostsChange, readOnly = false,
                   onUpdate={(updatedPost) => updatePost(index, updatedPost)}
                   onRemove={() => removePost(post.id)}
                   readOnly={readOnly}
+                  locked={readOnly || Boolean(reason)}
                   updated={highlightIds.includes(post.id)}
                 />
               </div>
@@ -160,7 +163,7 @@ export default function ThreadComposer({ posts, onPostsChange, readOnly = false,
 
       {!readOnly && (
         <div className="thread-add">
-          <Button variant="secondary" icon="plus" fullWidth onClick={addPost}>
+          <Button variant="secondary" icon="plus" fullWidth onClick={addPost} disabledReason={reason}>
             Add post
           </Button>
         </div>

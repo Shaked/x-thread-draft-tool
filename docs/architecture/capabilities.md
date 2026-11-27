@@ -51,7 +51,7 @@ Cell format: comma separated. API items are route keys as in `server/router.js` 
 | Admin metrics history | `GET /admin/metrics/series` | `admin_metrics_series` | `/admin/*` | Admin only (#335): points per hour or day |
 | Admin metrics summary | `GET /admin/metrics/summary` | `admin_metrics_summary` | `/admin/*` | Admin only (#451, #452): plain lines for delivery speed, CI, deploys, production and the database, each with its limit and last week's value |
 | Admin metrics events | `GET /admin/metrics/events` | `admin_metrics_events` | `/admin/*` | Admin only (#451, #452): delivery events, newest first, at most 100, each with a link |
-| View as a user | `no: the start and end routes come in #290; this task adds the claim read by every session route` | `no: MCP callers never apply the claim; the admin identity stays the real one` | `no: the Viewing as bar comes in #291` | Admin only, read-only (#289). Every write answers 403, tokens and grants answer 403, OAuth authorize answers 409. The admin cannot read drafts while viewing: the list shows counts under "Private draft" and opening a draft answers 403 (owner decision, H1-Q4) |
+| View as a user | `no: the start and end routes come in #290; this task adds the claim read by every session route` | `no: MCP callers never apply the claim; the admin identity stays the real one` | `/admin/*` | Admin only, read-only (#289). Every write answers 403, tokens and grants answer 403, OAuth authorize answers 409. The admin cannot read drafts while viewing: the list shows counts under "Private draft" and opening a draft answers 403 (owner decision, H1-Q4). The user page has a View as button (reason required); a bar with Cancel shows on every page while viewing (#291) |
 
 ## Infrastructure
 

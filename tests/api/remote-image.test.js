@@ -63,12 +63,20 @@ describe('isPrivateAddress', () => {
     ['::'],
     ['fc00::1'],
     ['fe80::1'],
-    ['::ffff:10.0.0.1']
+    ['::ffff:10.0.0.1'],
+    ['::ffff:7f00:1'],
+    ['::ffff:a9fe:a9fe'],
+    ['::7f00:1'],
+    ['64:ff9b::a9fe:a9fe'],
+    ['2002:7f00:1::'],
+    ['2001:0:1::1'],
+    ['::ffff:0:127.0.0.1'],
+    ['::ffff:0:a9fe:a9fe']
   ])('treats %s as private', (address) => {
     expect(isPrivateAddress(address)).toBe(true)
   })
 
-  it.each([['93.184.216.34'], ['8.8.8.8'], ['2606:4700:4700::1111']])('treats %s as public', (address) => {
+  it.each([['93.184.216.34'], ['8.8.8.8'], ['2606:4700:4700::1111'], ['::ffff:5db8:d822'], ['2002:5db8:d822::']])('treats %s as public', (address) => {
     expect(isPrivateAddress(address)).toBe(false)
   })
 })
@@ -88,10 +96,91 @@ describe('POST /api/images/from-url', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 
-  it('refuses redirects', async () => {
-    globalThis.fetch.mockResolvedValue(new Response(null, { status: 302, headers: { location: 'http://10.0.0.1/x' } }))
+  const redirect = (location, status = 302) => new Response(null, { status, headers: { location } })
+
+  it('follows a 302 to a public image and stores it', async () => {
+    globalThis.fetch.mockResolvedValueOnce(redirect('https://cdn.example.com/b.png'))
+    globalThis.fetch.mockResolvedValueOnce(imageResponse(makePng()))
+    const res = await fromUrl('https://example.com/a.png')
+    expect(res.status).toBe(201)
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+    expect(String(globalThis.fetch.mock.calls[1][0])).toBe('https://cdn.example.com/b.png')
+    expect(globalThis.fetch.mock.calls[1][1]).toMatchObject({ redirect: 'manual' })
+  })
+
+  it('resolves a relative Location against the current URL', async () => {
+    globalThis.fetch.mockResolvedValueOnce(redirect('/img/b.png'))
+    globalThis.fetch.mockResolvedValueOnce(imageResponse(makePng()))
+    expect((await fromUrl('https://example.com/a.png')).status).toBe(201)
+    expect(String(globalThis.fetch.mock.calls[1][0])).toBe('https://example.com/img/b.png')
+  })
+
+  it.each([
+    ['a private IP', 'http://10.0.0.1/x'],
+    ['a name that resolves to a private IP', 'http://rebind.test/x'],
+    ['credentials', 'https://user:pass@example.com/x'],
+    ['ftp', 'ftp://example.com/x'],
+    ['a mapped IPv6 metadata address', 'http://[::ffff:169.254.169.254]/x'],
+    ['a protocol-relative private IP', '//10.0.0.1/x']
+  ])('refuses a 302 to %s before the second fetch', async (_name, location) => {
+    globalThis.fetch.mockResolvedValue(redirect(location))
     const res = await fromUrl('https://example.com/a.png')
     expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/not allowed|Invalid URL|credentials|Only http/)
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([307, 308, 301, 303])('follows a %i redirect', async (status) => {
+    globalThis.fetch.mockResolvedValueOnce(redirect('https://cdn.example.com/b.png', status))
+    globalThis.fetch.mockResolvedValueOnce(imageResponse(makePng()))
+    expect((await fromUrl('https://example.com/a.png')).status).toBe(201)
+  })
+
+  it('refuses a redirect with no Location', async () => {
+    globalThis.fetch.mockResolvedValue(new Response(null, { status: 302 }))
+    expect((await fromUrl('https://example.com/a.png')).status).toBe(502)
+  })
+
+  it('re-resolves every hop', async () => {
+    const resolver = vi.fn(async () => [{ address: PUBLIC_IP, family: 4 }])
+    setResolverForTests(resolver)
+    globalThis.fetch.mockResolvedValueOnce(redirect('https://b.example/x'))
+    globalThis.fetch.mockResolvedValueOnce(redirect('https://c.example/x'))
+    globalThis.fetch.mockResolvedValueOnce(imageResponse(makePng()))
+    expect((await fromUrl('https://a.example/x')).status).toBe(201)
+    expect(resolver.mock.calls.map((c) => c[0])).toEqual(['a.example', 'b.example', 'c.example'])
+  })
+
+  it('accepts 3 redirects and refuses a 4th', async () => {
+    globalThis.fetch.mockImplementation(async () => redirect('https://example.com/next'))
+    const res = await fromUrl('https://example.com/a.png')
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/redirects too many times/)
+    expect(globalThis.fetch).toHaveBeenCalledTimes(4)
+  })
+
+  it('gives every hop the same abort signal, which also covers DNS', async () => {
+    const signals = []
+    globalThis.fetch.mockImplementationOnce(async (_u, init) => (signals.push(init.signal), redirect('https://example.com/next')))
+    globalThis.fetch.mockImplementationOnce(async (_u, init) => (signals.push(init.signal), imageResponse(makePng())))
+    expect((await fromUrl('https://example.com/a.png')).status).toBe(201)
+    expect(signals).toHaveLength(2)
+    expect(signals[0]).toBe(signals[1])
+  })
+
+  it('stops when the shared limit passes during a slow DNS answer on a later hop', async () => {
+    const controller = new AbortController()
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal)
+    let calls = 0
+    setResolverForTests(() => (++calls === 1 ? Promise.resolve([{ address: PUBLIC_IP, family: 4 }]) : new Promise(() => {})))
+    globalThis.fetch.mockImplementationOnce(async () => {
+      setTimeout(() => controller.abort(new DOMException('timeout', 'TimeoutError')), 5)
+      return redirect('https://slow.example/next')
+    })
+    const res = await fromUrl('https://example.com/a.png')
+    expect(res.status).toBe(502)
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+    vi.mocked(AbortSignal.timeout).mockRestore()
   })
 
   it('refuses a response that is not an image', async () => {

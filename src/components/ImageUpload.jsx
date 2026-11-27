@@ -4,6 +4,7 @@ import { uploadImage, uploadImageFromUrl } from '../utils/images'
 import { beginUpload, endUpload } from '../utils/pendingUploads'
 import Banner from '../ui/Banner'
 import Icon from '../ui/Icon'
+import { useViewAsReason } from '../utils/viewAs'
 import './ImageUpload.css'
 
 const MAX_IMAGES = 4
@@ -21,6 +22,7 @@ const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
   const [urlLoading, setUrlLoading] = useState(false)
   const fileInputRef = useRef(null)
   const { id: draftId } = useParams()
+  const reason = useViewAsReason()
 
   const canAddMore = images.length < MAX_IMAGES
 
@@ -79,6 +81,7 @@ const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
   }
 
   const handleFiles = async (files, uploadMethod = 'file') => {
+    if (reason) return
     setError(null)
 
     const fileArray = Array.from(files)
@@ -171,7 +174,7 @@ const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({
     addFiles: (files) => handleFiles(files, 'clipboard'),
-    addImageFromUrl: (url) => handleImageFromUrl(url),
+    addImageFromUrl: (url) => (reason ? undefined : handleImageFromUrl(url)),
     triggerFileSelect: () => handleClick()
   }))
 
@@ -206,7 +209,7 @@ const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
   }
 
   const handleClick = () => {
-    if (canAddMore && !uploading) {
+    if (canAddMore && !uploading && !reason) {
       fileInputRef.current?.click()
     }
   }
@@ -229,7 +232,7 @@ const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
         className={`image-upload-area${dragActive ? ' is-drag-active' : ''}${uploading ? ' is-uploading' : ''}`}
         role="button"
         tabIndex={0}
-        aria-disabled={!canAddMore || uploading}
+        aria-disabled={!canAddMore || uploading || Boolean(reason)}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -253,7 +256,7 @@ const ImageUpload = forwardRef(({ images = [], onChange }, ref) => {
         ) : (
           <div className="image-upload-prompt">
             <Icon name="image" size="lg" />
-            <span>Drag, paste or click to add images ({images.length} of {MAX_IMAGES})</span>
+            <span>{reason ?? `Drag, paste or click to add images (${images.length} of ${MAX_IMAGES})`}</span>
           </div>
         )}
       </div>

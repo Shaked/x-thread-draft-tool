@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { draftsApi } from '../utils/api'
 import Button from '../ui/Button'
+import { useViewAsReason } from '../utils/viewAs'
 import { useToast } from '../ui/Toast'
 
 /** X Thread: a one-time preview link for the thread, copied to the clipboard. The toast confirms it. */
 export default function XThreadLinkButton({ draftId }) {
   const [busy, setBusy] = useState(false)
+  const reason = useViewAsReason()
   const toast = useToast()
 
   const handleCreate = async () => {
@@ -33,6 +35,7 @@ export default function XThreadLinkButton({ draftId }) {
       variant="secondary"
       icon="x"
       loading={busy}
+      disabledReason={reason}
       onClick={handleCreate}
       title="Copy one-time X-thread preview link"
       ariaLabel="Copy one-time X thread link"

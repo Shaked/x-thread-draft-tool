@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { draftsApi, authApi } from '../utils/api'
 import { useDraftLive, updatedLabel } from '../utils/useDraftLive'
+import { useViewAs, viewAsReason } from '../utils/viewAs'
 import { uploadsPending } from '../utils/pendingUploads'
 import { normalizeImages } from '../utils/images'
-import { set as idbSet, del as idbDel, get as idbGet } from 'idb-keyval'
+import { set as storeSet, del as idbDel, get as idbGet } from 'idb-keyval'
 import ThreadComposer from '../components/ThreadComposer'
 import LiveStatus from '../components/LiveStatus'
 import AgentLinkButton from '../components/AgentLinkButton'
@@ -56,6 +57,10 @@ const readKeptText = async id => {
 const plainText = draft => [draft.title, ...draft.posts.map(post => post.text)].filter(Boolean).join('\n\n')
 
 export default function DraftEditor({ user }) {
+  const viewAs = useViewAs()
+  const reason = viewAsReason(viewAs)
+  // While viewing as a user nothing of theirs is written to this browser (#291): no cache, no kept text, no autosave.
+  const idbSet = useCallback((key, value) => (viewAs ? Promise.resolve() : storeSet(key, value)), [viewAs])
   const { id } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
@@ -182,7 +187,7 @@ export default function DraftEditor({ user }) {
   const saveDraft = useCallback(
     async (draftToSave, immediate = false, keepalive = false) => {
       // No save while another app's change is waiting for the user's choice.
-      if (!user || conflictRef.current) return false
+      if (!user || viewAs || conflictRef.current) return false
 
       const epochAtCall = mergeEpochRef.current
       const enqueue = fn => {
@@ -253,7 +258,7 @@ export default function DraftEditor({ user }) {
         saveTimeoutRef.current = setTimeout(() => enqueue(saveFn), 1000)
       }
     },
-    [id, user]
+    [id, user, viewAs, idbSet]
   )
 
   useEffect(() => {
@@ -273,7 +278,7 @@ export default function DraftEditor({ user }) {
     if (currentState !== lastSavedRef.current) {
       saveDraft(draft, false)
     }
-  }, [draft, saveDraft, id, conflict])
+  }, [draft, saveDraft, id, conflict, idbSet])
 
   useEffect(() => {
     // Save before unload, but only real unsaved edits: an untouched draft must not overwrite a newer version.
@@ -465,7 +470,7 @@ export default function DraftEditor({ user }) {
         back={{ to: '/', label: '← Back', onClick: handleBack }}
         titleSlot={
           <h1>
-            <Input value={draft.title} onChange={handleTitleChange} ariaLabel="Draft title" placeholder="Untitled Draft" />
+            <Input value={draft.title} onChange={handleTitleChange} disabled={Boolean(viewAs)} ariaLabel="Draft title" placeholder="Untitled Draft" />
           </h1>
         }
         status={
@@ -487,7 +492,7 @@ export default function DraftEditor({ user }) {
             <XThreadLinkButton draftId={id} />
             <ExportOptions draft={draft} />
             {!draft.is_published && (
-              <Button variant="primary" icon="publish" onClick={handlePublish} disabled={saving} ariaLabel="Publish">
+              <Button variant="primary" icon="publish" onClick={handlePublish} disabled={saving} disabledReason={reason} ariaLabel="Publish">
                 Publish
               </Button>
             )}

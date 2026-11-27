@@ -64,7 +64,7 @@ async function shoot(
   width: number,
   name: string,
   pagePath: string,
-  options: { token?: string; cookie?: string; theme?: 'dark'; ready?: (page: Page) => Locator; before?: (page: Page) => Promise<void>; viewportOnly?: boolean } = {}
+  options: { token?: string; cookie?: string; theme?: 'dark'; ready?: (page: Page) => Locator; before?: (page: Page) => Promise<void>; viewportOnly?: boolean; viewAs?: boolean } = {}
 ) {
   const context = await browser.newContext({
     viewport: { width, height: width < 800 ? 844 : 800 },
@@ -74,7 +74,16 @@ async function shoot(
   if (options.token) {
     const bearer = `Bearer ${options.token}`
     await context.route(`${ORIGIN}/**`, (route) => {
-      if (new URL(route.request().url()).pathname.startsWith('/api/')) {
+      const pathname = new URL(route.request().url()).pathname
+      // The "Viewing as" bar (#291): the session answer carries view_as, as the server's does while the admin views a user.
+      if (options.viewAs && pathname === '/api/auth/me') {
+        return route.fetch({ headers: { ...route.request().headers(), authorization: bearer } }).then(async (res) => {
+          const body = await res.json()
+          const view_as = { login: 'alice', user_id: 'screens-view-as', expires_at: '2099-01-01T00:00:00.000Z' }
+          return route.fulfill({ response: res, json: { ...body, user: { ...body.user, role: 'admin', view_as } } })
+        })
+      }
+      if (pathname.startsWith('/api/')) {
         return route.continue({ headers: { ...route.request().headers(), authorization: bearer } })
       }
       return route.continue()
@@ -227,6 +236,7 @@ test.describe('screens', () => {
         await p.locator('#app-menu').waitFor()
         await p.waitForTimeout(300)
       }
+      await shoot(browser, width, 'view-as-bar', '/', { token: owner, viewAs: true, ready: (p) => p.getByRole('status').filter({ hasText: 'Viewing as' }) })
       await shoot(browser, width, 'menu-open', `/draft/${editorId}`, { token: owner, ready: (p) => p.getByLabel('Draft title'), before: openMenu })
       await shoot(browser, width, 'menu-open-dark', `/draft/${editorId}`, { token: owner, theme: 'dark', ready: (p) => p.getByLabel('Draft title'), before: openMenu })
 

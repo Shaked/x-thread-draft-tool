@@ -12,6 +12,7 @@ import Input from '../../ui/Input'
 import Section from '../../ui/Section'
 import Skeleton from '../../ui/Skeleton'
 import Stack from '../../ui/Stack'
+import Dialog from '../../ui/Dialog'
 import { useToast } from '../../ui/Toast'
 import { adminApi } from '../../utils/api'
 
@@ -159,6 +160,7 @@ function UserDetails({ id }) {
 function UserActions({ user, onChanged }) {
   // The open confirmation: { kind: 'suspend' | 'unsuspend' | 'delete', dry? }. The delete confirm token lives only here.
   const [dialog, setDialog] = useState(null)
+  const [viewing, setViewing] = useState(false)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -230,6 +232,7 @@ function UserActions({ user, onChanged }) {
             <Stack gap={4}>
               {notice && <Banner tone="danger" role="alert">{notice}</Banner>}
               <Inline gap={3}>
+                <Button variant="secondary" onClick={() => { setNotice(null); setViewing(true) }}>View as</Button>
                 {user.suspended_at ? (
                   <Button variant="secondary" onClick={() => { setNotice(null); setDialog({ kind: 'unsuspend' }) }}>Unsuspend</Button>
                 ) : (
@@ -243,6 +246,7 @@ function UserActions({ user, onChanged }) {
               </Inline>
             </Stack>
           </Section>
+        {viewing && <ViewAsDialog user={user} onClose={() => setViewing(false)} />}
         {dialog?.kind === 'suspend' && (
           <ConfirmLoginDialog
             title={`Suspend ${user.login}?`}
@@ -293,5 +297,47 @@ function UserActions({ user, onChanged }) {
           </ConfirmLoginDialog>
         )}
     </>
+  )
+}
+
+// Start viewing as this user (#291). The reason is required (3 to 200 characters) and goes to the audit log. On success the
+// browser loads the home page afresh, so the app starts with the user's view and nothing of the admin's page stays in state.
+function ViewAsDialog({ user, onClose }) {
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const valid = Array.from(reason.trim()).length >= 3
+
+  const start = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      await adminApi.startViewAs(user.id, reason.trim())
+      window.location.assign('/')
+    } catch (err) {
+      setError(messageOf(err))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={busy ? undefined : onClose}
+      dismissible={!busy}
+      title={`View as ${user.login}?`}
+      description="You see the app as this user for 30 minutes, read-only. Their drafts stay private. Starting and ending are written to the audit log."
+      actions={[
+        { label: 'Cancel', variant: 'secondary', onClick: onClose, autoFocus: true, disabled: busy },
+        { label: 'View as', variant: 'primary', onClick: start, disabledReason: valid ? undefined : 'Write a reason (at least 3 characters)', loading: busy }
+      ]}
+    >
+      <Stack gap={4}>
+        <Field label="Reason" help="3 to 200 characters. Kept in the audit log.">
+          <Input value={reason} onChange={setReason} maxLength={200} />
+        </Field>
+        {error && <Banner tone="danger" role="alert">{error}</Banner>}
+      </Stack>
+    </Dialog>
   )
 }

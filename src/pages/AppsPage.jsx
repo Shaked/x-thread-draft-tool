@@ -8,6 +8,7 @@ import Button from '../ui/Button'
 import Card from '../ui/Card'
 import { useConfirm } from '../ui/Dialog'
 import Inline from '../ui/Inline'
+import { useViewAsReason } from '../utils/viewAs'
 import CodeBlock, { CopyButton } from '../ui/CodeBlock'
 import { List, ListItem } from '../ui/List'
 import Page from '../ui/Page'
@@ -23,6 +24,7 @@ const resourceLabel = (resource) => (resource.endsWith('/api/mcp') ? 'Agent conn
 
 export default function AppsPage() {
   const ask = useConfirm()
+  const reason = useViewAsReason()
   const [grants, setGrants] = useState([])
   const [grantsLoading, setGrantsLoading] = useState(true)
   const [grantsError, setGrantsError] = useState(null)
@@ -150,6 +152,7 @@ export default function AppsPage() {
                             size="sm"
                             ariaLabel={`Revoke access for ${grant.client_name}`}
                             onClick={() => handleRevokeGrant(grant)}
+                            disabledReason={reason}
                           >
                             Revoke access
                           </Button>

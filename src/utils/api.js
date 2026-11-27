@@ -49,8 +49,8 @@ export function setAdminSignInHandler(handler) {
   }
 }
 
-async function adminWrite(path, body) {
-  const send = () => request(path, { method: 'POST', body, headers: { 'x-xt-admin': '1' } })
+async function adminWrite(path, body, method = 'POST') {
+  const send = () => request(path, { method, body, headers: { 'x-xt-admin': '1' } })
   try {
     return await send()
   } catch (err) {
@@ -95,6 +95,12 @@ export const adminApi = {
   audit(before) {
     const query = before ? `&before=${encodeURIComponent(before)}` : ''
     return request(`/admin/audit?limit=${PAGE_SIZE}${query}`, { headers: { 'x-xt-admin': '1' } }).then((data) => data.events)
+  },
+  startViewAs(userId, reason) {
+    return adminWrite('/admin/view-as', { user_id: userId, reason })
+  },
+  endViewAs() {
+    return adminWrite('/admin/view-as', undefined, 'DELETE')
   },
   flags() {
     return request('/admin/flags', { headers: { 'x-xt-admin': '1' } }).then((data) => data.flags)

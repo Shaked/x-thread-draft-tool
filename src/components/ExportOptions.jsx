@@ -1,11 +1,13 @@
 import { exportAsNumberedText, exportAsPlainText } from '../utils/exportFormats.js'
 import Menu from '../ui/Menu'
 import { useToast } from '../ui/Toast'
+import { useViewAsReason } from '../utils/viewAs'
 
 /** Export: a menu of copy and download actions for the whole thread. */
 export default function ExportOptions({ draft }) {
   const posts = draft?.posts || []
   const toast = useToast()
+  const reason = useViewAsReason()
 
   const exportAsJSON = () => {
     const dataStr = JSON.stringify({
@@ -84,7 +86,7 @@ export default function ExportOptions({ draft }) {
 
   return (
     <Menu
-      trigger={{ label: 'Export', icon: 'export', variant: 'secondary', disabled: posts.length === 0, title: 'Copy or download the whole thread' }}
+      trigger={{ label: 'Export', icon: 'export', variant: 'secondary', disabled: posts.length === 0, disabledReason: reason, title: 'Copy or download the whole thread' }}
       items={ACTIONS.map(([label, run]) => ({ label, onSelect: run }))}
     />
   )
