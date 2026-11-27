@@ -56,6 +56,17 @@ describe('contract-tests plugin skill', () => {
     expect(hits).toEqual([])
   })
 
+  it('keeps the generic protocol assertions that real clients depend on', () => {
+    for (const word of ['code challenge method', 'authentication method', 'metadata document', 'registration endpoint', 'cache-control: no-store', 'invalid-grant', 'revokes the grant']) {
+      expect(skill).toContain(word)
+    }
+  })
+
+  it('does not carry an exception to the never-claim rule', () => {
+    expect(skill).toMatch(/Never write "verified with a real client"\.$/m)
+    expect(skill).not.toMatch(/unless a real client was run/)
+  })
+
   it('keeps the atomic, idempotent and no-manual-check rules', () => {
     expect(skill).toMatch(/No manual checks/)
     expect(skill).toMatch(/Writes under test must be atomic and idempotent/)
@@ -75,5 +86,11 @@ describe('this repository keeps its own rules and points at the plugin', () => {
     expect(project).toMatch(/The app calls no LLM and has no opt-in LLM path/)
     expect(project).toContain('server/router.js')
     expect(project).toContain('tests/api/helpers/db.js')
+  })
+
+  it('keeps this app\'s protocol values that real clients depend on', () => {
+    for (const word of ['S256', 'none', 'metadata document', '{error, error_description}', 'JSON-RPC', 'invalid_grant', 'cache-control: no-store', 'state', 'iss', '401']) {
+      expect(project).toContain(word)
+    }
   })
 })

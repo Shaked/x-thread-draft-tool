@@ -13,7 +13,15 @@ Use it when asked to test a client "end to end", to prove a client can connect, 
 ## This repository's helpers
 - Router: `route()` from `server/router.js`, called in-process (the server stays real).
 - Database: PGlite through `tests/api/helpers/db.js`. Inject a failure with `setQueryImpl` from `server/db.js`.
-- Scripted client and sign-in: the `discover` and `signIn` helpers in `tests/api/mcp-contract.test.js`. Profiles are a table in the same file.
+- Scripted client and sign-in: the `discover` and `signIn` helpers in `tests/api/mcp-contract.test.js`. Profiles are a table in the same file. The other option the plugin allows is the official SDK client with its `fetch` set to `route()`.
+- What this app's clients depend on (plugin step 4, with this app's values):
+  - Authorization code with PKCE using `S256` only.
+  - Public client with `none` authentication; registration endpoint present.
+  - Client metadata document flag set, so clients identify themselves by URL.
+  - Redirect carries `state` and `iss`; loopback redirect uses the exact port the client registered.
+  - Errors are `{error, error_description}`; MCP JSON-RPC errors use the JSON-RPC codes.
+  - Token responses set `cache-control: no-store`.
+  - Replaying an old refresh token gives `invalid_grant` and revokes the grant, so the new access token gets 401.
 - Outbound fetches: `vi.spyOn(globalThis, 'fetch')` plus the resolver stub. Blob store: `vi.mock`.
 - Specification references for this app: RFC 9728, 8414, 7591, 7636, 9207, 6749 section 5, and the MCP transport.
 - A new file under `tests/api/` starts with `// @vitest-environment node`.
