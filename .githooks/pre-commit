@@ -9,6 +9,12 @@ else
   echo "gitleaks not installed: skipping local secret scan (CI enforces it)."
 fi
 
+# Contract eval (#395, plan section 5.2): only when a staged file is text a client reads. Not in CI.
+if git diff --cached --name-only | grep -Eq '^(server/mcp/(server|tools|prompts|skills|thread-text)\.js|tests/eval/(discovery|contract)/)'; then
+  echo "Contract files staged: running npm run eval:contract..."
+  npm run eval:contract
+fi
+
 echo "Running pre-commit checks (lint + unit tests)..."
 npm run precommit:checks
 # docs:refresh may update the CLAUDE.md index; include it in this commit.

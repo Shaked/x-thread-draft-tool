@@ -162,6 +162,22 @@ Where to paste it (the steps were read on 2026-11-17 and not checked against eac
 - Codex: `AGENTS.md` in the project, or `~/.codex/AGENTS.md`.
 - Grok: its custom instructions setting (not checked).
 
+## Working on a draft
+
+The server gives the assistant one contract for a draft (plan `docs/plans/draft-contract.md`, section 2.3). It reaches the assistant through the server instructions, the prompts, the skill and the tool results. Whether a given app reads each of those is not checked (see `tests/eval/discovery/clients.json`).
+
+- R1. Edit at once: when asked to change a draft, change it with the tools first, without asking, then say what changed.
+- R2. Change only what was asked: one `update_post` per changed post; the other posts stay as they are.
+- R3. Short answer: one or two lines with the draft link; do not repeat text a view shows.
+- R4. Options and post text as numbered block quotes, never a block of code (R8 is the one exception), never a table.
+- R5. Hebrew stays as the user wrote it: no monospace, no code, no direction characters.
+- R6. One option per item (3 when the user did not say how many), then one question at the end. Show a length only when a tool gave it.
+- R7. A pick ("the second", "השנייה"): call `update_post` with that text and the draft version, then say so in one line.
+- R8. After a save, one copy block of the whole saved thread is fine; options and single posts are not in a block.
+- R9. Images: read the counts first, one change per call, and report the post's image count after each change.
+
+Every draft result ends with a state line (id, version, post count, images, editor link, next step), so the assistant can act on the draft without fetching it again.
+
 ## Views in Claude and ChatGPT
 
 Some tools can show their result as a small view inside an app that supports MCP Apps:
