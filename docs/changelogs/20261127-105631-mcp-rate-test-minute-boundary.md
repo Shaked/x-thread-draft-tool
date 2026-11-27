@@ -2,7 +2,7 @@
 
 - The tool-call rate-limit test no longer fails when a minute ends during the test.
 
-Area: Speed
+Area: AI apps
 Link: https://github.com/Shaked/x-thread-draft-tool/pull/600
 
 ## Technical details

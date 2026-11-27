@@ -26,7 +26,18 @@ beforeEach(async () => {
   )
   alice = await db.insertUser({ github_id: 1, login: 'alice' })
   bob = await db.insertUser({ github_id: 2, login: 'bob' })
+  await waitForFreshMinute()
 })
+
+/**
+ * Waits, only when fewer than 2 s are left in the database minute, until the next minute starts. The counts are keyed on
+ * the minute, so a test that seeds a count and then calls must not see the minute change between the two (flaky #594).
+ */
+async function waitForFreshMinute() {
+  const { rows } = await db.pg.query("select extract(epoch from date_trunc('minute', now()) + interval '1 minute' - now()) as left_s")
+  const leftMs = Number(rows[0].left_s) * 1000
+  if (leftMs < 2000) await new Promise((resolve) => setTimeout(resolve, leftMs + 50))
+}
 
 async function accessToken(user, resource = MCP) {
   const { rows } = await db.pg.query(
