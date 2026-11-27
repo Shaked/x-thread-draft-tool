@@ -1,5 +1,6 @@
 # Sharing and Export
 
+- The post header on a share page puts the handle and date in an LTR span (`dir="ltr"`), so an RTL post shows "@handle · date" in order (`server/share/render.js`).
 - Drafts are private: only the owner can open or export a draft by id. Other people see a draft only through a share link.
 - Share links are stored on the server, each with an expiry time (`/x-thread-preview/<token>`, rendered by `/api/share/<token>?format=html`, or `/api/share/<token>.md`). The **Share** button makes a reusable link that stops after 15 minutes, 1 hour (default), 1 day or 7 days, and copies the preview link. The API accepts any lifetime from 60 seconds to 7 days.
 - The **X Thread** and **Agent link** buttons make one-time links that stop after 1 hour, whichever is first: one read, or the expiry.
