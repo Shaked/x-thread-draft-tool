@@ -23,7 +23,7 @@ text with the reply-style lint and posts it as one comment on the reports issue 
   the issues whose comments need reading.
 - Turn it off: set the repository variable `JANITOR_AUTO` to `off` (also `false` or `0`, any case), or disable the workflow in the Actions tab.
 - It posts the pass 1 report inside the `status-report` template (the report under `Details`), not the `/janitor` summary (the reports issue says so in one line).
-- Issue titles are written by anyone: the report keeps no `@`, markup or URL from a title (`safeWord` in `janitor.mjs`).
+- Issue titles are written by anyone: the report keeps no `@`, `#` reference, markup, URL or bidi character from a title (`safeWord` in `janitor.mjs`).
 - Not proven until it ran: start the first run by hand (Actions tab, `dry_run` on first), then read the Monday run.
 - Test: `tests/unit/janitor-weekly-workflow.test.js`.
 

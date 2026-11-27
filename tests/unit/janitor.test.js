@@ -370,3 +370,37 @@ describe('descriptions the reply lint rejects (#461)', () => {
     }
   })
 })
+
+describe('hostile titles cannot become live links, mentions, references or bidi in the report (#461)', () => {
+  const hostile = [
+    'bypass http:\\//evil.example link test',
+    'bypass https:{}//evil.example link test',
+    'bypass https:$//evil.example link test',
+    'bypass @www.evil.example link test',
+    'rtl \u202eevil text here',
+    'cross Shaked/other-repo#1 spam here',
+    'see GH-12 for more',
+    'x#5 and #5, and more',
+    'wide \uff20victim and \uff48ttp\uff1a//evil.example here',
+    'mail me a@evil.example now ok',
+    'zero\u200b width @\u200bvictim test'
+  ]
+  const live = /@|#\d|\bGH-\d|:\/\/|www\.|\.[a-z]{2,}\/|[\u202a-\u202e\u2066-\u2069\u200b-\u200f\ufeff]|\p{Cc}/iu
+
+  it('shortName keeps none of them', () => {
+    for (const title of hostile) expect(shortName({ title }), title).not.toMatch(live)
+  })
+
+  it('the whole report keeps none of them', () => {
+    const issues = hostile.map((title, k) => ({ number: 100 + k, title, state: 'open', labels: [{ name: 'task' }], body: '', created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z' }))
+    const snapshot = { fetched_at: '2026-11-27T00:00:00Z', repo: 'o/r', issues, pulls: [], open_pulls: [], markers: { release: [], claim: [] }, comments: {} }
+    const findings = analyze(snapshot, { today: '2026-11-27T00:00:00Z', staleDays: 14, knownTables: [] })
+    const text = formatReport(findings, { openCount: issues.length, today: '2026-11-27T00:00:00Z', orderResult: order(snapshot), names: describeAll(snapshot) })
+    expect(text).toContain('#100')
+    // Own references (#100 and the like) are the report's own; every title word is checked through the descriptions.
+    for (const line of text.split('\n')) {
+      const paren = /\(([^)]*)\)/.exec(line)
+      if (paren) expect(paren[1], line).not.toMatch(live)
+    }
+  })
+})

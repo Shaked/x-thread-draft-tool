@@ -75,13 +75,18 @@ export function titleText(title) {
 }
 
 /**
- * Issue titles are written by anyone on a public repository, and the report is posted as a comment. A word of a title
- * keeps letters, digits and plain punctuation: it loses `@` (no mention), markup characters (`<>&*_~|\\{}` and the
- * ones above), and a word that is a URL is dropped. A word is cut at 24 characters.
+ * Issue titles are written by anyone on a public repository, and the report is posted as a comment. A word of a title is
+ * folded to NFKC and loses control and format characters (bidi, zero width), then: a word with `#` and a digit
+ * (an issue or cross-repository reference) or `GH-12` is dropped; `@`, `#` and markup characters are removed; and a word
+ * that is then a link (`://`, `www.`, `name.tld/`) is dropped. The URL test runs AFTER the removal, so removing
+ * characters cannot make a link. A word is cut at 24 characters.
  */
 export function safeWord(w) {
-  if (/:\/\/|^www\./i.test(w)) return ''
-  return w.replace(/[@<>&*_~|\\{}!$^=+]/g, '').slice(0, 24)
+  const s = w.normalize('NFKC').replace(/[\p{Cf}\p{Cc}]/gu, '')
+  if (/#\d|^GH-\d+/i.test(s)) return ''
+  const t = s.replace(/[@#<>&*_~|\\{}!$^=+]/g, '')
+  if (/:\/\/|www\.|\.[a-z]{2,}\//i.test(t)) return ''
+  return t.slice(0, 24)
 }
 
 /** 3 to 6 words that say what an issue is, for "#n (words)". */
