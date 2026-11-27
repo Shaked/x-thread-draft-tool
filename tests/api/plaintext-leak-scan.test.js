@@ -145,7 +145,8 @@ beforeAll(async () => {
     if (failNextDraftInsert && /insert into drafts/i.test(text)) {
       failNextDraftInsert = false
       // A database error can carry values in its message and detail; the markers go there too.
-      const failure = new Error(`${EN} ${HE} injected failure`)
+      // A second line that starts with "at" is the case a frame filter must not pass (the logger keeps no message lines).
+      const failure = new Error(`${EN} ${HE} injected failure\n    at ${EN} ${HE} injected frame`)
       failure.detail = `${EN} ${HE} failing row`
       throw failure
     }
@@ -242,7 +243,9 @@ beforeAll(async () => {
     if (hits.has(key)) continue // the view-as start, above
     const id = entry.method === 'GET' ? alice.id : NIL
     const path = entry.path.replace(':id', id) + (QUERY_FOR[key] ?? '')
-    await rest(`admin REST ${entry.method} ${path}`, { method: entry.method, path, cookie: adminCookie, headers: ADMIN_WEB, body: bodyFor[key] })
+    const res = await rest(`admin REST ${entry.method} ${path}`, { method: entry.method, path, cookie: adminCookie, headers: ADMIN_WEB, body: bodyFor[key] })
+    // The router's own "Not found" means the call never reached a handler: that is not coverage.
+    if (res.status === 404 && seen.at(-1)[1].includes('"Not found"')) throw new Error(`${key} fell through to the router's 404`)
     hits.add(key)
   }
 
@@ -334,6 +337,14 @@ describe('plaintext leak scan (issue #384)', () => {
     expect([...hits].sort()).toEqual(expect.arrayContaining([...adminKeys].sort()))
     const called = new Set(seen.filter(([where]) => where.startsWith('admin MCP ')).map(([where]) => where.slice('admin MCP '.length)))
     expect([...called].sort()).toEqual(ADMIN_TOOLS.map((tool) => tool.name).sort())
+  })
+
+  it('each admin POST reached its handler: a validation or not-found answer from the handler, not the router', () => {
+    const answer = (where) => seen.find(([w]) => w.startsWith('admin REST POST ') && w.endsWith(where))?.[1] ?? ''
+    expect(answer('/suspend')).toContain('confirm_login')
+    expect(answer('/delete')).toContain('User not found')
+    expect(answer('/admin/flags')).toContain('name must be one of')
+    expect(answer('/admin/flags')).not.toContain('"Not found"')
   })
 
   it('the draft tables hold both markers (a control: the scan would see them if they were elsewhere)', async () => {
