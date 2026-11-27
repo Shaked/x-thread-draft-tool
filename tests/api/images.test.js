@@ -122,6 +122,37 @@ describe('POST /api/images', () => {
     expect(stored[20] & 0x0c).toBe(0)
   })
 
+  it('keeps nothing after the end marker: JPEG after EOI, PNG after IEND, GIF comments and application blocks', async () => {
+    const text = (t) => [...t].map((c) => c.charCodeAt(0))
+    const jpeg = Uint8Array.from([...makeJpeg(), ...text('GPS:32.08,34.78')])
+    const png = Uint8Array.from([...makePng(), ...pngChunk('zzzz', text('GPS:32.08')), ...text('GPS:3')])
+    const gif = Uint8Array.from([...makeGif().slice(0, -1), 0x21, 0xfe, 3, ...text('GPS'), 0, 0x21, 0xff, 11, ...text('XMP DataXMP'), 2, 1, 1, 0, 0x3b])
+    for (const bytes of [jpeg, png, gif]) {
+      vi.mocked(putBlob).mockClear()
+      expect((await upload(aliceCookie, { bytes })).status).toBe(201)
+      expect(contains(vi.mocked(putBlob).mock.calls[0][1], 'GPS')).toBe(false)
+    }
+  })
+
+  it('drops unknown PNG chunks (zxIf), and JPEG APP12', async () => {
+    const text = (t) => [...t].map((c) => c.charCodeAt(0))
+    expect((await upload(aliceCookie, { bytes: makePng([pngChunk('zxIf', text('GPSDATA'))]) })).status).toBe(201)
+    expect(contains(vi.mocked(putBlob).mock.calls[0][1], 'GPSDATA')).toBe(false)
+    const withExtra = makeJpeg({ app12: true })
+    vi.mocked(putBlob).mockClear()
+    expect((await upload(aliceCookie, { bytes: withExtra })).status).toBe(201)
+    expect(contains(vi.mocked(putBlob).mock.calls[0][1], 'GPSDATA')).toBe(false)
+  })
+
+  it('refuses a damaged or truncated JPEG, PNG, WebP and GIF with 400 and stores nothing', async () => {
+    for (const bytes of [makeJpeg().slice(0, 30), makePng().slice(0, 40), makeWebp().slice(0, 25), makeGif().slice(0, 10)]) {
+      const res = await upload(aliceCookie, { bytes })
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toMatch(/PNG, JPEG, WebP or GIF/)
+    }
+    expect(putBlob).not.toHaveBeenCalled()
+  })
+
   it('counts the stored bytes of the user in the database and lowers them when the file is deleted', async () => {
     const { storedBytes } = await import('../../server/image-ledger.js')
     const { forgetImages } = await import('../../server/image-ledger.js')

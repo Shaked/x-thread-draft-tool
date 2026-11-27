@@ -113,7 +113,13 @@ const getUser = async ({ params }) => {
   } catch (err) {
     console.error('[admin] image listing failed', err)
   }
-  return json({ user: { ...found.user, ...images, ...(await storedBytes(found.row.id)) } })
+  let stored = { stored_bytes: null, stored_files: null }
+  try {
+    stored = await storedBytes(found.row.id)
+  } catch (err) {
+    console.error('[admin] stored bytes failed', err)
+  }
+  return json({ user: { ...found.user, ...images, ...stored } })
 }
 
 /** The host of a return address, or null. Only the host leaves the server: never the path or query. */

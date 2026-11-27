@@ -26,13 +26,14 @@ export const exifPayload = (orientation = 6) => [
 
 export const jpegSegment = (marker, data) => [0xff, marker, (data.length + 2) >> 8, (data.length + 2) & 255, ...data]
 
-export const makeJpeg = ({ exif = null, xmp = false, comment = false } = {}) =>
+export const makeJpeg = ({ exif = null, xmp = false, comment = false, app12 = false } = {}) =>
   Uint8Array.from([
     0xff, 0xd8,
     ...jpegSegment(0xe0, [...text('JFIF'), 0, 1, 1, 0, 0, 1, 0, 1, 0, 0]),
     ...(exif ? jpegSegment(0xe1, exif) : []),
     ...(xmp ? jpegSegment(0xe1, [...text('http://ns.adobe.com/xap/1.0/'), 0, ...text('<x/>')]) : []),
     ...(comment ? jpegSegment(0xfe, text('secret')) : []),
+    ...(app12 ? jpegSegment(0xec, text('Ducky GPSDATA')) : []),
     ...jpegSegment(0xdb, new Array(65).fill(1)),
     ...jpegSegment(0xda, [1, 1, 0, 0, 63, 0]),
     7, 7, 7, 0xff, 0xd9

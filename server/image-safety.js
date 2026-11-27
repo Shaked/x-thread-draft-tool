@@ -55,55 +55,87 @@ function orientationSegment(value) {
   ])
 }
 
+const damaged = (kind) => new HttpError(400, `This ${kind} is damaged. ${TYPES_TEXT}`)
+
+// JPEG: an allow-list. APP0 (JFIF), APP2 only for ICC profiles and APP14 (Adobe) are kept; every other APPn,
+// comments and Exif/XMP are dropped, in every scan of a progressive file. The file ends at the first EOI.
+const isStandalone = (m) => m === 0x01 || (m >= 0xd0 && m <= 0xd8)
+
+function keepJpegSegment(b, i, marker) {
+  if (marker === 0xe0 || marker === 0xee) return true
+  if (marker === 0xe2) return ascii(b, i + 4, 11) === 'ICC_PROFILE'
+  return !(marker >= 0xe1 && marker <= 0xef) && marker !== 0xfe // other APPn and comments are dropped
+}
+
+/** The index where the entropy-coded data after a scan header ends: the next marker that is not a stuffed 0xff00, a restart or fill. */
+function scanEnd(b, from) {
+  for (let j = from; j + 1 < b.length; j += 1) {
+    const next = b[j + 1]
+    if (b[j] === 0xff && next !== 0x00 && next !== 0xff && !(next >= 0xd0 && next <= 0xd7)) return j
+  }
+  throw damaged('JPEG')
+}
+
 function cleanJpeg(b) {
   const out = [b.subarray(0, 2)]
   let orientation = null
   let i = 2
-  while (i + 4 <= b.length) {
-    if (b[i] !== 0xff) throw new HttpError(400, `This JPEG is damaged. ${TYPES_TEXT}`)
+  let afterApp0 = 1 // where a new Orientation block goes: after JFIF APP0
+  for (;;) {
+    if (i + 2 > b.length || b[i] !== 0xff) throw damaged('JPEG')
     const marker = b[i + 1]
     if (marker === 0xff) { i += 1; continue }
-    if (marker === 0xda || marker === 0xd9) break // start of scan: the rest is image data
-    const len = (b[i + 2] << 8) | b[i + 3]
-    if (len < 2 || i + 2 + len > b.length) throw new HttpError(400, `This JPEG is damaged. ${TYPES_TEXT}`)
-    const seg = b.subarray(i, i + 2 + len)
+    if (marker === 0xd9) { out.push(b.subarray(i, i + 2)); break } // EOI: nothing after it is kept
+    if (isStandalone(marker)) { out.push(b.subarray(i, i + 2)); i += 2; continue }
+    const len = i + 4 <= b.length ? (b[i + 2] << 8) | b[i + 3] : 0
+    if (len < 2 || i + 2 + len > b.length) throw damaged('JPEG')
     if (marker === 0xe1 && ascii(b, i + 4, 6) === 'Exif\0\0') {
-      orientation = exifOrientation(b.subarray(i + 10, i + 2 + len))
-    } else if (marker !== 0xe1 && marker !== 0xed && marker !== 0xfe) {
-      out.push(seg) // APP1 (Exif, XMP), APP13 (Photoshop) and comments are dropped
+      orientation ??= exifOrientation(b.subarray(i + 10, i + 2 + len))
+    } else if (keepJpegSegment(b, i, marker)) {
+      out.push(b.subarray(i, i + 2 + len))
+      if (marker === 0xe0 && out.length === 2) afterApp0 = 2
     }
     i += 2 + len
+    if (marker === 0xda) {
+      const end = scanEnd(b, i)
+      out.push(b.subarray(i, end))
+      i = end
+    }
   }
-  if (orientation && orientation !== 1) out.splice(1, 0, orientationSegment(orientation))
-  out.push(b.subarray(i))
+  if (orientation && orientation !== 1) out.splice(afterApp0, 0, orientationSegment(orientation))
   return concat(out)
 }
 
-const PNG_DROP = new Set(['eXIf', 'tEXt', 'iTXt', 'zTXt'])
+// PNG: an allow-list of chunks, and the file ends at IEND. Exif, text, C2PA and unknown chunks are dropped.
+const PNG_KEEP = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND', 'tRNS', 'gAMA', 'cHRM', 'sRGB', 'iCCP', 'sBIT', 'pHYs', 'bKGD', 'hIST', 'sPLT', 'acTL', 'fcTL', 'fdAT'])
 function cleanPng(b) {
   const out = [b.subarray(0, 8)]
   let i = 8
   while (i + 12 <= b.length) {
     const len = u32be(b, i)
     const end = i + 12 + len
-    if (end > b.length) throw new HttpError(400, `This PNG is damaged. ${TYPES_TEXT}`)
-    if (!PNG_DROP.has(ascii(b, i + 4, 4))) out.push(b.subarray(i, end))
+    if (end > b.length) throw damaged('PNG')
+    const type = ascii(b, i + 4, 4)
+    if (PNG_KEEP.has(type)) out.push(b.subarray(i, end))
     i = end
+    if (type === 'IEND') return concat(out)
   }
-  out.push(b.subarray(i))
-  return concat(out)
+  throw damaged('PNG')
 }
 
+// WebP: an allow-list of chunks, inside the RIFF size. EXIF, XMP and unknown chunks are dropped.
+const WEBP_KEEP = new Set(['VP8 ', 'VP8L', 'VP8X', 'ALPH', 'ANIM', 'ANMF', 'ICCP'])
 function cleanWebp(b) {
+  const riffEnd = Math.min(8 + u32le(b, 4), b.length)
   const out = [b.subarray(0, 12)]
   let i = 12
-  while (i + 8 <= b.length) {
+  while (i + 8 <= riffEnd) {
     const fourcc = ascii(b, i, 4)
     const size = u32le(b, i + 4)
     const end = i + 8 + size + (size & 1)
-    if (i + 8 + size > b.length) throw new HttpError(400, `This WebP is damaged. ${TYPES_TEXT}`)
-    if (fourcc !== 'EXIF' && fourcc !== 'XMP ') {
-      const chunk = b.slice(i, Math.min(end, b.length))
+    if (i + 8 + size > riffEnd) throw damaged('WebP')
+    if (WEBP_KEEP.has(fourcc)) {
+      const chunk = b.slice(i, Math.min(end, riffEnd))
       if (fourcc === 'VP8X' && chunk.length >= 9) chunk[8] &= ~0x0c // no Exif and no XMP flag
       out.push(chunk)
     }
@@ -113,6 +145,44 @@ function cleanWebp(b) {
   const size = result.length - 8
   result[4] = size & 0xff; result[5] = (size >> 8) & 0xff; result[6] = (size >> 16) & 0xff; result[7] = (size >>> 24) & 0xff
   return result
+}
+
+// GIF: comment extensions and application extensions other than the animation loop are dropped; ends at the trailer.
+function cleanGif(b) {
+  const out = []
+  const skipSubBlocks = (from) => {
+    let j = from
+    for (;;) {
+      if (j >= b.length) throw damaged('GIF')
+      if (b[j] === 0) return j + 1
+      j += 1 + b[j]
+    }
+  }
+  if (b.length < 13) throw damaged('GIF')
+  let i = 13 + ((b[10] & 0x80) ? 3 * (1 << ((b[10] & 7) + 1)) : 0)
+  if (i > b.length) throw damaged('GIF')
+  out.push(b.subarray(0, i))
+  for (;;) {
+    if (i >= b.length) throw damaged('GIF')
+    const tag = b[i]
+    if (tag === 0x3b) { out.push(b.subarray(i, i + 1)); return concat(out) }
+    if (tag === 0x21) {
+      const end = skipSubBlocks(i + 2)
+      const label = b[i + 1]
+      const app = label === 0xff ? ascii(b, i + 3, 11) : ''
+      if (label !== 0xfe && (label !== 0xff || app === 'NETSCAPE2.0' || app === 'ANIMEXTS1.0')) out.push(b.subarray(i, end))
+      i = end
+    } else if (tag === 0x2c) {
+      if (i + 10 > b.length) throw damaged('GIF')
+      const flags = b[i + 9]
+      const start = i + 10 + ((flags & 0x80) ? 3 * (1 << ((flags & 7) + 1)) : 0) + 1
+      const end = skipSubBlocks(start)
+      out.push(b.subarray(i, end))
+      i = end
+    } else {
+      throw damaged('GIF')
+    }
+  }
 }
 
 /**
@@ -126,5 +196,5 @@ export function prepareImage(input) {
   if (type === 'image/jpeg') return { bytes: cleanJpeg(bytes), contentType: type }
   if (type === 'image/png') return { bytes: cleanPng(bytes), contentType: type }
   if (type === 'image/webp') return { bytes: cleanWebp(bytes), contentType: type }
-  return { bytes, contentType: type }
+  return { bytes: cleanGif(bytes), contentType: type }
 }
