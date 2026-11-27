@@ -1,10 +1,12 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import { TimedShardSequencer } from './tests/shard-sequencer.mjs'
 
 // Two projects: the browser-like unit tests (jsdom) and the API tests (node, one shared
-// migrated database snapshot from global-setup).
+// migrated database snapshot from global-setup). --shard=n/m splits the files by time (#605).
 export default defineConfig({
   test: {
+    sequence: { sequencer: TimedShardSequencer },
     projects: [
       {
         plugins: [react()],
