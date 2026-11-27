@@ -69,6 +69,7 @@ describe('009_admin.sql', () => {
       'api_token_cap_backup',
       'api_tokens',
       'drafts',
+      'image_files',
       'mcp_rate_limits',
       'oauth_codes',
       'oauth_grants',

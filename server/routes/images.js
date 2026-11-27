@@ -5,13 +5,21 @@ import { deleteBlobUrls, putBlob } from '../blob.js'
 import { isOwnedBlobUrl } from '../draft-images.js'
 import { usedImageUrls } from './drafts.js'
 import { fetchRemoteImage } from '../remote-image.js'
+import { prepareImage } from '../image-safety.js'
+import { recordImage } from '../image-ledger.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_BYTES = 4 * 1024 * 1024 // Vercel's request body limit is 4.5 MB
 
-function extensionFor(mime) {
-  const subtype = mime.split('/')[1]?.split('+')[0] ?? ''
-  return subtype.replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 10) || 'bin'
+const EXTENSIONS = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }
+
+/** Checks the bytes (type from the first bytes, metadata removed), stores them and counts them for the user. */
+async function storeChecked(uid, draftId, raw) {
+  const { bytes, contentType } = prepareImage(raw)
+  const pathname = `drafts/${uid}/${draftId}/${crypto.randomUUID()}.${EXTENSIONS[contentType]}`
+  const blob = await putBlob(pathname, bytes, { contentType })
+  await recordImage(uid, blob.url, bytes.byteLength)
+  return blob.url
 }
 
 /** POST /api/images?draftId=<uuid>: raw image bytes, owner of the draft only. */
@@ -23,8 +31,6 @@ async function uploadImage({ request, url }) {
   const { rows } = await query('select 1 from drafts where id = $1 and user_id = $2', [draftId, session.uid])
   if (!rows[0]) throw new HttpError(404, 'Draft not found')
 
-  const mime = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
-  if (!mime.startsWith('image/')) throw new HttpError(415, 'Only image uploads are allowed')
   if (Number(request.headers.get('content-length') || 0) > MAX_BYTES) {
     throw new HttpError(413, 'Image must be 4 MB or smaller')
   }
@@ -33,9 +39,7 @@ async function uploadImage({ request, url }) {
   if (bytes.byteLength > MAX_BYTES) throw new HttpError(413, 'Image must be 4 MB or smaller')
   if (bytes.byteLength === 0) throw new HttpError(400, 'Empty upload')
 
-  const pathname = `drafts/${session.uid}/${draftId}/${crypto.randomUUID()}.${extensionFor(mime)}`
-  const blob = await putBlob(pathname, bytes, { contentType: mime })
-  return json({ url: blob.url }, 201)
+  return json({ url: await storeChecked(session.uid, draftId, bytes) }, 201)
 }
 
 /**
@@ -78,10 +82,8 @@ async function uploadImageFromUrl({ request }) {
 
 /** Fetches a public image and stores it under the caller's own prefix. Answers { url, sourceUrl }. */
 export async function storeRemoteImage(uid, draftId, sourceUrl) {
-  const { bytes, contentType } = await fetchRemoteImage(sourceUrl)
-  const pathname = `drafts/${uid}/${draftId}/${crypto.randomUUID()}.${extensionFor(contentType)}`
-  const blob = await putBlob(pathname, bytes, { contentType })
-  return { url: blob.url, sourceUrl }
+  const { bytes } = await fetchRemoteImage(sourceUrl)
+  return { url: await storeChecked(uid, draftId, bytes), sourceUrl }
 }
 
 export const imageRoutes = [

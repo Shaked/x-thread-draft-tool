@@ -12,6 +12,7 @@ import { deleteBlobUrls, putBlob } from '../../server/blob.js'
 import { route } from '../../server/router.js'
 import { setResolverForTests } from '../../server/remote-image.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
+import { makePng } from './helpers/images.js'
 
 const HOST = 'https://store.public.blob.vercel-storage.com'
 let db
@@ -34,7 +35,7 @@ beforeEach(async () => {
   cookie = await db.cookieFor(alice)
   bobCookie = await db.cookieFor(bob)
   setResolverForTests(async () => [{ address: '93.184.216.34', family: 4 }])
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([137, 80, 78, 71]), { headers: { 'content-type': 'image/png' } })))
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(makePng(), { headers: { 'content-type': 'image/png' } })))
   draft = await db.insertDraft(alice.id, {
     posts: [
       { id: 'a', text: 'first', images: [img('1'), img('2')], embeddedTweet: null },

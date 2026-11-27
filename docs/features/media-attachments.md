@@ -6,3 +6,4 @@
 - Publishing or deleting a draft deletes its Blob images.
 - Media-aware publish/archive behavior.
 - Image edits over REST and MCP (#412): `POST /api/drafts/:id/images` adds an image from a URL to a post at a place, or replaces one (`replace`); `POST .../posts/:postId/move` with `image_url` moves one; `DELETE /api/drafts/:id/images` removes one or all of a post. At most 4 per post; files no draft uses are deleted; a failed add deletes the new file. The editor has no image reorder or replace.
+- Safe uploads (#416): on every upload route the type comes from the first bytes (PNG, JPEG, WebP, GIF), the `Content-Type` header is ignored, SVG and anything else is refused with a 415 that names the types that work. EXIF, XMP and text chunks are removed in plain JS (JPEG keeps only Orientation). Each stored file is counted per user in `image_files`; the admin user page and `admin_get_user` show `stored_bytes`. No storage cap yet (owner question Q2 on #273).

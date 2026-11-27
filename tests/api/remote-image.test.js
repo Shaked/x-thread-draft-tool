@@ -10,6 +10,7 @@ import { putBlob } from '../../server/blob.js'
 import { route } from '../../server/router.js'
 import { isPrivateAddress, setResolverForTests } from '../../server/remote-image.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
+import { makePng } from './helpers/images.js'
 
 let db
 let alice
@@ -108,7 +109,7 @@ describe('POST /api/images/from-url', () => {
   })
 
   it('stores a public image for the owner of the draft', async () => {
-    globalThis.fetch.mockResolvedValue(imageResponse(new Uint8Array([137, 80, 78, 71])))
+    globalThis.fetch.mockResolvedValue(imageResponse(makePng()))
     const res = await fromUrl('https://example.com/photo.png')
     expect(res.status).toBe(201)
     const body = await res.json()
@@ -139,7 +140,7 @@ describe('pinned connection (M7, B12)', () => {
   it('resolves the host once per fetch and connects through the checked address', async () => {
     const resolver = vi.fn(async () => [{ address: PUBLIC_IP, family: 4 }])
     setResolverForTests(resolver)
-    fetch.mockResolvedValueOnce(imageResponse(new Uint8Array([1, 2, 3])))
+    fetch.mockResolvedValueOnce(imageResponse(makePng()))
     const res = await fromUrl('https://images.example/cat.png')
     expect(res.status).toBe(201)
     expect(resolver).toHaveBeenCalledTimes(1)
@@ -147,7 +148,7 @@ describe('pinned connection (M7, B12)', () => {
   })
 
   it('connects through a dispatcher that is pinned to the checked address, with redirects off', async () => {
-    fetch.mockResolvedValueOnce(imageResponse(new Uint8Array([1, 2, 3])))
+    fetch.mockResolvedValueOnce(imageResponse(makePng()))
     await fromUrl('https://images.example/cat.png')
     const init = fetch.mock.calls[0][1]
     expect(init.redirect).toBe('manual')

@@ -134,12 +134,9 @@ export async function fetchRemoteImage(input) {
   if (response.status >= 300 && response.status < 400) throw new HttpError(400, 'Redirects are not followed')
   if (!response.ok) throw new HttpError(502, `Image host returned HTTP ${response.status}`)
 
-  const contentType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
-  if (!contentType.startsWith('image/')) throw new HttpError(415, 'The URL does not point to an image')
-
   const declared = Number(response.headers.get('content-length') || 0)
   if (declared > MAX_REMOTE_IMAGE_BYTES) throw new HttpError(413, 'Image must be 4 MB or smaller')
 
   const bytes = await readImageBody(response)
-  return { bytes, contentType }
+  return { bytes } // the type is decided from the bytes by prepareImage
 }
