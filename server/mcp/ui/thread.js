@@ -181,39 +181,41 @@ function addImageNode(link, draftId, postId) {
   const note = el('p', { dir: 'auto' }, [])
   const input = document.createElement('input')
   const call = (args) => link.callTool('add_image_from_url', { draftId, postId, ...args }, 120000)
-  const fail = () => { note.textContent = tr('common', 'tool_error') }
+  const fail = () => { button.disabled = false; note.textContent = tr('common', 'tool_error') }
   const fallback = () => {
     call({ upload_link: true }).then((result) => {
-      const found = result.structuredContent && result.structuredContent.upload
-      button.remove()
-      if (found && !result.isError) note.textContent = tr('thread', 'upload_link') + ' ' + found.link
-      else fail()
+      const found = result && !result.isError && result.structuredContent && result.structuredContent.upload
+      if (found) {
+        button.remove()
+        note.textContent = tr('thread', 'upload_link') + found.link
+      } else fail()
     }, fail)
   }
   input.type = 'file'
   input.hidden = true
   input.accept = 'image/*'
-  input.addEventListener('change', () => {
+  input.onchange = () => {
     button.disabled = true
     createImageBitmap(input.files[0]).then((bitmap) => {
       const canvas = document.createElement('canvas')
       const ctx = canvas.getContext('2d')
-      canvas.width = Math.min(1600, bitmap.width)
-      canvas.height = Math.round(bitmap.height * canvas.width / bitmap.width) || 1
+      const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height))
+      canvas.width = Math.round(bitmap.width * scale)
+      canvas.height = Math.round(bitmap.height * scale) || 1
       ctx.fillStyle = '#fff'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
       const data = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]
       return data.length > 933336 ? Promise.reject() : call({ data, mime: 'image/jpeg' })
     }).then((result) => {
-      if (result.isError) return fallback()
-      note.textContent = tr('thread', 'image_added')
+      if (!result || result.isError) return fallback()
+      note.textContent = tr('thread', 'added')
       button.remove()
     }, fallback)
-  })
-  button.addEventListener('click', () => {
+  }
+  button.onclick = () => {
     try { input.click() } catch { fallback() }
-  })
+  }
   return el('div', {}, [button, note, input])
 }
 

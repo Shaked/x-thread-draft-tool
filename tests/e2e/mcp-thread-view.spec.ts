@@ -257,12 +257,12 @@ async function replies(page: Page, list: unknown[], holdFirst = false) {
 }
 const hostCalls = (page: Page) => page.evaluate(() => (window as any).__calls.map((c: any) => ({ name: c.name, arguments: c.arguments })))
 
-test('"Add image" sends the shrunk file as bytes to add_image_from_url and says it was added', async ({ page }) => {
+test('"Add image" sends the shrunk file as bytes to add_image_from_url and says Added', async ({ page }) => {
   await load(page, WITH_POST_IDS, { caps: { serverTools: {} }, reply: ADDED })
   const frame = page.frameLocator('#view')
   await expect(frame.getByRole('button', { name: 'Add image' })).toHaveCount(3)
   await frame.locator('input[type=file]').first().setInputFiles(IMAGE_FILE)
-  await expect(frame.getByText('Image added.')).toBeVisible()
+  await expect(frame.getByText('Added', { exact: true })).toBeVisible()
   const calls = await hostCalls(page)
   expect(calls).toHaveLength(1)
   expect(calls[0].name).toBe('add_image_from_url')

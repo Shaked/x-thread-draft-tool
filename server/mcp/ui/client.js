@@ -216,8 +216,7 @@ export function labels() {
       text: ['Text', 'טקסט'],
       before: ['Before', 'לפני'],
       add_image: ['Add image', 'הוסף תמונה'],
-      image_added: ['Image added.', 'התמונה נוספה.'],
-      upload_link: ['Upload link:', 'קישור להעלאה:']
+      upload_link: ['Upload link: ', 'קישור להעלאה: ']
     },
     drafts: {
       title: ['Drafts', 'טיוטות'],
