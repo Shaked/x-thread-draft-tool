@@ -87,6 +87,6 @@ node scripts/changelog-rewrite.mjs --check docs/changelog-rewrites/batch-01.json
 ```
 
 The rewritten file keeps its original text, byte for byte, under `## Technical details`. `--check` takes that original
-from the file's history: its newest committed version without the `## Technical details` heading. CI (`scripts/changelog-check.mjs`) lets a pull request change an existing
+from the history of the base branch: the newest version of the file there without the `## Technical details` heading. CI (`scripts/changelog-check.mjs`) lets a pull request change an existing
 entry only when a batch in the same pull request passes `--check`. A deleted entry always fails the check.
 Do not change an old entry by hand.

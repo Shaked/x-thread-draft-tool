@@ -150,10 +150,34 @@ describe('originalFromGit', () => {
       write('rewritten.md', rewriteText('before the rewrite\n', heading))
       commit('rewrite')
 
-      expect(originalFromGit('merged.md', dir)).toBe('resolved version\n')
-      expect(originalFromGit('edited.md', dir)).toBe('edited version\n')
-      expect(originalFromGit('rewritten.md', dir)).toBe('before the rewrite\n')
-      expect(() => originalFromGit('missing.md', dir)).toThrow('no committed version of missing.md')
+      expect(originalFromGit('merged.md', 'HEAD', dir)).toBe('resolved version\n')
+      expect(originalFromGit('edited.md', 'HEAD', dir)).toBe('edited version\n')
+      expect(originalFromGit('rewritten.md', 'HEAD', dir)).toBe('before the rewrite\n')
+      expect(() => originalFromGit('missing.md', 'HEAD', dir)).toThrow('no committed version of missing.md')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+  it('takes the original from the base only: an edit committed after the base is not the original', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'changelog-base-'))
+    try {
+      const git = (...args) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t.test', '-c', 'commit.gpgsign=false', ...args], { cwd: dir, encoding: 'utf8' })
+      const commit = (name, text, message) => {
+        writeFileSync(join(dir, name), text)
+        git('add', '-A')
+        git('commit', '-q', '-m', message)
+      }
+      git('init', '-q')
+      commit('entry.md', 'base text\n', 'base')
+      const base = git('rev-parse', 'HEAD').trim()
+
+      // a pull request: a hand edit, then a rewrite of the edited text
+      commit('entry.md', 'hand edit\n', 'hand edit after the base')
+      commit('entry.md', rewriteText('hand edit\n', heading), 'rewrite of the hand edit')
+
+      expect(originalFromGit('entry.md', base, dir)).toBe('base text\n')
+      expect(originalFromGit('entry.md', 'HEAD', dir)).toBe('hand edit\n')
+      expect(() => originalFromGit('entry.md', undefined, dir)).toThrow('needs a revision')
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
