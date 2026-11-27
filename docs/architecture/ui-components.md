@@ -172,7 +172,7 @@ Some components have a second implementation behind the Components feature flag 
 
 | Prop | Type | Default | Notes |
 |---|---|---|---|
-| `trigger` | `{ label, icon?, variant, disabled?, loading?, title? }` | required | The button that opens the menu; `icon` is an `Icon` name; the other fields go to `Button`. |
+| `trigger` | `{ label, icon?, variant, disabled?, disabledReason?, loading?, title? }` | required | The button that opens the menu; `icon` is an `Icon` name; the other fields go to `Button`. |
 | `items` | `[{ label, onSelect, tone?, description? }]` | required | One `menuitem` each. `tone: 'danger'` colours the label; `description` is soft text under it. |
 | `title` | string | | Soft heading above the list (for example "Link valid for"); names the menu. Without it the menu is named by the trigger's label. |
 
@@ -191,6 +191,7 @@ Some components have a second implementation behind the Components feature flag 
 | `children` | node | | The message. The text colour never changes with the tone. |
 | `actions` | node | | Buttons at the end. |
 | `role` | `status` \| `alert` \| `none` | `status` | Use `alert` for errors and `none` for a static note (no live region). |
+| `sticky` | boolean | `false` | Fixed to the top of the screen above the page (`--z-bar`), square corners. One per app: the "Viewing as" bar (`src/components/ViewAsBar.jsx`, #291). |
 
 - States: none. The tone is also said in the words of the message (colour is never the only signal).
 - Example: `<Banner tone="danger" role="alert">Could not load the changelog.</Banner>`
@@ -436,6 +437,7 @@ Some components have a second implementation behind the Components feature flag 
 | `label` | string | required | The button's name ("Delete draft"). |
 | `confirm` | `{ title, body, confirmLabel }` | required | The question: the dialog's title, sentence and yes button (old components), or the panel's name, description and yes button (Rare UI). |
 | `onConfirm` | function | required | Runs only after a yes. May return a promise; `false` or a rejection means it failed (Rare UI, the default: the button goes back to idle; the caller shows the error). |
+| `disabledReason` | string | | Shows the plain disabled Button with the reason (in both looks), so nothing can be deleted. Used while viewing as a user. |
 
 - States: old components, admin only: a `danger-quiet` small Button that opens the confirm dialog (Cancel focused). Rare UI, the default: Rare UI's delete button: a 44 px bin; a press widens it into a panel with Cancel (focused) and the yes button, both 44 px; Escape or Cancel keeps; after yes the bin is busy (`aria-busy`) until `onConfirm` settles; the check mark and "Deleted" show only on success, a failure goes back to idle; the lid and walls animate with motion, instant under reduced motion; mirrored in right-to-left. Loads in its own chunk; the Button shows until then.
 - Example: `<DeleteButton label="Delete draft" confirm={{ title: 'Delete this draft?', body: 'Are you sure you want to delete this draft?', confirmLabel: 'Delete draft' }} onConfirm={remove} />`

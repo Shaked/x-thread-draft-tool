@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { draftsApi } from '../utils/api'
 import Button from '../ui/Button'
+import { useViewAsReason } from '../utils/viewAs'
 import { useToast } from '../ui/Toast'
 
 /** Agent link: a one-time markdown link for an agent, copied to the clipboard. The toast confirms it. */
 export default function AgentLinkButton({ draftId }) {
   const [busy, setBusy] = useState(false)
+  const reason = useViewAsReason()
   const toast = useToast()
 
   const handleCreate = async () => {
@@ -33,6 +35,7 @@ export default function AgentLinkButton({ draftId }) {
       variant="secondary"
       icon="agent"
       loading={busy}
+      disabledReason={reason}
       onClick={handleCreate}
       title="Copy one-time markdown link for agents"
       ariaLabel="Copy one-time agent link"

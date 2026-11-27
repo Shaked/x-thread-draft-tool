@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { draftsApi } from '../utils/api'
 import { useToast } from '../ui/Toast'
+import { useViewAsReason } from '../utils/viewAs'
 import Banner from '../ui/Banner'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
@@ -26,6 +27,7 @@ export default function DraftList({ user }) {
   const [error, setError] = useState(null)
   const navigate = useNavigate()
   const toast = useToast()
+  const reason = useViewAsReason()
 
   const loadDrafts = async () => {
     if (!user) return
@@ -119,7 +121,7 @@ export default function DraftList({ user }) {
     <Page width="default">
       <PageHeader
         title="Your Threads"
-        actions={showNewDraft ? <Button variant="primary" onClick={createNewDraft}>New draft</Button> : null}
+        actions={showNewDraft ? <Button variant="primary" onClick={createNewDraft} disabledReason={reason}>New draft</Button> : null}
       />
       <Stack gap={4}>
         <Tabs
@@ -141,7 +143,7 @@ export default function DraftList({ user }) {
             <EmptyState
               title="No drafts yet."
               description="Create your first thread to get started."
-              action={<Button variant="primary" onClick={createNewDraft}>Create your first draft</Button>}
+              action={<Button variant="primary" onClick={createNewDraft} disabledReason={reason}>Create your first draft</Button>}
             />
           ) : (
             <EmptyState title="No published threads yet." />
@@ -162,10 +164,10 @@ export default function DraftList({ user }) {
                   ]}
                   actions={
                     <>
-                      <Button variant="ghost" size="sm" onClick={() => duplicateDraft(draft)}>
+                      <Button variant="ghost" size="sm" onClick={() => duplicateDraft(draft)} disabledReason={reason}>
                         Duplicate
                       </Button>
-                      <DeleteButton label="Delete draft" confirm={DELETE_CONFIRM} onConfirm={() => deleteDraft(draft.id)} />
+                      <DeleteButton label="Delete draft" disabledReason={reason} confirm={DELETE_CONFIRM} onConfirm={() => deleteDraft(draft.id)} />
                     </>
                   }
                 />

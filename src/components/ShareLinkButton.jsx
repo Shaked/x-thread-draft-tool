@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { draftsApi } from '../utils/api'
 import Menu from '../ui/Menu'
 import { useToast } from '../ui/Toast'
+import { useViewAsReason } from '../utils/viewAs'
 
 // The lifetimes the Share menu offers. One hour is the default.
 const LIFETIMES = [
@@ -15,6 +16,7 @@ const LIFETIMES = [
 export default function ShareLinkButton({ draftId }) {
   const [busy, setBusy] = useState(false)
   const toast = useToast()
+  const reason = useViewAsReason()
 
   const share = async (lifetime) => {
     if (busy) return
@@ -38,7 +40,7 @@ export default function ShareLinkButton({ draftId }) {
   return (
     <Menu
       title="Link valid for"
-      trigger={{ label: 'Share', icon: 'share', variant: 'secondary', loading: busy, title: 'Share a link that stops working after a set time' }}
+      trigger={{ label: 'Share', icon: 'share', variant: 'secondary', loading: busy, disabledReason: reason, title: 'Share a link that stops working after a set time' }}
       items={LIFETIMES.map((lifetime) => ({
         label: lifetime.isDefault ? `${lifetime.label} (default)` : lifetime.label,
         onSelect: () => share(lifetime)
