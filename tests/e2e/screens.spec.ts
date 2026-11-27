@@ -104,7 +104,7 @@ async function shoot(
 test.describe('screens', () => {
   for (const width of WIDTHS) {
     test(`captures every screen at ${width}px`, async ({ browser, request }) => {
-      test.setTimeout(900_000)
+      test.setTimeout(180_000)
 
       // A fresh login per run and width, so drafts from earlier runs or the other viewport never show up.
       const run = `${width}-${Date.now()}`
