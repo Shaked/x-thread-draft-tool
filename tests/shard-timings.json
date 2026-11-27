@@ -173,6 +173,7 @@
   "tests/unit/reply-lint-golden.test.js": 139,
   "tests/unit/reply-lint.test.js": 640,
   "tests/unit/reply-style-stop.test.js": 307,
+  "tests/unit/revision-diff.test.js": 1100,
   "tests/unit/session-janitor.test.js": 436,
   "tests/unit/shard-sequencer.test.js": 886,
   "tests/unit/skin.test.js": 722,
