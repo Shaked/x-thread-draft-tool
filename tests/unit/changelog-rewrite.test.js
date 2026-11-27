@@ -26,6 +26,13 @@ describe('rewriteText', () => {
   })
 })
 
+describe('originalOf', () => {
+  it('finds the heading only at the start of a line, so a line that mentions it does not match', () => {
+    const text = rewriteText(original, { ...entry, lines: ['Read ## Technical details'] })
+    expect(originalOf(text)).toBe(original)
+  })
+})
+
 describe('inWindow', () => {
   it('allows entries dated from 2026-11-11 on, and refuses earlier ones and other paths', () => {
     expect(inWindow('docs/changelogs/20261111-000000-a.md')).toBe(true)

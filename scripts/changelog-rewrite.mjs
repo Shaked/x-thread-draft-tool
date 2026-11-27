@@ -54,8 +54,8 @@ export function rewriteText(original, { title, lines, area, pr }) {
 
 /** Pure: the original text of an entry: the text under the heading once rewritten, else the whole text. */
 export function originalOf(text) {
-  const at = text.indexOf(`${MARK}\n\n`)
-  return at === -1 ? text : text.slice(at + MARK.length + 2)
+  const at = text.indexOf(`\n${MARK}\n\n`) // the heading starts a line, so a title that mentions it does not match
+  return at === -1 ? text : text.slice(at + MARK.length + 3)
 }
 
 /** Pure: the first `# ` heading of a text, or '' when none. */
@@ -109,10 +109,13 @@ export function planBatch(batch, readFile) {
 export function checkBatch(batch, readFile, readOriginal) {
   const findings = []
   if (!Array.isArray(batch)) return { ok: false, findings: ['the batch must be a JSON array of entries'] }
+  const files = new Set()
   batch.forEach((entry, i) => {
     const label = typeof entry?.file === 'string' ? entry.file : `entry ${i + 1}`
     const problems = entryProblems(entry ?? {})
     if (problems.length) return problems.forEach((problem) => findings.push(`${label}: ${problem}`))
+    if (files.has(entry.file)) return findings.push(`${label}: listed twice in the batch`)
+    files.add(entry.file)
     if (!inWindow(entry.file)) return findings.push(`${label}: dated before ${WINDOW_START}, outside the rewrite window`)
     const current = readFile(entry.file)
     if (current === null) return findings.push(`${label}: file not found`)
