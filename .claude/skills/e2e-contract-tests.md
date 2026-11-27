@@ -1,28 +1,28 @@
 # Skill: End-to-end contract tests without real clients or LLMs
 
-Use this skill when asked to test a client "end to end", to prove a client can connect, to replace a manual or owner check with an automated one, or when a test would need someone to sign in, click consent or type into an app.
+The method is the plugin skill `contract-tests` (`plugins/contract-tests/skills/contract-tests/SKILL.md`, plugin `contract-tests@agent-kit`). Read it for the nine steps. This file keeps what is specific to this repository: the owner rules, and where the helpers are.
+
+Use it when asked to test a client "end to end", to prove a client can connect, to replace a manual or owner check with an automated one, or when a test would need someone to sign in, click consent or type into an app.
 
 ## Owner rules (non-negotiable)
 - Tests run in normal GitHub Actions and locally with `npm run test:unit`. No person, no client binary (Claude Code, Codex, ChatGPT, Claude web), no browser sign-in, no paid LLM call.
 - The app calls no LLM and has no opt-in LLM path. Do not add one without an owner decision in the ledger.
-- No manual checks. If a step needs a human, the test is wrong: redesign it (step 2).
+- No manual checks. If a step needs a human, the test is wrong: redesign it (plugin step 2).
 - Writes under test must be atomic and idempotent, and the tests must prove both.
 
-## Steps
-1. **Write the contract down first.** List each wire exchange the real client makes: request method, path, headers, body; response status, headers, body. Take it from the spec (RFC 9728, 8414, 7591, 7636, 9207, 6749 section 5, the MCP transport) and from the client's published docs. Write "not checked" for anything you did not read.
-2. **Replace every human or binary step with a mock that speaks the protocol.**
-   - Sign-in and consent: a session cookie from the test helpers plus a scripted POST of the consent form.
-   - The client: a scripted spec-following client (the `discover`/`signIn` helpers in tests/api/mcp-contract.test.js), or the official SDK client with its `fetch` set to the in-process `route()`.
-   - Outbound fetches (client metadata documents, images): `vi.spyOn(globalThis, 'fetch')` plus the resolver stub.
-   - Blob store: `vi.mock`.
-3. **Keep the server real.** Use `route()` from `server/router.js` against PGlite (`tests/api/helpers/db.js`). Never mock a handler, a token check or SQL.
-4. **The client discovers, it never assumes.** Read `WWW-Authenticate` → protected-resource metadata → `authorization_servers[0]` → authorization-server metadata, and use only the endpoints listed there. Assert what real clients depend on: issuer, S256, `none` auth, registration endpoint, metadata-document flag, `state` and `iss` on the redirect, the exact loopback port, token fields and `cache-control: no-store`, error bodies (`{error, error_description}`, JSON-RPC codes), rotation (replay of an old refresh token gives `invalid_grant` and revokes the grant, so the new access token gets 401).
-5. **One profile per client.** Use a table of identity, redirect URI, `resource` sent or not, and protocol version, then `describe.each`. When a real client fails in the field, add its profile first, and only then fix the server.
-6. **Fail on hidden spend.** A fetch guard fails the test on any host other than the app and the mocked URLs.
-7. **Prove atomicity and idempotency for each write.**
-   - Inject a failure with `setQueryImpl`: throw on the write statement, and separately instead of `COMMIT`. Assert the row is byte-equal to before, and that a retry succeeds once.
-   - Replay the same request: same status and body, one write (version or `updated_at` changes once).
-   - Concurrency: run two writes with `Promise.all`; neither is lost.
-   - Conflict: a stale precondition gets 412 and no write.
-8. **Run.** `npm run test:unit` locally and in CI. A new file under `tests/api/` starts with `// @vitest-environment node`. Never skip, disable or weaken an existing assertion. A deliberate behaviour change edits only that assertion and is named in the PR body.
-9. **Report.** List each contract item as passed, failing (with the gap at file:line) or not checked (with what would check it). Never write "verified with a real client".
+## This repository's helpers
+- Router: `route()` from `server/router.js`, called in-process (the server stays real).
+- Database: PGlite through `tests/api/helpers/db.js`. Inject a failure with `setQueryImpl` from `server/db.js`.
+- Scripted client and sign-in: the `discover` and `signIn` helpers in `tests/api/mcp-contract.test.js`. Profiles are a table in the same file. The other option the plugin allows is the official SDK client with its `fetch` set to `route()`.
+- What this app's clients depend on (plugin step 4, with this app's values):
+  - Authorization code with PKCE using `S256` only.
+  - Public client with `none` authentication; registration endpoint present.
+  - Client metadata document flag set, so clients identify themselves by URL.
+  - Redirect carries `state` and `iss`; loopback redirect uses the exact port the client registered.
+  - Errors are `{error, error_description}`; MCP JSON-RPC errors use the JSON-RPC codes.
+  - Token responses set `cache-control: no-store`.
+  - Replaying an old refresh token gives `invalid_grant` and revokes the grant, so the new access token gets 401.
+- Outbound fetches: `vi.spyOn(globalThis, 'fetch')` plus the resolver stub. Blob store: `vi.mock`.
+- Specification references for this app: RFC 9728, 8414, 7591, 7636, 9207, 6749 section 5, and the MCP transport.
+- A new file under `tests/api/` starts with `// @vitest-environment node`.
+- Never skip, disable or weaken an existing assertion.
