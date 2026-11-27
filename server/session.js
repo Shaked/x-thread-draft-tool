@@ -104,7 +104,7 @@ async function viewAsClaim(request, payload) {
 }
 
 /** A viewing caller may read, never change anything (#289). Called at the end of authenticate. */
-export function assertWritable(request, caller) {
+function assertWritable(request, caller) {
   if (!caller.viewAs) return caller
   if (request.method === 'GET' || request.method === 'HEAD') return caller
   throw new HttpError(403, `Viewing as ${caller.login}: read-only. End viewing to make changes.`)

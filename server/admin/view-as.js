@@ -6,11 +6,11 @@ import { SignJWT, jwtVerify } from 'jose'
 import { cookie, parseCookies } from '../http.js'
 import { secretKey } from '../session.js'
 
-export const VIEW_AS_COOKIE = 'xt_view_as'
+const VIEW_AS_COOKIE = 'xt_view_as'
 const AUDIENCE = 'view-as'
 const MAX_TOKEN = 4096
 /** Owner decision O1: 30 minutes. One constant, so a different answer is a one-line change. */
-export const VIEW_AS_MINUTES = 30
+const VIEW_AS_MINUTES = 30
 const MAX_AGE_SECONDS = VIEW_AS_MINUTES * 60
 
 /**
@@ -50,11 +50,7 @@ export function viewAsCookieValue(request) {
   return parseCookies(request)[VIEW_AS_COOKIE]
 }
 
-/** Strict, so no cross-site request carries it. */
-export function viewAsCookie(token) {
-  return cookie(VIEW_AS_COOKIE, token, { maxAge: MAX_AGE_SECONDS, sameSite: 'Strict' })
-}
-
+/** Strict, so no cross-site request carries it. The start route (Task 16) sets it with the same attributes. */
 export function clearViewAsCookie() {
   return cookie(VIEW_AS_COOKIE, '', { maxAge: 0, sameSite: 'Strict' })
 }
