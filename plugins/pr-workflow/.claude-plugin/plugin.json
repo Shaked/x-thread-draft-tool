@@ -1,0 +1,14 @@
+{
+  "name": "pr-workflow",
+  "version": "0.1.0",
+  "description": "Branch, commit, pull request and check-reading workflow for agents that change a GitHub repository: one helper script over the REST API.",
+  "author": {
+    "name": "Shaked"
+  },
+  "license": "MIT",
+  "network": {
+    "hosts": [
+      "api.github.com"
+    ]
+  }
+}
