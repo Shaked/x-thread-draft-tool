@@ -4,6 +4,13 @@
 //
 //   node tests/eval/discovery/score.mjs            prints the table, checks nothing
 //   node tests/eval/discovery/score.mjs --record   rewrites tests/eval/discovery/baseline.json from this run
+//   node tests/eval/discovery/score.mjs --refresh-stats   rewrites stats.json AND re-records every floor (see below)
+//
+// Corpus statistics (N, average document length, document frequency of each token) are frozen in stats.json, per
+// pool (normal, normal_admin) and mode. A text change to one tool therefore moves only that tool's scores.
+// `--record` never rewrites stats.json. `--refresh-stats` does, and is allowed only in a PR that adds or removes
+// a tool, or with the owner's word, with before and after tables in the PR. It lists every floor it would lower and
+// refuses to write unless `--allow-lower` is passed or the number of tools changed.
 //
 // The test in tests/api/mcp-discovery.test.js calls the same functions and fails when a number falls below
 // the recorded floor. See docs/architecture/mcp-discovery.md for how to read the report and raise a floor.
@@ -49,22 +56,57 @@ export function buildDocs(tools, { instructions } = {}) {
   })
 }
 
-/** BM25 over prepared docs. Ties are sorted by tool name, so the order is the same on every run. */
-function rankDocs(queryTokens, docs) {
-  const N = docs.length
-  const counts = docs.map((doc) => {
-    const map = new Map()
-    for (const token of doc.tokens) map.set(token, (map.get(token) ?? 0) + 1)
-    return map
-  })
-  const avgdl = docs.reduce((sum, doc) => sum + doc.tokens.length, 0) / N
+export const POOLS = ['normal', 'normal_admin']
+export const statsKey = (pool, mode) => `${pool}/${mode}`
+
+/** N, avgdl and the document frequency of each token for a set of docs. Only `--refresh-stats` stores this. */
+export function computeStats(docs) {
+  const df = Object.create(null)
+  for (const doc of docs) for (const token of new Set(doc.tokens)) df[token] = (df[token] ?? 0) + 1
+  return { N: docs.length, avgdl: docs.reduce((sum, doc) => sum + doc.tokens.length, 0) / docs.length, df: Object.fromEntries(Object.entries(df).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) }
+}
+
+/** The frozen statistics of every pool and mode, computed from the live server text (for `--refresh-stats` and tests). */
+export function computeAllStats({ tools, admin = [], instructions }) {
+  const stats = { schema: 1, pools: {} }
+  for (const pool of POOLS) {
+    for (const mode of MODES) {
+      const docs = buildDocs(pool === 'normal' ? tools : [...tools, ...admin], { instructions: mode === 'with_instructions' ? instructions : undefined })
+      stats.pools[statsKey(pool, mode)] = computeStats(docs)
+    }
+  }
+  return stats
+}
+
+const countsCache = new WeakMap()
+/** Term frequencies of each doc, built once per docs array (a run ranks hundreds of phrases against the same docs). */
+function termCounts(docs) {
+  let counts = countsCache.get(docs)
+  if (!counts) {
+    counts = docs.map((doc) => {
+      const map = new Map()
+      for (const token of doc.tokens) map.set(token, (map.get(token) ?? 0) + 1)
+      return map
+    })
+    countsCache.set(docs, counts)
+  }
+  return counts
+}
+
+/**
+ * BM25 over prepared docs, with corpus statistics taken from `stats` (frozen), not from `docs`. A token that is not
+ * in `stats.df` gets df=1: a new word counts as rare. Ties are sorted by tool name, so the order is the same on every run.
+ */
+function rankDocs(queryTokens, docs, stats) {
+  const { N, avgdl, df: dfs } = stats
+  const counts = termCounts(docs)
   const terms = [...new Set(queryTokens)]
   const scored = docs.map((doc, i) => {
     let score = 0
     for (const term of terms) {
       const tf = counts[i].get(term) ?? 0
       if (!tf) continue
-      const df = counts.filter((map) => map.has(term)).length
+      const df = Object.hasOwn(dfs, term) ? dfs[term] : 1
       const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5))
       score += idf * (tf * (K1 + 1)) / (tf + K1 * (1 - B + (B * doc.tokens.length) / avgdl))
     }
@@ -73,11 +115,24 @@ function rankDocs(queryTokens, docs) {
   return scored.sort((a, b) => b.score - a.score || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
 }
 
-/** Tools in score order for one phrase. `instructions` adds the instruction sentences that name each tool. */
-export function rank(phrase, tools, { instructions } = {}) {
-  return rankDocs(tokenize(phrase), buildDocs(tools, { instructions }))
+/**
+ * Tools in score order for one phrase. `instructions` adds the instruction sentences that name each tool.
+ * `stats` is required: the corpus statistics are frozen, never computed from the docs being ranked. A test that
+ * wants live statistics says so by passing `computeStats(buildDocs(...))` itself.
+ */
+export function rank(phrase, tools, { instructions, stats } = {}) {
+  if (!stats) throw new Error('rank: stats is required (the corpus statistics are frozen in stats.json)')
+  return rankDocs(tokenize(phrase), buildDocs(tools, { instructions }), stats)
 }
 
+let storedStats
+/** The frozen statistics from stats.json (read once). */
+export function loadStats() {
+  return (storedStats ??= JSON.parse(readFileSync(new URL('./stats.json', import.meta.url), 'utf8')))
+}
+
+/** Every tool's score for one phrase, by tool name (the report keeps these so a test can compare them bit for bit). */
+const scoresByName = (ranked) => Object.fromEntries(ranked.map((r) => [r.name, r.score]))
 const round3 = (x) => Math.round(x * 1000) / 1000
 const ceil3 = (x) => Math.ceil(x * 1000) / 1000
 
@@ -88,22 +143,24 @@ export const NAMES_CONNECTOR = /\bX\b|twitter|connector|draft|טוויטר|טי�
  * Scores the corpus in both modes. Positive phrases: top-1 and top-3 hits, the margin (best expected score minus
  * best other score). Negatives: the best write-tool score. Admin tools, when given, join the pool for `adminRun`.
  */
-export function evaluate({ tools, instructions, intents, negatives, admin = [] }) {
+export function evaluate({ tools, instructions, intents, negatives, admin = [], stats = loadStats() }) {
   const modes = {}
   for (const mode of MODES) {
     const text = mode === 'with_instructions' ? instructions : undefined
     const docs = buildDocs(tools, { instructions: text })
+    const poolStats = stats.pools[statsKey('normal', mode)]
     const cells = {}
     const phrases = []
     for (const intent of intents) {
       for (const phrase of intent.phrases) {
-        const ranked = rankDocs(tokenize(phrase.text), docs)
+        const ranked = rankDocs(tokenize(phrase.text), docs, poolStats)
         const rankOf = ranked.findIndex((r) => phrase.expect.includes(r.name))
         const bestExpected = ranked.find((r) => phrase.expect.includes(r.name)).score
         const bestOther = ranked.find((r) => !phrase.expect.includes(r.name)).score
         const row = {
           mode, intent: intent.id, lang: phrase.lang, text: phrase.text,
-          rank: rankOf, top1: rankOf === 0, top3: rankOf < 3, margin: round3(bestExpected - bestOther), first: ranked[0].name
+          rank: rankOf, top1: rankOf === 0, top3: rankOf < 3, margin: round3(bestExpected - bestOther), first: ranked[0].name,
+          scores: scoresByName(ranked)
         }
         phrases.push(row)
         const cell = (((cells[intent.id] ??= {})[phrase.lang]) ??= { top1: 0, top3: 0, total: 0, margin: Infinity })
@@ -114,31 +171,37 @@ export function evaluate({ tools, instructions, intents, negatives, admin = [] }
       }
     }
     const negs = {}
+    const negativeRows = []
     for (const neg of negatives) {
-      const ranked = rankDocs(tokenize(neg.text), docs)
+      const ranked = rankDocs(tokenize(neg.text), docs, poolStats)
+      negativeRows.push({ text: neg.text, scores: scoresByName(ranked) })
       const writeTop = ranked.find((r) => WRITE_TOOLS.includes(r.name))
       const entry = (negs[neg.lang] ??= { max_write_score: 0, total: 0 })
       entry.total += 1
       entry.max_write_score = Math.max(entry.max_write_score, writeTop.score)
     }
     for (const lang of Object.keys(negs)) negs[lang].max_write_score = ceil3(negs[lang].max_write_score)
-    modes[mode] = { cells, negatives: negs, phrases }
+    modes[mode] = { cells, negatives: negs, phrases, negativeRows }
   }
 
   // Admin run: normal tools and admin tools share one pool; no normal phrase may rank an admin tool first.
   const adminFirst = []
+  const adminRows = []
   if (admin.length) {
     const pool = [...tools, ...admin]
     const adminNames = new Set(admin.map((t) => t.name))
     for (const mode of MODES) {
       const docs = buildDocs(pool, { instructions: mode === 'with_instructions' ? instructions : undefined })
+      const poolStats = stats.pools[statsKey('normal_admin', mode)]
       for (const phrase of [...intents.flatMap((i) => i.phrases), ...negatives]) {
-        const first = rankDocs(tokenize(phrase.text), docs)[0].name
+        const ranked = rankDocs(tokenize(phrase.text), docs, poolStats)
+        adminRows.push({ mode, text: phrase.text, scores: scoresByName(ranked) })
+        const first = ranked[0].name
         if (adminNames.has(first)) adminFirst.push({ mode, text: phrase.text, first })
       }
     }
   }
-  return { modes, adminFirst }
+  return { modes, adminFirst, adminRows }
 }
 
 /** Compact table: one line per intent, language and mode. */
@@ -282,10 +345,10 @@ const here = new URL('.', import.meta.url)
 const readJson = (name) => JSON.parse(readFileSync(new URL(name, here), 'utf8'))
 
 /** One full run: the real server, the committed corpus. */
-export async function runCorpus() {
+export async function runCorpus({ stats } = {}) {
   const server = await loadServer()
   const { intents, negatives } = readJson('./intents.json')
-  return { server, intents, negatives, report: evaluate({ tools: server.tools, instructions: server.instructions, intents, negatives, admin: server.admin }) }
+  return { server, intents, negatives, report: evaluate({ tools: server.tools, instructions: server.instructions, intents, negatives, admin: server.admin, ...(stats ? { stats } : {}) }) }
 }
 
 /** Floors that a new run would lower (a higher number is worse for negatives). Empty when nothing goes down. */
@@ -307,9 +370,40 @@ export function loweredFloors(baseline, next) {
   return out
 }
 
+/**
+ * What `--refresh-stats` may do. Floors that the new statistics would lower are listed, and the refresh is refused
+ * unless `--allow-lower` is passed or the number of tools changed (N differs in some pool and mode).
+ */
+export function planRefresh({ baseline, oldStats, newStats, next, allowLower = false }) {
+  const lowered = loweredFloors(baseline, next)
+  const toolsChanged = POOLS.some((pool) => MODES.some((mode) => oldStats.pools[statsKey(pool, mode)]?.N !== newStats.pools[statsKey(pool, mode)].N))
+  return { lowered, toolsChanged, refused: lowered.length > 0 && !allowLower && !toolsChanged }
+}
+
+const writeJson = (name, value) => writeFileSync(new URL(name, here), `${JSON.stringify(value, null, 2)}\n`)
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const { report } = await runCorpus()
-  if (process.argv.includes('--record')) {
+  let { report, server, intents, negatives } = await runCorpus()
+  if (process.argv.includes('--refresh-stats')) {
+    // Only for a PR that adds or removes a tool, or with the owner's word. Rewrites stats.json and every floor in one go.
+    console.log('BEFORE (old statistics):')
+    console.log(formatTable(report))
+    const stats = computeAllStats(server)
+    const next = evaluate({ tools: server.tools, instructions: server.instructions, intents, negatives, admin: server.admin, stats })
+    const plan = planRefresh({ baseline: readJson('./baseline.json'), oldStats: loadStats(), newStats: stats, next, allowLower: process.argv.includes('--allow-lower') })
+    if (plan.lowered.length) {
+      console.error(`this refresh lowers ${plan.lowered.length} floor(s)${plan.toolsChanged ? ' (allowed: the number of tools changed)' : ''}:`)
+      for (const line of plan.lowered) console.error('  ' + line)
+    }
+    if (plan.refused) {
+      console.error('refused: nothing written. Fix the regression, or pass --allow-lower on purpose (say why in the PR).')
+      process.exit(1)
+    }
+    report = next
+    writeJson('./stats.json', stats)
+    writeJson('./baseline.json', toBaseline(report))
+    console.log('stats.json and baseline.json rewritten (all floors re-recorded). AFTER (new statistics):')
+  } else if (process.argv.includes('--record')) {
     const path = new URL('./baseline.json', here)
     let previous = null
     try {
@@ -323,8 +417,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       for (const line of lowered) console.error('  ' + line)
       process.exit(1)
     }
-    writeFileSync(path, `${JSON.stringify(toBaseline(report), null, 2)}\n`)
-    console.log('baseline.json written from this run')
+    writeJson('./baseline.json', toBaseline(report))
+    console.log('baseline.json written from this run (stats.json untouched)')
   }
   console.log(formatTable(report))
   console.log(`admin tools ranked first for a normal phrase: ${report.adminFirst.length}`)

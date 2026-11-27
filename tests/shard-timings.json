@@ -38,7 +38,7 @@
   "tests/api/mcp-contract.test.js": 2159,
   "tests/api/mcp-coverage.test.js": 300,
   "tests/api/mcp-default-use.test.js": 1650,
-  "tests/api/mcp-discovery.test.js": 635,
+  "tests/api/mcp-discovery.test.js": 812,
   "tests/api/mcp-edit-result.test.js": 1773,
   "tests/api/mcp-five-requests.test.js": 1378,
   "tests/api/mcp-images-parallel.test.js": 2225,
