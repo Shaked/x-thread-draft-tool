@@ -6,7 +6,7 @@
 // Use the built app, not `npm run dev`: in development React StrictMode runs the preview effect
 // twice, and the second request hits the one-use share link and gets 410.
 // Writes test-results/screens/<width>/<name>.png for 390 px and 1280 px wide:
-// login, login-suspended, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens, apps, changelog,
+// login, login-suspended, login-dark, login-suspended-dark, editor-401(-dark), editor-404(-dark), preview-dark, drafts-empty, drafts-three, editor, editor-export-menu, editor-bar-hidden (phones only), preview, share, tokens, apps, changelog,
 // dialog-delete, dialog-revoke, toast-copied (plan U5), consent-signed-out and consent (the OAuth approval pages, plan T3).
 // Under 800 px wide, each shot also writes <name>-viewport.png: what is on the screen, with the fixed bar.
 //
@@ -104,7 +104,8 @@ async function shoot(
 test.describe('screens', () => {
   for (const width of WIDTHS) {
     test(`captures every screen at ${width}px`, async ({ browser, request }) => {
-      test.setTimeout(180_000)
+      // Task 11 added six scenes: the full capture takes longer than the old 3 minutes on a loaded runner.
+      test.setTimeout(600_000)
 
       // A fresh login per run and width, so drafts from earlier runs or the other viewport never show up.
       const run = `${width}-${Date.now()}`
@@ -134,6 +135,13 @@ test.describe('screens', () => {
 
       await shoot(browser, width, 'login', '/')
       await shoot(browser, width, 'login-suspended', '/?suspended=1', { ready: (p) => p.getByRole('alert').getByText('This account is suspended.') })
+      // Task 11: the sign-in page and the screens of a draft that did not open, light and dark.
+      await shoot(browser, width, 'login-dark', '/', { theme: 'dark', ready: (p) => p.getByRole('button', { name: 'Sign in with GitHub' }) })
+      await shoot(browser, width, 'login-suspended-dark', '/?suspended=1', { theme: 'dark', ready: (p) => p.getByRole('alert').getByText('This account is suspended.') })
+      await shoot(browser, width, 'editor-401', `/draft/${editorId}`, { ready: (p) => p.getByRole('heading', { name: 'Sign in to open this draft' }) })
+      await shoot(browser, width, 'editor-401-dark', `/draft/${editorId}`, { theme: 'dark', ready: (p) => p.getByRole('heading', { name: 'Sign in to open this draft' }) })
+      await shoot(browser, width, 'editor-404', `/draft/missing-${run}`, { token: owner, ready: (p) => p.getByRole('heading', { name: 'Draft not found' }) })
+      await shoot(browser, width, 'editor-404-dark', `/draft/missing-${run}`, { token: owner, theme: 'dark', ready: (p) => p.getByRole('heading', { name: 'Draft not found' }) })
       await shoot(browser, width, 'drafts-three', '/', { token: owner, ready: (p) => p.getByText('Launch thread') })
       await shoot(browser, width, 'drafts-three-dark', '/', { token: owner, theme: 'dark', ready: (p) => p.getByText('Launch thread') })
 
@@ -219,6 +227,9 @@ test.describe('screens', () => {
       const previewToken = (await apiJson<{ token: string }>(request, owner, 'POST', `/api/drafts/${editorId}/share-tokens`)).token
       const shareToken = (await apiJson<{ token: string }>(request, owner, 'POST', `/api/drafts/${editorId}/share-tokens`)).token
       await shoot(browser, width, 'preview', `/x-thread-preview/${previewToken}`, { ready: (p) => p.frameLocator('iframe[title="Thread preview"]').getByText('Opening post') })
+      // A share link is one use: the dark shot needs its own.
+      const darkToken = (await apiJson<{ token: string }>(request, owner, 'POST', `/api/drafts/${editorId}/share-tokens`)).token
+      await shoot(browser, width, 'preview-dark', `/x-thread-preview/${darkToken}`, { theme: 'dark', ready: (p) => p.frameLocator('iframe[title="Thread preview"]').getByText('Opening post') })
       await shoot(browser, width, 'share', `/api/share/${shareToken}.html`, { ready: (p) => p.getByText('Opening post') })
 
       // The menu drawer: light and dark on both widths.

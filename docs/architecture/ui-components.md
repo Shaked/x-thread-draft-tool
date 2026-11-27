@@ -14,7 +14,7 @@ Some components have a second implementation behind the Components feature flag 
 
 | Prop | Type | Default | Notes |
 |---|---|---|---|
-| `name` | `share` \| `agent` \| `x` \| `export` \| `publish` \| `signout` \| `menu` \| `close` \| `chevron` \| `drag` \| `image` \| `link` \| `emoji` \| `plus` | required | Line icon from one set. |
+| `name` | `share` \| `agent` \| `x` \| `export` \| `publish` \| `signout` \| `menu` \| `close` \| `chevron` \| `drag` \| `image` \| `link` \| `emoji` \| `plus` \| `compose` \| `sync` | required | Line icon from one set. |
 | `size` | `md` \| `lg` | `md` | 20 px or 24 px (`--icon-size`, `--icon-size-lg`). |
 | `mirror` | boolean | `false` | Flips the icon in right-to-left text (arrows, chevrons). |
 
@@ -46,6 +46,7 @@ Some components have a second implementation behind the Components feature flag 
 | `back` | `{ to, label }` | | A ghost button that links back. |
 | `actions` | node | | Goes into the AppBar (header from 768 px, bottom bar on phones). |
 | `menu` | boolean | `true` | Shows the menu button. |
+| `bar` | boolean | `true` | `false` drops the menu and the bar (sign-out). Use it on screens for a signed-out visitor: sign-in, a draft that needs sign-in, the shared preview. |
 | `sticky` | boolean | `false` | Stays at the top while the page scrolls, with a bottom border. |
 | `titleSlot` | node | | Replaces the `h1` (for example the editor's title input). |
 | `status` | node | | Shown below the title (for example the editor's save status). |

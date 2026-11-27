@@ -24,8 +24,14 @@ const OUT = path.join('test-results', 'ui-audit')
 // Pages under audit. A page joins when its migration PR lands (plan section 5, rules for every migration PR).
 // `drafts` are seeded for that page's user (the draft list with rows, one Hebrew title for the RTL pass).
 // skin and kit: 'default' (the old look and components) is the admin's off switch (#406); nothing else is seeded.
-const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default' }[] = [
+const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default'; signedOut?: boolean; noHeading?: boolean }[] = [
   { name: 'about', path: '/about' },
+  // Signed-out screens (Task 11): the sign-in page, a draft that needs sign-in (401), and a shared preview that did not load.
+  { name: 'login', path: '/', signedOut: true },
+  { name: 'login-suspended', path: '/?suspended=1', signedOut: true },
+  { name: 'editor-401', path: '/draft/:first', signedOut: true, drafts: [{ title: 'Signed-out audit', posts: [{ id: 's1', text: 'Private draft', images: [], embeddedTweet: null }] }] },
+  { name: 'editor-404', path: '/draft/missing-draft' },
+  { name: 'preview-error', path: '/x-thread-preview/missing-token', signedOut: true, noHeading: true },
   { name: 'flags', path: '/admin/flags' },
   { name: 'changelog', path: '/admin/changelog' },
   { name: 'admin-stats', path: '/admin' },
@@ -209,7 +215,7 @@ const DELIVERY_EVENTS = {
   events: [{ at: '2026-11-26T10:00:00.000Z', source: 'ci', kind: 'run', id: '1.2', name: 'Tests', status: 'failure', ms: 61000, link: 'https://github.com/x/y/actions/runs/1' }]
 }
 
-async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default' } = {}) {
+async function openPage(browser: Browser, request: APIRequestContext, pagePath: string, c: (typeof CASES)[number], extra: { heading?: string; drafts?: Seed[]; menu?: boolean; skin?: 'default'; kit?: 'default'; signedOut?: boolean; noHeading?: boolean } = {}) {
   const phone = c.width < 800
   const context: BrowserContext = await browser.newContext({
     viewport: { width: c.width, height: phone ? 844 : 800 },
@@ -224,6 +230,8 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   const asAdmin = pagePath.startsWith('/admin') || Boolean(extra.skin || extra.kit)
   // Signed-in pages: the dev token goes out as a bearer header. The Hebrew pass answers the changelog itself.
   await context.route(`${ORIGIN}/api/**`, (route) => {
+    // A signed-out screen sends no session: the page must answer as it does for a visitor (sign-in, or 401 for a draft).
+    if (extra.signedOut) return route.continue()
     if (hebrew && new URL(route.request().url()).pathname === '/api/changelog') {
       return route.fulfill({ json: HEBREW_CHANGELOG })
     }
@@ -266,7 +274,9 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   if (extra.skin) await page.addInitScript((value) => localStorage.setItem('xt-skin', value), extra.skin)
   if (extra.kit) await page.addInitScript((value) => localStorage.setItem('xt-kit', value), extra.kit)
   await page.goto(`${BASE}${pagePath.replace(':first', firstDraftId)}`, { waitUntil: 'networkidle' })
-  await expect(extra.heading ? page.getByRole('heading', { name: extra.heading, level: 1 }) : page.getByRole('heading', { level: 1 })).toBeVisible()
+  // A screen without a page heading (the shared preview's error) is ready when its alert shows.
+  if (extra.noHeading) await expect(page.getByRole('alert')).toBeVisible()
+  else await expect(extra.heading ? page.getByRole('heading', { name: extra.heading, level: 1 }) : page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(page.getByText('Loading…')).toHaveCount(0)
   // The metrics page loads its numbers after the shell: audit the tables and the chart, not the error banner.
   if (pagePath === '/admin/metrics') {
@@ -282,7 +292,7 @@ async function openPage(browser: Browser, request: APIRequestContext, pagePath: 
   }
   // A Rare UI component loads in its own chunk: wait until it has replaced the current one.
   // Rare UI is the default: a page with the menu open or with drafts shows a Rare component (not on the old-components cases).
-  if (extra.kit !== 'default' && (extra.menu || extra.drafts?.length)) await expect(page.locator('[class*="ui-rare-"]').first()).toBeVisible()
+  if (extra.kit !== 'default' && !extra.signedOut && (extra.menu || extra.drafts?.length)) await expect(page.locator('[class*="ui-rare-"]').first()).toBeVisible()
   return { context, page }
 }
 
@@ -376,7 +386,7 @@ test.describe('UI audit', () => {
   for (const pageInfo of MIGRATED) {
     for (const c of CASES) {
       test(`${pageInfo.name} at ${c.name}`, async ({ browser, request }) => {
-        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts, menu: pageInfo.menu, skin: pageInfo.skin, kit: pageInfo.kit })
+        const { context, page } = await openPage(browser, request, pageInfo.path, c, { drafts: pageInfo.drafts, menu: pageInfo.menu, skin: pageInfo.skin, kit: pageInfo.kit, signedOut: pageInfo.signedOut, noHeading: pageInfo.noHeading })
         try {
           // No horizontal scroll (plan: scrollWidth <= innerWidth).
           const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }))

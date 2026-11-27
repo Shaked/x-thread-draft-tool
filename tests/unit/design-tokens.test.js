@@ -13,7 +13,6 @@ const TOKENS = 'src/styles/tokens.css'
 // Each entry leaves when its page migrates; Task 13 deletes the list.
 const LEGACY = new Set([
   'src/components/ImageUpload.jsx',
-  'src/pages/XThreadPreviewPage.jsx',
   'src/styles/App.css'
 ])
 

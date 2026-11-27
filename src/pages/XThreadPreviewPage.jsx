@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import Banner from '../ui/Banner'
+import Button from '../ui/Button'
+import Stack from '../ui/Stack'
+import Page from '../ui/Page'
+import Skeleton from '../ui/Skeleton'
+import PreviewFrame from '../components/PreviewFrame'
 
 export default function XThreadPreviewPage() {
   const { token } = useParams()
@@ -39,28 +45,20 @@ export default function XThreadPreviewPage() {
 
   if (error) {
     return (
-      <div className="app loading-screen">
-        <div className="loading" role="alert">{error}</div>
-      </div>
+      <Page width="narrow">
+        <Stack gap={4}>
+          <Banner tone="danger" role="alert">{error}</Banner>
+          <Button variant="secondary" to="/">Back to Home</Button>
+        </Stack>
+      </Page>
     )
   }
 
-  if (html !== null) {
-    // The share HTML is user content. A sandbox without allow-same-origin and allow-scripts keeps it
-    // away from this origin's cookie and fetch.
-    return (
-      <iframe
-        title="Thread preview"
-        sandbox="allow-popups allow-popups-to-escape-sandbox"
-        srcDoc={html}
-        style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', border: 0 }}
-      />
-    )
-  }
+  if (html !== null) return <PreviewFrame html={html} />
 
   return (
-    <div className="app loading-screen">
-      <div className="loading" role="status" aria-live="polite">Loading preview…</div>
-    </div>
+    <Page width="narrow">
+      <Skeleton lines={3} />
+    </Page>
   )
 }

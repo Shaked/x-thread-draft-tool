@@ -1,0 +1,2 @@
+- Sign-in page, draft loading and error screens, and the shared preview's loading and error text now use the shared UI kit (src/ui) and the tokens; the preview iframe's inline style moved to a class (#324, Task 11).
+- Signed-out screens (sign-in, a draft that needs sign-in, the shared preview) have no bar; the preview's error screen has a "Back to Home" link; the sign-in page has no GitHub mark (the kit's icons are line icons).
