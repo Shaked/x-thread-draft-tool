@@ -8,7 +8,8 @@ import { blobOrigin } from '../ui/origin.js'
 /** The most characters of one markdown block. */
 export const MARKDOWN_LIMIT = 8000
 const TWEET = /^https:\/\/(x|twitter)\.com\/[A-Za-z0-9_]{1,15}\/status\/\d+$/
-const SPECIAL = /[\\`*_[\]()#+\-!<>|]/g
+// Also ':' and '.', so a bare https://... or www.... in a title is not an auto-link.
+const SPECIAL = /[\\`*_[\]()#+\-!<>|:.]/g
 
 /** A backtick run longer than any run in `text` (at least 3), so the text cannot close the fence. */
 export function fenceFor(text) {
@@ -63,12 +64,20 @@ function capBlock(lines, total, editor) {
   return shown >= total ? out.join('\n') : `${out.join('\n')}\n\n... ${total - shown} more drafts: ${editor}`
 }
 
-/** An export (json, text or formatted) as one fenced block, cut to the limit with a note. */
+/** An export (json, text or formatted) as one fenced block of at most MARKDOWN_LIMIT characters; a cut one ends with "...". */
 export function exportBlock(text, format) {
-  const body = String(text ?? '')
-  const room = MARKDOWN_LIMIT - 200
-  const cut = Array.from(body).length > room ? `${Array.from(body).slice(0, room).join('')}\n...` : body
-  return fenced(cut, format === 'json' ? 'json' : 'text')
+  const chars = Array.from(String(text ?? ''))
+  const lang = format === 'json' ? 'json' : 'text'
+  const render = (n) => fenced(n < chars.length ? `${chars.slice(0, n).join('')}\n...` : chars.join(''), lang)
+  if (render(chars.length).length <= MARKDOWN_LIMIT) return render(chars.length)
+  let low = 0
+  let high = chars.length
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2)
+    if (render(mid).length <= MARKDOWN_LIMIT) low = mid
+    else high = mid - 1
+  }
+  return render(low)
 }
 
 /** A share link and when it stops working. */
