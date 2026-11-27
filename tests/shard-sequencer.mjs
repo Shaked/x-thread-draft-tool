@@ -8,8 +8,15 @@ import { readFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { BaseSequencer } from 'vitest/node'
 
-// The working directory is the repo root for every test script (jsdom has no file URL for this module).
-export const TIMINGS = JSON.parse(readFileSync(join(process.cwd(), 'tests/shard-timings.json'), 'utf8'))
+// The unit project runs under jsdom, where this module has no file URL, so fall back to the repo root.
+const readTimings = () => {
+  try {
+    return readFileSync(new URL('./shard-timings.json', import.meta.url), 'utf8')
+  } catch {
+    return readFileSync(join(process.cwd(), 'tests/shard-timings.json'), 'utf8')
+  }
+}
+export const TIMINGS = JSON.parse(readTimings())
 
 const median = (values) => {
   const sorted = [...values].sort((a, b) => a - b)
@@ -35,6 +42,13 @@ export class TimedShardSequencer extends BaseSequencer {
     const { index, count } = this.ctx.config.shard
     const root = this.ctx.config.root
     const entries = files.map((spec) => ({ spec, key: relative(root, spec.moduleId).split(sep).join('/') }))
+    const missing = entries.filter((entry) => !(entry.key in TIMINGS)).map((entry) => entry.key)
+    if (missing.length > 0) {
+      console.warn(
+        `shard-sequencer: ${missing.length} test file(s) have no time in tests/shard-timings.json and count as ${FALLBACK_MS} ms: ` +
+          `${missing.join(', ')}. Refresh the table with npm run shard-timings (docs/operations/shard-timings.md).`
+      )
+    }
     return splitByTime(entries, count)[index - 1].map((entry) => entry.spec)
   }
 }
