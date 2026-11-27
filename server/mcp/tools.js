@@ -16,6 +16,11 @@ import { PREVIOUS_POST } from '../routes/drafts.js'
 import { DRAFT_BEFORE } from '../routes/draft-edits.js'
 import { changeMeta, changesText } from './edit-result.js'
 import { stateLine } from './state-line.js'
+import { sniffImageType } from '../image-safety.js'
+
+const IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+const MAX_IMAGE_DATA_CHARS = 933_336 // 700,000 bytes as base64: about 66 KB of the 1,000,000-byte MCP body stay for the envelope
+const BASE64_RE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
 
 const UUID = { type: 'string', format: 'uuid' }
 const TITLE = { type: 'string', maxLength: 500, description: 'Draft title, at most 500 characters.' }
@@ -199,7 +204,9 @@ const TOOLS = [
       type: 'object',
       properties: {
         draftId: UUID,
-        url: { type: 'string', description: 'The public image address (http or https). Not needed with upload_link.' },
+        url: { type: 'string', description: 'The public image address (http or https). Not needed with upload_link or data.' },
+        data: { type: 'string', description: 'The image bytes as base64, at most 700,000 bytes (933,336 characters), instead of url. For our view and for scripts: a chat model cannot send the bytes, and an agent with file access (Claude Code) uses REST POST /images with the API token (curl --data-binary). Needs mime.' },
+        mime: { type: 'string', enum: IMAGE_MIMES, description: 'With data: image/png, image/jpeg, image/webp or image/gif. Refused when the bytes are another type.' },
         upload_link: { type: 'boolean', description: 'With postId and no url: make a one-time link (30 minutes) where the user adds up to the free image slots of that post from any device. Use it for a picture that exists only in the chat. Give the link to the user; when they say it is done, call get_draft_outline.' },
         postId: { type: 'string', description: 'Add the image to this post (at most 4 images per post).' },
         position: { type: 'integer', minimum: 1, description: 'With postId: 1-based place in the post. Default: last.' },
@@ -210,6 +217,7 @@ const TOOLS = [
     },
     run: async (args, ctx) => {
       if (args.upload_link === true) {
+        if (args.data !== undefined) return json({ error: 'Give data or url, not both, and no upload_link with data.' }, 422)
         if (args.postId === undefined || args.url !== undefined || args.replace !== undefined) return json({ error: 'upload_link needs postId and no url or replace.' }, 422)
         const made = await ctx.rest('POST', `/drafts/${enc(args.draftId)}/posts/${enc(args.postId)}/upload-links`, {})
         if (made.status >= 400) return made
@@ -220,7 +228,9 @@ const TOOLS = [
         const upload = { link: url, post, slots, expires_at: expiresAt, note: UPLOAD_LINK_NOTE }
         return withBefore(withViewPosts(json({ draft, upload }), current.draft.posts), current.draft)
       }
-      if (args.url === undefined) return json({ error: 'Give url (a public image address), or upload_link: true with postId.' }, 422)
+      if (args.data !== undefined) return addImageBytes(args, ctx)
+      if (args.mime !== undefined) return json({ error: 'mime goes with data.' }, 422)
+      if (args.url === undefined) return json({ error: 'Give url (a public image address), data and mime (the image bytes), or upload_link: true with postId.' }, 422)
       if (args.replace !== undefined) {
         const res = await ctx.rest('POST', `/drafts/${enc(args.draftId)}/images`, { url: args.url, replace: args.replace }, ifMatch(args.version))
         return viaRoute(ctx, res, (body) => ({ image_url: body.url, replaced: args.replace }))
@@ -621,11 +631,54 @@ function addStateLine(result, name, args, origin) {
   if (line) result.content.push({ type: 'text', text: line })
 }
 
+
+/**
+ * #419: the image comes as base64 `data`. Same checks as POST /images (type from the bytes, metadata removed, size, storage
+ * cap), which the tool calls in-process with the raw bytes. Every refusal happens before any upload; with postId or replace
+ * the stored file is attached by the same routes as a url, and removed again when that fails.
+ */
+async function addImageBytes(args, ctx) {
+  const refuse = (text) => json({ error: text }, 422)
+  if (args.url !== undefined || args.upload_link === true) return refuse('Give data or url, not both, and no upload_link with data.')
+  if (args.mime === undefined) return refuse(`data needs mime: ${IMAGE_MIMES.join(', ')}.`)
+  if (!IMAGE_MIMES.includes(args.mime)) return refuse(`mime must be one of ${IMAGE_MIMES.join(', ')}.`)
+  if (args.data.length > MAX_IMAGE_DATA_CHARS) return refuse('The image is over 700,000 bytes (933,336 base64 characters). Use REST POST /images with the API token (curl --data-binary) or the upload link (upload_link: true with postId).')
+  if (args.data.length === 0 || !BASE64_RE.test(args.data)) return refuse('data is not valid base64. Send the bytes of one PNG, JPEG, WebP or GIF file as standard base64.')
+  const bytes = new Uint8Array(Buffer.from(args.data, 'base64'))
+  const type = sniffImageType(bytes)
+  if (type !== null && type !== args.mime) return refuse(`mime says ${args.mime} but the bytes are ${type}. Send the matching mime.`)
+  const uploaded = await ctx.rest('POST', `/images?draftId=${enc(args.draftId)}`, bytes, { 'content-type': args.mime })
+  if (uploaded.status >= 400) return uploaded
+  const { url } = await uploaded.json()
+  const discard = () => ctx.rest('DELETE', '/images', { url, if_unused: true }).catch(() => {})
+  try {
+    if (args.replace !== undefined) {
+      const res = await ctx.rest('POST', `/drafts/${enc(args.draftId)}/images`, { url, replace: args.replace }, ifMatch(args.version))
+      if (res.status >= 400) await discard()
+      return viaRoute(ctx, res, (body) => ({ image_url: body.url, replaced: args.replace }))
+    }
+    if (args.postId !== undefined) {
+      const res = await ctx.rest('POST', `/drafts/${enc(args.draftId)}/images`, { url, post_id: args.postId, ...pick(args, ['position']) })
+      if (res.status >= 400) await discard()
+      return viaRoute(ctx, res, (body) => ({ url: body.url, postId: args.postId }))
+    }
+    const current = await fetchOwnedDraft(ctx, args.draftId)
+    if (current.failure) return current.failure
+    const draft = { ...outline(current.draft), url: editorUrl(ctx.origin, current.draft.id) }
+    return withBefore(withViewPosts(json({ draft, url }), current.draft.posts), current.draft)
+  } catch (err) {
+    await discard()
+    throw err
+  }
+}
+
 /** Calls the REST router in-process as `caller`. No Authorization header: the caller is set in runAs. */
 function restAs(origin, caller) {
   return (method, path, body, headers = {}) => {
     const init = { method, headers: { ...headers } }
-    if (body !== undefined) {
+    if (body instanceof Uint8Array) {
+      init.body = body // raw bytes (#419): the caller sets content-type
+    } else if (body !== undefined) {
       init.headers['content-type'] = 'application/json'
       init.body = JSON.stringify(body)
     }

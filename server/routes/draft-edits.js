@@ -227,15 +227,19 @@ async function addImage({ request, params }) {
   if (rows[0].is_published) throw new HttpError(409, PUBLISHED_ERROR)
   const early = plan('pending')(withMissingPostIds(rows[0].posts))
   if (early.error) throw new HttpError(early.status, early.error)
-  const { url } = await storeRemoteImage(session.uid, params.id, body.url)
+  // #419: a file the caller already uploaded (POST /images, the bytes path of the tool) is attached as it is: nothing is
+  // fetched and nothing is deleted when the edit fails; the caller owns that file and cleans it up.
+  const own = isOwnedBlobUrl(body.url, session.uid)
+  const { url } = own ? { url: body.url } : await storeRemoteImage(session.uid, params.id, body.url)
+  const discard = () => (own ? Promise.resolve() : deleteBlobUrls([url]).catch(() => {}))
   let response
   try {
     response = await editPosts(request, params.id, plan(url), { expected })
   } catch (err) {
-    await deleteBlobUrls([url]).catch(() => {})
+    await discard()
     throw err
   }
-  if (response.status >= 400) await deleteBlobUrls([url]).catch(() => {})
+  if (response.status >= 400) await discard()
   return response
 }
 
