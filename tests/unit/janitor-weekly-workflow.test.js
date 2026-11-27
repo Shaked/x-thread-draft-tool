@@ -46,6 +46,11 @@ describe('weekly janitor workflow', () => {
     expect(code).not.toMatch(/secrets\./)
   })
 
+  it('wraps the report in the status-report template and lints it with --template', () => {
+    for (const h of ['TL;DR', 'What you need to do', 'Waiting for', 'Blocked on you', 'Done', 'Details']) expect(code).toContain(`## ${h}`)
+    expect(code).toMatch(/reply-lint\.mjs --template /)
+  })
+
   it('lints the report before it posts it, and never echoes the token', () => {
     expect(code.indexOf('reply-lint.mjs')).toBeGreaterThan(-1)
     expect(code.indexOf('reply-lint.mjs')).toBeLessThan(code.indexOf('gh issue comment'))

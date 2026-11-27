@@ -502,8 +502,14 @@ const SECTIONS = [
 /** 3 to 6 words for every issue and merged pull request in the snapshot, keyed by number. */
 export function describeAll(snapshot) {
   const names = new Map()
-  for (const p of snapshot.pulls || []) names.set(p.number, shortName({ title: p.title || '' }))
-  for (const i of snapshot.issues || []) names.set(i.number, shortName({ title: i.title || '' }))
+  // A description the reply-style lint rejects (an emoji, a filler word, a title it cannot count) would stop a posted report:
+  // it is replaced by a fixed one.
+  const fit = (n, title) => {
+    const name = shortName({ title })
+    return LINT && LINT(`#${n} (${name}) is open.`).length ? 'title held back by lint' : name
+  }
+  for (const p of snapshot.pulls || []) names.set(p.number, fit(p.number, p.title || ''))
+  for (const i of snapshot.issues || []) names.set(i.number, fit(i.number, i.title || ''))
   return names
 }
 

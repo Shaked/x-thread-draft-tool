@@ -22,7 +22,7 @@ text with the reply-style lint and posts it as one comment on the reports issue 
 - Pass 2 (Claude sessions) needs the session tools, so it stays in `/janitor` too. CI does not load comments: the report names
   the issues whose comments need reading.
 - Turn it off: set the repository variable `JANITOR_AUTO` to `off` (also `false` or `0`, any case), or disable the workflow in the Actions tab.
-- It posts the raw pass 1 report, not the templated `/janitor` summary (the reports issue says so in one line).
+- It posts the pass 1 report inside the `status-report` template (the report under `Details`), not the `/janitor` summary (the reports issue says so in one line).
 - Issue titles are written by anyone: the report keeps no `@`, markup or URL from a title (`safeWord` in `janitor.mjs`).
 - Not proven until it ran: start the first run by hand (Actions tab, `dry_run` on first), then read the Monday run.
 - Test: `tests/unit/janitor-weekly-workflow.test.js`.

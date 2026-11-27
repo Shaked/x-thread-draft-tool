@@ -351,3 +351,22 @@ describe('hostile issue titles in a posted report (#461)', () => {
     expect(snap.markers).toEqual({ release: [12], claim: [12] })
   })
 })
+
+describe('descriptions the reply lint rejects (#461)', () => {
+  it('falls back to a fixed description for Hebrew, emoji and filler words, so the report still lints', () => {
+    configureLint(lint)
+    try {
+      const issues = [
+        { number: 1, title: 'שלום עולם בדיקה של כותרת' },
+        { number: 2, title: 'Improve 🚀 draft saving' },
+        { number: 3, title: 'Fix seamless draft saving' },
+        { number: 4, title: 'normal title about drafts' }
+      ]
+      const names = describeAll({ issues, pulls: [] })
+      expect([1, 2, 3].map((n) => names.get(n))).toEqual(Array(3).fill('title held back by lint'))
+      expect(names.get(4)).toBe('normal title about drafts')
+    } finally {
+      configureLint(null)
+    }
+  })
+})

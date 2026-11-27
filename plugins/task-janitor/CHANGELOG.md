@@ -4,6 +4,7 @@
 
 - The words of an issue title in a report lose `@`, markup characters and URLs, and are cut at 24 characters, so a title
   written by an outsider cannot ping a user or inject markup when the report is posted.
+- When the reply-style lint is set, a title description it rejects (Hebrew, an emoji, a filler word) becomes "title held back by lint", so one title cannot stop a posted report.
 - `fetch` leaves the report issue out of the `RELEASE` and `CLAIM` marker lists.
 
 ## 0.1.0
