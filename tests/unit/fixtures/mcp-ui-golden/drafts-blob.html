@@ -107,22 +107,15 @@ return {text: preview + (post&&post.chars>Array.from(preview).length?"…":""),c
 function postNode(thread, index, total, open) {const post=thread.posts[index];
 const { text, cut }=postText(post);
 const images=post&&Array.isArray(post.images)?post.images:[];
-const tweet=post&&typeof post.embeddedTweet==="string"?tweetFrom(post.embeddedTweet):null;
 const count=thread.counts?thread.counts[index]:null;
 const initial=Array.from(String(thread.title||"?").trim())[0]||"?";
-const body=el("div", {}, [el("header", {}, [el("strong", {}, [tr("thread", "draft")]), el("span", {}, [" " + (index + 1) + "/" + total])]), el("p", { dir: "auto" }, [text])]);
+const body=el("div", {}, [numberNode(index, total), el("p", { dir: "auto" }, [text])]);
 const links=cut?[]:linksIn(text);
 if (links.length>0) body.appendChild(el("ul", {}, links.map((url)=>el("li", {}, [linkButton(url, url, open)]))));
-if (images.length>0) {const items=[];
-images.forEach((img, n)=>{const url=typeof img==="string"?img:img&&img.url;
-const safe=safeImage(url, thread.imageOrigin);
-if (safe) {const pic=document.createElement("img");
-pic.setAttribute("src", safe);
-pic.setAttribute("alt", tr("thread", "image_alt", {n: n + 1,total: images.length}));
-pic.loading="lazy";
-items.push(el("li", {}, [pic]));} else if (safeUrl(url, null)) {items.push(el("li", {}, [linkButton(safeUrl(url, null), safeUrl(url, null), open)]));}});
-if (items.length>0) body.appendChild(el("ol", {}, items));};
-if (tweet) {body.appendChild(el("section", {}, [el("p", {}, [tweet.label]), linkButton(tr("thread", "open_on_x"), tweet.href, open)]));};
+const pics=imagesNode(images, thread.imageOrigin, open);
+if (pics) body.appendChild(pics);
+const card=tweetNode(post, open);
+if (card) body.appendChild(card);
 if (count) {const over=count.over_limit===true;
 const label=count.chars + "/280" + (over?tr("thread", "over_by", { n: count.chars - 280 }):"");
 body.appendChild(el("footer", {}, [el(over?"strong":"small", {}, [label])]));};
@@ -147,11 +140,11 @@ root.appendChild(headerNode(thread, open));
 if (!thread.saved) root.appendChild(el("p", { dir: "auto" }, [tr("thread", "not_saved")]));
 if (total===0) {root.appendChild(el("p", {}, [tr("thread", "no_posts")]));
 return;};
-const list=el("div", {}, [el("p", { dir: "auto" }, [tr("thread", "start")])]);
+const list=el("div", {}, [startLine()]);
 root.appendChild(list);
 const first=25;
 const showRange=(from, to)=>{for (let i=from; i<to; i++) list.appendChild(postNode(thread, i, total, open));
-if (to===total) list.appendChild(el("p", { dir: "auto" }, [tr("thread", "end")]));};
+if (to===total) list.appendChild(endLine());};
 showRange(0, Math.min(total, first));
 if (total>first) {const more=linkButton(tr("thread", "show_all", { n: total }), null, null);
 more.addEventListener("click", ()=>{more.remove();
@@ -219,6 +212,22 @@ else if (current&&quoted) current.embeddedTweet=quoted[1];
 else if (!url&&!current&&line.startsWith("Open: ")) url=line.slice(6);
 else current=null;};
 return {posts: posts.map((post)=>({text: post.lines.join("\n"),images: post.images,embeddedTweet: post.embeddedTweet})),url};}
+function imagesNode(images, imageOrigin, open) {const items=[];
+images.forEach((img, n)=>{const url=typeof img==="string"?img:img&&img.url;
+const safe=safeImage(url, imageOrigin);
+if (safe) {const pic=document.createElement("img");
+pic.setAttribute("src", safe);
+pic.setAttribute("alt", tr("thread", "image_alt", {n: n + 1,total: images.length}));
+pic.loading="lazy";
+items.push(el("li", {}, [pic]));} else {const href=safeUrl(url, null);
+if (href) items.push(el("li", {}, [linkButton(href, href, open)]));}});
+return items.length>0?el("ol", {}, items):null;}
+function tweetNode(post, open) {const tweet=post&&typeof post.embeddedTweet==="string"?tweetFrom(post.embeddedTweet):null;
+if (!tweet) return null;
+return el("section", {}, [el("p", {}, [tweet.label]), linkButton(tr("thread", "open_on_x"), tweet.href, open)]);}
+function numberNode(index, total) {return el("header", {}, [el("strong", {}, [tr("thread", "draft")]), el("span", {}, [" " + (index + 1) + "/" + total])]);}
+function startLine() {return el("p", { dir: "auto" }, [tr("thread", "start")]);}
+function endLine() {return el("p", { dir: "auto" }, [tr("thread", "end")]);}
 function dateText(draft, locale, now) {if (draft.is_published===true) {const then=Date.parse(draft.published_at);
 if (isNaN(then)) return (0,__vite_ssr_import_0__.tr)("drafts", "published");
 let day;

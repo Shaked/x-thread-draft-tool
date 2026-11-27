@@ -5,6 +5,7 @@
 // own (rule 10): it asks the host to call a tool, and the host does that.
 import { el, linkButton, tr, underEditorBase } from './client.js'
 import { RENDER_FUNCTIONS, STYLE as THREAD_STYLE } from './thread.js'
+import { RENDERERS } from './render/index.js'
 import { embedOrigin } from './origin.js'
 import { minifyCss, pageScript } from './script.js'
 
@@ -117,7 +118,7 @@ export function listFrom(result) {
 }
 
 // Every function the drafts view runs: the thread functions (shared, not copied) and the list functions above.
-const SCRIPT_FUNCTIONS = [...RENDER_FUNCTIONS, dateText, relativeTime, actionButton, errorText, draftRow, renderList, listFrom]
+const SCRIPT_FUNCTIONS = [...RENDER_FUNCTIONS, ...RENDERERS, dateText, relativeTime, actionButton, errorText, draftRow, renderList, listFrom]
 
 const STARTER = `
 (function () {
