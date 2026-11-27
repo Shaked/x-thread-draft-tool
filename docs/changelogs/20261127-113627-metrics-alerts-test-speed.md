@@ -3,7 +3,7 @@
 - The unit test for the metric alerts runs about 2 seconds faster, with the same limits and checks.
 
 Area: Speed
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/PENDING
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/602
 
 ## Technical details
 
