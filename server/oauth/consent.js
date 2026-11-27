@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto'
 import { SignJWT, jwtVerify } from 'jose'
 import { secretKey } from '../session.js'
+import { colours, controlHeight, fontStack, radius } from './style.js'
 
 const AUDIENCE = 'oauth-consent'
 const DECISION_TTL = '10m'
@@ -68,15 +69,18 @@ export function errorHeaders() {
   }
 }
 
-const STYLE = `body{font-family:system-ui,sans-serif;margin:0;padding:16px;line-height:1.45}
+// Values come from server/oauth/style.js (copied from tokens.css, Rare look); the rules are the old ones.
+const lightDark = ([, light, dark]) => `light-dark(${light}, ${dark})`
+const STYLE = `:root{color-scheme:light dark}
+body{font-family:${fontStack[1]};margin:0;padding:16px;line-height:1.45;background:${lightDark(colours.background)};color:${lightDark(colours.text)}}
 main{max-width:460px;margin:24px auto}h1{font-size:1.25rem}
-.warn{border:1px solid #b45309;padding:8px 10px;border-radius:6px}
-button{font:inherit;padding:10px 16px;border-radius:6px;border:0;margin-right:8px;cursor:pointer}
-button.approve{background:#1d4ed8;color:#fff}button.deny{background:#e5e7eb}
-.link-box{margin-top:20px}.link-box p{margin:0 0 8px}.link-box input{width:100%;box-sizing:border-box;font:inherit;padding:8px;border:1px solid #9ca3af;border-radius:6px}
+.warn{border:1px solid ${lightDark(colours.warning)};padding:8px 10px;border-radius:${radius.banner[1]}}
+button{font:inherit;min-height:${controlHeight[1]};padding:10px 16px;border-radius:${radius.control[1]};border:0;margin-right:8px;cursor:pointer}
+button.approve{background:${lightDark(colours.accent)};color:${lightDark(colours.textOnAccent)}}button.deny{background:${lightDark(colours.surface)};color:${lightDark(colours.text)}}
+.link-box{margin-top:20px}.link-box p{margin:0 0 8px}.link-box input{width:100%;box-sizing:border-box;font:inherit;padding:8px;border:1px solid ${lightDark(colours.border)};border-radius:${radius.control[1]};background:${lightDark(colours.background)};color:${lightDark(colours.text)}}
 #copy-note{margin-left:8px}
-.not-you{margin:0 0 12px}.not-you button{background:none;color:#1d4ed8;text-decoration:underline;padding:0;margin:0 0 0 4px}
-.continue{display:inline-block;padding:10px 16px;border-radius:6px;background:#1d4ed8;color:#fff;text-decoration:none}
+.not-you{margin:0 0 12px}.not-you button{background:none;color:${lightDark(colours.accent)};text-decoration:underline;padding:0;margin:0 0 0 4px;min-height:0}
+.continue{display:inline-block;min-height:${controlHeight[1]};box-sizing:border-box;padding:10px 16px;border-radius:${radius.control[1]};background:${lightDark(colours.accent)};color:${lightDark(colours.textOnAccent)};text-decoration:none}
 .code{font-size:2rem;font-weight:700;letter-spacing:.08em;font-family:ui-monospace,monospace;margin:16px 0}`
 
 function page(title, body) {
