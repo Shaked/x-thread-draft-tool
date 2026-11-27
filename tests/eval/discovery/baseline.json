@@ -268,6 +268,48 @@
             "total": 4,
             "margin": -4.25
           }
+        },
+        "replace_image": {
+          "en": {
+            "top1": 1,
+            "top3": 1,
+            "total": 4,
+            "margin": -4.842
+          },
+          "he": {
+            "top1": 2,
+            "top3": 4,
+            "total": 4,
+            "margin": -4.139
+          }
+        },
+        "move_image": {
+          "en": {
+            "top1": 2,
+            "top3": 3,
+            "total": 4,
+            "margin": -2.616
+          },
+          "he": {
+            "top1": 2,
+            "top3": 4,
+            "total": 4,
+            "margin": -2.858
+          }
+        },
+        "remove_images": {
+          "en": {
+            "top1": 2,
+            "top3": 2,
+            "total": 4,
+            "margin": -2.623
+          },
+          "he": {
+            "top1": 0,
+            "top3": 0,
+            "total": 4,
+            "margin": -6.409
+          }
         }
       },
       "negatives": {
@@ -546,6 +588,48 @@
             "total": 4,
             "margin": -3.948
           }
+        },
+        "replace_image": {
+          "en": {
+            "top1": 1,
+            "top3": 1,
+            "total": 4,
+            "margin": -4.401
+          },
+          "he": {
+            "top1": 2,
+            "top3": 4,
+            "total": 4,
+            "margin": -4.005
+          }
+        },
+        "move_image": {
+          "en": {
+            "top1": 2,
+            "top3": 3,
+            "total": 4,
+            "margin": -2.526
+          },
+          "he": {
+            "top1": 2,
+            "top3": 4,
+            "total": 4,
+            "margin": -2.776
+          }
+        },
+        "remove_images": {
+          "en": {
+            "top1": 2,
+            "top3": 2,
+            "total": 4,
+            "margin": -2.533
+          },
+          "he": {
+            "top1": 0,
+            "top3": 0,
+            "total": 4,
+            "margin": -6.204
+          }
         }
       },
       "negatives": {
@@ -674,6 +758,30 @@
     {
       "kind": "top3",
       "mode": "with_instructions",
+      "intent": "shorten",
+      "lang": "en",
+      "text": "make the second post shorter",
+      "reason": "top-3 miss at run: ranked 4, remove_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "shorten",
+      "lang": "en",
+      "text": "cut the opening down a bit",
+      "reason": "top-3 miss at run: ranked 17, create_thread_from_text first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "shorten",
+      "lang": "he",
+      "text": "תקצר קצת את הפתיחה",
+      "reason": "top-3 miss at run: ranked 20, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
       "intent": "share_link",
       "lang": "he",
       "text": "תן לי קישור לשלוח למישהו כדי שיקרא את השרשור",
@@ -774,6 +882,262 @@
       "lang": "en",
       "text": "What changed in the latest release?",
       "reason": "top-3 miss at run: ranked 12, create_share_link first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "add_hook",
+      "lang": "en",
+      "text": "write a stronger opening tweet",
+      "reason": "top-3 miss at run: ranked 4, create_draft first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "add_hook",
+      "lang": "en",
+      "text": "my opening post is weak, please improve it",
+      "reason": "top-3 miss at run: ranked 5, list_drafts first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "reorder",
+      "lang": "en",
+      "text": "swap posts 2 and 3",
+      "reason": "top-3 miss at run: ranked 11, publish_draft first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "reorder",
+      "lang": "en",
+      "text": "change the order of the tweets",
+      "reason": "top-3 miss at run: ranked 4, update_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "add_post",
+      "lang": "en",
+      "text": "append a closing tweet",
+      "reason": "top-3 miss at run: ranked 5, add_image_from_url first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "add_post",
+      "lang": "he",
+      "text": "תוסיף ציוץ בסוף שאומר תודה",
+      "reason": "top-3 miss at run: ranked 6, add_image_from_url first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "add_post",
+      "lang": "he",
+      "text": "עוד ציוץ אחד עם קריאה לפעולה",
+      "reason": "top-3 miss at run: ranked 6, update_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "add_post",
+      "lang": "he",
+      "text": "תוסיף ציוץ סיום",
+      "reason": "top-3 miss at run: ranked 6, add_image_from_url first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_post",
+      "lang": "en",
+      "text": "take out the last tweet",
+      "reason": "top-3 miss at run: ranked 4, add_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_post",
+      "lang": "en",
+      "text": "the third post is not needed, cut it",
+      "reason": "top-3 miss at run: ranked 10, remove_image first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "תוריד את הציוץ הרביעי",
+      "reason": "top-3 miss at run: ranked 5, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "תסיר את הפוסט על המחיר",
+      "reason": "top-3 miss at run: ranked 17, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "תוציא את הציוץ האחרון",
+      "reason": "top-3 miss at run: ranked 5, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "הפוסט השלישי מיותר, תוריד אותו",
+      "reason": "top-3 miss at run: ranked 17, update_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "split",
+      "lang": "he",
+      "text": "תפרק את המאמר הזה לשרשור",
+      "reason": "top-3 miss at run: ranked 4, add_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "en",
+      "text": "give me three other openings for my thread",
+      "reason": "top-3 miss at run: ranked 8, list_drafts first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "en",
+      "text": "suggest other ways to say my second tweet",
+      "reason": "top-3 miss at run: ranked 13, list_drafts first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "en",
+      "text": "what else could the first post say?",
+      "reason": "top-3 miss at run: ranked 9, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "he",
+      "text": "תן לי שלוש אפשרויות אחרות לפתיח",
+      "reason": "top-3 miss at run: ranked 11, list_drafts first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "he",
+      "text": "תציע ניסוחים אחרים לציוץ השני",
+      "reason": "top-3 miss at run: ranked 14, add_image_from_url first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "he",
+      "text": "מה עוד אפשר לכתוב בפוסט הראשון?",
+      "reason": "top-3 miss at run: ranked 11, create_draft first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "options",
+      "lang": "he",
+      "text": "תראה לי כמה גרסאות לציוץ האחרון",
+      "reason": "top-3 miss at run: ranked 15, add_image_from_url first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "replace_image",
+      "lang": "en",
+      "text": "Replace the photo in post 2 with this link",
+      "reason": "top-3 miss at run: ranked 7, create_share_link first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "replace_image",
+      "lang": "en",
+      "text": "Use a different photo instead of the old one",
+      "reason": "top-3 miss at run: ranked 14, get_draft first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "replace_image",
+      "lang": "en",
+      "text": "Replace the image in my thread everywhere it is used",
+      "reason": "top-3 miss at run: ranked 9, publish_draft first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "move_image",
+      "lang": "en",
+      "text": "Put the photo of the last post before the text",
+      "reason": "top-3 miss at run: ranked 4, add_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_images",
+      "lang": "en",
+      "text": "Take all photos off my thread",
+      "reason": "top-3 miss at run: ranked 17, list_drafts first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_images",
+      "lang": "en",
+      "text": "Strip the images from the last post",
+      "reason": "top-3 miss at run: ranked 6, add_image_from_url first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_images",
+      "lang": "he",
+      "text": "הסר את כל התמונות מהציוץ השני",
+      "reason": "top-3 miss at run: ranked 15, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_images",
+      "lang": "he",
+      "text": "מחק את כל התמונות מהפוסט הראשון",
+      "reason": "top-3 miss at run: ranked 15, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_images",
+      "lang": "he",
+      "text": "תוריד את כל התמונות מהשרשור",
+      "reason": "top-3 miss at run: ranked 16, remove_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "with_instructions",
+      "intent": "remove_images",
+      "lang": "he",
+      "text": "הסר את התמונות מכל הציוצים",
+      "reason": "top-3 miss at run: ranked 16, move_post first"
     },
     {
       "kind": "top3",
@@ -890,6 +1254,30 @@
     {
       "kind": "top3",
       "mode": "tools_only",
+      "intent": "shorten",
+      "lang": "en",
+      "text": "make the second post shorter",
+      "reason": "top-3 miss at run: ranked 4, remove_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "shorten",
+      "lang": "en",
+      "text": "cut the opening down a bit",
+      "reason": "top-3 miss at run: ranked 17, remove_image first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "shorten",
+      "lang": "he",
+      "text": "תקצר קצת את הפתיחה",
+      "reason": "top-3 miss at run: ranked 20, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
       "intent": "share_link",
       "lang": "he",
       "text": "תן לי קישור לשלוח למישהו כדי שיקרא את השרשור",
@@ -992,12 +1380,260 @@
       "reason": "top-3 miss at run: ranked 12, create_share_link first"
     },
     {
-      "kind": "admin_first",
-      "mode": "with_instructions",
-      "intent": null,
-      "lang": null,
-      "text": "Fix the wording of the last post in the launch thread",
-      "reason": "admin pool: admin_stats ranks first for this normal phrase"
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "add_hook",
+      "lang": "en",
+      "text": "write a stronger opening tweet",
+      "reason": "top-3 miss at run: ranked 4, create_draft first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "add_hook",
+      "lang": "en",
+      "text": "my opening post is weak, please improve it",
+      "reason": "top-3 miss at run: ranked 5, list_drafts first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "reorder",
+      "lang": "en",
+      "text": "swap posts 2 and 3",
+      "reason": "top-3 miss at run: ranked 10, publish_draft first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "reorder",
+      "lang": "en",
+      "text": "change the order of the tweets",
+      "reason": "top-3 miss at run: ranked 4, update_draft first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "add_post",
+      "lang": "en",
+      "text": "append a closing tweet",
+      "reason": "top-3 miss at run: ranked 5, add_image_from_url first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "add_post",
+      "lang": "he",
+      "text": "תוסיף ציוץ בסוף שאומר תודה",
+      "reason": "top-3 miss at run: ranked 6, add_image_from_url first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "add_post",
+      "lang": "he",
+      "text": "עוד ציוץ אחד עם קריאה לפעולה",
+      "reason": "top-3 miss at run: ranked 6, update_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "add_post",
+      "lang": "he",
+      "text": "תוסיף ציוץ סיום",
+      "reason": "top-3 miss at run: ranked 6, add_image_from_url first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_post",
+      "lang": "en",
+      "text": "take out the last tweet",
+      "reason": "top-3 miss at run: ranked 4, add_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_post",
+      "lang": "en",
+      "text": "the third post is not needed, cut it",
+      "reason": "top-3 miss at run: ranked 10, remove_image first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "תוריד את הציוץ הרביעי",
+      "reason": "top-3 miss at run: ranked 5, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "תסיר את הפוסט על המחיר",
+      "reason": "top-3 miss at run: ranked 17, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "תוציא את הציוץ האחרון",
+      "reason": "top-3 miss at run: ranked 5, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_post",
+      "lang": "he",
+      "text": "הפוסט השלישי מיותר, תוריד אותו",
+      "reason": "top-3 miss at run: ranked 17, update_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "split",
+      "lang": "he",
+      "text": "תפרק את המאמר הזה לשרשור",
+      "reason": "top-3 miss at run: ranked 5, add_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "en",
+      "text": "give me three other openings for my thread",
+      "reason": "top-3 miss at run: ranked 8, create_draft first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "en",
+      "text": "suggest other ways to say my second tweet",
+      "reason": "top-3 miss at run: ranked 12, list_drafts first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "en",
+      "text": "what else could the first post say?",
+      "reason": "top-3 miss at run: ranked 9, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "he",
+      "text": "תן לי שלוש אפשרויות אחרות לפתיח",
+      "reason": "top-3 miss at run: ranked 11, list_drafts first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "he",
+      "text": "תציע ניסוחים אחרים לציוץ השני",
+      "reason": "top-3 miss at run: ranked 14, add_image_from_url first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "he",
+      "text": "מה עוד אפשר לכתוב בפוסט הראשון?",
+      "reason": "top-3 miss at run: ranked 11, create_draft first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "options",
+      "lang": "he",
+      "text": "תראה לי כמה גרסאות לציוץ האחרון",
+      "reason": "top-3 miss at run: ranked 15, add_image_from_url first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "replace_image",
+      "lang": "en",
+      "text": "Replace the photo in post 2 with this link",
+      "reason": "top-3 miss at run: ranked 5, create_share_link first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "replace_image",
+      "lang": "en",
+      "text": "Use a different photo instead of the old one",
+      "reason": "top-3 miss at run: ranked 12, get_draft first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "replace_image",
+      "lang": "en",
+      "text": "Replace the image in my thread everywhere it is used",
+      "reason": "top-3 miss at run: ranked 9, publish_draft first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "move_image",
+      "lang": "en",
+      "text": "Put the photo of the last post before the text",
+      "reason": "top-3 miss at run: ranked 9, add_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_images",
+      "lang": "en",
+      "text": "Take all photos off my thread",
+      "reason": "top-3 miss at run: ranked 17, list_drafts first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_images",
+      "lang": "en",
+      "text": "Strip the images from the last post",
+      "reason": "top-3 miss at run: ranked 6, add_image_from_url first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_images",
+      "lang": "he",
+      "text": "הסר את כל התמונות מהציוץ השני",
+      "reason": "top-3 miss at run: ranked 15, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_images",
+      "lang": "he",
+      "text": "מחק את כל התמונות מהפוסט הראשון",
+      "reason": "top-3 miss at run: ranked 15, move_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_images",
+      "lang": "he",
+      "text": "תוריד את כל התמונות מהשרשור",
+      "reason": "top-3 miss at run: ranked 16, remove_post first"
+    },
+    {
+      "kind": "top3",
+      "mode": "tools_only",
+      "intent": "remove_images",
+      "lang": "he",
+      "text": "הסר את התמונות מכל הציוצים",
+      "reason": "top-3 miss at run: ranked 16, move_post first"
     },
     {
       "kind": "admin_first",
@@ -1012,16 +1648,40 @@
       "mode": "with_instructions",
       "intent": null,
       "lang": null,
-      "text": "Is it better to post threads in the morning or the evening?",
-      "reason": "admin pool: admin_suspend_user ranks first for this normal phrase"
+      "text": "Use a different photo instead of the old one",
+      "reason": "admin pool: admin_metrics_summary ranks first for this normal phrase"
     },
     {
       "kind": "admin_first",
-      "mode": "tools_only",
+      "mode": "with_instructions",
       "intent": null,
       "lang": null,
-      "text": "Fix the wording of the last post in the launch thread",
-      "reason": "admin pool: admin_stats ranks first for this normal phrase"
+      "text": "Take all photos off my thread",
+      "reason": "admin pool: admin_delete_user ranks first for this normal phrase"
+    },
+    {
+      "kind": "admin_first",
+      "mode": "with_instructions",
+      "intent": null,
+      "lang": null,
+      "text": "הסר את כל התמונות מהציוץ השני",
+      "reason": "admin pool: admin_list_users ranks first for this normal phrase"
+    },
+    {
+      "kind": "admin_first",
+      "mode": "with_instructions",
+      "intent": null,
+      "lang": null,
+      "text": "מחק את כל התמונות מהפוסט הראשון",
+      "reason": "admin pool: admin_list_users ranks first for this normal phrase"
+    },
+    {
+      "kind": "admin_first",
+      "mode": "with_instructions",
+      "intent": null,
+      "lang": null,
+      "text": "Is it better to post threads in the morning or the evening?",
+      "reason": "admin pool: admin_suspend_user ranks first for this normal phrase"
     },
     {
       "kind": "admin_first",
@@ -1036,408 +1696,40 @@
       "mode": "tools_only",
       "intent": null,
       "lang": null,
+      "text": "Use a different photo instead of the old one",
+      "reason": "admin pool: admin_metrics_summary ranks first for this normal phrase"
+    },
+    {
+      "kind": "admin_first",
+      "mode": "tools_only",
+      "intent": null,
+      "lang": null,
+      "text": "Take all photos off my thread",
+      "reason": "admin pool: admin_delete_user ranks first for this normal phrase"
+    },
+    {
+      "kind": "admin_first",
+      "mode": "tools_only",
+      "intent": null,
+      "lang": null,
+      "text": "הסר את כל התמונות מהציוץ השני",
+      "reason": "admin pool: admin_list_users ranks first for this normal phrase"
+    },
+    {
+      "kind": "admin_first",
+      "mode": "tools_only",
+      "intent": null,
+      "lang": null,
+      "text": "מחק את כל התמונות מהפוסט הראשון",
+      "reason": "admin pool: admin_list_users ranks first for this normal phrase"
+    },
+    {
+      "kind": "admin_first",
+      "mode": "tools_only",
+      "intent": null,
+      "lang": null,
       "text": "Is it better to post threads in the morning or the evening?",
       "reason": "admin pool: admin_suspend_user ranks first for this normal phrase"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "shorten",
-      "lang": "en",
-      "text": "make the second post shorter",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "shorten",
-      "lang": "en",
-      "text": "cut the opening down a bit",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "shorten",
-      "lang": "he",
-      "text": "תקצר קצת את הפתיחה",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "add_hook",
-      "lang": "en",
-      "text": "write a stronger opening tweet",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "add_hook",
-      "lang": "en",
-      "text": "my opening post is weak, please improve it",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "reorder",
-      "lang": "en",
-      "text": "swap posts 2 and 3",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "reorder",
-      "lang": "en",
-      "text": "change the order of the tweets",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "add_post",
-      "lang": "en",
-      "text": "append a closing tweet",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "add_post",
-      "lang": "he",
-      "text": "תוסיף ציוץ בסוף שאומר תודה",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "add_post",
-      "lang": "he",
-      "text": "עוד ציוץ אחד עם קריאה לפעולה",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "add_post",
-      "lang": "he",
-      "text": "תוסיף ציוץ סיום",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "remove_post",
-      "lang": "en",
-      "text": "take out the last tweet",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "remove_post",
-      "lang": "en",
-      "text": "the third post is not needed, cut it",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "remove_post",
-      "lang": "he",
-      "text": "תוריד את הציוץ הרביעי",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "remove_post",
-      "lang": "he",
-      "text": "תסיר את הפוסט על המחיר",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "remove_post",
-      "lang": "he",
-      "text": "תוציא את הציוץ האחרון",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "remove_post",
-      "lang": "he",
-      "text": "הפוסט השלישי מיותר, תוריד אותו",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "split",
-      "lang": "he",
-      "text": "תפרק את המאמר הזה לשרשור",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "options",
-      "lang": "en",
-      "text": "give me three other openings for my thread",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "options",
-      "lang": "en",
-      "text": "suggest other ways to say my second tweet",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "options",
-      "lang": "en",
-      "text": "what else could the first post say?",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "options",
-      "lang": "he",
-      "text": "תן לי שלוש אפשרויות אחרות לפתיח",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "options",
-      "lang": "he",
-      "text": "תציע ניסוחים אחרים לציוץ השני",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "options",
-      "lang": "he",
-      "text": "מה עוד אפשר לכתוב בפוסט הראשון?",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "with_instructions",
-      "intent": "options",
-      "lang": "he",
-      "text": "תראה לי כמה גרסאות לציוץ האחרון",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "shorten",
-      "lang": "en",
-      "text": "make the second post shorter",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "shorten",
-      "lang": "en",
-      "text": "cut the opening down a bit",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "shorten",
-      "lang": "he",
-      "text": "תקצר קצת את הפתיחה",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "add_hook",
-      "lang": "en",
-      "text": "write a stronger opening tweet",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "add_hook",
-      "lang": "en",
-      "text": "my opening post is weak, please improve it",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "reorder",
-      "lang": "en",
-      "text": "swap posts 2 and 3",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "reorder",
-      "lang": "en",
-      "text": "change the order of the tweets",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "add_post",
-      "lang": "en",
-      "text": "append a closing tweet",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "add_post",
-      "lang": "he",
-      "text": "תוסיף ציוץ בסוף שאומר תודה",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "add_post",
-      "lang": "he",
-      "text": "עוד ציוץ אחד עם קריאה לפעולה",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "add_post",
-      "lang": "he",
-      "text": "תוסיף ציוץ סיום",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "remove_post",
-      "lang": "en",
-      "text": "take out the last tweet",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "remove_post",
-      "lang": "en",
-      "text": "the third post is not needed, cut it",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "remove_post",
-      "lang": "he",
-      "text": "תוריד את הציוץ הרביעי",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "remove_post",
-      "lang": "he",
-      "text": "תסיר את הפוסט על המחיר",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "remove_post",
-      "lang": "he",
-      "text": "תוציא את הציוץ האחרון",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "remove_post",
-      "lang": "he",
-      "text": "הפוסט השלישי מיותר, תוריד אותו",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "split",
-      "lang": "he",
-      "text": "תפרק את המאמר הזה לשרשור",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "options",
-      "lang": "en",
-      "text": "give me three other openings for my thread",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "options",
-      "lang": "en",
-      "text": "suggest other ways to say my second tweet",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "options",
-      "lang": "en",
-      "text": "what else could the first post say?",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "options",
-      "lang": "he",
-      "text": "תן לי שלוש אפשרויות אחרות לפתיח",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "options",
-      "lang": "he",
-      "text": "תציע ניסוחים אחרים לציוץ השני",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "options",
-      "lang": "he",
-      "text": "מה עוד אפשר לכתוב בפוסט הראשון?",
-      "reason": "added by Task 2; tool text fixed in #279"
-    },
-    {
-      "kind": "top3",
-      "mode": "tools_only",
-      "intent": "options",
-      "lang": "he",
-      "text": "תראה לי כמה גרסאות לציוץ האחרון",
-      "reason": "added by Task 2; tool text fixed in #279"
     }
   ]
 }
