@@ -399,9 +399,12 @@ describe('hostile titles cannot become live links, mentions, references or bidi 
     'plain www.evil.example alone',
     'send mailto:a@evil.example please',
     'run javascript:alert(1) please',
-    '#x (a) and #y (b) pair'
+    '#x (a) and #y (b) pair',
+    'Fix \uff3bclick\uff3d\uff08//evil.com\uff09 draft saving',
+    'Fix \uff3bclick\uff3d\uff08/evil.com\uff09 draft saving',
+    'proto //evil.com relative here'
   ]
-  const live = /@|#\d|\bGH-\d|:\/\/|mailto:|javascript:|www\.|\.[a-z]{2,}\/|[\u202a-\u202e\u2066-\u2069\u200b-\u200f\ufeff]|\p{Cc}/iu
+  const live = /@|#\d|\bGH-\d|\/\/|[[\]]|\]\(|mailto:|javascript:|www\.|\.[a-z]{2,}\/|[\u202a-\u202e\u2066-\u2069\u200b-\u200f\ufeff]|\p{Cc}/iu
 
   it('shortName keeps none of them', () => {
     for (const title of hostile) expect(shortName({ title }), title).not.toMatch(live)

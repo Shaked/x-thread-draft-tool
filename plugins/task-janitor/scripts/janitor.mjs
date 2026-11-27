@@ -83,9 +83,9 @@ export function titleText(title) {
  */
 export function safeWord(w) {
   const s = w.normalize('NFKC').replace(/[\p{Cf}\p{Cc}]/gu, '')
-  const t = s.replace(/[@#<>&*_~|\\{}!$^=+]/g, '')
+  const t = s.replace(/[@#<>&*_~|\\{}!$^=+[\]()`"]/g, '')
   // Test the original (a reference) and the final text (removing characters can build a link or a reference).
-  const link = (x) => /#\d|(^|[^a-z0-9])GH-\d|:\/\/|www\.|\.[a-z]{2,}\/|^(mailto|javascript|data|vbscript):/i.test(x)
+  const link = (x) => /#\d|(^|[^a-z0-9])GH-\d|\/\/|www\.|\.[a-z]{2,}\/|^(mailto|javascript|data|vbscript):/i.test(x)
   if (link(s) || link(t)) return ''
   return t.slice(0, 24)
 }
