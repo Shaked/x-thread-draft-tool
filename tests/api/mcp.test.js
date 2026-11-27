@@ -362,6 +362,7 @@ describe('tools/call', () => {
 
     const exported = await call(modernPost('tools/call', { name: 'export_draft', arguments: { id: bobDraft.id, format: 'text' } }, { token }))
     expect(exported.body.result.isError).toBe(true)
+    expect(exported.body.result.content).toHaveLength(1) // #293: an error has no markdown block
 
     const list = await call(modernPost('tools/call', { name: 'list_drafts', arguments: { published: false } }, { token }))
     expect(list.body.result.structuredContent.drafts).toEqual([])
@@ -394,6 +395,13 @@ describe('tools/call', () => {
     // M3: links, not bare tokens. The origin is the request's app origin.
     expect(shared.preview_url).toBe(`${APP_URL}/x-thread-preview/${shared.token}`)
     expect(shared.markdown_url).toBe(`${APP_URL}/api/share/${shared.token}.md`)
+    // #293: the JSON stays first; the markdown block is a link with its expiry.
+    expect(JSON.parse(share.body.result.content[0].text)).toEqual(shared)
+    expect(share.body.result.content[1].text).toContain(shared.preview_url)
+    expect(share.body.result.content[1].text).toContain(`expires ${shared.expires_at}`)
+    const exportedOwn = await call(modernPost('tools/call', { name: 'export_draft', arguments: { id: draft.id, format: 'text' } }, { token }))
+    expect(exportedOwn.body.result.content).toHaveLength(2)
+    expect(exportedOwn.body.result.content[1].text).toMatch(/^```text\n[\s\S]*\n```$/)
 
     const read = await call(modernPost('tools/call', { name: 'get_draft', arguments: { id: draft.id } }, { token }))
     expect(read.body.result.structuredContent.draft.url).toBe(`${APP_URL}/draft/${draft.id}`)

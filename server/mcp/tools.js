@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto'
 import { uiResourceUri } from './ui/index.js'
 import { blobOrigin } from './ui/origin.js'
 import { threadText } from './thread-text.js'
+import { draftsTable, exportBlock, shareLine } from './render/markdown.js'
 import { adminTool, listAdminTools } from './admin-tools.js'
 import { mcpAdminReason } from '../admin/role.js'
 import { PREVIOUS_POST } from '../routes/drafts.js'
@@ -56,6 +57,7 @@ const TOOLS = [
       }
     },
     annotations: { readOnlyHint: true },
+    markdown: (body, { origin }) => draftsTable(body?.drafts, origin),
     run: (args, { rest }) =>
       rest('GET', `/drafts?published=${args.published === true}&limit=${args.limit ?? 100}${args.detail === 'full' ? '' : '&view=summary'}`)
   },
@@ -116,6 +118,7 @@ const TOOLS = [
     description: 'Export one of your drafts as json, plain text or formatted text. With format text and numbered true, each post gets an i/N line (the UI\'s numbered copy).' + CONTENT_NOTE,
     inputSchema: { type: 'object', properties: { id: UUID, format: FORMATS, numbered: { type: 'boolean', default: false } }, required: ['id'] },
     annotations: { readOnlyHint: true },
+    markdown: (body, ctx, { args, text }) => exportBlock(text, args.format ?? 'json'),
     run: async (args, ctx) => {
       const owned = await fetchOwnedDraft(ctx, args.id)
       if (owned.failure) return owned.failure
@@ -150,6 +153,7 @@ const TOOLS = [
       },
       required: ['id']
     },
+    markdown: (body) => (body?.preview_url ? shareLine(body) : null),
     run: async (args, { rest, origin }) => {
       const res = await rest('POST', `/drafts/${enc(args.id)}/share-tokens`, pick(args, ['expires_in', 'one_time']))
       if (res.status >= 400) return res
@@ -581,6 +585,11 @@ export async function callTool(name, args, { caller, origin }) {
     // An edit adds what it changed instead (#405), and the whole thread only when the routing rule says so.
     if (VIEW_OUTLINE[name] && result._meta) {
       for (const text of EDIT_TOOLS.includes(name) ? editTexts(name, result, origin) : [markdownOf(result)]) result.content.push({ type: 'text', text })
+    }
+    // #293: the drafts table, the export block and the share link, as one markdown text part after the JSON. Never on an error.
+    if (tool.markdown && !result.isError) {
+      const text = tool.markdown(result.structuredContent, ctx, { args, text: result.content[0].text })
+      if (text) result.content.push({ type: 'text', text })
     }
     addStateLine(result, name, args, origin)
     return result
