@@ -60,21 +60,21 @@ describe('the admin over REST', () => {
     expect(res.status).toBe(200)
     const { flags } = await res.json()
     expect(flags.map((f) => [f.name, f.value, f.values, f.default])).toEqual([
-      ['look', 'rare', ['rare', 'default'], 'rare'],
-      ['components', 'rare', ['rare', 'default'], 'rare']
+      ['look', 'default', ['default', 'rare'], 'default'],
+      ['components', 'default', ['default', 'rare'], 'default']
     ])
     expect(flags.every((f) => f.meaning.length > 10)).toBe(true)
   })
 
-  it('sets the admin off switch (the old look) for the admin only, and writes one audit row', async () => {
-    const res = await web('POST', adminCookie, { name: 'look', value: 'default' })
+  it('sets a flag for the admin only, and writes one audit row', async () => {
+    const res = await web('POST', adminCookie, { name: 'look', value: 'rare' })
     expect(res.status).toBe(200)
-    expect((await res.json()).flags.find((f) => f.name === 'look').value).toBe('default')
-    expect((await (await web('GET', adminCookie)).json()).flags.find((f) => f.name === 'look').value).toBe('default')
+    expect((await res.json()).flags.find((f) => f.name === 'look').value).toBe('rare')
+    expect((await (await web('GET', adminCookie)).json()).flags.find((f) => f.name === 'look').value).toBe('rare')
     const rows = await auditRows()
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({ outcome: 'done', actor_login: 'shaked', target_user_id: null })
-    expect(rows[0].details).toEqual({ flag: 'look', from: 'rare', to: 'default', surface: 'web' })
+    expect(rows[0].details).toEqual({ flag: 'look', from: 'default', to: 'rare', surface: 'web' })
     const { rows: others } = await db.pg.query('select ui_flags from users where id = $1', [normal.id])
     expect(others[0].ui_flags).toEqual({})
   })
@@ -95,12 +95,12 @@ describe('the admin over MCP', () => {
       runAs({ ...caller, adminTool: name }, () =>
         route(new Request(`${APP_URL}/api${path}`, { method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined }))
       )
-    const set = await tool('admin_set_flag').run({ flag: 'components', value: 'default' }, { rest: rest('admin_set_flag') })
+    const set = await tool('admin_set_flag').run({ flag: 'components', value: 'rare' }, { rest: rest('admin_set_flag') })
     expect(set.status).toBe(200)
     const list = await tool('admin_list_flags').run({}, { rest: rest('admin_list_flags') })
     const { flags } = JSON.parse(await list.text())
-    expect(flags.find((f) => f.name === 'components').value).toBe('default')
-    expect((await auditRows()).at(-1).details).toEqual({ flag: 'components', from: 'rare', to: 'default', surface: 'mcp' })
+    expect(flags.find((f) => f.name === 'components').value).toBe('rare')
+    expect((await auditRows()).at(-1).details).toEqual({ flag: 'components', from: 'default', to: 'rare', surface: 'mcp' })
     // The wrong tool, a plain MCP caller and a bad argument are refused.
     expect((await rest('admin_stats')('GET', '/admin/flags')).status).toBe(404)
     expect((await runAs({ ...caller, admin: false, adminTool: undefined }, () => route(new Request(`${APP_URL}/api/admin/flags`)))).status).toBe(404)

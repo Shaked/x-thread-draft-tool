@@ -205,7 +205,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         draftId: UUID,
-        url: { type: 'string', description: 'The public image address (http or https). Not needed with upload_link or data.' },
+        url: { type: 'string', description: 'The public image address (http or https). Not needed with upload_link or data. An image attached in the chat cannot be sent here: with postId, call again with upload_link: true and no url; otherwise ask the user to open the editor link and add the image to the post.' },
         data: { type: 'string', description: 'The image bytes as base64, at most 700,000 bytes (933,336 characters), instead of url. For our view and for scripts: a chat model cannot send the bytes, and an agent with file access (Claude Code) uses REST POST /images with the API token (curl --data-binary). Needs mime.' },
         mime: { type: 'string', enum: IMAGE_MIMES, description: 'With data: image/png, image/jpeg, image/webp or image/gif. Refused when the bytes are another type.' },
         upload_link: { type: 'boolean', description: 'With postId and no url: make a one-time link (30 minutes) where the user adds up to the free image slots of that post from any device. Use it for a picture that exists only in the chat. Give the link to the user; when they say it is done, call get_draft_outline.' },
@@ -232,7 +232,7 @@ const TOOLS = [
       if (args.data !== undefined) return addImageBytes(args, ctx)
       if (args.mime !== undefined) return json({ error: 'mime goes with data.' }, 422)
       if (args.url === undefined) return json({ error: 'Give url (a public image address), data and mime (the image bytes), or upload_link: true with postId.' }, 422)
-      if (typeof args.url !== 'string' || !/^https?:\/\//i.test(args.url)) return notPublicUrl(args, ctx)
+      if (!isHttpUrl(args.url)) return notPublicUrl(args, ctx)
       if (args.replace !== undefined) {
         const res = await ctx.rest('POST', `/drafts/${enc(args.draftId)}/images`, { url: args.url, replace: args.replace }, ifMatch(args.version))
         return viaRoute(ctx, res, (body) => ({ image_url: body.url, replaced: args.replace }))
@@ -635,20 +635,40 @@ function addStateLine(result, name, args, origin) {
 
 
 /**
+ * #415 (#273 I1 C1): the `url` must parse as an http(s) URL with the same parser the server fetches with (remote-image.js), so a
+ * leading space, `https:a.com` or backslashes count as the URL they mean. Credentials are refused by the server, not here.
+ */
+function isHttpUrl(value) {
+  if (typeof value !== 'string') return false
+  try {
+    const { protocol } = new URL(value)
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/**
  * #415: a `url` that is not http(s) (a data: URL, a file path, an attachment name) cannot be fetched. Nothing is uploaded. The error
- * names the next step that exists: the upload link (with postId, #418), then the editor link for the user.
+ * names the next step that exists: the upload link (with postId and no url, #418), then the editor link for the user. With
+ * `replace` no upload link is offered: it cannot replace an image.
  */
 async function notPublicUrl(args, ctx) {
-  const editor = editorUrl(ctx.origin, args.draftId)
   const intro = 'That is not a public image URL. An image attached in the chat cannot be sent to this tool.'
-  if (args.postId === undefined) {
-    return json({ error: `${intro} Ask the user to open ${editor} and add the image to the post (drag, paste or click), then call get_draft_outline. For an upload link instead, call this tool with postId and upload_link: true.` }, 422)
-  }
+  // The editor link is built from the draft the caller owns (the same check as every other draft write here).
   const current = await fetchOwnedDraft(ctx, args.draftId)
   if (current.failure) return current.failure
-  const index = current.draft.posts.findIndex((post) => post.id === args.postId)
+  const editor = editorUrl(ctx.origin, current.draft.id)
+  const index = args.postId === undefined ? -1 : current.draft.posts.findIndex((post) => post.id === args.postId)
   const where = index < 0 ? 'the post' : `post ${index + 1}`
-  return json({ error: `${intro} Next step: call this tool with the same draftId and postId and upload_link: true, then give the user the link it returns (one time, 30 minutes, works on a phone). Or ask the user to open ${editor} and add the image to ${where} (drag, paste or click), then call get_draft_outline.` }, 422)
+  if (args.replace !== undefined) {
+    return json({ error: `${intro} An upload link cannot replace an image. Ask the user to open ${editor} and add the new image there (drag, paste or click), then call get_draft_outline.` }, 422)
+  }
+  const editorStep = `ask the user to open ${editor} and add the image to ${where} (drag, paste or click), then call get_draft_outline`
+  if (args.postId === undefined) {
+    return json({ error: `${intro} Ask the user to open ${editor} and add the image to the post (drag, paste or click), then call get_draft_outline. For an upload link instead, call this tool with postId and upload_link: true and no url.` }, 422)
+  }
+  return json({ error: `${intro} Next step: call this tool with the same draftId and postId and upload_link: true and no url, then give the user the link it returns (one time, 30 minutes, works on a phone). Or ${editorStep}.` }, 422)
 }
 
 /**

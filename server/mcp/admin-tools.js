@@ -148,26 +148,26 @@ const ADMIN_TOOLS = [
   },
   {
     name: 'admin_list_flags',
-    description: 'The feature flags of the admin (the Rare UI look and components): each with its value, allowed values and meaning. rare (Rare UI) is the default for everyone; default means the earlier purple look, only for this admin.',
+    description: 'The feature flags of the admin (the Rare UI look and components): each with its value, allowed values, default and meaning.',
     inputSchema: { type: 'object', properties: {} },
     run: (args, { rest }) => rest('GET', '/admin/flags')
   },
   {
     name: 'admin_set_flag',
     description:
-      'Set one feature flag, look or components, to rare (Rare UI, the default for everyone) or default (the earlier purple look, only for this admin). Affects only the view of this admin; no confirm token; audited.',
+      'Set one feature flag, look or components, to default or rare. Affects only the view of this admin; no confirm token; audited.',
     inputSchema: {
       type: 'object',
       properties: {
         flag: { type: 'string', enum: ['look', 'components'], description: 'Which flag.' },
-        value: { type: 'string', enum: ['rare', 'default'], description: 'rare (Rare UI, the default for everyone) or default (the earlier purple look, only this admin).' }
+        value: { type: 'string', enum: ['default', 'rare'], description: 'default or rare.' }
       },
       required: ['flag', 'value']
     },
     run: (args, { rest }) =>
       typeof args.flag === 'string' && typeof args.value === 'string'
         ? rest('POST', '/admin/flags', { name: args.flag, value: args.value })
-        : json({ error: 'Give flag (look or components) and value (rare or default; default is the earlier purple look).' }, 400)
+        : json({ error: 'Give flag (look or components) and value (default or rare).' }, 400)
   },
   {
     name: 'admin_suspend_user',
@@ -289,7 +289,7 @@ const ADMIN_TRIGGERS = {
   admin_metrics_summary: ['is anything wrong, health check, slow merges, failing CI', 'האם משהו שבור, בדיקת תקינות, מיזוגים איטיים'],
   admin_metrics_events: ['failing CI runs, recent merges and deploys', 'בדיקות שנכשלו, מיזוגים ופריסות אחרונים'],
   admin_list_flags: ['feature flags, the Rare UI look switches', 'דגלי תכונות, מתגי המראה'],
-  admin_set_flag: ['switch the Rare UI look or components back to the earlier purple look, or to Rare UI', 'דגל תכונה, מראה ניסיוני'],
+  admin_set_flag: ['turn the Rare UI look or components on or off', 'דגל תכונה, מראה ניסיוני'],
   admin_suspend_user: ['block or freeze a user', 'להשעות משתמש, לחסום משתמש'],
   admin_unsuspend_user: ['restore a suspended user', 'לבטל השעיה, להחזיר משתמש'],
   admin_delete_user: ['remove a user and all their content', 'למחוק משתמש וכל התוכן שלו']
