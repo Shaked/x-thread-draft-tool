@@ -231,6 +231,7 @@ const TOOLS = [
       if (args.data !== undefined) return addImageBytes(args, ctx)
       if (args.mime !== undefined) return json({ error: 'mime goes with data.' }, 422)
       if (args.url === undefined) return json({ error: 'Give url (a public image address), data and mime (the image bytes), or upload_link: true with postId.' }, 422)
+      if (typeof args.url !== 'string' || !/^https?:\/\//i.test(args.url)) return notPublicUrl(args, ctx)
       if (args.replace !== undefined) {
         const res = await ctx.rest('POST', `/drafts/${enc(args.draftId)}/images`, { url: args.url, replace: args.replace }, ifMatch(args.version))
         return viaRoute(ctx, res, (body) => ({ image_url: body.url, replaced: args.replace }))
@@ -631,6 +632,23 @@ function addStateLine(result, name, args, origin) {
   if (line) result.content.push({ type: 'text', text: line })
 }
 
+
+/**
+ * #415: a `url` that is not http(s) (a data: URL, a file path, an attachment name) cannot be fetched. Nothing is uploaded. The error
+ * names the next step that exists: the upload link (with postId, #418), then the editor link for the user.
+ */
+async function notPublicUrl(args, ctx) {
+  const editor = editorUrl(ctx.origin, args.draftId)
+  const intro = 'That is not a public image URL. An image attached in the chat cannot be sent to this tool.'
+  if (args.postId === undefined) {
+    return json({ error: `${intro} Ask the user to open ${editor} and add the image to the post (drag, paste or click), then call get_draft_outline. For an upload link instead, call this tool with postId and upload_link: true.` }, 422)
+  }
+  const current = await fetchOwnedDraft(ctx, args.draftId)
+  if (current.failure) return current.failure
+  const index = current.draft.posts.findIndex((post) => post.id === args.postId)
+  const where = index < 0 ? 'the post' : `post ${index + 1}`
+  return json({ error: `${intro} Next step: call this tool with the same draftId and postId and upload_link: true, then give the user the link it returns (one time, 30 minutes, works on a phone). Or ask the user to open ${editor} and add the image to ${where} (drag, paste or click), then call get_draft_outline.` }, 422)
+}
 
 /**
  * #419: the image comes as base64 `data`. Same checks as POST /images (type from the bytes, metadata removed, size), which the tool calls in-process with the raw bytes. Every refusal happens before any upload; with postId or replace
