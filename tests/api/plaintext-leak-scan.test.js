@@ -15,6 +15,7 @@ vi.mock('../../server/blob.js', () => ({
 
 import { route } from '../../server/router.js'
 import { setQueryImpl } from '../../server/db.js'
+import { flushMetrics } from '../../server/metrics/record.js'
 import { runAs } from '../../server/caller-context.js'
 import { issuePair, resolveAccess } from '../../server/oauth/tokens.js'
 import { ADMIN_REST_ROUTES, ADMIN_TOOL_REST_ROUTES, ADMIN_TOOLS } from '../../server/mcp/admin-tools.js'
@@ -50,6 +51,8 @@ const asText = (_key, value) => (value instanceof Uint8Array ? Buffer.from(value
 
 let db
 let failNextDraftInsert = false
+// Request metrics and error events are off in the API suite; this file turns both on and restores them.
+const savedEnv = { METRICS_DISABLED: process.env.METRICS_DISABLED, VERCEL_ENV: process.env.VERCEL_ENV }
 const captured = []
 const seen = [] // [where, text] for every answer the test receives
 const spies = ['log', 'warn', 'error'].map((level) =>
@@ -127,11 +130,16 @@ const hits = new Set() // admin REST route patterns that were called
 
 beforeAll(async () => {
   db = await setupTestDb()
+  process.env.METRICS_DISABLED = '0'
+  process.env.VERCEL_ENV = 'production'
   // A failure injected into one MCP tool: the next insert into drafts throws. Same SQL path as setupTestDb.
   setQueryImpl(async (text, params = []) => {
     if (failNextDraftInsert && /insert into drafts/i.test(text)) {
       failNextDraftInsert = false
-      throw new Error('injected failure')
+      // A database error can carry values in its message and detail; the markers go there too.
+      const failure = new Error(`injected failure ${EN} ${HE}`)
+      failure.detail = `Failing row: ${EN} ${HE}`
+      throw failure
     }
     const result = await db.pg.query(text, params)
     return { rows: result.rows, rowCount: result.affectedRows ?? result.rows.length }
@@ -234,10 +242,16 @@ beforeAll(async () => {
     const args = tool.name === 'admin_get_user' ? { id: alice.id } : ['admin_suspend_user', 'admin_unsuspend_user', 'admin_delete_user'].includes(tool.name) ? { id: NIL } : {}
     await mcpCall(`admin MCP ${tool.name}`, adminMcp, 'tools/call', { name: tool.name, arguments: args })
   }
+  // Metrics are written in the background: wait for them, so the table scan and the admin answers see them.
+  await flushMetrics()
 }, 20000)
 
 afterAll(() => {
   for (const spy of spies) spy.mockRestore()
+  for (const [key, value] of Object.entries(savedEnv)) {
+    if (value === undefined) delete process.env[key]
+    else process.env[key] = value
+  }
 })
 
 describe('plaintext leak scan (issue #384)', () => {

@@ -128,9 +128,14 @@ async function dispatch(request) {
   } catch (err) {
     noteError(err)
     if (err instanceof HttpError) return error(err.status, err.message, err.code)
-    console.error('[api] unhandled error', err)
+    logUnhandled(err)
     return error(500, 'Server error')
   }
+}
+
+// Not the message or detail: a database error can echo draft text. The name, code and frames say where it failed.
+function logUnhandled(err) {
+  console.error('[api] unhandled error', err?.name, err?.code ?? '', String(err?.stack ?? '').split('\n').slice(1).join('\n'))
 }
 
 export const route = measured(dispatch, afterRequest)
