@@ -1,6 +1,6 @@
 # Draft history can be restored through the API
 
-- An API client can restore an earlier version of its own draft. The restore is saved as a new version; nothing is deleted, and a restore can be undone by restoring again.
+- An API client can restore an earlier version of its own draft. The restore is saved as a new version, and nothing is deleted.
 - A draft that changed since the client read it is not restored (412). A published draft cannot be restored (409).
 
 Area: Drafts
