@@ -67,12 +67,13 @@ change.
 
 ## Settings: `.claude/agent-kit.json`
 
-All plugins read one file in the project: `.claude/agent-kit.json`. A plugin finds it at
-`$CLAUDE_PROJECT_DIR/.claude/agent-kit.json`, else by walking up from the working folder (`reply-style` and `metrics` stop at the git root;
-`task-janitor` walks up to the file system root; `pr-workflow` reads the file at the git root only). A missing file
-or key means the default. A file that is not valid JSON, or a key of the wrong type in the plugin's own section, stops the command
-and names the key (exit 2 in `reply-style`, `task-janitor` and `metrics`; `pr-workflow` exits 1 and names the file). The `reply-style` Stop hook prints a warning instead and
-lets the turn end.
+All plugins read one file in the project: `.claude/agent-kit.json`. Where each plugin looks for it:
+
+- `reply-style` and `metrics`: `$CLAUDE_PROJECT_DIR/.claude/agent-kit.json` when that variable is set; otherwise walk up from the working folder to the folder with `.git`.
+- `task-janitor`: start at `$CLAUDE_PROJECT_DIR` (or the working folder) and walk up to the file system root.
+- `pr-workflow`: `$CLAUDE_PROJECT_DIR`, else the file at the git root. It does not walk up.
+
+A missing file or key means the default. A file that is not valid JSON stops the command with an error. A key of the wrong type stops `reply-style`, `metrics` and `pr-workflow`, including shared keys such as `repo`; `task-janitor` checks only its own section and ignores a bad shared key. Exit code 2 for `reply-style`, `task-janitor` and `metrics`; exit code 1 for `pr-workflow`. The `reply-style` Stop hook prints a warning instead and lets the turn end.
 
 Top-level keys (shared by the plugins):
 
