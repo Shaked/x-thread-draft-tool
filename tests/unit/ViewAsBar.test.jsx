@@ -9,6 +9,7 @@ import ShareLinkButton from '../../src/components/ShareLinkButton.jsx'
 import ExportOptions from '../../src/components/ExportOptions.jsx'
 import TokensPage from '../../src/pages/TokensPage.jsx'
 import { adminApi, draftsApi, tokensApi } from '../../src/utils/api'
+import { clearCachedDrafts } from '../../src/utils/draftCache'
 import { CurrentUserContext } from '../../src/utils/currentUser'
 import { ViewAsContext } from '../../src/utils/viewAs'
 import { ToastProvider } from '../../src/ui/Toast.jsx'
@@ -65,6 +66,17 @@ describe('ViewAsBar', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(adminApi.endViewAs).toHaveBeenCalledTimes(1)
     expect(assign).toHaveBeenCalledWith('/admin/users/u-1')
+    expect(clearCachedDrafts).not.toHaveBeenCalled()
+  })
+
+  it('stays on the page and says why when ending fails, then works on a second try', async () => {
+    adminApi.endViewAs.mockRejectedValueOnce(new Error('Admin limit reached'))
+    wrap(<ViewAsBar />)
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Admin limit reached')
+    expect(assign).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(assign).toHaveBeenCalledWith('/admin/users/u-1')
   })
 
   it('at expires_at a timer does the same full page load', async () => {
@@ -75,6 +87,25 @@ describe('ViewAsBar', () => {
       await vi.advanceTimersByTimeAsync(30 * 60 * 1000 + 10)
     })
     expect(assign).toHaveBeenCalledWith('/admin/users/u-1')
+    expect(clearCachedDrafts).not.toHaveBeenCalled()
+  })
+
+  it('never fires sooner than 15 seconds, even for a past end time (a device clock ahead of the server)', async () => {
+    vi.useFakeTimers()
+    wrap(<ViewAsBar />, { ...VIEW_AS, expires_at: new Date(Date.now() - 60 * 1000).toISOString() })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    expect(assign).not.toHaveBeenCalled()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(11000)
+    })
+    expect(assign).toHaveBeenCalledWith('/admin/users/u-1')
+  })
+
+  it('shows a bar and does not crash for an end time that is not a date', () => {
+    wrap(<ViewAsBar />, { ...VIEW_AS, expires_at: 'soon-ish' })
+    expect(screen.getByRole('status')).toHaveTextContent('Viewing as alice')
   })
 })
 
@@ -131,6 +162,9 @@ describe('controls while viewing as a user', () => {
     wrap(<TokensPage />)
     await screen.findByText(/No tokens yet/)
     expect(screen.getByRole('button', { name: 'Create token' })).toHaveAccessibleDescription(REASON)
+    // Enter in the name field submits the form: nothing is created.
+    await userEvent.type(screen.getByRole('textbox'), 'agent{Enter}')
+    expect(tokensApi.create).not.toHaveBeenCalled()
   })
 
   it('keeps the admin menu while viewing', () => {

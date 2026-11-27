@@ -8,3 +8,7 @@
     display: inline;
   }
 }
+
+.view-as-bar__error {
+  font-weight: var(--font-weight-semibold);
+}

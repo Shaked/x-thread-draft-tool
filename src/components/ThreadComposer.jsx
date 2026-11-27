@@ -20,7 +20,7 @@ import { useViewAsReason } from '../utils/viewAs'
 import PostBox from './PostBox'
 import './ThreadComposer.css'
 
-function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly, updated = false }) {
+function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly, locked = readOnly, updated = false }) {
   const {
     attributes,
     listeners,
@@ -49,7 +49,7 @@ function SortablePost({ post, index, totalPosts, onUpdate, onRemove, readOnly, u
         onChange={onUpdate}
         onRemove={onRemove}
         readOnly={readOnly}
-        dragHandleProps={!readOnly ? { ...attributes, ...listeners } : undefined}
+        dragHandleProps={!locked ? { ...attributes, ...listeners } : undefined}
       />
     </div>
   )
@@ -152,6 +152,7 @@ export default function ThreadComposer({ posts, onPostsChange, readOnly = false,
                   onUpdate={(updatedPost) => updatePost(index, updatedPost)}
                   onRemove={() => removePost(post.id)}
                   readOnly={readOnly}
+                  locked={readOnly || Boolean(reason)}
                   updated={highlightIds.includes(post.id)}
                 />
               </div>

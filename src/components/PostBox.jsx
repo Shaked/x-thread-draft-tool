@@ -289,7 +289,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
             embeddedTweet={embeddedTweet}
             embedShown={embedShown}
             containerRef={embedContainerRef}
-            readOnly={readOnly}
+            readOnly={locked}
             onRemove={handleRemoveEmbed}
           />
         )}
@@ -307,7 +307,7 @@ export default function PostBox({ post, index, totalPosts, onChange, onRemove, r
           <ImageCarousel
             images={images}
             imageIndex={imageIndex}
-            readOnly={readOnly}
+            readOnly={locked}
             onRemoveCurrent={removeCurrentImage}
             onPrev={prevImage}
             onNext={nextImage}

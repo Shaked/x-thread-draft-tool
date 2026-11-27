@@ -61,7 +61,7 @@ export default function TokensPage() {
 
   const handleCreate = async (event) => {
     event.preventDefault()
-    if (!name.trim() || busy) return
+    if (!name.trim() || busy || reason) return
     setBusy(true)
     setError(null)
     try {

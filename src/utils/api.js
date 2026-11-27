@@ -49,8 +49,8 @@ export function setAdminSignInHandler(handler) {
   }
 }
 
-async function adminWrite(path, body) {
-  const send = () => request(path, { method: 'POST', body, headers: { 'x-xt-admin': '1' } })
+async function adminWrite(path, body, method = 'POST') {
+  const send = () => request(path, { method, body, headers: { 'x-xt-admin': '1' } })
   try {
     return await send()
   } catch (err) {
@@ -100,7 +100,7 @@ export const adminApi = {
     return adminWrite('/admin/view-as', { user_id: userId, reason })
   },
   endViewAs() {
-    return request('/admin/view-as', { method: 'DELETE', headers: { 'x-xt-admin': '1' } })
+    return adminWrite('/admin/view-as', undefined, 'DELETE')
   },
   flags() {
     return request('/admin/flags', { headers: { 'x-xt-admin': '1' } }).then((data) => data.flags)

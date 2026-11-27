@@ -51,7 +51,7 @@ describe('DraftEditor while viewing as a user', () => {
     vi.restoreAllMocks()
   })
 
-  it('does not write to the browser cache on load, and never saves', async () => {
+  it('does not write to the browser cache on load, and sends nothing', async () => {
     renderEditor(VIEW_AS)
     await screen.findByLabelText('Draft title')
     await act(async () => {
