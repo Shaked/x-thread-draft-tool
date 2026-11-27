@@ -3,7 +3,7 @@
 - Tweet-embed error links are underlined in the light look; the admin switch labels are now "Purple (only you)" and "Plain components (only you)".
 
 Area: Design
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/TBD
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/568
 
 ## Technical details
 
