@@ -191,25 +191,35 @@ describe('GET /drafts/:id/revisions/:seq', () => {
     expect((await route(apiRequest(`/api/drafts/${draft.id}/revisions/5`))).status).toBe(401)
   })
 
-  it('the list of many revisions that each rewrite a long post stays fast (the summary does no word diff)', async () => {
-    const big = (tag) => Array.from({ length: 20000 }, (_, i) => `w${i % 89}${tag}${i}`).join(' ')
+  it('the list of many revisions that each rewrite a long post stays fast and light (no body leaves the database)', async () => {
+    // 60 revisions of one post of about 600 KB; each rewrites it (a new text that shares most words with the one before).
+    // Built in SQL, so the test sends no big value. Without the md5 stand-ins every body reaches Node and is word-diffed.
     const { rows } = await db.pg.query(
-      "insert into drafts (user_id, title, posts, last_actor_kind, last_actor_name, last_label) values ($1, 'Many', $2::jsonb, 'user', 'alice', 'a') returning id",
-      [alice.id, j([post('p', big('0'))])]
+      `insert into drafts (user_id, title, posts, last_actor_kind, last_actor_name, last_label)
+       values ($1, 'Many', jsonb_build_array(jsonb_build_object('id', 'p', 'text', repeat('lorem ipsum dolor sit amet ', 22000), 'images', '[]'::jsonb, 'embeddedTweet', null)), 'user', 'alice', 'a')
+       returning id`,
+      [alice.id]
     )
-    for (let i = 1; i <= 40; i++) {
+    for (let i = 1; i <= 60; i++) {
       await db.pg.query(
-        "update drafts set posts = $2::jsonb, version = version + 1, last_actor_kind = 'user', last_actor_name = 'alice', last_label = $3 where id = $1",
-        [rows[0].id, j([post('p', big(String(i)))]), `r${i}`]
+        `update drafts set version = version + 1, last_actor_kind = 'user', last_actor_name = 'alice', last_label = $2,
+                posts = jsonb_build_array(jsonb_build_object('id', 'p', 'text', repeat('lorem ipsum dolor sit amet ', 11000) || 'rewrite ' || $2 || ' ' || repeat('sit amet lorem ipsum ', 11000), 'images', '[]'::jsonb, 'embeddedTweet', null))
+          where id = $1`,
+        [rows[0].id, `r${i}`]
       )
     }
+    const heap = process.memoryUsage().heapUsed
     const started = Date.now()
     const res = await get(`/api/drafts/${rows[0].id}/revisions?limit=100`)
     const out = await body(res)
+    const took = Date.now() - started
     expect(res.status).toBe(200)
-    expect(out.revisions).toHaveLength(41)
+    expect(out.revisions).toHaveLength(61)
     expect(out.revisions[0].summary).toBe('changed post 1')
-    expect(Date.now() - started).toBeLessThan(1500)
+    expect(out.revisions.slice(0, 60).every((r) => r.summary === 'changed post 1')).toBe(true)
+    // Measured: about 100 ms and +2 MB with the stand-ins; about 640 ms and +80 MB without them.
+    expect(took).toBeLessThan(400)
+    expect(process.memoryUsage().heapUsed - heap).toBeLessThan(40e6)
   })
 
   it('a very long post is diffed without blocking (the bounded word diff)', async () => {

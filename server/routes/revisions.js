@@ -14,6 +14,14 @@ const MAX_LIMIT = 100
 const MAX_SEQ = 2147483647
 const EMPTY = { title: '', posts: [] }
 
+// The list summary reads only the structure of a diff (which posts changed, were added, removed or moved), never the
+// words. So the statement swaps each post text for its md5 before the body leaves the database: equal texts stay equal
+// and different ones stay different, and no long post is sent to Node or word-diffed. A body that is not an object with
+// a string text is sent as it is.
+const lightBody = (column) =>
+  `case when jsonb_typeof(${column}) = 'object' and jsonb_typeof(${column}->'text') = 'string'
+        then jsonb_set(${column}, '{text}', to_jsonb(md5(${column}->>'text'))) else ${column} end`
+
 /** A whole number from a query parameter, or null when the parameter is absent. A bad value is a 400. */
 function intParam(url, name, { min, max }) {
   const raw = url.searchParams.get(name)
@@ -68,11 +76,11 @@ async function listRevisions({ request, params, url }) {
               order by seq desc limit 1) as base_title,
             (select post_order from draft_revisions where draft_id = $1 and seq < (select seq from low) and post_order is not null
               order by seq desc limit 1) as base_order,
-            (select coalesce(jsonb_object_agg(x.post_id, x.body), '{}'::jsonb)
+            (select coalesce(jsonb_object_agg(x.post_id, ${lightBody('x.body')}), '{}'::jsonb)
                from (select distinct on (post_id) post_id, body from draft_post_versions
                       where draft_id = $1 and seq < (select seq from low) order by post_id, seq desc) x
               where x.body is not null) as base_bodies,
-            (select coalesce(jsonb_agg(jsonb_build_array(v.seq, v.post_id, v.body, v.body is null)), '[]'::jsonb)
+            (select coalesce(jsonb_agg(jsonb_build_array(v.seq, v.post_id, ${lightBody('v.body')}, v.body is null)), '[]'::jsonb)
                from draft_post_versions v
               where v.draft_id = $1 and v.seq >= (select seq from low) and v.seq <= (select seq from high)) as changes`,
     [params.id, session.uid, before, limit]
@@ -88,24 +96,15 @@ async function listRevisions({ request, params, url }) {
     if (!changesBySeq.has(seq)) changesBySeq.set(seq, [])
     changesBySeq.get(seq).push([postId, body, removed])
   }
-  // The summary reads only the structure of the diff (which posts changed, were added, removed or moved), never the
-  // words. So each text is swapped for a short stand-in, one per distinct text: equal texts stay equal and different
-  // ones stay different, and the word diff runs on a few characters, not on a long post.
-  const standIns = new Map()
-  const light = (post) => {
-    if (post === null || typeof post !== 'object' || typeof post.text !== 'string') return post
-    if (!standIns.has(post.text)) standIns.set(post.text, `#${standIns.size}`)
-    return { ...post, text: standIns.get(post.text) }
-  }
   let title = row.base_title
   let order = row.base_order
-  const bodies = Object.fromEntries(Object.entries(row.base_bodies ?? {}).map(([id, post]) => [id, light(post)]))
+  const bodies = { ...(row.base_bodies ?? {}) }
   let previous = row.base_order === null && row.base_title === null ? EMPTY : stateOf(title, order, bodies)
   const items = []
   for (const rev of revisions) {
     for (const [postId, body, removed] of changesBySeq.get(rev.seq) ?? []) {
       if (removed) delete bodies[postId]
-      else bodies[postId] = light(body)
+      else bodies[postId] = body
     }
     if (rev.title !== null) title = rev.title
     if (rev.post_order !== null) order = rev.post_order

@@ -255,7 +255,9 @@ beforeAll(async () => {
     await rest('admin bearer token: revision read', { path: `/drafts/${draft.id}/revisions/1`, headers: { authorization: `Bearer ${adminMcp}` } })
   }
   await rest('error: revision not found (alice REST)', { path: `/drafts/${draftEn.id}/revisions/99999`, cookie: aliceCookie })
-  await rest('error: revision bad against (alice REST, marker in the query)', { path: `/drafts/${draftEn.id}/revisions/1?against=${encodeURIComponent(EN)}`, cookie: aliceCookie })
+  for (const [draft, marker, name] of [[draftEn, EN, 'English'], [draftHe, HE, 'Hebrew']]) {
+    await rest(`error: revision bad against (alice REST, ${name} marker in the query)`, { path: `/drafts/${draft.id}/revisions/1?against=${encodeURIComponent(marker)}`, cookie: aliceCookie })
+  }
   await rest('error: revision bad limit (alice REST, marker in the query)', { path: `/drafts/${draftEn.id}/revisions?limit=${encodeURIComponent(HE)}`, cookie: aliceCookie })
 
   // Every admin REST route the router has, called once through the website surface as the admin. GET of one user
@@ -330,7 +332,7 @@ describe('plaintext leak scan (issue #384)', () => {
 
   it('no error answer holds a piece of a marker, except the owner-only stale-save answer', () => {
     const errors = seen.filter(([where]) => where.startsWith('error:') && !OWNER_ONLY_ANSWERS.includes(where))
-    expect(errors).toHaveLength(5)
+    expect(errors).toHaveLength(6)
     expect(leaksIn(errors)).toEqual([])
   })
 
@@ -351,7 +353,7 @@ describe('plaintext leak scan (issue #384)', () => {
     expect(status('admin own cookie: revision')).toEqual([404, 404, 404, 404])
     expect(status('admin view-as: revision')).toEqual([403, 403, 403, 403])
     expect(status('admin bearer token: revision')).toEqual([401, 401, 401, 401])
-    expect(status('error: revision')).toEqual([404, 400, 400])
+    expect(status('error: revision')).toEqual([404, 400, 400, 400])
   })
 
   it('no admin answer holds a piece of a marker: REST, MCP and "view as"', () => {

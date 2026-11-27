@@ -24,6 +24,7 @@
   "tests/api/draft-contract.test.js": 1748,
   "tests/api/draft-edit-routes.test.js": 1895,
   "tests/api/draft-poll.test.js": 1384,
+  "tests/api/draft-revisions-routes.test.js": 4400,
   "tests/api/draft-revisions-trigger.test.js": 1437,
   "tests/api/draft-two-writers.test.js": 1434,
   "tests/api/drafts-atomic-writes.test.js": 1853,
