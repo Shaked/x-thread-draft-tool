@@ -32,7 +32,7 @@ alter table drafts add column if not exists last_label text;
 -- of that id (a repeated id counts up); a post with no id (saved before ids were required) gets 'n' + its position.
 -- Client ids have no length limit, so they are hashed before they go into an index. Every post has its own key.
 create or replace function draft_post_keys(posts jsonb) returns table (key text, ord bigint, body jsonb)
-language sql stable set search_path = public, pg_catalog as $$
+language sql stable set search_path = pg_catalog, public as $$
   select case when e.value->>'id' is null then 'n' || e.ord
               else 'i' || encode(sha256(convert_to(e.value->>'id', 'UTF8')), 'hex') || ':'
                    || row_number() over (partition by e.value->>'id' order by e.ord) end,
@@ -42,7 +42,7 @@ $$;
 
 -- The actor columns on drafts are one-shot: a write sets them, this trigger reads them, then clears them on the row, so
 -- the next write that sets nothing is not labelled with the previous actor, label or restore.
-create or replace function draft_revisions_write() returns trigger language plpgsql set search_path = public, pg_catalog as $$
+create or replace function draft_revisions_write() returns trigger language plpgsql set search_path = pg_catalog, public as $$
 declare
   old_posts jsonb := case when TG_OP = 'INSERT' then '[]'::jsonb else OLD.posts end;
   old_ids text[];

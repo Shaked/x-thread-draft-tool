@@ -155,11 +155,13 @@ beforeAll(async () => {
   const badRows = {}
   for (const [name, value] of [['object', '{"a":1}'], ['scalar', '5']]) {
     const { rows } = await db.pg.query("insert into drafts (user_id, title, posts) values ($1, 'Bad', $2::jsonb) returning id", [user.id, value])
+    const afterInsert = (await revisions(rows[0].id)).length
     await db.pg.query('update drafts set version = version + 1 where id = $1', [rows[0].id])
     await db.pg.query('update drafts set is_published = true where id = $1', [rows[0].id])
+    const afterQuietWrites = (await revisions(rows[0].id)).length
     await db.pg.query('update drafts set title = $2 where id = $1', [rows[0].id, `Bad ${name}`])
     await write(rows[0].id, { posts: [post('ok', 'fixed')], actor: ['user', 'jo'] })
-    badRows[name] = { revs: (await revisions(rows[0].id)).length, repaired: await rebuild(rows[0].id, (await revisions(rows[0].id)).at(-1).seq) }
+    badRows[name] = { afterInsert, afterQuietWrites, revs: (await revisions(rows[0].id)).length, repaired: await rebuild(rows[0].id, (await revisions(rows[0].id)).at(-1).seq) }
   }
   R.badRows = badRows
 
@@ -283,6 +285,11 @@ describe('draft revisions trigger (#375)', () => {
   it('posts that are an object or a scalar never fail a write, and a full array repairs them', () => {
     for (const name of ['object', 'scalar']) {
       expect(R.badRows[name].repaired.posts).toEqual([post('ok', 'fixed')])
+      // The version-only and the flag-only writes made no revision. The title write merges into the insert's revision
+      // (no actor, under 2 minutes), and the repair by another actor adds one: 1 revision, then 2.
+      expect(R.badRows[name].afterInsert).toBe(1)
+      expect(R.badRows[name].afterQuietWrites).toBe(1)
+      expect(R.badRows[name].revs).toBe(2)
     }
   })
 
