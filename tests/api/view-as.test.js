@@ -148,7 +148,8 @@ describe('read-only while viewing', () => {
     [(p) => p === '/mcp', 'bearer tokens only; the cookie is ignored (tested below)'],
     [(p) => p.startsWith('/admin/'), 'the real admin (realSession), never the claim'],
     [(p) => p.startsWith('/ops/'), 'its own workflow token'],
-    [(p) => p.startsWith('/share/'), 'public share links; no session']
+    [(p) => p.startsWith('/share/'), 'public share links; no session'],
+    [(p) => p.startsWith('/upload-links'), 'the one-time upload link token is the credential; no session']
   ]
   const exempt = (path) => NEVER_AUTHENTICATE.some(([test]) => test(path))
 
@@ -160,7 +161,7 @@ describe('read-only while viewing', () => {
         '/admin/metrics/summary', '/admin/stats', '/admin/status', '/admin/users', '/admin/users/:id', '/admin/users/:id/delete',
         '/admin/users/:id/suspend', '/admin/users/:id/unsuspend', '/admin/view-as', '/admin/view-as', '/auth/device/poll', '/auth/device/start', '/auth/logout', '/mcp',
         '/oauth/authorize', '/oauth/authorize', '/oauth/logout', '/oauth/register', '/oauth/revoke', '/oauth/token',
-        '/ops/events', '/ops/metrics-daily', '/share/:token', '/threads/split'
+        '/ops/events', '/ops/metrics-daily', '/share/:token', '/threads/split', '/upload-links', '/upload-links/images'
       ].sort()
     )
   })

@@ -9,6 +9,12 @@
   "buildCommand": "node scripts/migrate.mjs && npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "headers": [
+    {
+      "source": "/upload",
+      "headers": [{ "key": "Referrer-Policy", "value": "no-referrer" }, { "key": "Cache-Control", "value": "no-store" }]
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",

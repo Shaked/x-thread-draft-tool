@@ -1,0 +1,13 @@
+/* The thumbnails of the upload page (UploadArea.jsx). Tokens only; logical properties only. */
+.upload-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.upload-thumbs img {
+  inline-size: calc(var(--space-16) + var(--space-8));
+  block-size: calc(var(--space-16) + var(--space-8));
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}

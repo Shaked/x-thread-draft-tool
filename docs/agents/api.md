@@ -221,6 +221,13 @@ curl -s -X POST "$BASE/api/images?draftId=DRAFT_ID" -H "Authorization: Bearer $T
 curl -s -X POST $BASE/api/images/from-url -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -d '{"draftId":"DRAFT_ID","url":"https://example.com/photo.png"}'
 
+# A one-time upload link for one post (30 minutes, up to the free slots, 10 links per hour)
+curl -s -X POST $BASE/api/drafts/DRAFT_ID/posts/POST_ID/upload-links -H "Authorization: Bearer $TOKEN"   # → { url: ".../upload#<token>", post, slots, expires_at }
+# The page behind the link uses the token after the # (never sent to a server) as a bearer token, with no session:
+curl -s $BASE/api/upload-links -H "Authorization: Bearer $LINK_TOKEN"                                     # → { post, remaining, expires_at }
+curl -s -X POST $BASE/api/upload-links/images -H "Authorization: Bearer $LINK_TOKEN" \
+  -H 'content-type: image/png' --data-binary @photo.png                                                  # → { url, remaining }; 410 when the link is dead
+
 # Delete one of your own images
 curl -s -X DELETE $BASE/api/images -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -d '{"url":"IMAGE_URL"}'

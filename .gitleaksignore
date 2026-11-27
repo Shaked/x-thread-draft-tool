@@ -1,0 +1,6 @@
+# Two findings in the history of PR #597 (#418): the placeholder word `LINK_TOKEN` in two curl examples of docs/agents/api.md.
+# It is not a credential. The current text uses `$LINK_TOKEN`. Exact fingerprints only (commit:file:rule:line).
+09732225f79c0c40a9a7a0d0ee6981c7ab359496:docs/agents/api.md:curl-auth-header:227
+09732225f79c0c40a9a7a0d0ee6981c7ab359496:docs/agents/api.md:curl-auth-header:228
+09732225f79c0c40a9a7a0d0ee6981c7ab359496:docs/agents/api.md:curl-auth-header:225
+09732225f79c0c40a9a7a0d0ee6981c7ab359496:docs/agents/api.md:curl-auth-header:226

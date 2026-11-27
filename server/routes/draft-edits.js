@@ -11,18 +11,18 @@ import { xLength } from '../../src/utils/xLength.js'
 import { COLUMNS, etagHeaders, ifMatchOf, isUuid, preconditionHolds, staleResponse, usedImageUrls } from './drafts.js'
 import { storeRemoteImage } from './images.js'
 
-const MAX_IMAGES = 4
-const PUBLISHED_ERROR = 'This draft is published. Duplicate it to edit.'
+export const MAX_IMAGES = 4
+export const PUBLISHED_ERROR = 'This draft is published. Duplicate it to edit.'
 const IMAGE_NOT_FOUND = 'Image not found in this draft. Its posts and image urls are in get_draft_outline.'
 // A write loses a round to any other write of the draft. Parallel image adds make at most 4 writes per post (#367).
 const attemptsFor = (posts) => Math.max(8, 4 * posts.length + 1)
-const POST_NOT_FOUND = 'Post not found in this draft'
+export const POST_NOT_FOUND = 'Post not found in this draft'
 const REMOVE_IMAGE_ARGS = 'Give url to remove one image, or post_id to remove every image of that post.'
 
 /** The draft as it was before an edit, on the Response of the route (only an in-process caller reads it; #405). */
 export const DRAFT_BEFORE = Symbol('draft before an edit')
 
-const fullPostError = (index) => `Post ${index + 1} already has ${MAX_IMAGES} images. Remove, replace or move one first.`
+export const fullPostError = (index) => `Post ${index + 1} already has ${MAX_IMAGES} images. Remove, replace or move one first.`
 const imageUrlOf = (image) => (typeof image === 'string' ? image : image?.url)
 const postImageUrls = (post) => (post.images ?? []).map(imageUrlOf).filter((url) => typeof url === 'string' && url.length > 0)
 const failure = (error, status = 422) => ({ error, status })
@@ -60,7 +60,11 @@ const validPosition = (position, required) => {
  * and no draft still uses them.
  */
 async function editPosts(request, id, plan, { expected = ifMatchOf(request) } = {}) {
-  const session = await requireUser(request)
+  return editPostsAs(await requireUser(request), id, plan, { expected })
+}
+
+/** The same write for a caller that is already known (a one-time upload link names its owner: #418). */
+export async function editPostsAs(session, id, plan, { expected = null } = {}) {
   if (!isUuid(id)) throw new HttpError(404, 'Draft not found')
   for (let attempt = 1; ; attempt += 1) {
     const { rows } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [id, session.uid])

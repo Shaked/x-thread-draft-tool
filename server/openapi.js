@@ -507,6 +507,29 @@ export const OPENAPI = {
         responses: { ...json({ type: 'object', properties: { draft: draftRef, removed: { type: 'integer' }, deleted: { type: 'integer' } } }), 400: BAD_REQUEST, 401: UNAUTHORIZED, 404: NOT_FOUND, 409: EDIT_CONFLICT, 412: PRECONDITION_FAILED, 422: EDIT_REFUSED }
       }
     },
+    '/drafts/{id}/posts/{postId}/upload-links': {
+      post: {
+        summary: 'Make a one-time link (30 minutes) where the user adds up to the free image slots of this post from any device, without signing in. The link is a secret: its token is in the fragment (/upload#token). At most 10 links per hour. Owner only; a published draft is 409, a full post 422.',
+        security: BEARER,
+        parameters: [ID, POST_ID],
+        responses: { ...json({ type: 'object', properties: { url: { type: 'string', description: 'The link to give to the user.' }, draftId: { type: 'string' }, postId: { type: 'string' }, post: { type: 'integer', description: '1-based place of the post.' }, slots: { type: 'integer', description: 'How many images the link takes (1 to 4).' }, expires_at: { type: 'string', format: 'date-time' } } }, '201'), 401: UNAUTHORIZED, 404: NOT_FOUND, 409: EDIT_CONFLICT, 422: EDIT_REFUSED, 429: { description: 'More than 10 links in one hour', content: errorContent() } }
+      }
+    },
+    '/upload-links': {
+      get: {
+        summary: 'What an upload link offers: the 1-based post number and the free slots, with Authorization: Bearer <link token>. No session. Never the draft title or text. A dead link is 410.',
+        security: [],
+        responses: { ...json({ type: 'object', properties: { post: { type: 'integer' }, remaining: { type: 'integer' }, expires_at: { type: 'string', format: 'date-time' } } }), 410: { description: 'Link expired, used up or no longer valid', content: errorContent() } }
+      }
+    },
+    '/upload-links/images': {
+      post: {
+        summary: 'Add one image to the post of a one-time upload link: raw bytes, max 4 MB, Authorization: Bearer <link token> (the token after # in the link). No session. Checks and cleaning as POST /images. A dead link (expired, slots used, draft published or gone, owner suspended) is 410.',
+        security: [],
+        requestBody: { required: true, content: { 'image/*': { schema: { type: 'string', format: 'binary' } } } },
+        responses: { ...json({ type: 'object', properties: { url: { type: 'string' }, remaining: { type: 'integer', description: 'Slots left on the link.' } } }, '201'), 400: BAD_REQUEST, 410: { description: 'Link expired, used up or no longer valid', content: errorContent() }, 413: BAD_REQUEST, 415: BAD_REQUEST }
+      }
+    },
     '/images': {
       post: {
         summary: 'Upload an image for a draft: raw bytes, Content-Type image/*, max 4 MB (owner only)',

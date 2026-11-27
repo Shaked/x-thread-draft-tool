@@ -8,6 +8,7 @@ import { draftEditRoutes } from './routes/draft-edits.js'
 import { grantRoutes } from './routes/grants.js'
 import { imageRoutes } from './routes/images.js'
 import { shareRoutes } from './routes/share.js'
+import { uploadLinkRoutes } from './routes/upload-links.js'
 import { tokenRoutes } from './routes/tokens.js'
 import { threadRoutes } from './routes/threads.js'
 import { openapiRoutes } from './routes/openapi.js'
@@ -37,6 +38,7 @@ export const ROUTES = [
   ...draftEditRoutes,
   ...grantRoutes,
   ...imageRoutes,
+  ...uploadLinkRoutes,
   ...shareRoutes,
   ...tokenRoutes,
   ...threadRoutes,
