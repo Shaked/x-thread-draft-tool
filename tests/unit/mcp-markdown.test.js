@@ -95,6 +95,14 @@ describe('markdown for AI apps (#293)', () => {
     expect(textThread({ content: [{ type: 'text', text }] }).posts[0].images).toEqual([])
   })
 
+  it('keeps a Blob image and the quoted post after a non-Blob image', () => {
+    vi.stubEnv('BLOB_READ_WRITE_TOKEN', 'vercel_blob_rw_abc123_secret')
+    const posts = [{ text: 'a', images: [{ url: 'https://evil.example/a' }, { url: `${BLOB}/b.png` }], embeddedTweet: 'https://x.com/u/status/1' }]
+    const read = textThread({ content: [{ type: 'text', text: threadText({ title: 'T', posts, saved: false }) }] })
+    expect(read.posts[0].images).toEqual([{ url: `${BLOB}/b.png` }])
+    expect(read.posts[0].embeddedTweet).toBe('https://x.com/u/status/1')
+  })
+
   it('leaves a quoted tweet that does not match out of a thread', () => {
     const text = threadText({ title: 'T', posts: [{ text: 'a', embeddedTweet: 'https://evil.com/x' }], saved: false })
     expect(text).not.toContain('Quoted post')

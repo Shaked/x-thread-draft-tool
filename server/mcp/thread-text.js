@@ -28,12 +28,11 @@ export function threadText({ title, posts: all, url, saved }) {
       lines.push('', `**${i + 1}/${total}**`, ...textOf(post).split('\n').map((line) => (line ? `> ${line}` : '>')))
       // A URL goes in only as one word, so it cannot add a line of its own.
       const images = (Array.isArray(post?.images) ? post.images : []).map((image) => (typeof image === 'string' ? image : image?.url))
-      images.filter(oneWord).forEach((image, n) => {
-        // A non-Blob image is not written as a url, so the view's parser does not take it for one.
-        const link = imageLink(image)
-        lines.push(link === 'image' ? `Image ${n + 1} not shown` : `Image ${n + 1}: ${link}`)
-      })
+      // A non-Blob image is not written as a url, so the view's parser would end the post at it: those lines come last.
+      const shown = images.filter(oneWord).map((image, n) => [n + 1, imageLink(image)])
+      shown.filter(([, link]) => link !== 'image').forEach(([n, link]) => lines.push(`Image ${n}: ${link}`))
       if (tweetLink(post?.embeddedTweet)) lines.push(`Quoted post: ${post.embeddedTweet}`)
+      shown.filter(([, link]) => link === 'image').forEach(([n]) => lines.push(`Image ${n} not shown`))
     })
     if (count < total) lines.push('', `... ${total - count} more posts: ${typeof url === 'string' ? url : 'open the draft in the editor'}`)
     const copy = posts.map(textOf).join('\n\n')
