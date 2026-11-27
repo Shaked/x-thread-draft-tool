@@ -9,4 +9,4 @@ Screenshot: not needed, no visible change
 
 ## Technical details
 
-`safeWord` in the task-janitor plugin (0.1.1) drops `@`, markup and URLs from title words. The weekly workflow now also runs on its schedule (the branch check skipped it) and its off switch ignores case.
+`plainWords` in the task-janitor plugin (0.1.1) keeps only letters, digits, spaces and hyphens from a title. The weekly workflow now also runs on its schedule (the branch check skipped it) and its off switch ignores case.

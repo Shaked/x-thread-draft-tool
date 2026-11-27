@@ -75,33 +75,34 @@ export function titleText(title) {
 }
 
 /**
- * Issue titles are written by anyone on a public repository, and the report is posted as a comment. A word of a title is
- * folded to NFKC and loses control and format characters (bidi, zero width); `@`, `#` and markup characters are removed;
- * a word that is an issue reference (a hash and a digit, with or without an owner and repo, or `GH-` and a digit, also after the removal) or a link (`://`, `www.`, `name.tld/`,
- * `mailto:`, `javascript:`) is dropped. Every test runs on the text before AND after the removal, so removing characters
- * cannot build a link. A word is cut at 24 characters.
+ * Issue titles are written by anyone on a public repository, and the report is posted as a comment, so a title is turned
+ * into plain words by an ALLOWLIST: NFKC first, control and format characters (bidi, zero width) removed, then only letters,
+ * digits, spaces and hyphens stay (everything else becomes a space), so no mention, link, email, image, HTML, code span,
+ * bracket or reference can be built from a title. A word that reads as a `GH-12` reference, or is only digits, is
+ * dropped; a word is cut at 24 characters. A hex string of 7 or more characters passes: it links a commit of this
+ * repository only, with no notification.
  */
-export function safeWord(w) {
-  const s = w.normalize('NFKC').replace(/[\p{Cf}\p{Cc}]/gu, '')
-  const t = s.replace(/[@#<>&*_~|\\{}!$^=+[\]()`"]/g, '')
-  // Test the original (a reference) and the final text (removing characters can build a link or a reference).
-  const link = (x) => /#\d|(^|[^a-z0-9])GH-\d|\/\/|www\.|\.[a-z]{2,}\/|^(mailto|javascript|data|vbscript):/i.test(x)
-  if (link(s) || link(t)) return ''
-  return t.slice(0, 24)
+export function plainWords(text) {
+  const folded = String(text ?? '').normalize('NFKC').replace(/\s/g, ' ').replace(/\p{C}/gu, '')
+  return folded
+    .replace(/[^\p{L}\p{N} -]/gu, ' ')
+    .split(/ +/)
+    .filter((w) => w && !/^\d+$/.test(w) && !/(^|[^a-z0-9])GH-?\d/i.test(w))
+    .map((w) => w.slice(0, 24))
 }
 
 /** 3 to 6 words that say what an issue is, for "#n (words)". */
 export function shortName(issue) {
-  const clean = (s) => s.split(/\s+/).map(safeWord).filter(Boolean)
-  let words = clean(titleText(issue.title).replace(/[`"()[\]]/g, ''))
-  if (words.length < 3) words = clean(issue.title.replace(/[`"()[\]:]/g, ''))
+  const raw = String(issue.title ?? '').normalize('NFKC').replace(/\p{C}/gu, '')
+  let words = plainWords(titleText(raw))
+  if (words.length < 3) words = plainWords(raw)
   // Task ids like M1 or H20 inside the words would need their own description, so they are code spans.
   // Words the reply-style lint reserves ("unchanged", "blocked") are left out of a description.
-  words = words.filter((w) => !/^(unchanged|blocked|blocking)[,.:;]?$/i.test(w))
-  // An issue number inside a description would need its own description: it is left out.
-  words = words.filter((w) => !/^#\d+[,.:;]?$/.test(w))
+  words = words.filter((w) => !/^(unchanged|blocked|blocking)$/i.test(w))
   while (words.length < 3) words.push(words.length === 2 ? 'issue' : 'the')
-  return words.slice(0, 5).map((w) => (/^[A-Z]\d+(\.\d+)?[,.]?$/.test(w) ? `\`${w.replace(/[,.]$/, '')}\`` : w)).join(' ').replace(/[,.:;]$/, '')
+  const text = words.slice(0, 5).map((w) => (/^[A-Z]\d+$/.test(w) ? `\`${w}\`` : w)).join(' ')
+  // The final text is checked last: a reference-like word that is left falls back to a fixed description.
+  return /(^|[^a-z0-9`])GH-?\d/i.test(text) ? 'title held back' : text
 }
 
 /** The plan task id of a title ("O2", "Task 5", "L1 (b)" gives "L1") and its scope (epic). */

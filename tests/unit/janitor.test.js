@@ -116,7 +116,7 @@ describe('parsers', () => {
     expect(taskId({ title: 'E407 task M1: ops events tables' })).toEqual({ id: 'M1', prefix: 407 })
     expect(taskId({ title: 'Queue: what the agents do next' })).toBeNull()
     expect(shortName({ title: 'Epic: widgets' })).toBe('Epic widgets issue')
-    expect(shortName({ title: 'E407 task M1: ops events tables, event shape and sources list (central metrics)' })).toBe('ops events tables, event shape')
+    expect(shortName({ title: 'E407 task M1: ops events tables, event shape and sources list (central metrics)' })).toBe('ops events tables event shape')
   })
 
   it('counts a HANDOFF as done only for an exact final status and a trusted author', () => {
@@ -164,7 +164,7 @@ describe('report text', () => {
     const lines = wrap(`- ${'word '.repeat(30)}\`a b c\` ${'more '.repeat(10)}end`, 60)
     expect(lines.length).toBeGreaterThan(1)
     expect(lines.every((l) => l.length <= 60 && l.split('`').length % 2 === 1)).toBe(true)
-    expect(shortName({ title: 'E407 task M9: what #354 still misses: merge' })).toBe('what still misses: merge')
+    expect(shortName({ title: 'E407 task M9: what #354 still misses: merge' })).toBe('what still misses merge')
     for (const pad of [21, 22, 23, 24]) {
       const label = wrap(`- ${'word '.repeat(pad)}then #101 (export button for drafts) is next ${'more '.repeat(8)}end`, 120)
       expect(label.length).toBeGreaterThan(1)
@@ -363,7 +363,8 @@ describe('descriptions the reply lint rejects (#461)', () => {
         { number: 4, title: 'normal title about drafts' }
       ]
       const names = describeAll({ issues, pulls: [] })
-      expect([1, 2, 3].map((n) => names.get(n))).toEqual(Array(3).fill('title held back by lint'))
+      // An emoji is not in the allowlist and is removed; Hebrew and a filler word still fail the lint and fall back.
+      expect([1, 2, 3].map((n) => names.get(n))).toEqual(['title held back by lint', 'Improve draft saving', 'title held back by lint'])
       expect(names.get(4)).toBe('normal title about drafts')
     } finally {
       configureLint(null)
@@ -402,12 +403,22 @@ describe('hostile titles cannot become live links, mentions, references or bidi 
     '#x (a) and #y (b) pair',
     'Fix \uff3bclick\uff3d\uff08//evil.com\uff09 draft saving',
     'Fix \uff3bclick\uff3d\uff08/evil.com\uff09 draft saving',
-    'proto //evil.com relative here'
+    'proto //evil.com relative here',
+    'img \uff01\uff3bx\uff3d\uff08//e.co\uff09 here',
+    'Fix \uff3bclick\uff3d\uff08evil.com\uff09 draft',
+    'a \uff3bb\uff3d\uff08\uff4a\uff41vascript:x\uff09 c',
+    'x \uff40code \uff40 span here',
+    'E1 task A1: \uff08x\uff09 hidden'
   ]
-  const live = /@|#\d|\bGH-\d|\/\/|[[\]]|\]\(|mailto:|javascript:|www\.|\.[a-z]{2,}\/|[\u202a-\u202e\u2066-\u2069\u200b-\u200f\ufeff]|\p{Cc}/iu
+  const live = /@|#\d|\bGH-\d|\/\/|[[\]]|\]\(|[()]|mailto:|javascript:|www\.|\.[a-z]{2,}\/|[\u202a-\u202e\u2066-\u2069\u200b-\u200f\ufeff]|\p{Cc}/iu
 
   it('shortName keeps none of them', () => {
-    for (const title of hostile) expect(shortName({ title }), title).not.toMatch(live)
+    for (const title of hostile) {
+      // The only backticks are the report's own code spans around a task id such as `M1`.
+      const out = shortName({ title }).replace(/`[A-Z]\d+`/g, '')
+      expect(out, title).not.toMatch(live)
+      expect(out, title).not.toContain('`')
+    }
   })
 
   it('the whole report keeps none of them', () => {
@@ -418,7 +429,24 @@ describe('hostile titles cannot become live links, mentions, references or bidi 
     expect(text).toContain('#100')
     // Own references (#100 and the like) are the report's own; every title word is checked through the descriptions.
     for (const line of text.split('\n')) {
-      for (const paren of line.matchAll(/\(([^)]*)\)/g)) expect(paren[1], line).not.toMatch(live)
+      for (const paren of line.matchAll(/\(([^)]*)\)/g)) expect(paren[1].replace(/`[A-Z]\d+`/g, ''), line).not.toMatch(live)
+    }
+  })
+})
+
+describe('title allowlist, property test (#461)', () => {
+  // A hex string of 7 or more characters may pass: it links a commit of this repository only, with no notification.
+  const alphabet = ['\uff3b', '\uff3d', '\uff08', '\uff09', '\uff40', '\uff20', '\uff03', '[', ']', '(', ')', '`', '@', '#', ':', '/', '.', '//', 'http', 'www', 'GH-', 'GH', '-', '12', '5', '\u200b', '\u202e', '<', '>', '&', '*', '_', '!', 'a', 'b', 'x', 'M1', ' ', ' ', ' ', '\u05e9\u05dc\u05d5\u05dd']
+  it('keeps only letters, digits, spaces and hyphens, and no GH reference, in 5000 random titles', () => {
+    let seed = 12345
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296)
+    for (let k = 0; k < 5000; k++) {
+      let title = ''
+      for (let n = 1 + Math.floor(rnd() * 14); n > 0; n--) title += alphabet[Math.floor(rnd() * alphabet.length)]
+      const out = shortName({ title })
+      const bare = out.replace(/`[A-Z]\d+`/g, '')
+      expect(bare, JSON.stringify(title)).toMatch(/^[\p{L}\p{N} -]+$/u)
+      expect(out, JSON.stringify(title)).not.toMatch(/(^|[^a-z0-9`])GH-?\d/i)
     }
   })
 })
