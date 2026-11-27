@@ -18,6 +18,8 @@ const EXCLUDED = {
   '/grants/:id': 'S-5: a person disconnects apps on the Settings page',
   'DELETE /images': '#412: the image edit tools delete the files in the same route; a REST client deletes one file by URL',
   'POST /images': 'D-5: raw image bytes are not sent through MCP (use add_image_from_url)',
+  'GET /upload-links': '#418: the upload page reads its link; a tool makes the link, not the page',
+  'POST /upload-links/images': '#418: raw bytes with the one-time link token, sent by the upload page; a tool makes the link, not the upload',
   'GET /share/:token': 'Public one-time read; the link is the product, not a tool',
   'GET /openapi.json': 'Documentation, not a user function',
   'GET /health': 'Health check, not a user function',

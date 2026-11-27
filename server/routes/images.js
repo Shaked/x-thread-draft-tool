@@ -9,12 +9,12 @@ import { prepareImage } from '../image-safety.js'
 import { recordImage } from '../image-ledger.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const MAX_BYTES = 4 * 1024 * 1024 // Vercel's request body limit is 4.5 MB
+export const MAX_BYTES = 4 * 1024 * 1024 // Vercel's request body limit is 4.5 MB
 
 const EXTENSIONS = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }
 
 /** Checks the bytes (type from the first bytes, metadata removed), stores them and counts them for the user. */
-async function storeChecked(uid, draftId, raw) {
+export async function storeChecked(uid, draftId, raw) {
   const { bytes, contentType } = prepareImage(raw)
   const pathname = `drafts/${uid}/${draftId}/${crypto.randomUUID()}.${EXTENSIONS[contentType]}`
   const blob = await putBlob(pathname, bytes, { contentType })

@@ -7,6 +7,7 @@ import { ViewAsContext } from './utils/viewAs'
 import LoginPage from './components/LoginPage'
 import DraftList from './components/DraftList'
 import DraftEditor from './pages/DraftEditor'
+import UploadPage from './pages/UploadPage'
 import XThreadPreviewPage from './pages/XThreadPreviewPage'
 import TokensPage from './pages/TokensPage'
 import AppsPage from './pages/AppsPage'
@@ -122,6 +123,8 @@ function App() {
               }
             />
           )}
+          {/* A one-time upload link (#418): no sign-in; the token is in the fragment. */}
+          <Route path="/upload" element={<UploadPage />} />
           <Route
             path="/x-thread-preview/:token"
             element={<XThreadPreviewPage />}

@@ -27,6 +27,7 @@ const CASES = {
   'PATCH /drafts/:id/posts/:postId': { body: { text: 'hacked' } },
   'POST /drafts/:id/posts': { body: { text: 'hacked' } },
   'DELETE /drafts/:id/posts/:postId': {},
+  'POST /drafts/:id/posts/:postId/upload-links': {},
   'POST /drafts/:id/posts/:postId/move': { body: { position: 1 } },
   'POST /drafts/:id/images': { body: { url: 'https://example.com/a.png', post_id: POST_ID } },
   'DELETE /drafts/:id/images': { body: { post_id: POST_ID } }

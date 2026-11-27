@@ -70,6 +70,7 @@ describe('009_admin.sql', () => {
       'api_tokens',
       'drafts',
       'image_files',
+      'image_upload_links',
       'mcp_rate_limits',
       'oauth_codes',
       'oauth_grants',
