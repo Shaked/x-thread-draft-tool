@@ -141,8 +141,17 @@ async function me({ request }) {
   const { rows } = await query('select id, login, name, avatar_url from users where id = $1', [caller.uid])
   // `admin: true` only for the admin (adminField, #368): the UI shows the changelog link from it.
   // `role` (#282) only for a browser session: the app bar badge and the Admin menu section read it. Bearer callers get no role.
-  const role = caller.via === 'session' ? { role: roleOf(caller.gh) } : {}
-  return json({ user: rows[0] ? { ...rows[0], ...adminField(caller), ...role } : null, auth: rows[0] ? caller.via : null })
+  // While viewing as a user (#290) `user` is the target, but `role` stays the real session's, so the admin UI stays; `actor` is the admin.
+  const viewing = caller.viewAs
+    ? {
+        role: 'admin',
+        view_as: { login: caller.login, user_id: caller.uid, expires_at: new Date(caller.viewAs.expiresAt * 1000).toISOString() },
+        actor: { login: caller.viewAs.adminLogin }
+      }
+    : null
+  const role = viewing ? { role: viewing.role } : caller.via === 'session' ? { role: roleOf(caller.gh) } : {}
+  const extra = viewing ? { view_as: viewing.view_as, actor: viewing.actor } : {}
+  return json({ user: rows[0] ? { ...rows[0], ...adminField(caller), ...role, ...extra } : null, auth: rows[0] ? caller.via : null })
 }
 
 /** POST /api/auth/logout: ends this browser's session on the server (not API tokens or AI apps), then clears the cookie. */
