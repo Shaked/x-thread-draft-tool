@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { route } from '../../server/router.js'
 import { sealViewAs } from '../../server/admin/view-as.js'
 import { applyDiff, diffDrafts, summaryLine } from '../../src/utils/revisionDiff.js'
+import { setQueryImpl } from '../../server/db.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
 
 const STEPS = 100
@@ -191,35 +192,44 @@ describe('GET /drafts/:id/revisions/:seq', () => {
     expect((await route(apiRequest(`/api/drafts/${draft.id}/revisions/5`))).status).toBe(401)
   })
 
-  it('the list of many revisions that each rewrite a long post stays fast and light (no body leaves the database)', async () => {
-    // 60 revisions of one post of about 600 KB; each rewrites it (a new text that shares most words with the one before).
-    // Built in SQL, so the test sends no big value. Without the md5 stand-ins every body reaches Node and is word-diffed.
+  it('the list of revisions that each rewrite a long post sends no post text out of the database', async () => {
+    // 20 revisions of one post of about 300 KB, each a rewrite that shares most words with the one before. Built in SQL, so
+    // the test sends no big value. Without the md5 stand-ins the list statement returns every body (about 6 MB here).
+    const text = (middle) => `repeat('lorem ipsum dolor sit amet ', 5500) || ${middle} || repeat('sit amet lorem ipsum ', 5500)`
     const { rows } = await db.pg.query(
       `insert into drafts (user_id, title, posts, last_actor_kind, last_actor_name, last_label)
-       values ($1, 'Many', jsonb_build_array(jsonb_build_object('id', 'p', 'text', repeat('lorem ipsum dolor sit amet ', 22000), 'images', '[]'::jsonb, 'embeddedTweet', null)), 'user', 'alice', 'a')
+       values ($1, 'Many', jsonb_build_array(jsonb_build_object('id', 'p', 'text', ${text("'start'")}, 'images', '[]'::jsonb, 'embeddedTweet', null)), 'user', 'alice', 'a')
        returning id`,
       [alice.id]
     )
-    for (let i = 1; i <= 60; i++) {
+    for (let i = 1; i <= 20; i++) {
       await db.pg.query(
         `update drafts set version = version + 1, last_actor_kind = 'user', last_actor_name = 'alice', last_label = $2,
-                posts = jsonb_build_array(jsonb_build_object('id', 'p', 'text', repeat('lorem ipsum dolor sit amet ', 11000) || 'rewrite ' || $2 || ' ' || repeat('sit amet lorem ipsum ', 11000), 'images', '[]'::jsonb, 'embeddedTweet', null))
+                posts = jsonb_build_array(jsonb_build_object('id', 'p', 'text', ${text('$2')}, 'images', '[]'::jsonb, 'embeddedTweet', null))
           where id = $1`,
         [rows[0].id, `r${i}`]
       )
     }
-    const heap = process.memoryUsage().heapUsed
-    const started = Date.now()
-    const res = await get(`/api/drafts/${rows[0].id}/revisions?limit=100`)
-    const out = await body(res)
-    const took = Date.now() - started
-    expect(res.status).toBe(200)
-    expect(out.revisions).toHaveLength(61)
-    expect(out.revisions[0].summary).toBe('changed post 1')
-    expect(out.revisions.slice(0, 60).every((r) => r.summary === 'changed post 1')).toBe(true)
-    // Measured: about 100 ms and +2 MB with the stand-ins; about 640 ms and +80 MB without them.
-    expect(took).toBeLessThan(400)
-    expect(process.memoryUsage().heapUsed - heap).toBeLessThan(40e6)
+    const answers = [] // the size of what each statement returns to the server
+    setQueryImpl(async (text, params = []) => {
+      const result = await db.pg.query(text, params)
+      answers.push(JSON.stringify(result.rows).length)
+      return { rows: result.rows, rowCount: result.affectedRows ?? result.rows.length }
+    })
+    let out
+    try {
+      const res = await get(`/api/drafts/${rows[0].id}/revisions?limit=100`)
+      expect(res.status).toBe(200)
+      out = await body(res)
+    } finally {
+      setQueryImpl(async (text, params = []) => {
+        const result = await db.pg.query(text, params)
+        return { rows: result.rows, rowCount: result.affectedRows ?? result.rows.length }
+      })
+    }
+    expect(out.revisions).toHaveLength(21)
+    expect(out.revisions.slice(0, 20).every((r) => r.summary === 'changed post 1')).toBe(true)
+    expect(Math.max(...answers)).toBeLessThan(50000)
   })
 
   it('a very long post is diffed without blocking (the bounded word diff)', async () => {
