@@ -1,0 +1,3 @@
+- Plugin `pr-workflow` 0.1.0: the branch, pull request and check-reading workflow moves from `agent-pr-workflow` into `plugins/pr-workflow`, with its helper. This repo's `scripts/agent-pr.sh` calls it; `smoke` stays here.
+- The project skill `.claude/skills/agent-pr-workflow.md` keeps this repo's rules and links to the plugin skill.
+- Tests: `tests/unit/plugin-pr-workflow.test.js` runs the helper's argument parsing with a stubbed `gh`, without network.
