@@ -3,7 +3,7 @@
 - The unit and API tests run in three parts of about equal length, so the slowest part stays under its time limit.
 
 Area: Speed
-Link: https://github.com/Shaked/x-thread-draft-tool/issues/605
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/606
 
 ## Technical details
 
