@@ -165,7 +165,7 @@ mentions "the Better Stack MCP server"; the server itself was not read.
 individual projects", "Our introductory plan, free forever.", "Free: Up to 20M events and 100M time series
 data points". Over-limit (FAQ structured data in the raw HTML, `www_honeycomb_io_pricing.html`): "We send you a
 notification to let you know you have exceeded your monthly event limit." and, on a second consecutive overage
-month, "we'll begin throttling your events ... You have 10 days from that notification to take remediation action
+month, "we’ll begin throttling your events ... You have 10 days from that notification to take remediation action
 before throttling begins." Retention: the same FAQ gives "metrics data retained for 60 days by default", for
 metrics only; event retention on Free: not checked. Whether hosted MCP is on Free: not checked (the table row
 exists; the column is not readable from the text). The old self-hosted MCP (https://github.com/honeycombio/honeycomb-mcp) says "DEPRECATED: This
@@ -224,8 +224,8 @@ drains." The price row in the same table: "Drains $0.50 per 1 GB" (the table's "
 | OTel Collector + backend | the backend's | needs a host (none free, not checked) | same | the backend's | low | the backend's | no: needs a host and a backend |
 | GitHub artifacts and summaries only | up to 90 days, free in a public repo | built in | deploys only | no: artifacts not readable from a session; logs are, with the GitHub MCP; list and get need no token for public resources, but the download page states no such exception (quoted 2026-11-27) | none | free in a public repo (quoted) | keep as the raw log store, not as the central place |
 
-M0 (2026-11-27) changed two verdict reasons; no verdict changed its word. Better Stack is now "no: 3-day retention on
-Free" (it was "nothing read"). Grafana, Axiom, Honeycomb and Sentry stay "no", for the reasons in their rows.
+M0 (2026-11-27) changed three verdict reasons (Better Stack, Grafana, Honeycomb); no verdict changed. Axiom stays
+"fallback 3, owner-only"; the others stay "no".
 
 ## 3. Recommendation
 
