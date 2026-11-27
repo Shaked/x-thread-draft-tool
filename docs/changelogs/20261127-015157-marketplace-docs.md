@@ -5,4 +5,4 @@
 - The install commands were run in a temp config folder with Claude Code 2.1.332 against the `main` marketplace; the results are listed at the end of the doc.
 
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/issues/512
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/577
