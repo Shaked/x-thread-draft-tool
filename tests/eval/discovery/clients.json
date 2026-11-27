@@ -39,7 +39,7 @@
       "reads_tool_title": { "value": "not checked", "source": "not checked" },
       "observed": [
         { "date": "2026-11-21", "what": "Showed a Text code block with the posts, the link, then a card with an empty grey box", "source": "https://github.com/Shaked/x-thread-draft-tool/issues/352" },
-        { "date": "2026-11-20", "what": "Did not call the tool to update a draft unless told", "source": "https://github.com/Shaked/x-thread-draft-tool/issues/279" },
+        { "date": "2026-11-21", "what": "Did not call the tool to update a draft unless told", "source": "https://github.com/Shaked/x-thread-draft-tool/issues/279" },
         { "date": "2026-11-20", "what": "No slash commands seen", "source": "https://github.com/Shaked/x-thread-draft-tool/issues/280" }
       ]
     },

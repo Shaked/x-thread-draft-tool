@@ -2,12 +2,16 @@
 // Plan docs/plans/draft-contract.md section 5.1 (#395, task W6): the contract lint. It runs on the real server modules
 // and one seeded draft (an English and a Hebrew post). No model, no network. The draft is seeded once in beforeAll;
 // the write tools run once each, in order, and every check reads those results.
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../../server/blob.js', () => ({ putBlob: vi.fn(), deleteBlobUrls: vi.fn(async () => {}) }))
+vi.mock('../../server/blob.js', () => ({
+  putBlob: vi.fn(async (pathname) => ({ url: `https://store.public.blob.vercel-storage.com/${pathname}` })),
+  deleteBlobUrls: vi.fn(async () => {})
+}))
 
 import { route } from '../../server/router.js'
 import { issuePair } from '../../server/oauth/tokens.js'
+import { setResolverForTests } from '../../server/remote-image.js'
 import { isCleanServerText } from '../../server/mcp/language.js'
 import { INSTRUCTIONS } from '../../server/mcp/server.js'
 import { getPrompt, listPrompts } from '../../server/mcp/prompts.js'
@@ -29,7 +33,8 @@ const HINT = {
   read: /^To change a post, call update_post with this id, the post's id from posts, and version \d+\.$/,
   outline: /^Call get_draft for the text, or update_post to change a post\.$/,
   rewrite: /^Saved\. Say in one line what changed; if no card shows the thread, quote the changed posts\.$/,
-  edit: /^Saved\. Say in one line what changed; quote only the changed posts, not the whole draft\.$/
+  edit: /^Saved\. Say in one line what changed; quote only the changed posts, not the whole draft\.$/,
+  image: /^(Saved\. Post \d+ has \d of 4 images\. Say this in one line\.|Saved\. Say in one line which images changed; the draft has \d+ images? in all\.)$/
 }
 const GROUP = {
   create_draft: 'read',
@@ -41,10 +46,13 @@ const GROUP = {
   add_post: 'edit',
   update_post: 'edit',
   remove_post: 'edit',
-  move_post: 'edit'
+  move_post: 'edit',
+  add_image_from_url: 'image',
+  remove_image: 'image'
 }
-// Tools whose markdown part (#356) carries the thread in both languages.
-const MARKDOWN_TOOLS = ['create_draft', 'create_thread_from_text', 'get_draft']
+// Results whose markdown part carries the thread in both languages (#356, #392).
+const MARKDOWN_TOOLS = ['create_draft', 'create_thread_from_text', 'get_draft', 'update_draft']
+const sumImages = (draft) => draft.posts.reduce((n, p) => n + (p.image_count ?? p.images?.length ?? 0), 0)
 const RANDOM_ID = '00000000-0000-4000-8000-000000000000'
 
 let token
@@ -92,7 +100,18 @@ beforeAll(async () => {
   seen.duplicate_draft = await call('duplicate_draft', { id })
   seen.create_thread_from_text = await call('create_thread_from_text', { text: `${EN}\n\n${HE}`, title: 'Thread' })
   seen.error = await call('update_post', { id: RANDOM_ID, post_id: 'p1', text: 'x' })
+  setResolverForTests(async () => [{ address: '93.184.216.34', family: 4 }])
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([137, 80, 78, 71]), { headers: { 'content-type': 'image/png' } })))
+  const firstPost = (await current()).posts[0]
+  seen.add_image_from_url = await call('add_image_from_url', { draftId: id, url: 'https://example.com/n.png', postId: firstPost.id, position: 1 })
+  const imageUrl = (await current()).posts[0].images[0].url
+  seen.remove_image = await call('remove_image', { draftId: id, url: imageUrl })
 }, 20000)
+
+afterAll(() => {
+  setResolverForTests(null)
+  vi.unstubAllGlobals()
+})
 
 describe('contract lint: server instructions', () => {
   it('holds R1, R3 and R4 in short form, is at most 1024 bytes, clean, and has no pushy word', () => {
@@ -118,10 +137,15 @@ describe('contract lint: prompts and skill', () => {
     expect(promptText('thread_from_notes')).toMatch(/do not repeat/i)
   })
 
-  it('every prompt text is free of code-block requests and pushy words', () => {
+  it('every prompt description and every message it builds is free of code-block requests and pushy words', () => {
     for (const prompt of listPrompts()) {
       expect(fenceProblems(prompt.description, { server: true }), prompt.name).toEqual([])
       expect(prompt.description, prompt.name).not.toMatch(PUSHY)
+    }
+    for (const name of Object.keys(promptArgs())) {
+      const text = promptText(name)
+      expect(fenceProblems(text, { server: true, allowed: ['user'] }), name).toEqual([])
+      expect(text, name).not.toMatch(PUSHY)
     }
   })
 
@@ -129,7 +153,16 @@ describe('contract lint: prompts and skill', () => {
     const skill = readSkillResource(SKILL_URI)[0].text
     expect(Buffer.byteLength(skill)).toBeLessThan(8192)
     expect(skill).toContain('## Working on a draft')
-    for (let n = 1; n <= 9; n += 1) expect(skill, `R${n}`).toMatch(new RegExp(`^- R${n}\\. `, 'm'))
+    const KEY = { 1: 'at once', 2: 'update_post', 3: 'one or two lines', 4: 'block quote', 5: 'Hebrew', 6: 'One option per item', 7: 'update_post', 8: 'copy block', 9: 'image count' }
+    const lines = skill.slice(skill.indexOf('## Working on a draft')).split('\n')
+    for (let n = 1; n <= 9; n += 1) {
+      const start = lines.findIndex((line) => line.startsWith(`- R${n}. `))
+      expect(start, `R${n}`).toBeGreaterThanOrEqual(0)
+      let rule = lines[start]
+      for (let k = start + 1; k < lines.length && lines[k].startsWith('  '); k += 1) rule += ` ${lines[k]}`
+      expect(rule, `R${n}`).toContain(KEY[n])
+    }
+    expect(skill).toMatch(/never a block of code/i)
   })
 
   it('the skill sample answer is numbered block quotes, one of them Hebrew, with no fence', () => {
@@ -157,9 +190,11 @@ describe('contract lint: draft results (state line, text, Hebrew, admin silence)
       const body = jsonOf(result)
       const draft = body.draft ?? body
       expect(last.startsWith(`Draft ${draft.id}, version ${draft.version}, `), name).toBe(true)
+      if (name === 'add_image_from_url') expect(last, name).toContain('Post 1 has 1 of 4 images.')
       const count = draft.post_count ?? draft.posts.length
       expect(last, name).toContain(`, ${count} post${count === 1 ? '' : 's'}, `)
-      expect(last, name).toContain(', 0 images. ')
+      const images = Number(last.match(/, (\d+) images?\. Editor/)[1])
+      expect(images, name).toBe(sumImages(draft))
     }
   })
 
@@ -171,6 +206,8 @@ describe('contract lint: draft results (state line, text, Hebrew, admin silence)
   it('no result text part has a code fence, except the one copy block of a thread result', () => {
     for (const name of [...names, 'error']) {
       for (const text of textParts(seen[name])) {
+        // The copy block is allowed only behind its exact label (fenceProblems). Which results carry one is not the rule here:
+        // edit results carry the markdown thread too, which the plan's list of four does not name (flagged in the PR).
         expect(fenceProblems(text, { allowed: ['copy'] }), name).toEqual([])
       }
     }

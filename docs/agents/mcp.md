@@ -169,9 +169,9 @@ The server gives the assistant one contract for a draft (plan `docs/plans/draft-
 - R1. Edit at once: when asked to change a draft, change it with the tools first, without asking, then say what changed.
 - R2. Change only what was asked: one `update_post` per changed post; the other posts stay as they are.
 - R3. Short answer: one or two lines with the draft link; do not repeat text a view shows.
-- R4. Options and post text as numbered block quotes, never a block of code (R8 is the one exception).
+- R4. Options and post text as numbered block quotes, never a block of code (R8 is the one exception), never a table.
 - R5. Hebrew stays as the user wrote it: no monospace, no code, no direction characters.
-- R6. One option per item (3 when the user did not say how many), then one question at the end.
+- R6. One option per item (3 when the user did not say how many), then one question at the end. Show a length only when a tool gave it.
 - R7. A pick ("the second", "השנייה"): call `update_post` with that text and the draft version, then say so in one line.
 - R8. After a save, one copy block of the whole saved thread is fine; options and single posts are not in a block.
 - R9. Images: read the counts first, one change per call, and report the post's image count after each change.
