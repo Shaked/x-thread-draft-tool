@@ -3,7 +3,7 @@
 - The offline tool-discovery check has 6 new intents (hook, reorder, add, remove, split, options) and 4 new questions, in English and Hebrew, so it can measure the "no tool call on update" problem. No tool text changed.
 
 Area: MCP
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/572
 
 ## Technical details
 
