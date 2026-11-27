@@ -47,7 +47,10 @@ function makePost(rand, id) {
 function makeDraft(rand, idPrefix) {
   const count = Math.floor(rand() * 9)
   const posts = []
-  for (let i = 0; i < count; i++) posts.push(makePost(rand, `${idPrefix}${i}`))
+  for (let i = 0; i < count; i++) {
+    const reuse = i > 0 && rand() < 0.1
+    posts.push(makePost(rand, reuse ? posts[i - 1].id : `${idPrefix}${i}`))
+  }
   return { title: makeText(rand, 3), posts }
 }
 
@@ -180,8 +183,8 @@ describe('revision diff core (#377)', () => {
     const d = diffDrafts(a, b)
     // a, c, d keep their order (the longest increasing run); b and e are the moves.
     expect(d.moved).toEqual([
-      { id: 'b', from: 1, to: 4 },
-      { id: 'e', from: 4, to: 1 }
+      { id: 'b', n: 0, from: 1, to: 4 },
+      { id: 'e', n: 0, from: 4, to: 1 }
     ])
     expect(d.edited.map((e) => [e.id, e.index])).toEqual([['b', 4]])
     expect(d.edited[0].words.map((p) => p.op)).toContain('ins')
@@ -203,7 +206,7 @@ describe('revision diff core (#377)', () => {
     const a = { title: 'T', posts: [post('a', 'A'), post('b', 'B')] }
     const b = { title: 'T', posts: [post('a', 'A'), post('x', ''), post('b', 'B')] }
     const d = diffDrafts(a, b)
-    expect(d.added).toEqual([{ id: 'x', afterId: 'a', index: 1, post: post('x', '') }])
+    expect(d.added).toEqual([{ id: 'x', n: 0, afterId: 'a', index: 1, post: post('x', '') }])
     expect(summaryLine(d)).toBe('added post 2 after post 1')
     expect(applyDiff(a, d)).toEqual(b)
   })
@@ -221,6 +224,34 @@ describe('revision diff core (#377)', () => {
     expect(summaryLine(d)).toBe('changed the title, changed post 1')
     expect(summaryLine(d)).not.toContain('http')
     expect(applyDiff(a, d)).toEqual(b)
+  })
+
+  it('hand case: two posts with one id stay two posts (the API allows it)', () => {
+    const post = (id, text) => ({ id, text, images: [], embeddedTweet: null })
+    const a = { title: 'T', posts: [post('x', 'first'), post('x', 'second'), post('y', 'Y')] }
+    expect(emptyDiff(diffDrafts(a, a))).toBe(true)
+    const b = { title: 'T', posts: [post('x', 'first'), post('x', 'second edited'), post('y', 'Y')] }
+    const d = diffDrafts(a, b)
+    expect(d.edited.map((e) => [e.id, e.n, e.index])).toEqual([['x', 1, 1]])
+    expect(d.removed).toEqual([])
+    expect(applyDiff(a, d)).toEqual(b)
+    const c = { title: 'T', posts: [post('x', 'second'), post('y', 'Y')] }
+    const removal = diffDrafts(a, c)
+    // Occurrences match by position: the first x now reads "second" and the second x is gone.
+    expect(removal.removed).toEqual([{ id: 'x', n: 1, index: 1 }])
+    expect(removal.edited.map((e) => [e.id, e.n, e.index])).toEqual([['x', 0, 0]])
+    expect(applyDiff(a, removal)).toEqual(c)
+  })
+
+  it('hand case: a missing text and a null image list count as empty, never as the word "undefined"', () => {
+    const a = { title: 'T', posts: [{ id: 'a', text: 'Hello', images: null, embeddedTweet: null }] }
+    const b = { title: 'T', posts: [{ id: 'a', images: [{ url: '/u' }], embeddedTweet: null }] }
+    const d = diffDrafts(a, b)
+    expect(d.edited[0].words).toEqual([{ op: 'del', text: 'Hello' }])
+    expect(d.edited[0].images).toEqual({ added: 1, removed: 0 })
+    expect(JSON.stringify(d)).not.toContain('undefined')
+    expect(applyDiff(a, d)).toEqual(b)
+    expect(emptyDiff(diffDrafts(b, b))).toBe(true)
   })
 
   it('a 1 MB draft: a few edits, a move and an add are found, and the rebuild matches', () => {

@@ -3,16 +3,19 @@
  * Shared by the browser and the server, so it has no imports (like xLength.js).
  *
  * A draft is { title, posts }. A post is { id, text, images, embeddedTweet }.
+ * A draft may hold two posts with the same id (the API accepts it), so a post is matched by its id and its
+ * occurrence number n (0 for the first post with that id, 1 for the second, ...).
+ * A missing text counts as '' and a missing image list as [] (the saved drafts allow both).
  *
  * Output of diffDrafts(a, b):
  * - title: null, or { before, after }.
- * - added: [{ id, afterId, index, post }]: index is the place in b; afterId is the post before it in b (null first).
- * - removed: [{ id, index }]: index is the place in a.
- * - edited: [{ id, index, words, post, images? }]: the post changed in place; words is the word diff of the text
+ * - added: [{ id, n, afterId, index, post }]: index is the place in b; afterId is the id of the post before it in b.
+ * - removed: [{ id, n, index }]: index is the place in a.
+ * - edited: [{ id, n, index, words, post, images? }]: the post changed in place; words is the word diff of the text
  *   (null when the text did not change); images is { added, removed } counts when the images changed (no URLs).
- * - moved: [{ id, from, to }]: the longest increasing run of common posts keeps its place; the rest are moves.
- * - rewritten: [{ fromId, toId, index, words, post }]: a removed and an added post at the same index, paired.
- *   words is the word diff when at least 30 % of the words are shared, else null.
+ * - moved: [{ id, n, from, to }]: the longest increasing run of common posts keeps its place; the rest are moves.
+ * - rewritten: [{ fromId, fromN, toId, toN, index, words, post }]: a removed and an added post at the same index,
+ *   paired. words is the word diff when at least 30 % of the words are shared, else null.
  * `post` carries the new post, so applyDiff can rebuild b. It is data for the caller, never text for a person:
  * summaryLine() reads only positions.
  */
@@ -20,6 +23,8 @@
 const WORDS = new Intl.Segmenter(undefined, { granularity: 'word' })
 const REWRITE_SHARE = 0.3
 
+const textOf = (post) => (typeof post?.text === 'string' ? post.text : '')
+const imagesOf = (post) => (Array.isArray(post?.images) ? post.images : [])
 const tokenize = (text) => Array.from(WORDS.segment(text), (s) => s.segment)
 const wordTokens = (text) =>
   Array.from(WORDS.segment(text))
@@ -36,6 +41,16 @@ function canonical(value) {
     return `{${keys.map((k) => `${JSON.stringify(k)}:${canonical(value[k])}`).join(',')}}`
   }
   return JSON.stringify(value) ?? 'null'
+}
+
+// Each post of a draft with its key: its id and occurrence number, so two posts with one id stay two posts.
+function keyedPosts(posts) {
+  const seen = new Map()
+  return posts.map((post) => {
+    const n = seen.get(post.id) ?? 0
+    seen.set(post.id, n + 1)
+    return { post, id: post.id, n, key: JSON.stringify([post.id, n]) }
+  })
 }
 
 /** Myers diff of two arrays. Returns [{ op: 'same' | 'del' | 'ins', value }] in order. */
@@ -103,7 +118,7 @@ export function diffWords(before, after) {
   return runs(myers(tokenize(before), tokenize(after)))
 }
 
-/** Index pairs of a longest strictly increasing run of `values` (values are distinct). Returns a Set of positions. */
+/** Positions of a longest strictly increasing run of `values` (values are distinct). Returns a Set of positions. */
 function longestIncreasing(values) {
   const tails = []
   const prev = new Array(values.length)
@@ -124,14 +139,14 @@ function longestIncreasing(values) {
 }
 
 /** Image counts without URLs: how many images were added to and removed from a post. */
-function imageChanges(before = [], after = []) {
+function imageChanges(before, after) {
   const left = new Map()
-  for (const img of before) {
+  for (const img of imagesOf(before)) {
     const key = canonical(img)
     left.set(key, (left.get(key) ?? 0) + 1)
   }
   let added = 0
-  for (const img of after) {
+  for (const img of imagesOf(after)) {
     const key = canonical(img)
     if (left.get(key) > 0) left.set(key, left.get(key) - 1)
     else added++
@@ -159,44 +174,47 @@ function rewriteWords(before, after) {
   return shared / total >= REWRITE_SHARE ? diffWords(before, after) : null
 }
 
-function editEntry(before, after, index) {
+function editEntry(before, after, index, id, n) {
   const entry = {
-    id: after.id,
+    id,
+    n,
     index,
-    words: before.text === after.text ? null : diffWords(before.text, after.text),
+    words: textOf(before) === textOf(after) ? null : diffWords(textOf(before), textOf(after)),
     post: after
   }
-  const images = imageChanges(before.images, after.images)
+  const images = imageChanges(before, after)
   if (images.added || images.removed) entry.images = images
   return entry
 }
 
 /** What changed from draft a to draft b. Pure: the same inputs always give the same diff. */
 export function diffDrafts(a, b) {
-  const aPosts = a.posts
-  const bPosts = b.posts
-  const aIndex = new Map(aPosts.map((p, i) => [p.id, i]))
-  const bIndex = new Map(bPosts.map((p, i) => [p.id, i]))
+  const aPosts = keyedPosts(a.posts)
+  const bPosts = keyedPosts(b.posts)
+  const bIndex = new Map(bPosts.map((p, i) => [p.key, i]))
+  const aKeys = new Set(aPosts.map((p) => p.key))
 
   const removed = []
   const common = []
   aPosts.forEach((p, from) => {
-    const to = bIndex.get(p.id)
-    if (to === undefined) removed.push({ id: p.id, index: from })
-    else common.push({ id: p.id, from, to })
+    const to = bIndex.get(p.key)
+    if (to === undefined) removed.push({ id: p.id, n: p.n, index: from })
+    else common.push({ id: p.id, n: p.n, from, to, before: p.post, after: bPosts[to].post })
   })
 
   const added = []
   bPosts.forEach((p, index) => {
-    if (!aIndex.has(p.id)) added.push({ id: p.id, afterId: index > 0 ? bPosts[index - 1].id : null, index, post: p })
+    if (!aKeys.has(p.key)) {
+      added.push({ id: p.id, n: p.n, afterId: index > 0 ? bPosts[index - 1].id : null, index, post: p.post })
+    }
   })
 
   const keep = longestIncreasing(common.map((c) => c.to))
   const moved = []
   const edited = []
   common.forEach((c, i) => {
-    if (!keep.has(i)) moved.push({ id: c.id, from: c.from, to: c.to })
-    if (canonical(aPosts[c.from]) !== canonical(bPosts[c.to])) edited.push(editEntry(aPosts[c.from], bPosts[c.to], c.to))
+    if (!keep.has(i)) moved.push({ id: c.id, n: c.n, from: c.from, to: c.to })
+    if (canonical(c.before) !== canonical(c.after)) edited.push(editEntry(c.before, c.after, c.to, c.id, c.n))
   })
 
   // A removed and an added post at the same index are one rewritten post.
@@ -212,9 +230,11 @@ export function diffDrafts(a, b) {
     addedByIndex.delete(r.index)
     rewritten.push({
       fromId: r.id,
+      fromN: r.n,
       toId: partner.id,
+      toN: partner.n,
       index: partner.index,
-      words: rewriteWords(aPosts[r.index].text, partner.post.text),
+      words: rewriteWords(textOf(aPosts[r.index].post), textOf(partner.post)),
       post: partner.post
     })
   }
@@ -232,22 +252,23 @@ export function diffDrafts(a, b) {
 
 /** Rebuilds draft b from draft a and diffDrafts(a, b). Used by the tests to prove the diff is complete. */
 export function applyDiff(a, d) {
-  const removedIds = new Set(d.removed.map((r) => r.id))
-  const rewrittenFrom = new Set(d.rewritten.map((r) => r.fromId))
-  const movedIds = new Set(d.moved.map((m) => m.id))
-  const content = new Map(a.posts.map((p) => [p.id, p]))
-  for (const e of d.edited) content.set(e.id, e.post)
+  const keyOf = (id, n) => JSON.stringify([id, n])
+  const removedKeys = new Set(d.removed.map((r) => keyOf(r.id, r.n)))
+  const rewrittenFromKeys = new Set(d.rewritten.map((r) => keyOf(r.fromId, r.fromN)))
+  const movedKeys = new Set(d.moved.map((m) => keyOf(m.id, m.n)))
+  const content = new Map(keyedPosts(a.posts).map((p) => [p.key, p.post]))
+  for (const e of d.edited) content.set(keyOf(e.id, e.n), e.post)
 
   // Unmoved common posts keep their order, so they fill the places the placed posts leave.
-  const rest = a.posts
-    .filter((p) => !removedIds.has(p.id) && !rewrittenFrom.has(p.id) && !movedIds.has(p.id))
-    .map((p) => content.get(p.id))
+  const rest = keyedPosts(a.posts)
+    .filter((p) => !removedKeys.has(p.key) && !rewrittenFromKeys.has(p.key) && !movedKeys.has(p.key))
+    .map((p) => content.get(p.key))
 
-  const length = a.posts.length - removedIds.size - rewrittenFrom.size + d.added.length + d.rewritten.length
+  const length = a.posts.length - removedKeys.size - rewrittenFromKeys.size + d.added.length + d.rewritten.length
   const posts = new Array(length)
   for (const e of d.added) posts[e.index] = e.post
   for (const r of d.rewritten) posts[r.index] = r.post
-  for (const m of d.moved) posts[m.to] = content.get(m.id)
+  for (const m of d.moved) posts[m.to] = content.get(keyOf(m.id, m.n))
   let next = 0
   for (let i = 0; i < length; i++) if (posts[i] === undefined) posts[i] = rest[next++]
 
