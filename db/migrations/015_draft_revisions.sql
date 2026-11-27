@@ -25,13 +25,14 @@ alter table drafts add column if not exists last_actor_kind text;
 alter table drafts add column if not exists last_actor_name text;
 alter table drafts add column if not exists last_label text;
 
--- The history key of each post: its id; a repeated id gets its occurrence number; a post with no id (saved before ids
--- were required) gets its position. Every post has a key, so history keeps duplicates and legacy posts apart.
+-- The history key of each post, fixed length and never colliding: 'i' + the SHA-256 of its id + ':' + the occurrence number
+-- of that id (a repeated id counts up); a post with no id (saved before ids were required) gets 'n' + its position.
+-- Client ids have no length limit, so they are hashed before they go into an index. Every post has its own key.
 create or replace function draft_post_keys(posts jsonb) returns table (key text, ord bigint, body jsonb)
 language sql immutable as $$
-  select case when e.value->>'id' is null then chr(31) || 'pos' || e.ord
-              when row_number() over (partition by e.value->>'id' order by e.ord) = 1 then e.value->>'id'
-              else (e.value->>'id') || chr(31) || row_number() over (partition by e.value->>'id' order by e.ord) end,
+  select case when e.value->>'id' is null then 'n' || e.ord
+              else 'i' || encode(sha256(convert_to(e.value->>'id', 'UTF8')), 'hex') || ':'
+                   || row_number() over (partition by e.value->>'id' order by e.ord) end,
          e.ord, e.value
     from jsonb_array_elements(coalesce(posts, '[]'::jsonb)) with ordinality as e(value, ord)
 $$;

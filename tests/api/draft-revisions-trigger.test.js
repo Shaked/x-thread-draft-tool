@@ -1,6 +1,7 @@
 // @vitest-environment node
 // E273 task H2 (#375): the trigger on drafts writes revisions inside the same statement. PGlite runs it as PL/pgSQL.
 // One seeded beforeAll runs every scenario; the tests only read the results. All text is fake.
+import { createHash } from 'node:crypto'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { setupTestDb } from './helpers/db.js'
 
@@ -9,6 +10,8 @@ const R = {} // scenario results, filled by beforeAll
 
 const post = (id, text) => ({ id, text, images: [], embeddedTweet: null })
 const j = (value) => JSON.stringify(value)
+/** The history key of the nth post with this id (see draft_post_keys in the migration). */
+const k = (id, occurrence = 1) => `i${createHash('sha256').update(id).digest('hex')}:${occurrence}`
 
 async function newDraft(userId, posts, title = 'T', actor = ['user', 'alice']) {
   const { rows } = await db.pg.query(
@@ -126,6 +129,12 @@ beforeAll(async () => {
   const dupEdited = [post('d', 'first'), post('d', 'second 2'), dupes[2]]
   await write(dup.id, { posts: dupEdited, actor: ['user', 'frank'] })
   R.dup = { created: await rebuild(dup.id, 1), edited: await rebuild(dup.id, 2), rows: await versions(dup.id, 2) }
+  // Ids that would collide under a naive encoding, and an id too long for an index key: the write must not fail.
+  const long = 'x'.repeat(5000)
+  const odd = [post('d', 'a'), post('d', 'b'), post('d\u001f2', 'c'), post('d:2', 'e'), post(long, 'long')]
+  const oddDraft = await newDraft(user.id, odd, 'Odd')
+  await write(oddDraft.id, { posts: odd.map((p) => ({ ...p, text: `${p.text}!` })), actor: ['user', 'hal'] })
+  R.odd = { created: await rebuild(oddDraft.id, 1), edited: await rebuild(oddDraft.id, 2) }
   const idless = { text: 'x', images: [], embeddedTweet: null }
   const legacy = await newDraft(user.id, [idless, post('l2', 'y')], 'Legacy')
   await db.pg.query('delete from draft_revisions where draft_id = $1', [legacy.id])
@@ -174,13 +183,13 @@ beforeAll(async () => {
 describe('draft revisions trigger (#375)', () => {
   it('create gives revision 1 with every post, the title and the order', () => {
     expect(R.create.revs).toHaveLength(1)
-    expect(R.create.revs[0]).toMatchObject({ seq: 1, title: 'Start', post_order: ['a', 'b', 'c'], actor_kind: 'user', actor_name: 'alice' })
-    expect(R.create.vers.map((row) => row.post_id)).toEqual(['a', 'b', 'c'])
+    expect(R.create.revs[0]).toMatchObject({ seq: 1, title: 'Start', post_order: ['a', 'b', 'c'].map((id) => k(id)), actor_kind: 'user', actor_name: 'alice' })
+    expect(R.create.vers.map((row) => row.post_id).sort()).toEqual(['a', 'b', 'c'].map((id) => k(id)).sort())
   })
 
   it('a one-post edit stores one post row and no title or order', () => {
     expect(R.edit.revs.at(-1)).toMatchObject({ seq: 2, title: null, post_order: null, actor_name: 'bob', version: R.edit.version })
-    expect(R.edit.vers).toEqual([{ post_id: 'b', body: post('b', 'two!') }])
+    expect(R.edit.vers).toEqual([{ post_id: k('b'), body: post('b', 'two!') }])
   })
 
   it('a title change stores title and no post rows', () => {
@@ -189,10 +198,11 @@ describe('draft revisions trigger (#375)', () => {
   })
 
   it('add, remove and move store post_order; a removed post has a null body; a move stores no bodies', () => {
-    expect(R.order.added).toEqual(['a', 'b', 'd', 'c'])
-    expect(R.order.removed).toEqual(['a', 'd', 'c'])
-    expect(R.order.moved).toEqual(['c', 'a', 'd'])
-    expect(R.removedVers).toEqual([{ post_id: 'b', body: null }])
+    const keys = (ids) => ids.map((id) => k(id))
+    expect(R.order.added).toEqual(keys(['a', 'b', 'd', 'c']))
+    expect(R.order.removed).toEqual(keys(['a', 'd', 'c']))
+    expect(R.order.moved).toEqual(keys(['c', 'a', 'd']))
+    expect(R.removedVers).toEqual([{ post_id: k('b'), body: null }])
     expect(R.moveVers).toEqual([])
   })
 
@@ -203,7 +213,7 @@ describe('draft revisions trigger (#375)', () => {
   it('the same actor within 2 minutes merges in place: new version, new bodies, title kept', () => {
     expect(R.merged.revs).toHaveLength(1)
     expect(R.merged.revs[0]).toMatchObject({ seq: 1, title: 'M2', version: 3 })
-    expect(R.merged.vers).toEqual([{ post_id: 'p', body: post('p', 'v3') }])
+    expect(R.merged.vers).toEqual([{ post_id: k('p'), body: post('p', 'v3') }])
   })
 
   it('two actors never merge, and the window ends the merge', () => {
@@ -221,7 +231,7 @@ describe('draft revisions trigger (#375)', () => {
       [1, 'user', null, 'carol'],
       [2, 'user', null, 'dave']
     ])
-    expect(R.old.base.map((row) => row.post_id)).toEqual(['o1', 'o2'])
+    expect(R.old.base.map((row) => row.post_id).sort()).toEqual([k('o1'), k('o2')].sort())
     expect(R.old.rebuilt0).toEqual({ title: 'Old', posts: [post('o1', 'old one'), post('o2', 'old two')] })
   })
 
@@ -235,6 +245,11 @@ describe('draft revisions trigger (#375)', () => {
     expect(R.dup.edited.posts[1]).toEqual(post('d', 'second 2'))
     expect(R.dup.rows).toHaveLength(1)
     expect(R.legacy.posts).toEqual([{ text: 'x', images: [], embeddedTweet: null }, post('l2', 'y')])
+  })
+
+  it('ids that collide under a naive encoding, and a 5,000-character id, are all kept and never fail a write', () => {
+    expect(R.odd.created.posts.map((p) => p.text)).toEqual(['a', 'b', 'c', 'e', 'long'])
+    expect(R.odd.edited.posts.map((p) => p.text)).toEqual(['a!', 'b!', 'c!', 'e!', 'long!'])
   })
 
   it('deleting a draft removes its revision rows', () => {
