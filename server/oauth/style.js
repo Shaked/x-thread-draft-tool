@@ -8,7 +8,6 @@ export const colours = {
   background: ['--color-bg', '#ffffff', '#0a0a0a'],
   surface: ['--color-surface', '#f5f5f5', '#141414'],
   text: ['--color-text', '#171717', '#ededed'],
-  textSoft: ['--color-text-soft', '#525252', '#a3a3a3'],
   textOnAccent: ['--color-text-on-accent', '#ffffff', '#000000'],
   accent: ['--color-accent', '#171717', '#ff6a2b'],
   border: ['--color-border', '#737373', '#737373'],

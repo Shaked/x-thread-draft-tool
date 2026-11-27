@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { readFileSync as readSource } from 'node:fs'
 import { colours, controlHeight, fontStack, radius } from '../../server/oauth/style.js'
 
 // server/oauth/style.js copies a few values from src/styles/tokens.css (the Rare look, the default skin).
@@ -11,6 +12,7 @@ const tokensCss = readFileSync(path.resolve('src/styles/tokens.css'), 'utf8')
 // The Rare skin block; its tokens override the defaults in the first block.
 const rareStart = tokensCss.indexOf(":root[data-skin='rare'] {")
 const rareEnd = tokensCss.indexOf('\n}', rareStart)
+expect(rareStart, 'the Rare skin block is missing from tokens.css').toBeGreaterThan(-1)
 const rareBlock = tokensCss.slice(rareStart, rareEnd)
 const defaultBlock = tokensCss.slice(0, rareStart)
 
@@ -39,5 +41,13 @@ describe('server/oauth/style.js values equal tokens.css', () => {
 
   it('the font stack is --font-sans', () => {
     expect(compact(declared(fontStack[0]))).toBe(compact(fontStack[1]))
+  })
+})
+
+describe('consent.js builds its CSS from style.js', () => {
+  it('imports the values instead of writing colours by hand', () => {
+    const consent = readSource(path.resolve('server/oauth/consent.js'), 'utf8')
+    expect(consent).toContain("from './style.js'")
+    expect(consent.match(/:\s*#[0-9a-fA-F]{3,8}\b/g) ?? []).toEqual([])
   })
 })
