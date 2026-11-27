@@ -117,6 +117,9 @@ describe('AboutPage', () => {
     expect(en).toHaveTextContent('MIT + Commons Clause License Condition v1.0 + Attribution')
     expect(he).toHaveAttribute('dir', 'rtl')
     expect(he).toContainElement(links[1])
+    // The Hebrew link is one left-to-right run that does not break across lines (measured: 44 px tall before, 20 px after).
+    expect(links[1]).toHaveAttribute('dir', 'ltr')
+    expect(links[1]).toHaveClass('about-credit-link')
     expect(he).toHaveTextContent('לפי הרישיון שלו')
   })
 })
