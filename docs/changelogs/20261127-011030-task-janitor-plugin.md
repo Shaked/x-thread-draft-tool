@@ -1,4 +1,11 @@
-# Task janitor plugin (#509)
+# Task janitor moves into a plugin
 
-- The task janitor, the session matcher, the status board, their skill, two templates and the `/janitor` and `/status` commands move to `plugins/task-janitor/` (0.1.0); the repo keeps wrappers in `scripts/` and links the skill and commands back.
-- Project settings: `task-janitor` in `.claude/agent-kit.json` (`replyLint`, `manualTestsIssue`, `reportIssue`, `dispatcherIssue`); the report and board output for this repo is unchanged (checked on a live snapshot and fixtures).
+- The task janitor, its session matcher and the status board are now a plugin, installable by other projects.
+- Each project sets its own owner, report issue and reply lint in its settings file; this repository behaves as before.
+
+Area: Docs
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/569
+
+## Technical details
+
+plugins/task-janitor (0.1.0). Scripts in scripts/ are wrappers; the skill and the two commands are linked from .claude/. The plugin CLI check counts commands as skills.

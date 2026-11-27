@@ -480,7 +480,7 @@ function summaryTop(findings, { counts, today, applied, pass1Findings, dispatche
  * counts: { sessions, pages, issues }; applied: [{ issue, what }]; pass1: the pass 1 report text, or ''.
  */
 export function formatSummary(findings, { counts, today, repo = REPO, names = new Map(), applied = [], pass1 = '', pass1Findings = [], shown = findings.length }) {
-  const seen = new Set([154])
+  const seen = new Set(DISPATCHER_ISSUE ? [DISPATCHER_ISSUE] : [])
   const x = (text) => expand(text, names, seen)
   // Pass 1 findings count too: their owner items go to the owner, the rest to the dispatcher. Their text is under Details.
   const one = pass1Findings.map((f) => ({ issue: f.issues?.[0] ?? null, evidence: f.what, action: f.fix, act: f.act }))

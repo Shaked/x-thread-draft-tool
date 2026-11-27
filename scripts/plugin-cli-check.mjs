@@ -20,7 +20,9 @@ for (const entry of market.plugins) {
     if (listed.version !== manifest.version) failures.push(`${entry.name}: CLI version ${listed.version}, manifest ${manifest.version}`)
   }
   const details = claude('plugin', 'details', `${entry.name}@${market.name}`)
-  const skills = readdirSync(`plugins/${entry.name}/skills`, { withFileTypes: true }).filter((d) => d.isDirectory()).length
+  // The CLI lists each command as a skill too (plugin task-janitor: Skills (3) for one skill and two commands).
+  const commands = existsSync(`plugins/${entry.name}/commands`) ? readdirSync(`plugins/${entry.name}/commands`).filter((f) => f.endsWith('.md')).length : 0
+  const skills = readdirSync(`plugins/${entry.name}/skills`, { withFileTypes: true }).filter((d) => d.isDirectory()).length + commands
   if (!new RegExp(`Skills \\(${skills}\\)`).test(details)) failures.push(`${entry.name}: the CLI does not list ${skills} skill(s)`)
   const hooksFile = `plugins/${entry.name}/hooks/hooks.json`
   const hooks = existsSync(hooksFile) ? JSON.parse(readFileSync(hooksFile, 'utf8')).hooks ?? {} : {}
