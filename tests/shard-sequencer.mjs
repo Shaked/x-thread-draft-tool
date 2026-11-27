@@ -37,7 +37,24 @@ export function splitByTime(entries, count, timings = TIMINGS, fallbackMs = FALL
   return bins.map((bin) => bin.items)
 }
 
+/** Orders specs inside a shard: group order and project name as vitest does, then the slowest file first, so the
+ * longest files start at once and a short file fills the gap at the end (#605). */
+export function slowestFirst(specs, root, timings = TIMINGS, fallbackMs = FALLBACK_MS) {
+  const keyOf = (spec) => relative(root, spec.moduleId).split(sep).join('/')
+  return [...specs].sort((a, b) => {
+    const group = a.project.config.sequence.groupOrder - b.project.config.sequence.groupOrder
+    if (group !== 0) return group
+    if (a.project.name !== b.project.name) return a.project.name < b.project.name ? -1 : 1
+    const [keyA, keyB] = [keyOf(a), keyOf(b)]
+    return (timings[keyB] ?? fallbackMs) - (timings[keyA] ?? fallbackMs) || (keyA < keyB ? -1 : keyA > keyB ? 1 : 0)
+  })
+}
+
 export class TimedShardSequencer extends BaseSequencer {
+  async sort(files) {
+    return slowestFirst(files, this.ctx.config.root)
+  }
+
   async shard(files) {
     const { index, count } = this.ctx.config.shard
     const root = this.ctx.config.root
