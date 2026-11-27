@@ -4,7 +4,7 @@
 - URLs with a leading space or a missing slash are read the same way the server reads them.
 
 Area: AI apps
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/611
 
 ## Technical details
 
