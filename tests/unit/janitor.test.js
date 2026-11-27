@@ -383,9 +383,25 @@ describe('hostile titles cannot become live links, mentions, references or bidi 
     'x#5 and #5, and more',
     'wide \uff20victim and \uff48ttp\uff1a//evil.example here',
     'mail me a@evil.example now ok',
-    'zero\u200b width @\u200bvictim test'
+    'zero\u200b width @\u200bvictim test',
+    'see G@H-12 issue',
+    'see @GH-12 too',
+    'see !GH-12 too',
+    'see GH@-12 too',
+    'see GH-@12 too',
+    'see ,GH-12 too',
+    'see .GH-12 too',
+    'see /GH-12 too',
+    'rebuilt G*H_-1~2 parts',
+    'a <!-- hidden --> comment here',
+    'click [here](http://evil.example) now',
+    'img ![x](http://evil.example/a.png) now',
+    'plain www.evil.example alone',
+    'send mailto:a@evil.example please',
+    'run javascript:alert(1) please',
+    '#x (a) and #y (b) pair'
   ]
-  const live = /@|#\d|\bGH-\d|:\/\/|www\.|\.[a-z]{2,}\/|[\u202a-\u202e\u2066-\u2069\u200b-\u200f\ufeff]|\p{Cc}/iu
+  const live = /@|#\d|\bGH-\d|:\/\/|mailto:|javascript:|www\.|\.[a-z]{2,}\/|[\u202a-\u202e\u2066-\u2069\u200b-\u200f\ufeff]|\p{Cc}/iu
 
   it('shortName keeps none of them', () => {
     for (const title of hostile) expect(shortName({ title }), title).not.toMatch(live)
@@ -399,8 +415,7 @@ describe('hostile titles cannot become live links, mentions, references or bidi 
     expect(text).toContain('#100')
     // Own references (#100 and the like) are the report's own; every title word is checked through the descriptions.
     for (const line of text.split('\n')) {
-      const paren = /\(([^)]*)\)/.exec(line)
-      if (paren) expect(paren[1], line).not.toMatch(live)
+      for (const paren of line.matchAll(/\(([^)]*)\)/g)) expect(paren[1], line).not.toMatch(live)
     }
   })
 })

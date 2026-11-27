@@ -76,16 +76,17 @@ export function titleText(title) {
 
 /**
  * Issue titles are written by anyone on a public repository, and the report is posted as a comment. A word of a title is
- * folded to NFKC and loses control and format characters (bidi, zero width), then: a word with `#` and a digit
- * (an issue or cross-repository reference) or `GH-12` is dropped; `@`, `#` and markup characters are removed; and a word
- * that is then a link (`://`, `www.`, `name.tld/`) is dropped. The URL test runs AFTER the removal, so removing
- * characters cannot make a link. A word is cut at 24 characters.
+ * folded to NFKC and loses control and format characters (bidi, zero width); `@`, `#` and markup characters are removed;
+ * a word that is an issue reference (a hash and a digit, with or without an owner and repo, or `GH-` and a digit, also after the removal) or a link (`://`, `www.`, `name.tld/`,
+ * `mailto:`, `javascript:`) is dropped. Every test runs on the text before AND after the removal, so removing characters
+ * cannot build a link. A word is cut at 24 characters.
  */
 export function safeWord(w) {
   const s = w.normalize('NFKC').replace(/[\p{Cf}\p{Cc}]/gu, '')
-  if (/#\d|^GH-\d+/i.test(s)) return ''
   const t = s.replace(/[@#<>&*_~|\\{}!$^=+]/g, '')
-  if (/:\/\/|www\.|\.[a-z]{2,}\//i.test(t)) return ''
+  // Test the original (a reference) and the final text (removing characters can build a link or a reference).
+  const link = (x) => /#\d|(^|[^a-z0-9])GH-\d|:\/\/|www\.|\.[a-z]{2,}\/|^(mailto|javascript|data|vbscript):/i.test(x)
+  if (link(s) || link(t)) return ''
   return t.slice(0, 24)
 }
 
