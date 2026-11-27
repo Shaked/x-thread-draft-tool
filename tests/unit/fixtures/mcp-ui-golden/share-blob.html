@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Share link</title>
+<style>:root{color-scheme:light;--x-bg:#ffffff;--x-fg:#0f1419;--x-muted:#536471;--x-line:#eff3f4;--x-card:#f7f9f9;--x-link:#1d9bf0;--accent:#6d28d9;--focus:#7c3aed}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--x-bg:#000;--x-fg:#e7e9ea;--x-muted:#71767b;--x-line:#2f3336;--x-card:#16181c;--x-link:#1d9bf0;--accent:#b69cff;--focus:#c4b0ff}}:root[data-theme="dark"]{color-scheme:dark;--x-bg:#000;--x-fg:#e7e9ea;--x-muted:#71767b;--x-line:#2f3336;--x-card:#16181c;--x-link:#1d9bf0;--accent:#b69cff;--focus:#c4b0ff}:root[data-theme="light"]{color-scheme:light;--x-bg:#ffffff;--x-fg:#0f1419;--x-muted:#536471;--x-line:#eff3f4;--x-card:#f7f9f9;--x-link:#1d9bf0;--accent:#6d28d9;--focus:#7c3aed}html,body{margin:0;background:var(--x-bg);color:var(--x-fg);font:15px/1.4 system-ui,-apple-system,sans-serif;overflow-wrap:anywhere}main{max-width:600px;margin:0 auto;padding:var(--safe-top,0px) calc(16px + var(--safe-right,0px)) var(--safe-bottom,0px) calc(16px + var(--safe-left,0px))}header{padding:16px 0 12px;border-bottom:1px solid var(--x-line)}h1{font-size:20px;font-weight:800;margin:0 0 4px}header p{margin:0;color:var(--x-muted);font-size:14px}.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}.actions:empty{display:none}.share{display:contents}.share > p,.share > div{flex-basis:100%;min-width:0;margin:0}.share > div{margin-top:8px}article{display:grid;grid-template-columns:40px 1fr;gap:12px;padding:12px 0 4px;border-bottom:1px solid var(--x-line)}article > span{width:40px;height:40px;border-radius:50%;border:1px solid var(--x-line);background:var(--x-card);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--x-muted)}article > div{min-width:0}article header{border:0;padding:0;display:flex;gap:4px;align-items:baseline}article header strong{font-weight:700}article header span{color:var(--x-muted)}article p{margin:4px 0 8px;font-size:17px;white-space:pre-wrap;unicode-bidi:plaintext}article > div > p[dir="auto"]{text-align:start}ul,ol{list-style:none;margin:0 0 8px;padding:0}li{margin:4px 0}ol{display:grid;grid-template-columns:1fr 1fr;gap:2px;border-radius:16px;overflow:hidden;border:1px solid var(--x-line)}ol:has(> li:only-child){grid-template-columns:1fr}li:first-child:nth-last-child(3){grid-row:span 2}ol li{margin:0}ol img{display:block;width:100%;height:100%;object-fit:cover;aspect-ratio:16 / 10}ol:has(> li:only-child) img{aspect-ratio:auto;max-height:420px;object-fit:contain}section{border:1px solid var(--x-line);border-radius:16px;padding:10px 12px;margin:4px 0 8px}section p{font-size:14px;color:var(--x-muted);margin:0 0 6px}button{font:inherit;font-size:14px;color:var(--accent);background:none;border:1px solid var(--x-line);border-radius:999px;padding:4px 12px;cursor:pointer;max-width:100%;overflow-wrap:anywhere;text-align:start}button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}footer small{color:var(--x-muted)}main > div > p{color:var(--x-muted);font-size:13px;text-align:center;margin:12px 0}footer strong{color:#f4212e}section input{display:block;width:100%;box-sizing:border-box;margin:4px 0 8px;font:inherit;font-size:14px;color:var(--x-fg);background:var(--x-card);border:1px solid var(--x-line);border-radius:8px;padding:8px 10px}section div{display:flex;flex-wrap:wrap;gap:8px}button:disabled{opacity:0.5;cursor:default}main > header h1{font-size:20px;font-weight:800;margin:0}main > p{color:var(--x-muted);font-size:14px;margin:8px 0}</style>
+</head>
+<body>
+<main id="root"><p>Loading link…</p></main>
+<script>function labels() { return {"common":{"tool_error":["The tool returned an error.","הכלי החזיר שגיאה."],"cannot_show":["This view cannot show that result.","התצוגה הזו לא יכולה להציג את התוצאה."],"no_host":["Could not connect to the host.","לא ניתן להתחבר לאפליקציה המארחת."]},"share":{"title":["Share link","קישור לשיתוף"],"create":["Create share link","צור קישור לשיתוף"],"create_failed":["The link could not be created.","לא ניתן היה ליצור את הקישור."],"preview":["Preview link","קישור לתצוגה מקדימה"],"markdown":["Markdown link","קישור ל-Markdown"],"open":["Open","פתח"],"copy":["Copy","העתק"],"copied":["Copied","הועתק"],"select_copy":["Select and copy","סמן והעתק"],"stop":["Stop this link","עצור את הקישור הזה"],"sure":["Are you sure? The link stops working at once.","בטוח? הקישור יפסיק לעבוד מיד."],"yes_stop":["Yes, stop this link","כן, עצור את הקישור"],"cancel":["Cancel","ביטול"],"waiting":["Waiting for your OK in the chat","ממתין לאישור שלך בצ׳אט"],"stop_failed":["The link could not be stopped.","לא ניתן היה לעצור את הקישור."],"no_answer":["No answer from the host. Try again.","אין תשובה מהאפליקציה המארחת. נסה שוב."],"not_allowed":["Your app does not allow this here.","האפליקציה שלך לא מאפשרת זאת כאן."],"stopped":["Stopped","נעצר"],"once":["Works once","עובד פעם אחת"],"until":["Works until it expires","עובד עד שהתוקף יפוג"],"expired":["Expired","פג תוקף"],"expires_in":["Expires in {left} ({time})","התוקף יפוג בעוד {left} ({time})"]}} }
+function bridge(on) {const pending=new Map();
+let nextId=1;
+const state={hostContext: null,hostCapabilities: {},delivered: false,sizing: false};
+function post(message) {window.parent.postMessage({jsonrpc: "2.0",...message}, "*");}
+function request(method, params, ms) {const id=nextId++;
+return new Promise((resolve, reject)=>{const timer=setTimeout(()=>{pending.delete(id);
+reject(new Error(method + " timed out"));}, ms||15e3);
+pending.set(id, {resolve,reject,timer});
+post({id,method,params});});}
+function observeSize() {if (state.sizing) return;
+state.sizing=true;
+const report=()=>{post({method: "ui/notifications/size-changed",params: {width: Math.ceil(window.innerWidth),height: Math.ceil(document.body.getBoundingClientRect().height)}});};
+if (typeof ResizeObserver==="function") new ResizeObserver(report).observe(document.body);
+report();}
+function setContext(params) {state.hostContext={...state.hostContext,...params};
+if (on.context) on.context(state.hostContext);}
+window.addEventListener("message", (event)=>{if (event.source!==window.parent) return;
+const msg=event.data;
+if (!msg||msg.jsonrpc!=="2.0") return;
+if (msg.id!==undefined&&msg.method===undefined) {const waiting=pending.get(msg.id);
+if (!waiting) return;
+pending.delete(msg.id);
+clearTimeout(waiting.timer);
+if (msg.error) waiting.reject(new Error(msg.error.message||"request failed"));
+else waiting.resolve(msg.result);
+return;};
+if (msg.method==="ui/notifications/tool-input") {if (on.input) on.input(msg.params&&msg.params.arguments);} else if (msg.method==="ui/notifications/tool-result") {state.delivered=true;
+if (on.result) on.result(msg.params||{});
+observeSize();} else if (msg.method==="ui/notifications/host-context-changed") {setContext(msg.params);} else if (msg.method==="ui/resource-teardown") {if (msg.id!==undefined) post({id: msg.id,result: {}});
+if (on.teardown) on.teardown();} else if (msg.id!==undefined) {post({id: msg.id,error: {code: -32601,message: "Method not found: " + msg.method}});}});
+request("ui/initialize", {protocolVersion: "2026-01-26",appInfo: {name: "x-thread-draft-tool",version: "1"},appCapabilities: {}}).then((result)=>{setContext(result&&result.hostContext||{});
+state.hostCapabilities=result&&result.hostCapabilities||{};
+post({method: "ui/notifications/initialized",params: {}});
+observeSize();}, (err)=>{observeSize();
+if (on.error) on.error(err);});
+return {/** Asks the host to open a link. Only https links are sent. */
+openLink(url) {const safe=safeUrl(url, null);
+if (!safe) return Promise.reject(new Error("link refused"));
+return request("ui/open-link", { url: safe });},/**
+* Calls one of the server's tools as the signed-in user, with a 15 s wait unless ms is given. The write actions pass
+* 120000: the host may ask the user first. A view calls a write tool only when canCallTools() is true (plan Task 7).
+*/
+callTool(name, args, ms) {return request("tools/call", {name,arguments: args||{}}, ms);},/** True when the host says it can proxy tool calls from the view (hostCapabilities.serverTools). */
+canCallTools() {return Boolean(state.hostCapabilities&&state.hostCapabilities.serverTools);},context() {return state.hostContext;},delivered() {return state.delivered;}};}
+function tr(view, key, vars) {const entry=labels()[view][key];
+let text=entry[document.documentElement.lang==="he"?1:0];
+for (const name of Object.keys(vars||{})) text=text.split("{" + name + "}").join(String(vars[name]));
+return text;}
+function setLang(locale, sample) {const text=String(sample||"");
+const hebrew=(text.match(/[\u0590-\u05FF]/g)||[]).length>(text.match(/[A-Za-z]/g)||[]).length;
+const he=typeof locale==="string"&&locale.trim()!==""?/^(he|iw)(?![a-z])/i.test(locale.trim()):hebrew;
+const root=document.documentElement;
+root.setAttribute("lang", he?"he":"en");
+if (he) root.setAttribute("dir", "rtl");
+else root.removeAttribute("dir");
+return he?"he":"en";}
+function safeUrl(url, allowedHosts) {let parsed;
+try {parsed=new URL(String(url));} catch {return null;};
+if (parsed.protocol!=="https:") return null;
+if (Array.isArray(allowedHosts)&&allowedHosts.length>0&&!allowedHosts.includes(parsed.hostname)) return null;
+return parsed.href;}
+function el(tag, attrs, children) {const node=document.createElement(tag);
+const allowed=["href","alt","dir","title"];
+for (const name of Object.keys(attrs||{})) {if (!allowed.includes(name)) continue;
+if (name==="href") {const safe=safeUrl(attrs[name], null);
+if (safe) node.setAttribute("href", safe);} else {node.setAttribute(name, attrs[name]);}};
+for (const child of children||[]) {node.appendChild(typeof child==="string"?document.createTextNode(child):child);};
+return node;}
+function linkButton(label, url, open) {const button=el("button", {}, [label]);
+if (open) button.addEventListener("click", ()=>open(url));
+return button;}
+function shareFrom(result) {const body=result&&result.structuredContent||{};
+const preview=(0,__vite_ssr_import_0__.safeUrl)(body.preview_url, null);
+const markdown=(0,__vite_ssr_import_0__.safeUrl)(body.markdown_url, null);
+if (!preview||!markdown) return null;
+const expires=Date.parse(body.expires_at);
+const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const token=typeof body.token==="string"&&uuid.test(body.token)?body.token:null;
+const draftId=typeof body.draft_id==="string"&&uuid.test(body.draft_id)?body.draft_id:null;
+return {preview,markdown,expiresAt: isNaN(expires)?null:expires,oneTime: body.one_time===true,token,draftId};}
+function countdownText(expiresAt, now) {const left=Math.max(0, Math.ceil((expiresAt - now) / 1e3));
+const pad=(n)=>n<10?"0" + n:String(n);
+const h=Math.floor(left / 3600);
+const m=Math.floor(left % 3600 / 60);
+const s=left % 60;
+return h>0?h + ":" + pad(m) + ":" + pad(s):m + ":" + pad(s);}
+function localTime(expiresAt, locale) {const when=new Date(expiresAt);
+const options={hour: "2-digit",minute: "2-digit"};
+try {return when.toLocaleTimeString(locale||undefined, options);} catch {return when.toLocaleTimeString(undefined, options);}}
+function canCopy() {return typeof navigator!=="undefined"&&Boolean(navigator.clipboard)&&typeof navigator.clipboard.writeText==="function";}
+function copyButton(field) {const button=(0,__vite_ssr_import_0__.el)("button", {}, [(0,__vite_ssr_import_0__.tr)("share", "copy")]);
+button.addEventListener("click", function() {let done;
+try {done=navigator.clipboard.writeText(field.value);} catch (err) {done=Promise.reject(err);};
+Promise.resolve(done).then(function() {button.textContent=(0,__vite_ssr_import_0__.tr)("share", "copied");}, function() {button.textContent=(0,__vite_ssr_import_0__.tr)("share", "select_copy");
+field.focus();
+field.select();});});
+return button;}
+function linkRow(label, url, ctx, buttons) {const field=document.createElement("input");
+field.readOnly=true;
+field.setAttribute("dir", "ltr");
+field.value=url;
+field.addEventListener("focus", function() {field.select();});
+const open=(0,__vite_ssr_import_0__.linkButton)((0,__vite_ssr_import_0__.tr)("share", "open"), url, ctx.open);
+const actions=(0,__vite_ssr_import_0__.el)("div", {}, [open]);
+buttons.push(open);
+if (canCopy()) {const copy=copyButton(field);
+buttons.push(copy);
+actions.appendChild(copy);};
+return (0,__vite_ssr_import_0__.el)("section", {}, [(0,__vite_ssr_import_0__.el)("p", {}, [label]),field,actions]);}
+function stopControl(share, ctx, note, finish) {const stop=(0,__vite_ssr_import_0__.el)("button", {}, [(0,__vite_ssr_import_0__.tr)("share", "stop")]);
+const question=(0,__vite_ssr_import_0__.el)("p", {}, [(0,__vite_ssr_import_0__.tr)("share", "sure")]);
+const yes=(0,__vite_ssr_import_0__.el)("button", {}, [(0,__vite_ssr_import_0__.tr)("share", "yes_stop")]);
+const no=(0,__vite_ssr_import_0__.el)("button", {}, [(0,__vite_ssr_import_0__.tr)("share", "cancel")]);
+const row=(0,__vite_ssr_import_0__.el)("div", {}, [stop]);
+const ask=(0,__vite_ssr_import_0__.el)("div", {}, [question,yes,no]);
+ask.hidden=true;
+const box=(0,__vite_ssr_import_0__.el)("div", {}, [row, ask]);
+stop.addEventListener("click", function() {row.hidden=true;
+ask.hidden=false;});
+no.addEventListener("click", function() {ask.hidden=true;
+row.hidden=false;});
+yes.addEventListener("click", function() {yes.disabled=true;
+no.disabled=true;
+note.textContent=(0,__vite_ssr_import_0__.tr)("share", "waiting");
+let call;
+try {call=ctx.revoke(share.draftId, share.token);} catch (err) {call=Promise.reject(err);};
+Promise.resolve(call).then(function(result) {if (result&&result.isError) {const first=result.content&&result.content[0];
+note.textContent=first&&first.text?first.text:(0,__vite_ssr_import_0__.tr)("share", "stop_failed");
+yes.disabled=false;
+no.disabled=false;
+ask.hidden=true;
+row.hidden=false;
+return;};
+note.textContent="";
+finish((0,__vite_ssr_import_0__.tr)("share", "stopped"));}, function(err) {const timedOut=/timed out$/.test(String(err&&err.message));
+note.textContent=timedOut?(0,__vite_ssr_import_0__.tr)("share", "no_answer"):(0,__vite_ssr_import_0__.tr)("share", "not_allowed");
+if (timedOut) {yes.disabled=false;
+no.disabled=false;
+ask.hidden=true;
+row.hidden=false;} else {box.remove();}});});
+return box;}
+function renderShare(root, share, ctx) {root.textContent="";
+root.appendChild((0,__vite_ssr_import_0__.el)("header", {}, [(0,__vite_ssr_import_0__.el)("h1", {}, [(0,__vite_ssr_import_0__.tr)("share", "title")])]));
+const status=(0,__vite_ssr_import_0__.el)("p", {}, []);
+const note=(0,__vite_ssr_import_0__.el)("p", { dir: "auto" }, []);
+root.appendChild(status);
+root.appendChild(note);
+const buttons=[];
+root.appendChild(linkRow((0,__vite_ssr_import_0__.tr)("share", "preview"), share.preview, ctx, buttons));
+root.appendChild(linkRow((0,__vite_ssr_import_0__.tr)("share", "markdown"), share.markdown, ctx, buttons));
+const kind=share.oneTime?(0,__vite_ssr_import_0__.tr)("share", "once"):(0,__vite_ssr_import_0__.tr)("share", "until");
+let timer=null;
+let stopBox=null;
+const finish=function(text) {if (timer) clearInterval(timer);
+status.textContent=text;
+buttons.forEach(function(button) {button.disabled=true;});
+if (stopBox) stopBox.remove();
+stopBox=null;};
+if (typeof ctx.revoke==="function"&&share.draftId&&share.token) {stopBox=stopControl(share, ctx, note, finish);
+root.appendChild(stopBox);};
+if (share.expiresAt===null) {status.textContent=kind;
+return function() {};};
+const tick=function() {const now=ctx.now();
+if (now>=share.expiresAt) {finish(kind + " · " + (0,__vite_ssr_import_0__.tr)("share", "expired"));
+return true;};
+status.textContent=kind + " · " + (0,__vite_ssr_import_0__.tr)("share", "expires_in", {left: countdownText(share.expiresAt, now),time: localTime(share.expiresAt, ctx.locale)});
+return false;};
+if (!tick()) {timer=setInterval(function() {if (tick()) clearInterval(timer);}, 1e3);};
+return function() {if (timer) clearInterval(timer);};}
+function renderNote(root, message) {root.textContent="";
+root.appendChild((0,__vite_ssr_import_0__.el)("p", { dir: "auto" }, [message]));}
+(function () {var root = document.getElementById('root');
+var link = null;
+var shown = false;
+var stop = null;
+function open(url) { return link.openLink(url).catch(function () { return null; }); }
+function revoke(id, token) { return link.callTool('revoke_share_link', { id: id, token: token }, 120000); }
+function hostLocale() {var ctx = link.context();
+return ctx && typeof ctx.locale === 'string' ? ctx.locale : undefined;}
+function locale() { return hostLocale() || (document.documentElement.lang === 'he' ? 'he' : undefined); }
+function useLang() { setLang(hostLocale(), ''); }
+function showResult(result) {shown = true;
+useLang();
+if (stop) { stop(); stop = null; }
+if (result.isError) {var first = result.content && result.content[0];
+renderNote(root, first && first.text ? first.text : tr('common', 'tool_error'));
+return;}
+var share = shareFrom(result);
+if (share) stop = renderShare(root, share, { open: open, now: function () { return Date.now(); }, locale: locale(), revoke: link.canCallTools() ? revoke : null });
+else renderNote(root, tr('common', 'cannot_show'));}
+function applyContext(ctx) {if (ctx && (ctx.theme === 'dark' || ctx.theme === 'light')) document.documentElement.dataset.theme = ctx.theme;}
+link = bridge({result: showResult,context: applyContext,error: function () { if (!shown) { useLang(); renderNote(root, tr('common', 'no_host')); } }});
+setTimeout(function () {if (!link.delivered() && window.openai && window.openai.toolOutput) {showResult({ structuredContent: window.openai.toolOutput, _meta: window.openai.toolResponseMetadata });}}, 1000);})();</script>
+</body>
+</html>
