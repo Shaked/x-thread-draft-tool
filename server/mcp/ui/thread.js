@@ -176,7 +176,7 @@ export function createShareNode(thread, open) {
  * bytes as JPEG, and sent as base64 through the host's add_image_from_url. When the file input, the resize or the call
  * fails (or times out), the host is asked for an upload link (upload_link) and the link is shown as text.
  */
-export function addImageNode(link, draftId, postId) {
+function addImageNode(link, draftId, postId) {
   const button = el('button', {}, [tr('thread', 'add_image')])
   const note = el('p', { dir: 'auto' }, [])
   const input = document.createElement('input')
