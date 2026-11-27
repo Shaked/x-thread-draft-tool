@@ -176,13 +176,15 @@ test.describe('screens', () => {
       await shoot(browser, width, 'editor-over-limit-dark', `/draft/${overLimit.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.getByLabel('Draft title') })
       await shoot(browser, width, 'editor-hebrew', `/draft/${hebrewEditor.draft.id}`, { token: editorUser, ready: (p) => p.getByLabel('Draft title') })
       await shoot(browser, width, 'editor-hebrew-dark', `/draft/${hebrewEditor.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.getByLabel('Draft title') })
-      // The editor's media (plan T10): one post with three images, one post with a tweet embed; the emoji picker open.
+      // The editor's media (plan T10): a draft with one post of three images, and a draft with one post embedding a tweet.
+      // Each screen is a full-page capture, so each scene needs its own draft.
       const mediaDraft = await apiJson<{ draft: { id: string } }>(request, editorUser, 'POST', '/api/drafts', {
         title: 'Media thread',
-        posts: [
-          { id: 'md1', text: 'Three pictures on one post.', images: [imageUrl, imageUrl, imageUrl], embeddedTweet: null },
-          { id: 'md2', text: 'A post with a tweet embedded.', images: [], embeddedTweet: 'https://x.com/example/status/1' }
-        ]
+        posts: [{ id: 'md1', text: 'Three pictures on one post.', images: [imageUrl, imageUrl, imageUrl], embeddedTweet: null }]
+      })
+      const embedDraft = await apiJson<{ draft: { id: string } }>(request, editorUser, 'POST', '/api/drafts', {
+        title: 'Embed thread',
+        posts: [{ id: 'ed1', text: 'A post with a tweet embedded.', images: [], embeddedTweet: 'https://x.com/example/status/1' }]
       })
       const openEmoji = async (p: Page) => {
         await p.getByRole('button', { name: 'Add emoji' }).first().click()
@@ -190,8 +192,8 @@ test.describe('screens', () => {
       }
       await shoot(browser, width, 'editor-images', `/draft/${mediaDraft.draft.id}`, { token: editorUser, ready: (p) => p.getByRole('img', { name: 'Preview 1' }) })
       await shoot(browser, width, 'editor-images-dark', `/draft/${mediaDraft.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.getByRole('img', { name: 'Preview 1' }) })
-      await shoot(browser, width, 'editor-embed', `/draft/${mediaDraft.draft.id}`, { token: editorUser, ready: (p) => p.locator('.embedded-tweet-container') })
-      await shoot(browser, width, 'editor-embed-dark', `/draft/${mediaDraft.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.locator('.embedded-tweet-container') })
+      await shoot(browser, width, 'editor-embed', `/draft/${embedDraft.draft.id}`, { token: editorUser, ready: (p) => p.locator('.embedded-tweet-container') })
+      await shoot(browser, width, 'editor-embed-dark', `/draft/${embedDraft.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.locator('.embedded-tweet-container') })
       await shoot(browser, width, 'editor-emoji', `/draft/${mediaDraft.draft.id}`, { token: editorUser, ready: (p) => p.getByRole('button', { name: 'Add emoji' }), before: openEmoji })
       await shoot(browser, width, 'editor-emoji-dark', `/draft/${mediaDraft.draft.id}`, { token: editorUser, theme: 'dark', ready: (p) => p.getByRole('button', { name: 'Add emoji' }), before: openEmoji })
 
