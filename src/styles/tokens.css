@@ -107,6 +107,11 @@
   --control-h-lg: 52px;
   --button-min-w: 96px;     /* buttons in a dialog or form footer */
   --icon-size: 20px;
+  /* Post media (plan Task 10): the image carousel frame and the tweet embed's minimum height. Phones are smaller (below). */
+  --media-frame-min: 300px;
+  --media-frame-max: 500px;
+  --embed-min: 260px;
+  --blur-overlay: 4px;       /* the blur behind buttons on a photo */
   --icon-size-lg: 24px;
   --bar-h: 56px;             /* the phone bottom bar */
   --header-h: 64px;
@@ -212,6 +217,10 @@
 /* Touch screens and phones (under 768 px): every control is at least 44 px. */
 @media (pointer: coarse), (width < 768px) {
   :root { --control-h-sm: var(--hit-min); }
+}
+
+@media (width < 768px) {
+  :root { --media-frame-min: 200px; --media-frame-max: 400px; }
 }
 
 /* Reduced motion: every duration is 0, in this one place. */

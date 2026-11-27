@@ -16,7 +16,10 @@ const PATHS = {
   image: 'M4 5h16v14H4zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17',
   link: 'M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1',
   emoji: 'M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18zM8.5 14a4 4 0 0 0 7 0M9 9.5h.01M15 9.5h.01',
-  plus: 'M12 5v14M5 12h14'
+  plus: 'M12 5v14M5 12h14',
+  // Image carousel (plan Task 10): previous and next. `mirror` flips them in right-to-left text.
+  prev: 'M15 6l-6 6 6 6',
+  next: 'M9 6l6 6-6 6'
 }
 
 // Moved from src/components/Icon.jsx (plan task 2). `size` md is 20 px, lg is 24 px; `mirror` flips it in RTL.

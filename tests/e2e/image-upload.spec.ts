@@ -53,12 +53,12 @@ test.describe('image upload', () => {
       await fileInput.setInputFiles({ name: 'pixel.png', mimeType: 'image/png', buffer: PNG })
 
       // The image must actually decode, not just be present in the DOM.
-      const img = page.locator('img.carousel-image').first()
+      const img = page.getByRole('img', { name: 'Preview 1' })
       await expect(img).toBeVisible({ timeout: 20_000 })
       await expect
         .poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0), { timeout: 20_000 })
         .toBe(true)
-      await expect(page.locator('.upload-error')).toHaveCount(0)
+      await expect(page.getByRole('alert')).toHaveCount(0)
     } finally {
       if (draftId) {
         const res = await page.request.delete(new URL(`/api/drafts/${draftId}`, BASE).toString(), {

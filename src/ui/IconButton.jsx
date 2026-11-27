@@ -5,7 +5,7 @@ import './IconButton.css'
 // An icon-only button: always 44 x 44. `label` is required (aria-label and the tooltip). `ref` goes to the button.
 // `handleProps` is spread on the button first (the drag handle's dnd-kit listeners and attributes); the props below win.
 const IconButton = forwardRef(function IconButton(
-  { icon, label, variant = 'ghost', pressed, expanded, controls, disabled = false, disabledReason, handleProps, onClick },
+  { icon, label, variant = 'ghost', pressed, expanded, controls, disabled = false, disabledReason, mirror = false, handleProps, onClick },
   ref
 ) {
   const reasonId = useId()
@@ -30,7 +30,7 @@ const IconButton = forwardRef(function IconButton(
           onClick?.(event)
         }}
       >
-        <Icon name={icon} />
+        <Icon name={icon} mirror={mirror} />
       </button>
       {disabledReason && (
         <span id={reasonId} className="ui-icon-button__reason">

@@ -1,0 +1,53 @@
+/* The drop area under a post (ImageUpload.jsx). Tokens only; logical properties only. */
+.image-upload {
+  margin-block-start: var(--space-3);
+}
+
+.image-upload-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  border: var(--border-width-strong) dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-bg);
+  color: var(--color-text-soft);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard), background-color var(--duration-fast) var(--ease-standard);
+}
+
+@media (hover: hover) {
+  .image-upload-area:hover:not([aria-disabled='true']) {
+    border-color: var(--color-accent);
+    background-color: var(--color-accent-soft);
+  }
+}
+
+.image-upload-area.is-drag-active {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent-soft);
+}
+
+.image-upload-area.is-uploading {
+  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
+}
+
+.image-upload-area:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.image-upload-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.image-upload-status {
+  color: var(--color-accent);
+  font-size: var(--font-size-md);
+}

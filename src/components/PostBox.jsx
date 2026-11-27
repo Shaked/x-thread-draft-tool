@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import ImageUpload from './ImageUpload'
+import ImageCarousel from './ImageCarousel'
+import Banner from '../ui/Banner'
 import Button from '../ui/Button'
 import Count from '../ui/Count'
 import IconButton from '../ui/IconButton'
+import Input from '../ui/Input'
 import LoadBoundary from '../ui/LoadBoundary'
 import { xLength } from '../utils/xLength.js'
 import './PostBox.css'
@@ -316,72 +319,17 @@ function EmbedArea({ embeddedTweet, embedShown, containerRef, readOnly, onRemove
     <div className="embedded-tweet-container" ref={containerRef}>
       {embedShown ? (
         <LoadBoundary>
-          <Suspense fallback={<div className="tweet-embed-loading">Loading tweet…</div>}>
+          <Suspense fallback={<div className="embed-status">Loading tweet…</div>}>
             <TweetEmbed url={embeddedTweet} />
           </Suspense>
         </LoadBoundary>
       ) : (
-        <div className="tweet-embed-loading">Tweet will load when visible…</div>
+        <div className="embed-status">Tweet will load when visible…</div>
       )}
       {!readOnly && (
-        <button className="remove-embed-btn" onClick={onRemove}>
+        <Button variant="danger-quiet" size="sm" onClick={onRemove}>
           Remove embed
-        </button>
-      )}
-    </div>
-  )
-}
-
-// The image carousel for a post's images. Split out of PostBox to keep it within the lint complexity limit.
-function ImageCarousel({ images, imageIndex, readOnly, onRemoveCurrent, onPrev, onNext, onSelect }) {
-  const img = images[imageIndex]
-  const imageUrl = typeof img === 'string' ? img : img.url
-
-  return (
-    <div className="image-carousel">
-      <div className="image-carousel-container">
-        <img
-          src={imageUrl}
-          alt={`Preview ${imageIndex + 1}`}
-          className="carousel-image"
-          loading="lazy"
-          decoding="async"
-        />
-
-        <div className="carousel-overlay">
-          {!readOnly && (
-            <button className="remove-image-btn" onClick={onRemoveCurrent} title="Remove image">
-              Remove image
-            </button>
-          )}
-        </div>
-
-        {images.length > 1 && (
-          <>
-            <button className="carousel-nav carousel-prev" onClick={onPrev} title="Previous image" aria-label="Previous image">
-              ‹
-            </button>
-            <button className="carousel-nav carousel-next" onClick={onNext} title="Next image" aria-label="Next image">
-              ›
-            </button>
-          </>
-        )}
-      </div>
-
-      {images.length > 1 && (
-        <div className="carousel-indicators">
-          {images.map((_, idx) => (
-            <button
-              key={idx}
-              className={`carousel-indicator ${idx === imageIndex ? 'active' : ''}`}
-              onClick={() => onSelect(idx)}
-              title={`Image ${idx + 1}`}
-            />
-          ))}
-          <span className="carousel-counter">
-            {imageIndex + 1} / {images.length}
-          </span>
-        </div>
+        </Button>
       )}
     </div>
   )
@@ -441,13 +389,11 @@ function EmbedInput({ readOnly, show, value, onChange }) {
   if (readOnly || !show) return null
   return (
     <div className="embed-input">
-      <input
-        type="text"
-        placeholder="Paste tweet URL to embed..."
+      <Input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="embed-url-input"
-        aria-label="Tweet URL"
+        onChange={onChange}
+        placeholder="Paste tweet URL to embed..."
+        ariaLabel="Tweet URL"
         autoFocus
       />
     </div>
@@ -493,8 +439,8 @@ function CharCounter({ count, max, over }) {
 function UrlDetectionStatus({ show }) {
   if (!show) return null
   return (
-    <div className="url-detection-status" role="status" aria-live="polite">
+    <Banner tone="info" role="status">
       Detecting and converting image URLs...
-    </div>
+    </Banner>
   )
 }
