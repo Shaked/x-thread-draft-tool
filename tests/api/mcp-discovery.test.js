@@ -13,7 +13,7 @@ import { labels } from '../../server/mcp/ui/client.js'
 import { changeMeta, changesText } from '../../server/mcp/edit-result.js'
 import { stateLine } from '../../server/mcp/state-line.js'
 import { WRITE_TOOLS } from '../eval/mcp-default-use.eval.mjs'
-import { MODES, NAMES_CONNECTOR, POOLS, checkAgainst, clientScores, evaluate, formatClientTable, formatTable, loadStats, modeFor, rank, statsKey, tokenize } from '../eval/discovery/score.mjs'
+import { MODES, NAMES_CONNECTOR, POOLS, buildDocs, checkAgainst, clientScores, computeAllStats, computeStats, evaluate, formatClientTable, formatTable, loadStats, modeFor, planRefresh, rank, statsKey, tokenize } from '../eval/discovery/score.mjs'
 import { fenceProblems, formatEval, formatEvalTable } from '../eval/discovery/format.mjs'
 
 const dir = new URL('../eval/discovery/', import.meta.url)
@@ -127,47 +127,50 @@ describe('discovery score', () => {
 describe('frozen corpus statistics', () => {
   const stats = loadStats()
   const admin = listAdminTools()
-  const allPhrases = [...intents.flatMap((i) => i.phrases), ...negatives].map((p) => p.text)
-  const scoresOf = (list, phrase, mode) => Object.fromEntries(rank(phrase, list, { instructions: mode === 'with_instructions' ? INSTRUCTIONS : undefined, stats: stats.pools[statsKey('normal', mode)] }).map((r) => [r.name, r.score]))
+  const run = (list, adminList = admin) => evaluate({ tools: list, instructions: INSTRUCTIONS, intents, negatives, admin: adminList })
   const edit = (list, name, change) => list.map((t) => (t.name === name ? { ...t, ...change(t) } : t))
+  const tokensOf = (t) => tokenize([t.name.replace(/_/g, ' '), t.title ?? '', t.description ?? ''].join(' '))
+  const before = run(tools)
 
-  it('(a) changing one tool description leaves every other tool score for every phrase bit-identical', () => {
-    for (const target of ['create_draft', 'list_drafts', 'whoami']) {
-      const changed = edit(tools, target, (t) => ({ description: `${t.description} publish tweet schedule quickly twitter שרשור new words zzqqxx` }))
-      for (const mode of MODES) {
-        for (const phrase of allPhrases) {
-          const before = scoresOf(tools, phrase, mode)
-          const after = scoresOf(changed, phrase, mode)
-          for (const name of Object.keys(before)) if (name !== target) expect(after[name], `${mode} ${target} -> ${name} "${phrase}"`).toBe(before[name])
-        }
-      }
+  // Every score of every tool except `target`, for every phrase, in both modes and both pools, must be bit-identical.
+  const expectOthersUnchanged = (after, target, label) => {
+    const same = (a, b, where) => {
+      expect(Object.keys(b.scores).sort(), where).toEqual(Object.keys(a.scores).sort())
+      for (const name of Object.keys(a.scores)) if (name !== target) expect(b.scores[name], `${where} -> ${name}`).toBe(a.scores[name])
     }
+    for (const mode of MODES) {
+      before.modes[mode].phrases.forEach((row, n) => same(row, after.modes[mode].phrases[n], `${label} ${mode} normal "${row.text}"`))
+      before.modes[mode].negativeRows.forEach((row, n) => same(row, after.modes[mode].negativeRows[n], `${label} ${mode} normal negative "${row.text}"`))
+    }
+    before.adminRows.forEach((row, n) => same(row, after.adminRows[n], `${label} ${row.mode} normal+admin "${row.text}"`))
+  }
+
+  it('(a) changing one tool description, through evaluate(), leaves every other tool score bit-identical in both pools and both modes', () => {
+    const words = (t) => ({ description: `${t.description} publish tweet schedule quickly twitter שרשור new words zzqqxx` })
+    for (const target of ['create_draft', 'list_drafts', 'whoami']) expectOthersUnchanged(run(edit(tools, target, words)), target, target)
+    const adminTarget = admin[0].name
+    expectOthersUnchanged(run(tools, edit(admin, adminTarget, words)), adminTarget, adminTarget)
+    // The edit really does touch shared words (so live statistics would have moved the others).
+    expect(run(edit(tools, 'create_draft', words)).modes.tools_only.phrases.some((row, n) => row.scores.create_draft !== before.modes.tools_only.phrases[n].scores.create_draft)).toBe(true)
   })
 
-  it('(b) a token that is not in the statistics gets df=1 (a new word counts as rare)', () => {
+  it('(b) a token that is not in the statistics gets df=1, even when two tools now hold it', () => {
     const [mode, word] = ['tools_only', 'zzqqxxnovel']
     const s = stats.pools[statsKey('normal', mode)]
     expect(Object.hasOwn(s.df, word)).toBe(false)
-    const target = tools[0]
-    const changed = edit(tools, target.name, (t) => ({ description: `${t.description} ${word}` }))
-    const doc = [target.name.replace(/_/g, ' '), target.title ?? '', `${target.description} ${word}`]
-    const dl = tokenize(doc.join(' ')).length
-    const idf = Math.log(1 + (s.N - 1 + 0.5) / (1 + 0.5))
-    expect(scoresOf(changed, word, mode)[target.name]).toBeCloseTo(idf * (1 * 2.2) / (1 + 1.2 * (1 - 0.75 + (0.75 * dl) / s.avgdl)), 12)
-    for (const other of tools.filter((t) => t.name !== target.name)) expect(scoresOf(changed, word, mode)[other.name]).toBe(0)
-  })
-
-  it('counts a word like "constructor" as a plain token, not an inherited property', () => {
-    const list = [{ name: 'one', description: 'constructor' }, { name: 'two', description: 'something else' }]
-    const scores = rank('constructor', list).map((r) => r.score)
-    for (const score of scores) expect(Number.isFinite(score)).toBe(true)
-    expect(scores[0]).toBeGreaterThan(scores[1])
-    expect(rank('constructor', list, { stats: stats.pools['normal/tools_only'] }).every((r) => Number.isFinite(r.score))).toBe(true)
+    const [one, two] = tools
+    let changed = edit(tools, one.name, (t) => ({ description: `${t.description} ${word}` }))
+    changed = edit(changed, two.name, (t) => ({ description: `${t.description} ${word}` }))
+    const dl = tokensOf({ ...one, description: `${one.description} ${word}` }).length
+    const bm25 = (df) => Math.log(1 + (s.N - df + 0.5) / (df + 0.5)) * 2.2 / (1 + 1.2 * (1 - 0.75 + (0.75 * dl) / s.avgdl))
+    const got = Object.fromEntries(rank(word, changed, { stats: s }).map((r) => [r.name, r.score]))
+    expect(got[one.name]).toBeCloseTo(bm25(1), 12)
+    expect(Math.abs(got[one.name] - bm25(2))).toBeGreaterThan(0.05)
+    for (const other of tools.slice(2)) expect(got[other.name]).toBe(0)
   })
 
   it('(c) the gates still fail on purpose-made regressions', () => {
-    const run = (list, adminList = admin) => evaluate({ tools: list, instructions: INSTRUCTIONS, intents, negatives, admin: adminList })
-    expect(checkAgainst(run(tools), baseline)).toEqual([])
+    expect(checkAgainst(before, baseline)).toEqual([])
     // A top-1 drop: a winning tool loses its text.
     const winners = new Set(intents.flatMap((i) => i.phrases.filter((p) => p.lang === 'en').flatMap((p) => p.expect)))
     const blanked = tools.map((t) => (winners.has(t.name) ? { ...t, description: 'x', title: 'x' } : t))
@@ -178,8 +181,7 @@ describe('frozen corpus statistics', () => {
     expect(checkAgainst(run(tools, hijacked), baseline).join('\n')).toMatch(/admin tool .* ranks first for/)
     // A negative ceiling that rises: the edited write tool itself now scores higher on a no-tool phrase.
     const negative = negatives.find((n) => n.lang === 'en').text
-    const writer = WRITE_TOOLS[0]
-    const risen = edit(tools, writer, (t) => ({ description: `${t.description} ${negative} ${negative}` }))
+    const risen = edit(tools, WRITE_TOOLS[0], (t) => ({ description: `${t.description} ${negative} ${negative}` }))
     expect(checkAgainst(run(risen), baseline).join('\n')).toMatch(/negatives en: a write tool scores .* above/)
   })
 
@@ -194,6 +196,39 @@ describe('frozen corpus statistics', () => {
         for (const df of Object.values(s.df)) expect(df).toBeGreaterThanOrEqual(1)
       }
     }
+  })
+
+  it('counts a word like "constructor" as a plain token, not an inherited property', () => {
+    const list = [{ name: 'one', description: 'constructor' }, { name: 'two', description: 'something else' }]
+    const own = computeStats(buildDocs(list))
+    const scores = rank('constructor', list, { stats: own }).map((r) => r.score)
+    for (const score of scores) expect(Number.isFinite(score)).toBe(true)
+    expect(scores[0]).toBeGreaterThan(scores[1])
+    expect(rank('constructor', list, { stats: stats.pools['normal/tools_only'] }).every((r) => Number.isFinite(r.score))).toBe(true)
+  })
+
+  it('rank() needs the frozen statistics and never computes them from the docs it ranks', () => {
+    expect(() => rank('draft', tools)).toThrow(/stats is required/)
+  })
+
+  it('--refresh-stats lists the floors it would lower and refuses without --allow-lower, unless the tool count changed', () => {
+    const lowered = edit(tools, 'whoami', () => ({ description: 'x', title: 'x' }))
+    const newStats = computeAllStats({ tools: lowered, admin, instructions: INSTRUCTIONS })
+    const next = evaluate({ tools: lowered, instructions: INSTRUCTIONS, intents, negatives, admin, stats: newStats })
+    const plan = planRefresh({ baseline, oldStats: stats, newStats, next })
+    expect(plan.lowered.length).toBeGreaterThan(0)
+    expect(plan.toolsChanged).toBe(false)
+    expect(plan.refused).toBe(true)
+    expect(planRefresh({ baseline, oldStats: stats, newStats, next, allowLower: true }).refused).toBe(false)
+    // The same numbers with one more tool counted: allowed, and the lowered floors are still listed.
+    const added = structuredClone(newStats)
+    for (const pool of Object.values(added.pools)) pool.N += 1
+    const withTool = planRefresh({ baseline, oldStats: stats, newStats: added, next })
+    expect(withTool.toolsChanged).toBe(true)
+    expect(withTool.refused).toBe(false)
+    expect(withTool.lowered).toEqual(plan.lowered)
+    // A refresh with the live text and the stored statistics lowers nothing.
+    expect(planRefresh({ baseline, oldStats: stats, newStats: computeAllStats({ tools, admin, instructions: INSTRUCTIONS }), next: before }).lowered).toEqual([])
   })
 })
 
