@@ -243,6 +243,30 @@ test.describe('screens', () => {
       await shoot(browser, width, 'tokens-created', '/settings/tokens', { cookie, ready: tokensReady, before: createToken })
       await shoot(browser, width, 'tokens-created-dark', '/settings/tokens', { cookie, theme: 'dark', ready: tokensReady, before: createToken })
 
+    })
+
+
+    // The dialogs and toasts (plan U5), the settings and admin pages (T4, #337, U2). Its own test, so each capture stays
+    // within its own time budget (#328, Opus ruling). Own data: a draft to delete or copy, and sessions.
+    test(`captures the dialog, settings and admin screens at ${width}px`, async ({ browser, request }) => {
+      const run = `dialogs-${width}-${Date.now()}`
+      const owner = await devToken(request, `screens-dialogs-${run}`)
+      const created: { draft: { id: string } } = await apiJson(request, owner, 'POST', '/api/drafts', {
+        title: 'Launch thread',
+        posts: [{ id: 'l1', text: 'Opening post of the dialog screens', images: [], embeddedTweet: null }]
+      })
+      const editorId = created.draft.id
+      const adminSession = await request.post(`${BASE}/api/dev/session`, { data: { login: 'screens-admin', admin: true } })
+      const adminCookie = adminSession.headersArray().find((h) => h.name.toLowerCase() === 'set-cookie')?.value.match(/xt_session=([^;]+)/)?.[1]
+      expect(adminCookie).toBeTruthy()
+      const cookie = await sessionCookie(request, `screens-dialogs-tokens-${width}-${run}`)
+      const tokensReady = (p: Page) => p.getByRole('heading', { name: 'API tokens', level: 1 })
+      const createToken = async (p: Page) => {
+        await p.getByLabel('Token name').fill('Screens check')
+        await p.getByRole('button', { name: 'Create token' }).click()
+        await p.getByRole('status').filter({ hasText: 'Copy this token now.' }).locator('code').waitFor()
+      }
+
       // Dialog and Toast (plan U5), light and dark: delete asks on the draft list, revoke asks on API tokens, a toast after Copy.
       const openDelete = async (p: Page) => {
         await p.getByRole('button', { name: 'Delete draft' }).first().click()
