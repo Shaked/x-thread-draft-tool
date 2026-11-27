@@ -8,7 +8,7 @@ import './AppBar.css'
 export default function AppBar({ children }) {
   const [hidden, setHidden] = useState(isBarHidden)
 
-  // The page padding follows this attribute (see --bar-space in App.css).
+  // The page padding follows this attribute (see --bar-space in src/App.css).
   useEffect(() => {
     document.documentElement.dataset.bar = hidden ? 'hidden' : 'shown'
     return () => {

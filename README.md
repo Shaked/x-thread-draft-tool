@@ -138,9 +138,9 @@ Install commands for a team, the settings file (`.claude/agent-kit.json`), upgra
 │   │   ├── api.js         # Same-origin client for /api
 │   │   ├── images.js      # Image upload helpers
 │   │   └── ...
-│   ├── styles/
-│   │   └── App.css        # Styles
-│   └── App.jsx            # Router setup
+│   ├── styles/                # Design tokens (tokens.css)
+│   ├── App.css                # App shell styles (tokens only)
+│   └── App.jsx                # Router setup
 ├── vercel.json            # Vercel configuration
 └── vite.config.js         # Vite + PWA config
 ```
