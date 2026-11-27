@@ -82,7 +82,22 @@ describe('admin audit log page', () => {
     renderPage()
     await screen.findByRole('table')
     const options = within(screen.getByLabelText('Action')).getAllByRole('option').map((option) => option.textContent)
-    expect(options).toEqual(['All actions', 'suspend_user', 'unsuspend_user', 'delete_user'])
+    expect(options).toEqual(['All actions', 'suspend_user', 'unsuspend_user', 'delete_user', 'view_as_start', 'view_as_end'])
+  })
+
+  it('the filter shows the view-as rows when picked', async () => {
+    const viewAs = [
+      event(7, '2026-11-25T11:00:00.000Z', 'view_as_start'),
+      event(6, '2026-11-25T10:30:00.000Z', 'view_as_end'),
+      event(5, '2026-11-25T10:00:00.000Z', 'delete_user')
+    ]
+    vi.stubGlobal('fetch', answerWith(() => viewAs))
+    renderPage()
+    const table = await screen.findByRole('table')
+    fireEvent.change(screen.getByLabelText('Action'), { target: { value: 'view_as_end' } })
+    const rows = within(table).getAllByRole('row')
+    expect(rows).toHaveLength(2)
+    expect(rows[1]).toHaveTextContent('view_as_end')
   })
 
   it('a filter with no matching loaded row says so', async () => {
