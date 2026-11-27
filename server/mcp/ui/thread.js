@@ -91,6 +91,7 @@ const STARTER = `
       thread.expand = canExpand() ? expand : null;
       thread.imageOrigin = IMAGE_ORIGIN || thread.imageOrigin;
       thread.share = link.canCallTools() ? { create: createShare, revoke: revokeShare, locale: locale() || (document.documentElement.lang === 'he' ? 'he' : undefined) } : null;
+      thread.addImage = thread.share && thread.id && thread.saved ? function (postId) { return addImageNode(link, thread.id, postId); } : null;
       thread.drawn = function () {
         if (!thread.share || !thread.id || !thread.saved) return;
         const share = createShareNode(thread, open);
@@ -169,6 +170,53 @@ export function createShareNode(thread, open) {
   return box
 }
 
+/* global createImageBitmap, document */
+/**
+ * "Add image" under a post with free slots (#420): the chosen file is drawn on a canvas, at most 1600 px wide and 700,000
+ * bytes as JPEG, and sent as base64 through the host's add_image_from_url. When the file input, the resize or the call
+ * fails (or times out), the host is asked for an upload link (upload_link) and the link is shown as text.
+ */
+export function addImageNode(link, draftId, postId) {
+  const button = el('button', {}, [tr('thread', 'add_image')])
+  const note = el('p', { dir: 'auto' }, [])
+  const input = document.createElement('input')
+  const call = (args) => link.callTool('add_image_from_url', { draftId, postId, ...args }, 120000)
+  const fail = () => { note.textContent = tr('common', 'tool_error') }
+  const fallback = () => {
+    call({ upload_link: true }).then((result) => {
+      const found = result.structuredContent && result.structuredContent.upload
+      button.remove()
+      if (found && !result.isError) note.textContent = tr('thread', 'upload_link') + ' ' + found.link
+      else fail()
+    }, fail)
+  }
+  input.type = 'file'
+  input.hidden = true
+  input.accept = 'image/*'
+  input.addEventListener('change', () => {
+    button.disabled = true
+    createImageBitmap(input.files[0]).then((bitmap) => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      canvas.width = Math.min(1600, bitmap.width)
+      canvas.height = Math.round(bitmap.height * canvas.width / bitmap.width) || 1
+      ctx.fillStyle = '#fff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+      const data = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]
+      return data.length > 933336 ? Promise.reject() : call({ data, mime: 'image/jpeg' })
+    }).then((result) => {
+      if (result.isError) return fallback()
+      note.textContent = tr('thread', 'image_added')
+      button.remove()
+    }, fallback)
+  })
+  button.addEventListener('click', () => {
+    try { input.click() } catch { fallback() }
+  })
+  return el('div', {}, [button, note, input])
+}
+
 // Every function the view runs. Each is copied by its source text, so each must use only its own arguments,
 // the globals of the page and the other functions in this list (no module-level constants).
 // The functions that draw a thread and talk to the host. The drafts view (drafts.js) copies the same list, so the code
@@ -201,7 +249,7 @@ export const RENDER_FUNCTIONS = [
 
 // The page script for one image origin: the render functions, then the starter with the origin baked in.
 const scriptFor = (imageOrigin) =>
-  pageScript(['common', 'thread', 'share'], [...RENDER_FUNCTIONS, ...RENDERERS, ...HOST_FUNCTIONS, ...CARD_FUNCTIONS, createShareNode], STARTER.replace('__IMAGE_ORIGIN__', embedOrigin(imageOrigin)))
+  pageScript(['common', 'thread', 'share'], [...RENDER_FUNCTIONS, ...RENDERERS, ...HOST_FUNCTIONS, ...CARD_FUNCTIONS, createShareNode, addImageNode], STARTER.replace('__IMAGE_ORIGIN__', embedOrigin(imageOrigin)))
 
 /** The whole view document, for one image origin (null when the environment has none). */
 function threadHtml(imageOrigin) {

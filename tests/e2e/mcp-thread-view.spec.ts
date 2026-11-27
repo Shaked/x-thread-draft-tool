@@ -230,3 +230,71 @@ test('after update_draft with 7 posts the new card says 7 posts and shows all 7'
   await expect(frame.getByText('Post number 7 with its full text')).toBeVisible()
   await expect(frame.getByText('Only one')).toHaveCount(0)
 })
+
+// #420 (plan 4.3): "Add image" under a post. The view shrinks the chosen file and asks the host to call add_image_from_url
+// with the bytes (data, mime); when the host refuses, fails or times out, it asks for an upload link and shows it as text.
+const IMAGE_FILE = { name: 'photo.png', mimeType: 'image/png', buffer: TINY_PNG }
+const WITH_POST_IDS = {
+  ...SAVED_WITH_ID,
+  structuredContent: { draft: { ...SAVED_WITH_ID.structuredContent.draft, posts: SAVED_WITH_ID.structuredContent.draft.posts.map((post, i) => ({ ...post, id: `post-${i + 1}` })) } }
+}
+const ADDED = { content: [{ type: 'text', text: 'added' }], structuredContent: { ok: true } }
+const REFUSED = { content: [{ type: 'text', text: 'no' }], isError: true }
+const LINK = { content: [{ type: 'text', text: 'link' }], structuredContent: { upload: { link: 'https://app.example/upload#tok', post: 1, slots: 2 } } }
+
+// The host answers each tools/call from this list in turn; "hold" keeps the first answer back (a timeout).
+async function replies(page: Page, list: unknown[], holdFirst = false) {
+  await page.evaluate(
+    ({ list, holdFirst }) => {
+      const w = window as any
+      let answered = 0
+      let held = 0
+      Object.defineProperty(w, '__callReply', { get: () => list[Math.min(answered++, list.length - 1)] })
+      Object.defineProperty(w, '__holdCall', { get: () => holdFirst && held++ === 0 })
+    },
+    { list, holdFirst }
+  )
+}
+const hostCalls = (page: Page) => page.evaluate(() => (window as any).__calls.map((c: any) => ({ name: c.name, arguments: c.arguments })))
+
+test('"Add image" sends the shrunk file as bytes to add_image_from_url and says it was added', async ({ page }) => {
+  await load(page, WITH_POST_IDS, { caps: { serverTools: {} }, reply: ADDED })
+  const frame = page.frameLocator('#view')
+  await expect(frame.getByRole('button', { name: 'Add image' })).toHaveCount(3)
+  await frame.locator('input[type=file]').first().setInputFiles(IMAGE_FILE)
+  await expect(frame.getByText('Image added.')).toBeVisible()
+  const calls = await hostCalls(page)
+  expect(calls).toHaveLength(1)
+  expect(calls[0].name).toBe('add_image_from_url')
+  expect(calls[0].arguments).toMatchObject({ draftId: DRAFT_ID, postId: 'post-1', mime: 'image/jpeg' })
+  expect(Buffer.from(calls[0].arguments.data, 'base64').subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]))
+  expect(calls[0].arguments.url).toBeUndefined()
+})
+
+test('when the host refuses the bytes, the view asks for an upload link and shows it as text', async ({ page }) => {
+  await load(page, WITH_POST_IDS, { caps: { serverTools: {} } })
+  await replies(page, [REFUSED, LINK])
+  const frame = page.frameLocator('#view')
+  await frame.locator('input[type=file]').first().setInputFiles(IMAGE_FILE)
+  await expect(frame.getByText('Upload link: https://app.example/upload#tok')).toBeVisible()
+  const calls = await hostCalls(page)
+  expect(calls.map((c: any) => c.name)).toEqual(['add_image_from_url', 'add_image_from_url'])
+  expect(calls[1].arguments).toEqual({ draftId: DRAFT_ID, postId: 'post-1', upload_link: true })
+})
+
+test('when the host does not answer the bytes in time, the view asks for an upload link', async ({ page }) => {
+  await page.clock.install()
+  await load(page, WITH_POST_IDS, { caps: { serverTools: {} } })
+  await replies(page, [LINK], true)
+  const frame = page.frameLocator('#view')
+  await frame.locator('input[type=file]').first().setInputFiles(IMAGE_FILE)
+  await expect.poll(async () => (await hostCalls(page)).length).toBe(1)
+  await page.clock.fastForward(121000)
+  await expect(frame.getByText('Upload link: https://app.example/upload#tok')).toBeVisible()
+})
+
+test('without a host that can call tools, there is no "Add image"', async ({ page }) => {
+  await load(page, WITH_POST_IDS, { caps: {} })
+  await expect(page.frameLocator('#view').getByText('Start of thread')).toBeVisible()
+  await expect(page.frameLocator('#view').getByRole('button', { name: 'Add image' })).toHaveCount(0)
+})

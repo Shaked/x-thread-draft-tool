@@ -1,0 +1,2 @@
+- Thread view (#420): an "Add image" button under each post with a free slot, shown only when the host can call tools. It shrinks the file (1600 px, under 700,000 bytes, JPEG) and asks the host to call `add_image_from_url` with `data`; on a refusal, error or timeout it asks for `upload_link` and shows the link as text. English and Hebrew.
+- The page script is compacted a little more (no behavior change) so the thread view stays under 32 KB; the limit is unchanged.
