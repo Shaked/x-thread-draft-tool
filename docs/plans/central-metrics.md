@@ -108,6 +108,10 @@ Neon's page through Neon's own read-only docs tool. "Not checked" means neither 
 were added to the environment's allowed hosts at about 22:42 UTC, so the next session can read the live pages
 and replace each "not checked" (task M0).
 
+**Task M0 (#445), read 2026-11-27.** The vendor sites now resolve from this session. The vendor pages below
+were fetched with `curl` (decoded, HTML stripped) and quoted; the date is the date read. Where a fact is still
+"not checked", the page read did not state it.
+
 ### What each option says, quoted
 
 **Neon Free (our database).** Source: https://neon.com/docs/introduction/plans, read with the Neon docs
@@ -120,8 +124,12 @@ tool `get_doc` (page "Last updated: 2026-11-24").
   upgrade." and "None of these limits delete your data."
 - Billing: "On the **Free** plan, there is no monthly cost." No automatic billing.
 
-**Grafana Cloud Free (Mimir, Loki).** Limits, retention and over-limit behaviour: not checked
-(grafana.com did not resolve; no Grafana Cloud docs source found on GitHub). MCP: read
+**Grafana Cloud Free (Mimir, Loki).** Source: https://grafana.com/pricing/ (read 2026-11-27).
+- Limits: "Always free", "No credit card required", "Limited to 10k active series per month", "14 days
+  retention", "Limited to 50 GB ingested per month" (logs), "Limited to 50 GB ingested per month" (traces).
+- Over-limit behaviour on Free: not checked (the pricing page says "then pay as you go" only for the paid
+  tiers; the usage-limits docs page read did not state it).
+- MCP: read
 https://github.com/grafana/mcp-grafana. It is "A Model Context Protocol (MCP) server for Grafana", run
 locally with `uvx mcp-grafana` and `GRAFANA_SERVICE_ACCOUNT_TOKEN`; "For Grafana Cloud, replace
 `GRAFANA_URL` with your instance URL". Tools include `query_prometheus` and `query_loki_logs`.
@@ -134,7 +142,10 @@ https://github.com/axiomhq/docs/blob/main/content/docs/(documentation)/reference
   outlined above, additional charges apply". What happens on Personal is not stated: not checked.
   A spending limit exists (`reference/usage-billing.mdx`): "When your accumulated charges reach your
   spending limit, Axiom automatically pauses actions that generate further costs." Whether Personal
-  can be charged at all: not checked.
+  can be charged at all, read 2026-11-27 at https://axiom.co/pricing: "Personal is for individual developers
+  and small projects. It's free, needs no credit card, and keeps data for 30 days." Past the allowance on
+  Personal: not checked. Console spending limit, same page: "If you reach the limit, usage beyond it is paused
+  rather than billed."
 - Vercel (`apps/vercel.mdx`): "Axiom automatically installs a drain in your Vercel account" and "In May
   2024, Vercel introduced higher costs for using Vercel Drains."
 - OTLP (`send-data/opentelemetry.mdx`): "Traces: `https://AXIOM_DOMAIN/v1/traces`", "Logs:
@@ -143,18 +154,28 @@ https://github.com/axiomhq/docs/blob/main/content/docs/(documentation)/reference
 - MCP (`console/intelligence/mcp-server.mdx`): hosted at "`https://mcp.axiom.co/mcp`"; "Remote MCP with
   OAuth is the recommended setup for most use cases."
 
-**Better Stack.** Limits, retention, over-limit behaviour, Vercel and OTLP: not checked (betterstack.com
-did not resolve). GitHub (https://github.com/BetterStackHQ) shows plugin repositories whose description
+**Better Stack.** Source: https://betterstack.com/pricing (read 2026-11-27). Free block: "Free for personal
+projects", "100,000 exceptions per month", "3 GB logs retained for 3 days", "3 GB traces retained for 3 days",
+"30 GB metrics", "3 GB web events retained for 3 days". Over-limit behaviour, Vercel and OTLP: not checked.
+Whether the MCP server is on Free: not checked (the page lists "MCP server" as a feature without a plan column
+readable from the text). GitHub (https://github.com/BetterStackHQ) shows plugin repositories whose description
 mentions "the Better Stack MCP server"; the server itself was not read.
 
-**Honeycomb.** Limits and over-limit behaviour: not checked (honeycomb.io did not resolve). The old
-self-hosted MCP (https://github.com/honeycombio/honeycomb-mcp) says "DEPRECATED: This self-hosted MCP
-server is deprecated" and "Currently, this is only available for Honeycomb Enterprise customers." The
-hosted MCP and its plan: not checked.
+**Honeycomb.** Source: https://www.honeycomb.io/pricing (read 2026-11-27). Free: "Best for testing and
+individual projects", "Our introductory plan, free forever.", "Free: Up to 20M events and 100M time series
+data points". Over-limit (FAQ structured data in the raw HTML, `www_honeycomb_io_pricing.html`): "We send you a
+notification to let you know you have exceeded your monthly event limit." and, on a second consecutive overage
+month, "we’ll begin throttling your events ... You have 10 days from that notification to take remediation action
+before throttling begins." Retention: the same FAQ gives "metrics data retained for 60 days by default", for
+metrics only; event retention on Free: not checked. Whether hosted MCP is on Free: not checked (the table row
+exists; the column is not readable from the text). The old self-hosted MCP (https://github.com/honeycombio/honeycomb-mcp) says "DEPRECATED: This
+self-hosted MCP server is deprecated" and "Currently, this is only available for Honeycomb Enterprise customers."
 
 **Sentry (Developer, free).** Source: Sentry's docs source, https://github.com/getsentry/sentry-docs
 (`docs/pricing/index.mdx`, `docs/pricing/quotas/index.mdx`, `docs/concepts/otlp/index.mdx`).
-- Developer plan numbers: not checked; the source says only "The free Developer plan has similar presets."
+- Developer plan numbers (https://sentry.io/pricing/, read 2026-11-27): "5k errors" on the free Developer
+  plan. The Developer plan lists "Limited to one user" as its user limit, and "MCP access" among its features;
+  the text does not say MCP is limited. Other event types: not checked.
 - At the limit: "Any data sent after you've run through your reserved volume and PAYG budget will be
   dropped and you won't be charged for it." and "Events and attachments that exceed your quota will not
   be accepted".
@@ -173,24 +194,38 @@ functions end with the request). A free host for it: not checked. It still needs
 - "each step is restricted to a maximum size of 1MiB" (job summaries, `workflow-commands.md`).
 - "In a public repository, scheduled workflows are automatically disabled when no repository activity has
   occurred in 60 days." (`data/reusables/actions/scheduled-workflows-disabled.md`)
-- Whether the REST API downloads an artifact without a token: not checked. PR 437 found that the working
-  session could not download the `speed-metrics` artifact.
+- Listing and getting artifacts without a token (https://docs.github.com/en/rest/actions/artifacts, read
+  2026-11-27, sections "List artifacts for a repository", "Get an artifact", "List workflow run artifacts"):
+  "This endpoint can be used without authentication or the aforementioned permissions if only public resources
+  are requested."
+- Download (section "Download an artifact", same page, read 2026-11-27): no such exception is stated. The page says
+  "OAuth tokens and personal access tokens (classic) need the repo scope to use this endpoint." and lists the
+  fine-grained permission "Actions" (read). So a download is treated as needing a token: not checked whether a
+  public repository is an exception. PR 437 found that the working session could not download the `speed-metrics`
+  artifact (its cause is not recorded here).
 
 **Vercel (our plan: Hobby).** From #331 (checked 2026-11-21): runtime logs kept 1 hour; every metrics query
-answers 402 "Observability Plus is required". Which plans may create drains, and their price: not checked.
+answers 402 "Observability Plus is required". Read 2026-11-27 at https://vercel.com/docs/drains, section "Usage and
+pricing": "Drains are available to all users on the Pro and Enterprise plans. Audit Log Drains are available only on
+Enterprise plans. If you are on the Hobby or Pro Trial plan, you'll need to upgrade to Pro to access non-audit-log
+drains." The price row in the same table: "Drains $0.50 per 1 GB" (the table's "Included (Pro)" column reads
+"N/A" for drains). Our plan is Hobby, so a non-audit-log drain cannot be created on it.
 
 ### Against the requirements
 
 | Option | Free limit and retention | Ingest from GitHub Actions | Ingest from Vercel | Agent reads it through our MCP | Lock-in | At the free limit | Verdict |
 |---|---|---|---|---|---|---|---|
 | Neon tables (ours) | 1 GB, 100 CU-hours a month; retention is ours to set (14 days) | our own scheduled workflow reads the GitHub API, OIDC route, no secret (O5 pattern) | the app writes its own rollup (O2); deploys from the GitHub Deployments API | yes: new admin tools | none: plain Postgres | stops: compute suspended or writes fail; no bill | **recommended** |
-| Grafana Cloud Free | not checked | needs a token (a secret) | drain (plan not checked) or app code with a token | no: its own MCP, local, with a token | low: PromQL and LogQL are open | not checked | no: limits and billing not checked |
-| Axiom Personal | 500 GB a month, 30 days | needs a token | drain (Vercel's price not checked) or OTLP from our code with a token | no: its own MCP (OAuth); ours could proxy with a token | medium: APL query language | not checked for Personal | fallback 3, owner-only |
-| Better Stack | not checked | not checked | not checked | not checked | not checked | not checked | no: nothing read |
-| Honeycomb | not checked | not checked | not checked | not checked | low (OTLP) | not checked | no: nothing read |
-| Sentry Developer | numbers not checked | needs a DSN and an account | SDK in our code | no: its own MCP (OAuth) | medium | drops, no charge (quoted) | no: errors and traces only, no metrics over OTLP, no CI |
+| Grafana Cloud Free | 10k active series a month, 14 days; 50 GB logs and 50 GB traces a month; no card (pricing page, 2026-11-27) | needs a token (a secret) | app code with a token; Vercel drains need Pro (we are on Hobby) | no: its own MCP, local, with a token | low: PromQL and LogQL are open | not checked (the page does not state it) | no: a token in our code; at-limit behaviour not checked |
+| Axiom Personal | 500 GB a month, 30 days; free, no card (pricing page, 2026-11-27) | needs a token | OTLP from our code with a token; Vercel drains need Pro (we are on Hobby) | no: its own MCP (OAuth); ours could proxy with a token | medium: APL query language | not checked for Personal; a Console spending limit pauses usage | fallback 3, owner-only |
+| Better Stack | 3 GB logs and 3 GB traces, 3 days; 30 GB metrics (pricing page, 2026-11-27) | not checked | not checked | MCP on Free: not checked | not checked | not checked | no: 3-day retention on Free |
+| Honeycomb | up to 20M events and 100M time series points a month (pricing page, 2026-11-27); metrics kept 60 days by default (FAQ); event retention not checked | not checked | not checked | Free MCP: not checked | low (OTLP) | over the limit: notice, then throttling after a second overage month, 10 days' warning (FAQ) | no: event retention and Free MCP not checked |
+| Sentry Developer | 5k errors a month (pricing page, 2026-11-27); other events not checked | needs a DSN and an account | SDK in our code | no: its own MCP (OAuth); MCP access listed for the Developer plan, which has one user | medium | drops, no charge (quoted) | no: errors and traces only, no metrics over OTLP, no CI |
 | OTel Collector + backend | the backend's | needs a host (none free, not checked) | same | the backend's | low | the backend's | no: needs a host and a backend |
-| GitHub artifacts and summaries only | up to 90 days, free in a public repo | built in | deploys only | no: artifacts not readable from a session; logs are, with the GitHub MCP | none | free in a public repo (quoted) | keep as the raw log store, not as the central place |
+| GitHub artifacts and summaries only | up to 90 days, free in a public repo | built in | deploys only | no: artifacts not readable from a session; logs are, with the GitHub MCP; list and get need no token for public resources, but the download page states no such exception (quoted 2026-11-27) | none | free in a public repo (quoted) | keep as the raw log store, not as the central place |
+
+M0 (2026-11-27) changed three verdict reasons (Better Stack, Grafana, Honeycomb); no verdict changed. Axiom stays
+"fallback 3, owner-only"; the others stay "no".
 
 ## 3. Recommendation
 
