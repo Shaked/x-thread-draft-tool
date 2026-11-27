@@ -350,7 +350,10 @@ describe('the tools that show the thread view (plan Task 4, #177), the drafts li
     const split = await call('split_text', { text: 'Short post.' })
     expect(textThread({ content: split.content })).toMatchObject({ saved: false, posts: [{ text: 'Short post.' }] })
     const listed = await call('list_drafts', {})
-    expect(listed.content).toHaveLength(1)
+    // #293: the JSON first (unchanged), then the drafts table.
+    expect(listed.content).toHaveLength(2)
+    expect(JSON.parse(listed.content[0].text)).toEqual(listed.structuredContent)
+    expect(listed.content[1].text.split('\n')[0]).toBe('| Title | Posts | State | Updated | Editor |')
   })
 
   it('a failed call has no view keys in _meta', async () => {
