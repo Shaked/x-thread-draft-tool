@@ -1,7 +1,10 @@
-# Fix flaky mcp-rate test at a minute boundary
+# Rate-limit test stops flaking at minute change
 
-- The test read the count for the current minute after the call; if the minute changed in between, it read no row. It now reads the newest count row, which is the one the call wrote.
-- The assertions are unchanged (120 and 121 calls).
+- The tool-call rate-limit test no longer fails when a minute ends during the test.
 
-Area: tests
-Link: https://github.com/Shaked/x-thread-draft-tool/issues/594
+Area: Speed
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/600
+
+## Technical details
+
+`tests/api/mcp-rate.test.js` reads the newest count row, not the row for the current minute. Issue #594.
