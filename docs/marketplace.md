@@ -18,8 +18,8 @@ from a small file in the project that uses it. The plan and the decisions are in
 Each plugin has its own `README.md` (what it does and its settings) and `CHANGELOG.md` (one section per version) under
 `plugins/<name>/`. The list above is the list in [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json).
 
-Requirements: Claude Code 2.1.275 or later (the install line in the plugin READMEs needs it), Node 20 for the scripts
-(no npm dependencies), `git` and `gh` for `pr-workflow` and `task-janitor`.
+Requirements: Claude Code, tested with 2.1.332 (the version the CI workflow pins; older versions are not checked). Node 20 for
+the scripts (no npm dependencies), `git` and `gh` for `pr-workflow` and `task-janitor`.
 
 ## Install
 
@@ -68,9 +68,9 @@ change.
 ## Settings: `.claude/agent-kit.json`
 
 All plugins read one file in the project: `.claude/agent-kit.json`. A plugin finds it at
-`$CLAUDE_PROJECT_DIR/.claude/agent-kit.json`, else by walking up from the working folder to the git root. A missing file
+`$CLAUDE_PROJECT_DIR/.claude/agent-kit.json`, else by walking up from the working folder to the git root (`pr-workflow` reads the file at the git root only). A missing file
 or key means the default. A file that is not valid JSON, or a key of the wrong type, stops the command and names the key
-(exit 2 in `reply-style` and `task-janitor`, exit 1 in `pr-workflow`). The `reply-style` Stop hook prints a warning instead and
+(exit 2 in `reply-style`, `task-janitor` and `metrics`; `pr-workflow` exits 1 and names the file). The `reply-style` Stop hook prints a warning instead and
 lets the turn end.
 
 Top-level keys (shared by the plugins):
@@ -87,7 +87,7 @@ Per-plugin sections (the full tables are in each plugin's README):
 |---|---|
 | `reply-style` | `humans` `["the owner"]`, `allowLines` `[]`, `maxLineLength` `160`, `changelogAreas` `[]`, `extraTemplates` `{}`, `writingSkills` `[]` |
 | `task-janitor` | `replyLint` not set, `manualTestsIssue` not set, `reportIssue` not set, `dispatcherIssue` not set (each a path or a whole number) |
-| `metrics` | `app`, `repo`, `siteUrl`, `ingestUrl` (no defaults; the plugin reports a missing one) |
+| `metrics` | `app`, `siteUrl`, `ingestUrl` have no default; `repo` falls back to the top-level `repo`. The plugin reports a missing one |
 | `pr-workflow` | `repo` (or the `AGENT_PR_REPO` variable, or the `origin` remote) |
 | `contract-tests` | none |
 
@@ -129,7 +129,7 @@ something that passed before.
   [plan section 4.5](./plans/plugin-marketplace.md). CI checks it with `node scripts/plugin-manifests.mjs --bumps`.
 - Add a section to `plugins/<name>/CHANGELOG.md` for the new version. Patch for wording, minor for a new rule, template
   or config key with a default, major for a removed or renamed key, template or rule.
-- Edit the plugin, not its copy in `.claude/`. The skills under `.claude/skills/` are symlinks into `plugins/`.
+- Edit the plugin, not a copy. The `reply-style`, `task-janitor` and `metrics` skills under `.claude/skills/` are symlinks into `plugins/`. The `pr-workflow` and `contract-tests` plugins have separate skills in this repository.
 - Tests: `npm run test:unit` (the manifest, forbidden-word, golden-fixture and config tests run there), and
   `claude plugin validate . --strict` plus `claude plugin validate plugins/<name> --strict` for the manifests. The
   `Plugin CLI` workflow installs every plugin with a pinned Claude Code CLI in an empty config folder.
