@@ -493,7 +493,7 @@ export const OPENAPI = {
     },
     '/drafts/{id}/images': {
       post: {
-        summary: 'Fetch a public image URL and add it to post_id (at position, default last, at most 4 images), or with replace put it where the image replace was, in every post that uses it. The old file is deleted when no draft of yours uses it; on any failure the new file is deleted. Owner only; If-Match with a stale version is 412.',
+        summary: 'Fetch a public image URL (or take a file that POST /images just stored for you) and add it to post_id (at position, default last, at most 4 images), or with replace put it where the image replace was, in every post that uses it. The old file is deleted when no draft of yours uses it; on any failure the new file is deleted. Owner only; If-Match with a stale version is 412.',
         security: BEARER,
         parameters: [ID, IF_MATCH],
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['url'], additionalProperties: false, properties: { url: { type: 'string', format: 'uri' }, post_id: { type: 'string', description: 'Add the image to this post. Give this or replace.' }, position: { type: 'integer', minimum: 1, description: 'With post_id: 1-based place in the post.' }, replace: { type: 'string', description: 'The url of an image of this draft to swap out.' } } } } } },
