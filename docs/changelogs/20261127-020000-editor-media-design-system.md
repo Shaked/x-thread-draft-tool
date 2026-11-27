@@ -4,7 +4,7 @@
 - Adding, pasting or removing images, the carousel, the tweet embed and inserting emoji work as before.
 
 Area: Design
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/PENDING
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/585
 
 ## Technical details
 
