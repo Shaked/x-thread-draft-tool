@@ -30,3 +30,24 @@ describe('checkChanges', () => {
     expect(checkChanges('M\tscripts/build-info.mjs\nA\tdocs/plans/x.md\n', readText)).toEqual([])
   })
 })
+
+describe('checkChanges with a passing batch', () => {
+  it('allows a change to an existing entry that a passing batch rewrites, and still refuses a deletion', () => {
+    const covered = new Set(['docs/changelogs/20260504-074500-old.md'])
+    const findings = checkChanges(
+      'M\tdocs/changelogs/20260504-074500-old.md\nD\tdocs/changelogs/20260504-074501-gone.md\n',
+      readText,
+      { covered }
+    )
+    expect(findings).toEqual(['docs/changelogs/20260504-074501-gone.md: an existing entry may not change or be deleted (git status D)'])
+  })
+})
+
+describe('changedBatches', () => {
+  it('lists the batch files a pull request adds or changes, not deleted ones', async () => {
+    const { changedBatches } = await import('../../scripts/changelog-check.mjs')
+    expect(
+      changedBatches('A\tdocs/changelog-rewrites/batch-01.json\nM\tdocs/changelog-rewrites/batch-02.json\nD\tdocs/changelog-rewrites/batch-03.json\nA\tdocs/changelogs/x.md\n')
+    ).toEqual(['docs/changelog-rewrites/batch-01.json', 'docs/changelog-rewrites/batch-02.json'])
+  })
+})
