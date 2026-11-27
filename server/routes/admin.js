@@ -6,7 +6,8 @@ import { ADMIN_LIMITS, withinAdminLimit } from '../admin/limits.js'
 import { isProtectedGithubId, protectedGithubIds } from '../admin/identity.js'
 import { listBlobPrefix } from '../blob.js'
 import { deleteUser } from '../admin/delete-user.js'
-import { transaction } from '../db.js'
+import { query, transaction } from '../db.js'
+import { VIEW_AS_SECONDS, clearViewAsCookie, openViewAs, sealViewAs, viewAsCookie, viewAsCookieValue } from '../admin/view-as.js'
 import { HttpError, json, readJson, readOptionalJson } from '../http.js'
 import { listFlags, setFlag } from '../admin/flags.js'
 import { eventsParams, eventsView, summaryParams, summaryView } from '../metrics/summary.js'
@@ -208,6 +209,81 @@ const deleteUserRoute = async ({ admin, request, params }) => {
   return deleteUser(admin, params.id.toLowerCase(), await readOptionalJson(request))
 }
 
+/** The required reason of a view-as start: 3 to 200 characters once cleaned. */
+function viewAsReason(value) {
+  if (typeof value !== 'string') throw bad('reason is required: 3 to 200 characters.')
+  const reason = cleanName(value, 200).trim()
+  if (Array.from(reason).length < 3 || Array.from(value).length > 200) throw bad('reason is required: 3 to 200 characters.')
+  return reason
+}
+
+/** A Response with the JSON body and Set-Cookie headers. */
+function withCookies(body, cookies) {
+  const headers = new Headers([['content-type', 'application/json'], ['cache-control', 'no-store']])
+  for (const value of cookies) headers.append('set-cookie', value)
+  return new Response(JSON.stringify(body), { status: 200, headers })
+}
+
+/**
+ * Starts viewing as a user (#290). Web surface only. One transaction, like a suspension: the admin's row is locked, the
+ * limit checked, the target checked, and the audit row written (`view_as_start` done, or `refused`). The refusals are
+ * returned after the commit so their row is kept. The claim's `vid` is the start row's id.
+ */
+const startViewAs = async ({ admin, request }) => {
+  if (admin.surface === 'mcp') throw new HttpError(403, 'View as is for the website only.')
+  const body = await readJson(request)
+  const userId = typeof body?.user_id === 'string' ? body.user_id : ''
+  if (!UUID.test(userId)) throw bad('user_id must be a user id (a UUID).')
+  const reason = viewAsReason(body.reason)
+  const actor = { uid: admin.uid, gh: admin.gh, login: admin.login, surface: admin.surface }
+  const now = Math.floor(Date.now() / 1000)
+  const expiresAt = new Date((now + VIEW_AS_SECONDS) * 1000).toISOString()
+  const outcome = await transaction(async (q) => {
+    await q('select id from users where id = $1 for update', [admin.uid])
+    if (!(await withinAdminLimit(q, admin.uid, ADMIN_LIMITS.viewAs.actions, ADMIN_LIMITS.viewAs.perHour))) {
+      throw new HttpError(429, `Admin limit reached: at most ${ADMIN_LIMITS.viewAs.perHour} of these actions per hour.`)
+    }
+    const { rows } = await q('select id, github_id, login, suspended_at from users where id = $1', [userId.toLowerCase()])
+    const target = rows[0]
+    const refuse = async (why, status, message, audited) => {
+      await recordAdminAction(q, { actor, action: 'view_as_start', outcome: 'refused', target: audited, details: { reason, why, user_id: userId.toLowerCase() } })
+      return { kind: 'refused', error: new HttpError(status, message) }
+    }
+    if (!target) return refuse('missing', 404, 'User not found', null)
+    const audited = { id: target.id, github_id: target.github_id, login: target.login }
+    if (isProtectedGithubId(target.github_id)) return refuse('protected', 403, 'This account cannot be viewed as.', audited)
+    if (target.suspended_at !== null) return refuse('suspended', 409, 'This user is suspended and cannot be viewed as.', audited)
+    const vid = await recordAdminAction(q, { actor, action: 'view_as_start', outcome: 'done', target: audited, details: { reason, expires_at: expiresAt } })
+    return { kind: 'started', vid, target }
+  })
+  if (outcome.kind === 'refused') throw outcome.error
+  const { target, vid } = outcome
+  const token = await sealViewAs(
+    { adminUid: admin.uid, adminJti: admin.jti, targetUid: target.id, targetGh: target.github_id, targetLogin: target.login, reason, vid },
+    now
+  )
+  return withCookies({ view_as: { user_id: target.id, login: target.login, expires_at: expiresAt } }, [viewAsCookie(token)])
+}
+
+/**
+ * Ends viewing (#290): clears the cookie and, when the cookie holds this admin's live claim, writes `view_as_end`. That row
+ * kills the claim at once (server/session.js), so a copy of the old cookie value no longer works. An expiry writes no row.
+ * With no live claim the cookie is cleared and nothing is written.
+ */
+const endViewAs = async ({ admin, request }) => {
+  if (admin.surface === 'mcp') throw new HttpError(403, 'View as is for the website only.')
+  const claim = await openViewAs(viewAsCookieValue(request))
+  let ended = false
+  if (claim !== null && claim.admin_uid === admin.uid && claim.admin_jti === admin.jti && typeof claim.vid === 'string') {
+    const actor = { uid: admin.uid, gh: admin.gh, login: admin.login, surface: admin.surface }
+    const { rows } = await query('select github_id, login from users where id = $1', [claim.target_uid])
+    const target = rows[0] ? { id: claim.target_uid, github_id: rows[0].github_id, login: rows[0].login } : null
+    await recordAdminAction(query, { actor, action: 'view_as_end', outcome: 'done', target, details: { vid: claim.vid } })
+    ended = true
+  }
+  return withCookies({ ok: true, ended }, [clearViewAsCookie()])
+}
+
 const stats = async () => json({ stats: await statsRow() })
 
 const audit = async ({ url }) => {
@@ -268,5 +344,7 @@ export const adminRoutes = [
   adminRoute('GET', '/admin/metrics/summary', metricsSummary),
   adminRoute('GET', '/admin/metrics/events', metricsEvents),
   adminRoute('GET', '/admin/flags', listFlags),
-  adminRoute('POST', '/admin/flags', setFlag)
+  adminRoute('POST', '/admin/flags', setFlag),
+  adminRoute('POST', '/admin/view-as', startViewAs),
+  adminRoute('DELETE', '/admin/view-as', endViewAs)
 ]

@@ -280,6 +280,12 @@ describe('renderHtml', () => {
     expect(html).toMatch(/<article class="x-post[^"]*" dir="ltr"/)
   })
 
+  it('isolates the handle and date span as ltr inside an RTL post', () => {
+    const html = renderHtml(fullPayload({ posts: [{ text: 'שלום עולם' }] }))
+    expect(html).toMatch(/<article class="x-post[^"]*" dir="rtl"/)
+    expect(html).toMatch(/<span class="x-meta" dir="ltr">@janedoe · /)
+  })
+
   it('omits the embed widget script when no post embeds a tweet', () => {
     const html = renderHtml(fullPayload())
     expect(html).not.toContain('platform.twitter.com/widgets.js')

@@ -242,6 +242,22 @@ describe.each([MODERN, LEGACY])('prompts, protocol %s', (version) => {
     for (const n of names) expect(hasTool(n), n).toBe(true)
   })
 
+  it('rewrite_hook and tighten_draft show options and before/after as block quotes, and tighten_draft says what changed', async () => {
+    const hook = textOf(await get(version, 'rewrite_hook', { draft: ID }))
+    expect(hook).toContain('block quote')
+    expect(hook).toContain('End with one question')
+    expect(hook).toContain('with the version from `get_draft`')
+    const tighten = textOf(await get(version, 'tighten_draft', { draft: ID }))
+    expect(tighten).toContain('block quotes')
+    expect(tighten).toContain('say in one line what changed')
+    expect(tighten).toContain('After the user agrees')
+  })
+
+  it('thread_from_notes does not repeat the posts a card shows', async () => {
+    const text = textOf(await get(version, 'thread_from_notes', { notes: 'n' }))
+    expect(text).toContain('do not repeat the posts: a card shows them')
+  })
+
   it('review_before_publish does not ask for publishing or deleting', async () => {
     const text = textOf(await get(version, 'review_before_publish', { draft: ID }))
     expect(text).toContain('Do not call `publish_draft` or `delete_draft` in this turn')

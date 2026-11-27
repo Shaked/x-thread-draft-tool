@@ -354,6 +354,15 @@ test.describe('screens', () => {
       await inPage.getByRole('button', { name: 'Approve' }).waitFor()
       await inPage.screenshot({ path: path.join(dir, 'consent.png'), fullPage: true })
       await signedIn.close()
+
+      // The same page with the device in dark mode (the consent page follows color-scheme, not the app's theme).
+      const dark = await browser.newContext({ viewport: { width, height }, serviceWorkers: 'block', colorScheme: 'dark' })
+      await dark.addCookies([{ name: 'xt_session', value: sessionToken!, url: BASE }])
+      const darkPage = await dark.newPage()
+      await darkPage.goto(`${BASE}/api/oauth/authorize?${query}`)
+      await darkPage.getByRole('button', { name: 'Approve' }).waitFor()
+      await darkPage.screenshot({ path: path.join(dir, 'consent-dark.png'), fullPage: true })
+      await dark.close()
     })
 
     // The owner's consent page. The dev session is the owner's id; the page shows nothing about admin.

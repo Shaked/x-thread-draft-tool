@@ -20,7 +20,7 @@ const edit = (id, change) => ({ ...sessions, sessions: sessions.sessions.map((s)
 describe('the sessions.json shape', () => {
   it('the fixture is valid, and the schema requires exactly the fields the script checks', () => {
     expect(validateSessions(sessions)).toEqual([])
-    const schema = JSON.parse(readFileSync(new URL('../../.claude/skills/task-janitor/sessions.schema.json', import.meta.url), 'utf8'))
+    const schema = JSON.parse(readFileSync(new URL('../../plugins/task-janitor/skills/task-janitor/sessions.schema.json', import.meta.url), 'utf8'))
     expect(schema.properties.sessions.items.required).toEqual(SESSION_FIELDS)
     expect(schema.required).toEqual(['read_at', 'source', 'pages', 'has_more', 'sessions'])
   })
@@ -312,7 +312,7 @@ describe('the templated summary', () => {
   })
 
   it('follows the template headings in order', () => {
-    const template = readFileSync(new URL('../../.claude/reply-style-templates/janitor-summary.md', import.meta.url), 'utf8')
+    const template = readFileSync(new URL('../../plugins/task-janitor/skills/task-janitor/templates/janitor-summary.md', import.meta.url), 'utf8')
     const order = (t) => [...t.matchAll(/^## (.+)$/gm)].map((m) => m[1])
     expect(order(template)).toEqual([...HEADINGS, 'Details'])
     expect(order(text)).toEqual(order(template))

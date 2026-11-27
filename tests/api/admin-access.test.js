@@ -44,6 +44,8 @@ const REST_ROWS = {
   'GET /admin/metrics/events': { url: '/admin/metrics/events' },
   'GET /admin/flags': { url: '/admin/flags' },
   'POST /admin/flags': { url: '/admin/flags', body: {} },
+  'POST /admin/view-as': { url: '/admin/view-as', body: {} },
+  'DELETE /admin/view-as': { url: '/admin/view-as', adminStatus: 200, adminNot: true },
   'POST /admin/users/:id/suspend': { url: `/admin/users/${NIL}/suspend`, body: {} },
   'POST /admin/users/:id/unsuspend': { url: `/admin/users/${NIL}/unsuspend`, body: {} },
   'POST /admin/users/:id/delete': { url: `/admin/users/${NIL}/delete`, body: {}, adminStatus: 404, adminNot: 'Not found' },

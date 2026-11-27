@@ -22,14 +22,26 @@
       "shows_prompts": { "value": "not checked", "source": "not checked" },
       "reads_resources": { "value": "not checked", "source": "not checked" },
       "renders_ui_views": { "value": true, "source": "https://github.com/Shaked/x-thread-draft-tool/issues/357" },
-      "reads_tool_title": { "value": "not checked", "source": "not checked" }
+      "reads_tool_title": { "value": "not checked", "source": "not checked" },
+      "observed": [
+        { "date": "2026-11-21", "what": "Shows our thread view (owner screenshot of the thread view, Hebrew draft)", "source": "https://github.com/Shaked/x-thread-draft-tool/issues/357" },
+        { "date": "2026-11-21", "what": "Wrote 3 suggested openings in a plain-text code block, hard to read in Hebrew", "source": "https://github.com/Shaked/x-thread-draft-tool/issues/358" },
+        { "date": "2026-11-21", "what": "After an update, reprinted 2 posts in code blocks under the view", "source": "https://github.com/Shaked/x-thread-draft-tool/issues/358" },
+        { "date": "2026-11-21", "what": "The view said \"1 post\" while the reply said the draft had 7 posts", "source": "https://github.com/Shaked/x-thread-draft-tool/issues/354" },
+        { "date": "2026-11-22", "what": "Showed the whole old draft first, edited afterwards, then printed it all again", "source": "https://github.com/Shaked/x-thread-draft-tool/issues/405" }
+      ]
     },
     "grok": {
       "reads_instructions": { "value": "not checked", "source": "not checked" },
       "shows_prompts": { "value": "not checked", "source": "not checked" },
       "reads_resources": { "value": "not checked", "source": "not checked" },
       "renders_ui_views": { "value": "not checked", "source": "not checked" },
-      "reads_tool_title": { "value": "not checked", "source": "not checked" }
+      "reads_tool_title": { "value": "not checked", "source": "not checked" },
+      "observed": [
+        { "date": "2026-11-21", "what": "Showed a Text code block with the posts, the link, then a card with an empty grey box", "source": "https://github.com/Shaked/x-thread-draft-tool/issues/352" },
+        { "date": "2026-11-21", "what": "Did not call the tool to update a draft unless told", "source": "https://github.com/Shaked/x-thread-draft-tool/issues/279" },
+        { "date": "2026-11-20", "what": "No slash commands seen", "source": "https://github.com/Shaked/x-thread-draft-tool/issues/280" }
+      ]
     },
     "claude_code": {
       "reads_instructions": { "value": true, "source": "https://code.claude.com/docs/en/mcp" },

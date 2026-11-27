@@ -1,6 +1,6 @@
 # MCP tool discovery score
 
-Question it answers: when a user writes a phrase, which tool would an AI app pick from our tool names, titles and descriptions? It runs offline, is deterministic and costs nothing. Code: `tests/eval/discovery/score.mjs`. Corpus: `intents.json` (13 intents, English and Hebrew). Floors: `baseline.json`. Client facts: `clients.json`. Test: `tests/api/mcp-discovery.test.js`, run by `npm test`.
+Question it answers: when a user writes a phrase, which tool would an AI app pick from our tool names, titles and descriptions? It runs offline, is deterministic and costs nothing. Code: `tests/eval/discovery/score.mjs`. Corpus: `intents.json` (19 intents, English and Hebrew). Floors: `baseline.json`. Client facts: `clients.json`. Test: `tests/api/mcp-discovery.test.js`, run by `npm test`.
 
 ## Reading the table
 

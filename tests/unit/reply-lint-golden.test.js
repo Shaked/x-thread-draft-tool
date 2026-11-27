@@ -9,6 +9,8 @@ const GOLDEN = new URL('./fixtures/reply-lint/golden/', import.meta.url)
 // The plugin's five templates, and this repo's project templates (listed in .claude/agent-kit.json under extraTemplates).
 const PLUGIN_TEMPLATES = new URL('../../plugins/reply-style/skills/reply-style/templates/', import.meta.url)
 const PROJECT_TEMPLATES = new URL('../../.claude/reply-style-templates/', import.meta.url)
+// The task janitor's two templates (plugins/task-janitor), which the janitor skill lists.
+const JANITOR_TEMPLATES = new URL('../../plugins/task-janitor/skills/task-janitor/templates/', import.meta.url)
 const templateFiles = (dir) => readdirSync(dir).filter((n) => n.endsWith('.md'))
 const KIND_OF_TEMPLATE = { 'changelog-entry': 'changelog', 'telegram-message': 'telegram' }
 const options = (kind) => (kind === 'changelog' || kind === 'telegram' ? { kind } : { template: true })
@@ -29,7 +31,7 @@ const WANT = {
   // The status board (#499): its good fixture is the golden output of scripts/status-board.mjs (tests/unit/status-board.test.js).
   'status-board': { 'bad-blocked-group': 'blocked', 'bad-waiting-you': 'waiting-human', 'bad-bare-label': 'bare-label', 'bad-steps-count': 'steps', 'bad-session-link': 'session-link' }
 }
-const kinds = [...templateFiles(PLUGIN_TEMPLATES), ...templateFiles(PROJECT_TEMPLATES)].map((f) => {
+const kinds = [...templateFiles(PLUGIN_TEMPLATES), ...templateFiles(PROJECT_TEMPLATES), ...templateFiles(JANITOR_TEMPLATES)].map((f) => {
   const name = f.replace(/\.md$/, '')
   return KIND_OF_TEMPLATE[name] || name
 })
@@ -83,6 +85,8 @@ describe('reply-lint golden fixtures', () => {
     for (const f of templateFiles(PLUGIN_TEMPLATES)) expect(skill.includes(`templates/${f}`), `${f} is not in the skill`).toBe(true)
     const extra = Object.values(JSON.parse(readFileSync(new URL('../../.claude/agent-kit.json', import.meta.url), 'utf8'))['reply-style'].extraTemplates)
     for (const f of templateFiles(PROJECT_TEMPLATES)) expect(extra, `${f} is not in extraTemplates`).toContain(`.claude/reply-style-templates/${f}`)
+    const janitorSkill = readFileSync(new URL('../../plugins/task-janitor/skills/task-janitor/SKILL.md', import.meta.url), 'utf8')
+    for (const f of templateFiles(JANITOR_TEMPLATES)) expect(janitorSkill.includes(`templates/${f}`), `${f} is not in the task-janitor skill`).toBe(true)
     for (const path of extra) expect(existsSync(new URL(`../../${path}`, import.meta.url)), `${path} is listed but missing`).toBe(true)
     for (const rule of RULES) expect(before.includes(`\`${rule}\``), `rule ${rule} is not in "Before you send"`).toBe(true)
   })

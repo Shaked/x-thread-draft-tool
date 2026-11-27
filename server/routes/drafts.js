@@ -37,6 +37,18 @@ function validPosts(posts) {
   return posts
 }
 
+/**
+ * Draft text for a view-as caller (#289, owner decision: the admin cannot read drafts). Every draft read goes through
+ * these two helpers: the list shows counts under "Private draft", and opening a draft is refused.
+ */
+function privateDraft(draft) {
+  return { ...summarize(draft), title: 'Private draft' }
+}
+
+function refuseWhenViewing(session) {
+  if (session.viewAs) throw new HttpError(403, 'Viewing as cannot open drafts.')
+}
+
 function notFound() {
   return new HttpError(404, 'Draft not found')
 }
@@ -126,6 +138,7 @@ async function duplicateDraft({ request, params }) {
 /** GET /api/drafts/:id/export?format=json|text|formatted (owner only, like GET by id). */
 async function exportDraft({ request, url, params }) {
   const session = await requireUser(request)
+  refuseWhenViewing(session)
   if (!isUuid(params.id)) throw notFound()
   const format = url.searchParams.get('format') ?? 'json'
   const { rows } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [params.id, session.uid])
@@ -201,6 +214,7 @@ async function listDrafts({ request, url }) {
     `select ${COLUMNS} from drafts where user_id = $1 and is_published = $2 order by ${order} limit $3`,
     [session.uid, published, limit]
   )
+  if (session.viewAs) return json({ drafts: rows.map(privateDraft) })
   if (view === 'summary') return json({ drafts: rows.map(summarize) })
   return json({ drafts: rows })
 }
@@ -239,6 +253,7 @@ const UNLESS_UNCHANGED = ['id', 'user_id', 'title', 'posts', 'is_published', 'pu
  */
 async function getDraft({ request, params }) {
   const session = await requireUser(request)
+  refuseWhenViewing(session)
   if (!isUuid(params.id)) throw notFound()
   const known = ifNoneMatchVersion(request)
   const { rows } = await query(
@@ -254,6 +269,7 @@ async function getDraft({ request, params }) {
 /** GET /api/drafts/:id/outline: owner only. Counts and a preview per post, not the full text. */
 async function getDraftOutline({ request, params }) {
   const session = await requireUser(request)
+  refuseWhenViewing(session)
   if (!isUuid(params.id)) throw notFound()
   const { rows } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [params.id, session.uid])
   if (!rows[0]) throw notFound()

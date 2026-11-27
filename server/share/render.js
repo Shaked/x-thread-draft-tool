@@ -264,7 +264,7 @@ export function renderHtml(payload) {
             <header class="x-post-head">
               <span class="x-name">${htmlEscape(authorName)}</span>
               ${verifiedBadge()}
-              <span class="x-meta">@${htmlEscape(authorHandle)} · ${dateStr}</span>
+              <span class="x-meta" dir="ltr">@${htmlEscape(authorHandle)} · ${dateStr}</span>
             </header>
             <div class="x-text" dir="${dir}">${renderText(text)}</div>
             ${images}

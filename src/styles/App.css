@@ -513,10 +513,15 @@ a {
   color: var(--muted);
 }
 
+/* Underlined: in the Rare light look the accent equals the body text, so an un-underlined link reads as plain text (WCAG 1.4.1).
+   Tall enough to tap on a phone (--hit-min). */
 .tweet-embed-error a {
   color: var(--accent);
-  text-decoration: none;
-  display: block;
+  text-decoration: underline;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--hit-min);
   margin-top: 10px;
 }
 
@@ -685,4 +690,9 @@ a {
   font-size: var(--font-size-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* The Hebrew Rare UI credit link stays on one line (About page, #406). */
+.about-credit-link {
+  white-space: nowrap;
 }
