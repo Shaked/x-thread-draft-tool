@@ -230,6 +230,8 @@ describe('the served pages', () => {
     expect(compact('f(\n  a,\n  b\n)', true)).toBe('f(a,b)')
     expect(compact('x = a ? b : c // why\ny = 1')).toBe('x = a ? b : c // why\ny = 1')
     expect(() => compact('x = `a = ${b}`')).toThrow(/template literal/)
+    // A regex literal is left as it is too: its space after a comma or colon is part of the pattern.
+    expect(compact('m = s.match(/^A(?: "(.*)")?, (\\d+): x/)', true)).toBe('m=s.match(/^A(?: "(.*)")?, (\\d+): x/)')
     expect(minifyCss('a  b { color : red; }\n/* c */ p { margin: 0 }')).toBe('a  b{color:red}p{margin:0}')
   })
 })

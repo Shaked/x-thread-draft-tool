@@ -91,6 +91,7 @@ const STARTER = `
       thread.expand = canExpand() ? expand : null;
       thread.imageOrigin = IMAGE_ORIGIN || thread.imageOrigin;
       thread.share = link.canCallTools() ? { create: createShare, revoke: revokeShare, locale: locale() || (document.documentElement.lang === 'he' ? 'he' : undefined) } : null;
+      thread.addImage = thread.share && thread.id && thread.saved ? (postId) => addImageNode(link, thread.id, postId) : null;
       thread.drawn = function () {
         if (!thread.share || !thread.id || !thread.saved) return;
         const share = createShareNode(thread, open);
@@ -132,13 +133,14 @@ const STARTER = `
  * the card (renderShare) is shown in place. A refusal by the host removes the button; a timeout can be tried again.
  */
 export function createShareNode(thread, open) {
-  const button = el('button', {}, [tr('share', 'create')])
-  const note = el('p', { dir: 'auto' }, [])
-  const card = el('div', {}, [])
-  const box = el('div', {}, [button, note, card])
+  const [e, t] = [el, tr]
+  const button = e('button', {}, [t('share', 'create')])
+  const note = e('p', { dir: 'auto' }, [])
+  const card = e('div', {}, [])
+  const box = e('div', {}, [button, note, card])
   button.addEventListener('click', function () {
     button.disabled = true
-    note.textContent = tr('share', 'waiting')
+    note.textContent = t('share', 'waiting')
     let call
     try {
       call = thread.share.create(thread.id)
@@ -150,7 +152,7 @@ export function createShareNode(thread, open) {
         const share = result && !result.isError ? shareFrom(result) : null
         if (!share) {
           const first = result && result.content && result.content[0]
-          note.textContent = first && first.text ? first.text : tr('share', 'create_failed')
+          note.textContent = first && first.text ? first.text : t('share', 'create_failed')
           button.disabled = false
           return
         }
@@ -160,13 +162,68 @@ export function createShareNode(thread, open) {
       },
       function (err) {
         const timedOut = /timed out$/.test(String(err && err.message))
-        note.textContent = timedOut ? tr('share', 'no_answer') : tr('share', 'not_allowed')
+        note.textContent = timedOut ? t('share', 'no_answer') : t('share', 'not_allowed')
         if (timedOut) button.disabled = false
         else button.remove()
       }
     )
   })
   return box
+}
+
+/* global createImageBitmap, document */
+/**
+ * "Add image" under a post with free slots (#420): the chosen file is drawn on a canvas, at most 1600 px on the longer
+ * side and 700,000 bytes as JPEG, and sent as base64 through the host's add_image_from_url. The result's outline gives the
+ * post's new image count, which is shown. When the file input, the resize or the call fails (or times out, or answers
+ * without the post), the host is asked for an upload link (upload_link) and the link is shown as text.
+ */
+function addImageNode(link, draftId, postId) {
+  const [e, t] = [el, tr]
+  const button = e('button', {}, [t('thread', 'add_image')])
+  const note = e('p', { dir: 'auto' }, [])
+  const input = document.createElement('input')
+  const call = (args) => link.callTool('add_image_from_url', { draftId, postId, ...args }, 120000)
+  const fail = () => { button.disabled = false; note.textContent = t('common', 'tool_error') }
+  const fallback = () => {
+    call({ upload_link: true }).then((result) => {
+      const found = result && !result.isError && result.structuredContent && result.structuredContent.upload
+      if (found) {
+        button.remove()
+        note.textContent = t('thread', 'upload_link') + found.link
+      } else fail()
+    }, fail)
+  }
+  input.type = 'file'
+  input.hidden = true
+  input.accept = 'image/*'
+  input.onchange = () => {
+    const file = input.files[0]
+    input.value = ''
+    button.disabled = true
+    createImageBitmap(file).then((bitmap) => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height))
+      canvas.width = Math.round(bitmap.width * scale) || 1
+      canvas.height = Math.round(bitmap.height * scale) || 1
+      ctx.fillStyle = '#fff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+      const data = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]
+      return data && data.length < 933337 ? call({ data, mime: 'image/jpeg' }) : Promise.reject()
+    }).then((result) => {
+      const draft = result && !result.isError && result.structuredContent && result.structuredContent.draft
+      const post = draft && draft.posts && draft.posts.find((p) => p.id === postId)
+      if (!post) return fallback()
+      note.textContent = t('thread', 'images', { n: post.image_count })
+      button.disabled = post.image_count > 3
+    }, fallback)
+  }
+  button.onclick = () => {
+    try { input.click() } catch { fallback() }
+  }
+  return e('div', {}, [button, note, input])
 }
 
 // Every function the view runs. Each is copied by its source text, so each must use only its own arguments,
@@ -201,7 +258,7 @@ export const RENDER_FUNCTIONS = [
 
 // The page script for one image origin: the render functions, then the starter with the origin baked in.
 const scriptFor = (imageOrigin) =>
-  pageScript(['common', 'thread', 'share'], [...RENDER_FUNCTIONS, ...RENDERERS, ...HOST_FUNCTIONS, ...CARD_FUNCTIONS, createShareNode], STARTER.replace('__IMAGE_ORIGIN__', embedOrigin(imageOrigin)))
+  pageScript(['common', 'thread', 'share'], [...RENDER_FUNCTIONS, ...RENDERERS, ...HOST_FUNCTIONS, ...CARD_FUNCTIONS, createShareNode, addImageNode], STARTER.replace('__IMAGE_ORIGIN__', embedOrigin(imageOrigin)))
 
 /** The whole view document, for one image origin (null when the environment has none). */
 function threadHtml(imageOrigin) {
