@@ -73,10 +73,7 @@ test('the post counter counts a URL as 23 characters', async ({ browser }) => {
   const id = (await created.json()).draft.id as string
   const { context, page } = await openEditor(browser, DESKTOP, id)
   try {
-    // Rare UI is the default: the number is read once (sr-only), and the limit stays as plain text.
-    const counter = page.locator('.char-counter').first()
-    await expect(counter.locator('.sr-only')).toHaveText('27')
-    await expect(counter).toContainText('/280')
+    await expect(page.locator('.char-counter').first()).toHaveText('27/280')
   } finally {
     await context.close()
   }
