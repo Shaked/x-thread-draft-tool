@@ -246,7 +246,8 @@ test.describe('screens', () => {
       // Dialog and Toast (plan U5), light and dark: delete asks on the draft list, revoke asks on API tokens, a toast after Copy.
       const openDelete = async (p: Page) => {
         await p.getByRole('button', { name: 'Delete draft' }).first().click()
-        await p.getByRole('dialog', { name: 'Delete this draft?' }).waitFor()
+        // The Rare delete button opens an inline panel (role group), not a dialog (#563).
+        await p.getByRole('group', { name: 'Delete this draft?' }).waitFor()
         await p.waitForTimeout(400)
       }
       const openRevoke = async (p: Page) => {
