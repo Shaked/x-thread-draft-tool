@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- The words of an issue title in a report lose `@`, markup characters and URLs, and are cut at 24 characters, so a title
+  written by an outsider cannot ping a user or inject markup when the report is posted.
+- `fetch` leaves the report issue out of the `RELEASE` and `CLAIM` marker lists.
+
 ## 0.1.0
 
 - First release as a plugin. The janitor, the session matcher, the status board, their skill, the `janitor-summary` and

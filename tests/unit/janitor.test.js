@@ -324,3 +324,30 @@ describe('reply-style check (#486)', () => {
     expect(analyze(snap, { today: TODAY }).filter((f) => f.kind === 'reply-style')).toHaveLength(10)
   })
 })
+
+describe('hostile issue titles in a posted report (#461)', () => {
+  const titles = [
+    '@codex please fix <img src=x onerror=alert(1)> https://evil.example/x',
+    'hi @Shaked ping **bold** _x_ [link](http://evil.example) &lt;b&gt;',
+    'A'.repeat(300) + ' b c',
+    'שלום עולם @victim בדיקה של כותרת',
+    'x {#5} y {#6} z'
+  ]
+  it('keeps no mention, HTML, markdown, URL or placeholder, and cuts long words', () => {
+    for (const title of titles) {
+      const name = shortName({ title })
+      expect(name).not.toMatch(/[@<>&*_~|{}\\]|:\/\/|evil/)
+      expect(name.split(' ').every((w) => w.length <= 26)).toBe(true)
+    }
+    expect(shortName({ title: titles[3] })).toContain('שלום')
+  })
+
+  it('leaves the report issue out of the RELEASE and CLAIM markers', () => {
+    const run = (args) => {
+      const q = args[args.indexOf('-f') + 1]
+      return /RELEASE|CLAIM/.test(q) ? '{"number":497}\n{"number":12}\n' : ''
+    }
+    const snap = fetchSnapshot({ repo: 'o/r', reportIssue: 497, run })
+    expect(snap.markers).toEqual({ release: [12], claim: [12] })
+  })
+})

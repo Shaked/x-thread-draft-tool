@@ -15,7 +15,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { join } from 'node:path'
-import { CONFIG_ERROR, escapeRegExp, OWNER, PROJECT_ROOT, REPLY_LINT, REPO } from './config.mjs'
+import { CONFIG_ERROR, escapeRegExp, OWNER, PROJECT_ROOT, REPLY_LINT, REPO, REPORT_ISSUE } from './config.mjs'
 
 export { REPO }
 export const STALE_DAYS = 14
@@ -74,10 +74,21 @@ export function titleText(title) {
   return rest.split(' (')[0].trim()
 }
 
+/**
+ * Issue titles are written by anyone on a public repository, and the report is posted as a comment. A word of a title
+ * keeps letters, digits and plain punctuation: it loses `@` (no mention), markup characters (`<>&*_~|\\{}` and the
+ * ones above), and a word that is a URL is dropped. A word is cut at 24 characters.
+ */
+export function safeWord(w) {
+  if (/:\/\/|^www\./i.test(w)) return ''
+  return w.replace(/[@<>&*_~|\\{}!$^=+]/g, '').slice(0, 24)
+}
+
 /** 3 to 6 words that say what an issue is, for "#n (words)". */
 export function shortName(issue) {
-  let words = titleText(issue.title).replace(/[`"()[\]]/g, '').split(/\s+/).filter(Boolean)
-  if (words.length < 3) words = issue.title.replace(/[`"()[\]:]/g, '').split(/\s+/).filter(Boolean)
+  const clean = (s) => s.split(/\s+/).map(safeWord).filter(Boolean)
+  let words = clean(titleText(issue.title).replace(/[`"()[\]]/g, ''))
+  if (words.length < 3) words = clean(issue.title.replace(/[`"()[\]:]/g, ''))
   // Task ids like M1 or H20 inside the words would need their own description, so they are code spans.
   // Words the reply-style lint reserves ("unchanged", "blocked") are left out of a description.
   words = words.filter((w) => !/^(unchanged|blocked|blocking)[,.:;]?$/i.test(w))
@@ -578,12 +589,13 @@ function search(q, run) {
 }
 
 /** Builds a snapshot with gh search only. `run` is injectable for tests. */
-export function fetchSnapshot({ repo = REPO, run = (args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 << 20 }) } = {}) {
+export function fetchSnapshot({ repo = REPO, reportIssue = REPORT_ISSUE, run = (args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 << 20 }) } = {}) {
   const r = `repo:${repo}`
   const issues = [...search(`${r} is:issue is:open`, run), ...search(`${r} is:issue is:closed`, run)]
   const pulls = search(`${r} is:pr is:merged`, run).map((p) => ({ number: p.number, title: p.title, body: p.body || '', merged_at: p.pull_request?.merged_at }))
   const openPulls = search(`${r} is:pr is:open`, run).map((p) => ({ number: p.number, title: p.title, body: p.body || '' }))
-  const mark = (word) => search(`${r} is:issue is:open ${word} in:comments`, run).map((i) => i.number)
+  // The report issue holds the words RELEASE and CLAIM in every posted report: it is never flagged.
+  const mark = (word) => search(`${r} is:issue is:open ${word} in:comments`, run).map((i) => i.number).filter((n) => n !== reportIssue)
   return { fetched_at: new Date().toISOString(), repo, issues, pulls, open_pulls: openPulls, markers: { release: mark('RELEASE'), claim: mark('CLAIM') }, comments: {} }
 }
 

@@ -7,7 +7,9 @@ const W = readFileSync(new URL('../../.github/workflows/janitor-weekly.yml', imp
 const code = W.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n')
 
 describe('weekly janitor workflow', () => {
-  it('has minimal permissions: contents read, issues write, nothing else', () => {
+  it('has minimal permissions: contents read, issues write, nothing else, and no job-level permissions', () => {
+    expect(code.match(/^\s*permissions:/gm)).toHaveLength(1)
+    expect(code).not.toMatch(/write-all|read-all/)
     const block = code.match(/^permissions:\n((?:[ \t]+.+\n)+)/m)[1].trim().split('\n').map((l) => l.trim())
     expect(block.sort()).toEqual(['contents: read', 'issues: write'])
   })
@@ -17,9 +19,12 @@ describe('weekly janitor workflow', () => {
     expect(code).toMatch(/^\s+workflow_dispatch:/m)
   })
 
-  it('can be turned off with JANITOR_AUTO=off and only runs on the default branch', () => {
-    expect(code).toContain("vars.JANITOR_AUTO != 'off'")
-    expect(code).toContain('default_branch')
+  it('can be turned off (any case), runs on schedule, and a manual run only on the default branch', () => {
+    const cond = code.match(/^\s+if: >-\n((?:\s+.+\n)+?)\s+runs-on:/m)[1].replace(/\s+/g, ' ').trim()
+    expect(cond).toBe(
+      "!contains(fromJSON('[\"off\",\"false\",\"0\"]'), vars.JANITOR_AUTO) && " +
+        "(github.event_name == 'schedule' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch))"
+    )
   })
 
   it('pins every action by commit sha', () => {
