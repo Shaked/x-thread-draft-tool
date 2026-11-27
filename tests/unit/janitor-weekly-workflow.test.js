@@ -20,7 +20,12 @@ describe('weekly janitor workflow', () => {
   })
 
   it('can be turned off (any case), runs on schedule, and a manual run only on the default branch', () => {
-    const cond = code.match(/^\s+if: >-\n((?:\s+.+\n)+?)\s+runs-on:/m)[1].replace(/\s+/g, ' ').trim()
+    // Line-based, not a nested regex: the condition is the lines between `if: >-` and `runs-on:`.
+    const lines = code.split('\n')
+    const from = lines.findIndex((l) => /^\s+if: >-$/.test(l))
+    const to = lines.findIndex((l, i) => i > from && /^\s+runs-on:/.test(l))
+    expect(from).toBeGreaterThan(-1)
+    const cond = lines.slice(from + 1, to).join(' ').replace(/\s+/g, ' ').trim()
     expect(cond).toBe(
       "!contains(fromJSON('[\"off\",\"false\",\"0\"]'), vars.JANITOR_AUTO) && " +
         "(github.event_name == 'schedule' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch))"
