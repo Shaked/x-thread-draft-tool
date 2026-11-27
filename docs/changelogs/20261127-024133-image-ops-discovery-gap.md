@@ -1,5 +1,8 @@
-# Image operations in the discovery corpus (#414, #273 Task C5)
+# The AI app search test now covers replacing, moving and removing pictures
 
-- Added three intents to `tests/eval/discovery/intents.json`: replace an image, move an image, remove all images of a post (4 English and 4 Hebrew phrases each).
-- The new phrases that miss the top 3 and the admin-pool hits are recorded in `baseline.json` as known failures with their reasons; the stale admin entry for "Fix the wording of the last post" is removed.
-- Tool descriptions are unchanged: every wording tried for the three tools moved an existing top-1/top-3 cell or a margin by more than 0.01, so #414 stays open for the description work.
+- The offline search test has three new checks for replacing a picture, moving a picture and removing all pictures of one tweet, in English and Hebrew.
+- Where the current wording does not find these operations yet, they are listed as known gaps with the reason, so the gap stays visible.
+- The tool wording is not changed yet: each wording tried so far made an existing search result worse. Next, the wording is reworked so no current result drops.
+
+Area: AI apps
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/586
