@@ -1,7 +1,7 @@
 // #485: every admin page (listed from the source) as signed out, as a normal user and as the admin.
 // Signed out and a normal user land where an unknown path lands, and see no admin text. The admin gets the real page.
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import App from '../../src/App.jsx'
 import { adminPages } from '../helpers/admin-pages.js'
 
@@ -28,8 +28,10 @@ async function visit(path, me) {
   window.history.pushState({}, '', path)
   stub(me)
   render(<App />)
-  await screen.findByText(/./)
-  await waitFor(() => expect(document.querySelector('.loading')).toBeNull())
+  // The session check shows a skeleton (its "Loading…" text matches /./), so wait until it is gone, then until the lazy page
+  // fallback is gone, then let the router's redirect effect run. Reading the path before that returned the old path (#619).
+  await waitFor(() => expect(document.querySelector('[aria-busy="true"], .loading')).toBeNull())
+  await act(async () => {})
   return window.location.pathname
 }
 
