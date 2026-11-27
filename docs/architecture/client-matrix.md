@@ -59,6 +59,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Agent plugin: reply-style | docs/plans/plugin-marketplace.md | none | 2026-11-26 |
 | Agent skill: ui-debug | tests/unit/ui-debug-skill.test.js | none | 2026-11-26 |
 | Agent plugin: metrics | docs/plans/central-metrics.md | none | 2026-11-26 |
+| Agent plugin: task-janitor | docs/plans/plugin-marketplace.md | none | 2026-11-27 |
 | Connect guide | docs/agents/mcp.md | none | 2026-11-26 |
 
 ## Language: en
@@ -86,6 +87,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Agent plugin: reply-style | built: tests/unit/plugin-reply-style.test.js | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | not checked | no: a Claude Code plugin only | no: a Claude Code plugin only |
 | Agent skill: ui-debug | built: tests/unit/ui-debug-skill.test.js | no: a repo developer skill only | no: a repo developer skill only | no: a repo developer skill only | no: a repo developer skill only | not checked | no: a repo developer skill only | no: a repo developer skill only |
 | Agent plugin: metrics | built: tests/unit/plugin-metrics.test.js | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | not checked | no: a Claude Code plugin only | no: a Claude Code plugin only |
+| Agent plugin: task-janitor | built: tests/unit/task-janitor-plugin.test.js | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | not checked | no: a Claude Code plugin only | no: a Claude Code plugin only |
 | Connect guide | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | not checked | built: docs/agents/mcp.md | built: docs/agents/mcp.md | no: no steps for other MCP clients (#372) |
 
 ## Language: he
@@ -113,6 +115,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Agent plugin: reply-style | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only | no: the lint rules are English only |
 | Agent skill: ui-debug | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only |
 | Agent plugin: metrics | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only |
+| Agent plugin: task-janitor | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only |
 | Connect guide | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | not checked | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | no: no steps for other MCP clients (#372) |
 
 The thread tools add the thread as markdown after the JSON (#356): its labels are English and read by the assistant; the Hebrew post text in it stays unchanged. In Hebrew, "built" for a view means Hebrew post text shows unchanged and right to left (`dir="auto"`); the labels around it are the separate View labels row (#371): every label and button of the three views has an English and a Hebrew text, and in Hebrew the page gets `lang="he"` and `dir="rtl"`. Tool titles: MCP gives each tool one title and no language field, so Hebrew trigger words go in the description instead.
