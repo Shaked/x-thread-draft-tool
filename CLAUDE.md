@@ -6,7 +6,7 @@ Read [`AGENTS.md`](./AGENTS.md) first: it holds the rules for every session in t
 This file is the primary, actionable map for what to use.
 
 <!-- AUTO-INDEX:START -->
-_Last refreshed: 2026-11-26 18:14:58.016 UTC_
+_Last refreshed: 2026-11-27 01:03:11.663 UTC_
 
 ## Feature Index (auto-generated, use directly)
 - Draft Management: [`docs/features/draft-management.md`](./docs/features/draft-management.md)
@@ -32,6 +32,7 @@ _Last refreshed: 2026-11-26 18:14:58.016 UTC_
 - Skill: Reply style (templates for replies to the owner): [`.claude/skills/reply-style/SKILL.md`](./.claude/skills/reply-style/SKILL.md)
 - Skill: Task janitor: [`.claude/skills/task-janitor/SKILL.md`](./.claude/skills/task-janitor/SKILL.md)
 - Skill: UI debug (screenshots, errors and layout with the right tools): [`.claude/skills/ui-debug/SKILL.md`](./.claude/skills/ui-debug/SKILL.md)
+- Skill: UI design with the design system: [`.claude/skills/ui-design.md`](./.claude/skills/ui-design.md)
 <!-- AUTO-INDEX:END -->
 
 ## Using the product as an agent
