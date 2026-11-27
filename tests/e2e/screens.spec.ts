@@ -249,6 +249,7 @@ test.describe('screens', () => {
     // The dialogs and toasts (plan U5), the settings and admin pages (T4, #337, U2). Its own test, so each capture stays
     // within its own time budget (#328, Opus ruling). Own data: a draft to delete or copy, and sessions.
     test(`captures the dialog, settings and admin screens at ${width}px`, async ({ browser, request }) => {
+      test.setTimeout(180_000) // the same budget as the other capture tests
       const run = `dialogs-${width}-${Date.now()}`
       const owner = await devToken(request, `screens-dialogs-${run}`)
       const created: { draft: { id: string } } = await apiJson(request, owner, 'POST', '/api/drafts', {
@@ -270,13 +271,13 @@ test.describe('screens', () => {
       // Dialog and Toast (plan U5), light and dark: delete asks on the draft list, revoke asks on API tokens, a toast after Copy.
       const openDelete = async (p: Page) => {
         await p.getByRole('button', { name: 'Delete draft' }).first().click()
-        await p.getByRole('dialog', { name: 'Delete this draft?' }).waitFor()
+        await p.getByRole('dialog', { name: 'Delete this draft?' }).or(p.getByRole('group', { name: 'Delete this draft?' })).first().waitFor()
         await p.waitForTimeout(400)
       }
       const openRevoke = async (p: Page) => {
         await createToken(p)
         await p.getByRole('button', { name: 'Revoke' }).first().click()
-        await p.getByRole('dialog', { name: 'Revoke this token?' }).waitFor()
+        await p.getByRole('dialog', { name: 'Revoke this token?' }).or(p.getByRole('group', { name: 'Revoke this token?' })).first().waitFor()
         await p.waitForTimeout(400)
       }
       const copyThread = async (p: Page) => {
