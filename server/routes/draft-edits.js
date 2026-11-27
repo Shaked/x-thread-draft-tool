@@ -194,7 +194,8 @@ async function removeImages({ request, params }) {
 }
 
 /**
- * POST /api/drafts/:id/images { url, post_id, position? } or { url, replace }: fetches the public image `url` and
+ * POST /api/drafts/:id/images { url, post_id, position? } or { url, replace }: fetches the public image `url` (not a file this process
+ * stored for the caller a moment ago: that one is attached as it is, and left to the caller on failure) and
  * adds it to a post (at position, default last, at most 4), or puts it where the image `replace` was in every post.
  * The old file is deleted when no draft uses it; on any failure the new file is deleted.
  */
