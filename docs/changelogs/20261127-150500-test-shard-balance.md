@@ -7,4 +7,4 @@ Link: https://github.com/Shaked/x-thread-draft-tool/pull/606
 
 ## Technical details
 
-`vitest.config.js` sets `tests/shard-sequencer.mjs` as the sequencer for `--shard=n/m`. Files go out slowest first, by the per-file times in `tests/shard-timings.json` (median of three full local runs), to the shard with the least time. Vitest's default split by path hash gave one shard 12 to 16 s more file time than another (#605). Test: `tests/unit/shard-sequencer.test.js`. Limits, timeouts and tests are unchanged.
+`vitest.config.js` sets `tests/shard-sequencer.mjs` as the sequencer for `--shard=n/m`. Files go out slowest first, by the per-file worker time (environment, setup, import and tests) in `tests/shard-timings.json` (median of three full local runs), to the shard with the least time. Vitest's default split by path hash left one shard 21 to 23 s heavier than another (#605). Test: `tests/unit/shard-sequencer.test.js`. Limits, timeouts and tests are unchanged.

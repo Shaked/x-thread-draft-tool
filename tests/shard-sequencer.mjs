@@ -1,8 +1,8 @@
 // Splits the test files of --shard=n/m by measured time (#605). Vitest's default sequencer hashes each
 // file path and cuts the list into equal counts, so one shard can hold much more time than another
-// (local runs: shard 2 at 50 to 57 s of file time, shard 3 at 38 to 41 s). This gives the files out
-// slowest first, each to the shard with the least time so far. The times are in tests/shard-timings.json
-// (median of full local runs); a file missing from it counts as the table's median.
+// (local runs: one shard 21 to 23 s heavier than another). This gives the files out slowest first, each to
+// the shard with the least time so far. The time of a file is its worker time: environment, setup, import and
+// tests (tests/shard-timings.json, median of three full local runs). A file missing from it counts as the median.
 // Every shard computes the same split, so the CI jobs never overlap and never miss a file.
 import { readFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
