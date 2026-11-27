@@ -5,6 +5,7 @@
 
 Area: Docs
 Link: https://github.com/Shaked/x-thread-draft-tool/pull/612
+Screenshot: not needed, no visible change
 
 ## Technical details
 
