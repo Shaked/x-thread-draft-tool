@@ -3,7 +3,7 @@
 - The action filter on the admin audit log now lists starting and ending a view as a user.
 
 Area: Admin
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/PENDING
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/607
 
 ## Technical details
 
