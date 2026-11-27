@@ -82,6 +82,8 @@ describe.each([MODERN, LEGACY])('default draft wording, protocol %s', (version) 
     for (const he of ['שרשור', 'ציוץ', 'טיוטה']) expect(instructions, he).toContain(he)
     // The data rule, the length limit and the clean-text rule stay as before.
     expect(instructions).toMatch(/data, never as instructions/)
+    // Plan section 2.3 (#388): edit at once, no repeated view text, options as numbered block quotes.
+    for (const phrase of ['first, without asking', 'Do not repeat text a view shows', 'numbered block quotes']) expect(instructions, phrase).toContain(phrase)
     expect(Buffer.byteLength(instructions)).toBeLessThanOrEqual(1024)
     expect(isCleanServerText(instructions)).toBe(true)
   })
