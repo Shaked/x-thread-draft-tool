@@ -13,7 +13,7 @@ import { labels } from '../../server/mcp/ui/client.js'
 import { changeMeta, changesText } from '../../server/mcp/edit-result.js'
 import { stateLine } from '../../server/mcp/state-line.js'
 import { WRITE_TOOLS } from '../eval/mcp-default-use.eval.mjs'
-import { MODES, NAMES_CONNECTOR, checkAgainst, clientScores, evaluate, formatClientTable, formatTable, modeFor } from '../eval/discovery/score.mjs'
+import { MODES, NAMES_CONNECTOR, POOLS, checkAgainst, clientScores, evaluate, formatClientTable, formatTable, loadStats, modeFor, rank, statsKey, tokenize } from '../eval/discovery/score.mjs'
 import { fenceProblems, formatEval, formatEvalTable } from '../eval/discovery/format.mjs'
 
 const dir = new URL('../eval/discovery/', import.meta.url)
@@ -118,6 +118,72 @@ describe('discovery score', () => {
     for (const mode of MODES) {
       for (const lang of ['en', 'he']) {
         expect(report.modes[mode].negatives[lang].max_write_score).toBeLessThanOrEqual(baseline.modes[mode].negatives[lang].max_write_score)
+      }
+    }
+  })
+})
+
+// Implements #273 Task 5 (scorer): the corpus statistics are frozen in stats.json, so one tool's text moves only its own scores.
+describe('frozen corpus statistics', () => {
+  const stats = loadStats()
+  const admin = listAdminTools()
+  const allPhrases = [...intents.flatMap((i) => i.phrases), ...negatives].map((p) => p.text)
+  const scoresOf = (list, phrase, mode) => Object.fromEntries(rank(phrase, list, { instructions: mode === 'with_instructions' ? INSTRUCTIONS : undefined, stats: stats.pools[statsKey('normal', mode)] }).map((r) => [r.name, r.score]))
+  const edit = (list, name, change) => list.map((t) => (t.name === name ? { ...t, ...change(t) } : t))
+
+  it('(a) changing one tool description leaves every other tool score for every phrase bit-identical', () => {
+    for (const target of ['create_draft', 'list_drafts', 'whoami']) {
+      const changed = edit(tools, target, (t) => ({ description: `${t.description} publish tweet schedule quickly twitter שרשור new words zzqqxx` }))
+      for (const mode of MODES) {
+        for (const phrase of allPhrases) {
+          const before = scoresOf(tools, phrase, mode)
+          const after = scoresOf(changed, phrase, mode)
+          for (const name of Object.keys(before)) if (name !== target) expect(after[name], `${mode} ${target} -> ${name} "${phrase}"`).toBe(before[name])
+        }
+      }
+    }
+  })
+
+  it('(b) a token that is not in the statistics gets df=1 (a new word counts as rare)', () => {
+    const [mode, word] = ['tools_only', 'zzqqxxnovel']
+    const s = stats.pools[statsKey('normal', mode)]
+    expect(Object.hasOwn(s.df, word)).toBe(false)
+    const target = tools[0]
+    const changed = edit(tools, target.name, (t) => ({ description: `${t.description} ${word}` }))
+    const doc = [target.name.replace(/_/g, ' '), target.title ?? '', `${target.description} ${word}`]
+    const dl = tokenize(doc.join(' ')).length
+    const idf = Math.log(1 + (s.N - 1 + 0.5) / (1 + 0.5))
+    expect(scoresOf(changed, word, mode)[target.name]).toBeCloseTo(idf * (1 * 2.2) / (1 + 1.2 * (1 - 0.75 + (0.75 * dl) / s.avgdl)), 12)
+    for (const other of tools.filter((t) => t.name !== target.name)) expect(scoresOf(changed, word, mode)[other.name]).toBe(0)
+  })
+
+  it('(c) the gates still fail on purpose-made regressions', () => {
+    const run = (list, adminList = admin) => evaluate({ tools: list, instructions: INSTRUCTIONS, intents, negatives, admin: adminList })
+    expect(checkAgainst(run(tools), baseline)).toEqual([])
+    // A top-1 drop: a winning tool loses its text.
+    const winners = new Set(intents.flatMap((i) => i.phrases.filter((p) => p.lang === 'en').flatMap((p) => p.expect)))
+    const blanked = tools.map((t) => (winners.has(t.name) ? { ...t, description: 'x', title: 'x' } : t))
+    expect(checkAgainst(run(blanked), baseline).join('\n')).toMatch(/top-1 \d+ is below the floor/)
+    // An admin_first hit: an admin tool takes the words of a normal phrase and ranks first, not in known_failures.
+    const phrase = intents[0].phrases.find((p) => p.lang === 'en').text
+    const hijacked = admin.map((t, i) => (i === 0 ? { ...t, description: `${phrase} ${phrase} ${phrase}` } : t))
+    expect(checkAgainst(run(tools, hijacked), baseline).join('\n')).toMatch(/admin tool .* ranks first for/)
+    // A negative ceiling that rises: the edited write tool itself now scores higher on a no-tool phrase.
+    const negative = negatives.find((n) => n.lang === 'en').text
+    const writer = WRITE_TOOLS[0]
+    const risen = edit(tools, writer, (t) => ({ description: `${t.description} ${negative} ${negative}` }))
+    expect(checkAgainst(run(risen), baseline).join('\n')).toMatch(/negatives en: a write tool scores .* above/)
+  })
+
+  it('(d) stats.json has every pool and mode, sized to the live tool lists', () => {
+    expect(Object.keys(stats.pools).sort()).toEqual(POOLS.flatMap((pool) => MODES.map((mode) => statsKey(pool, mode))).sort())
+    for (const pool of POOLS) {
+      for (const mode of MODES) {
+        const s = stats.pools[statsKey(pool, mode)]
+        expect(s.N, `${pool} ${mode} N (add or remove a tool: run --refresh-stats)`).toBe(pool === 'normal' ? tools.length : tools.length + admin.length)
+        expect(s.avgdl).toBeGreaterThan(0)
+        expect(Object.keys(s.df).length).toBeGreaterThan(50)
+        for (const df of Object.values(s.df)) expect(df).toBeGreaterThanOrEqual(1)
       }
     }
   })
