@@ -1,1 +1,7 @@
-- Plugin `contract-tests` 0.1.0: the end-to-end contract-test method moves out of the repo skill into a generic plugin skill (no repo paths); the repo's skill keeps the owner rules and its helpers, and links to the plugin. Tests check the manifests and that the plugin names no repo path.
+# Contract-test method available as a plugin
+
+- A generic plugin skill describes how to test a client end to end without a person, a client binary or a model call.
+- This repository keeps its owner rules and helper paths, and links to the plugin skill.
+
+Area: Docs
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/566
