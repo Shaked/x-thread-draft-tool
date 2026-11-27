@@ -21,7 +21,7 @@ The repository comes from, in order:
 | `repo` key in `.claude/agent-kit.json` | `owner/name`; a missing file or key falls through to the next source |
 | The `origin` remote on github.com | read from the remote URL |
 
-The config file is `$CLAUDE_PROJECT_DIR/.claude/agent-kit.json`, else `.claude/agent-kit.json` at the git root.
+The config file is `$CLAUDE_PROJECT_DIR/.claude/agent-kit.json`, else `.claude/agent-kit.json` at the git root (the working folder outside a git repository).
 A file that is not JSON, or whose `repo` is not a string, stops the helper with exit 1 and names the file.
 The same file holds the settings of the other plugins of this marketplace (`reply-style`), so one config file
 serves them all.
@@ -31,7 +31,7 @@ serves them all.
 ```
 agent-pr.sh repo                         prints owner/name
 agent-pr.sh branch <name>                branch from the latest origin/main, tracking set up
-agent-pr.sh push                         pushes the current branch with its upstream; refuses main
+agent-pr.sh push                         pushes the current branch with its upstream; refuses main and uncommitted changes
 agent-pr.sh pr "<title>" <body-file>     opens a pull request for the current branch, prints its URL
 agent-pr.sh checks [sha]                 check runs of a commit: name, status, conclusion
 ```

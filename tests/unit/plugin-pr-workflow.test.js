@@ -112,6 +112,20 @@ describe('repository lookup', () => {
     const out = run(['repo'], { cwd: repo({ config: '{ not json' }) })
     expect(out.status).toBe(1)
     expect(out.stderr).toContain('agent-kit.json is not JSON')
+    expect(out.stderr).not.toContain('SyntaxError')
+  })
+
+  it('does not print the origin URL, which may hold a token', () => {
+    const out = run(['repo'], { cwd: repo({ origin: 'https://token-value@github.com/acme/a/b.git' }) })
+    expect(out.status).toBe(1)
+    expect(out.stderr).toContain('no repository')
+    expect(out.stderr).not.toContain('token-value')
+  })
+
+  it('refuses a multi-line value, even when one line is owner/name', () => {
+    const out = run(['repo'], { cwd: repo(), env: { AGENT_PR_REPO: 'bad\nacme/sample-app' } })
+    expect(out.status).toBe(1)
+    expect(out.stdout).toBe('')
   })
 
   it('exits 1 when "repo" is not a string', () => {
@@ -123,7 +137,7 @@ describe('repository lookup', () => {
   it('refuses a value that is not owner/name', () => {
     const out = run(['repo'], { cwd: repo(), env: { AGENT_PR_REPO: 'just-a-name' } })
     expect(out.status).toBe(1)
-    expect(out.stderr).toContain('repository must be owner/name, got: just-a-name')
+    expect(out.stderr).toContain('repository must be owner/name')
   })
 })
 
@@ -188,15 +202,20 @@ describe('calls to GitHub, through a stub gh', () => {
     ])
   })
 
-  it('checks reads the check runs of HEAD by default, and of a given commit', () => {
+  it('checks reads the check runs of HEAD by default, and of the commit given', () => {
     const dir = repo()
-    const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).stdout.trim()
-    const stub = stubBin()
-    const out = run(['checks'], { cwd: dir, env: { AGENT_PR_REPO: 'acme/sample-app' }, gh: stub })
-    expect(out.status).toBe(0)
-    expect(out.calls[1]).toBe(`repos/acme/sample-app/commits/${head}/check-runs`)
-    const other = run(['checks', 'HEAD~0'], { cwd: dir, env: { AGENT_PR_REPO: 'acme/sample-app' }, gh: stubBin() })
-    expect(other.calls[1]).toBe(`repos/acme/sample-app/commits/${head}/check-runs`)
+    const git = (...args) => spawnSync('git', args, { cwd: dir, encoding: 'utf8' }).stdout.trim()
+    const first = git('rev-parse', 'HEAD')
+    writeFileSync(join(dir, 'second.txt'), 'two\n')
+    git('add', '.')
+    git('commit', '-q', '-m', 'second')
+    const head = git('rev-parse', 'HEAD')
+    const env = { AGENT_PR_REPO: 'acme/sample-app' }
+    const byDefault = run(['checks'], { cwd: dir, env, gh: stubBin() })
+    expect(byDefault.status).toBe(0)
+    expect(byDefault.calls[1]).toBe(`repos/acme/sample-app/commits/${head}/check-runs`)
+    const given = run(['checks', 'HEAD~1'], { cwd: dir, env, gh: stubBin() })
+    expect(given.calls[1]).toBe(`repos/acme/sample-app/commits/${first}/check-runs`)
   })
 })
 

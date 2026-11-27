@@ -30,16 +30,17 @@ repo_name() {
     root="$(git rev-parse --show-toplevel 2>/dev/null)" || root="$PWD"
     file="${CLAUDE_PROJECT_DIR:-$root}/.claude/agent-kit.json"
     if [ -f "$file" ]; then
-      found="$(node -e 'const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); if (c.repo !== undefined && typeof c.repo !== "string") process.exit(3); process.stdout.write(c.repo || "")' "$file")" \
+      found="$(node -e 'const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); if (c.repo !== undefined && typeof c.repo !== "string") process.exit(3); process.stdout.write(c.repo || "")' "$file" 2>/dev/null)" \
         || die "$file is not JSON, or its \"repo\" key is not a string"
     fi
   fi
   if [ -z "$found" ]; then
+    # Only the owner/name part of the origin URL is kept; the URL itself (it may hold a token) is never printed.
     remote="$(git remote get-url origin 2>/dev/null || true)"
     found="$(printf '%s' "$remote" | sed -E 's#^(git@github\.com:|ssh://git@github\.com/|https://github\.com/)##; s#\.git$##')"
+    [[ "$found" =~ $name_re ]] || die 'no repository: set AGENT_PR_REPO, "repo" in .claude/agent-kit.json, or an origin remote on github.com'
   fi
-  [ -n "$found" ] || die 'no repository: set AGENT_PR_REPO, "repo" in .claude/agent-kit.json, or an origin remote on github.com'
-  printf '%s' "$found" | grep -Eq "$name_re" || die "repository must be owner/name, got: $found"
+  [[ "$found" =~ $name_re ]] || die 'repository must be owner/name: check AGENT_PR_REPO or "repo" in .claude/agent-kit.json'
   printf '%s\n' "$found"
 }
 
