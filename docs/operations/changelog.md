@@ -60,5 +60,19 @@ and fails a pull request that changes or deletes an existing entry.
 ## Old entries
 
 Entries from before the template change have no `Area:` and `Link:` lines. The page shows them under "Earlier changes
-(original text)". Their text stays as it is. Task #369 plans a reviewed script to rewrite the entries from
-2026-11-11 on (steps 2 to 6). Until then, do not change an old entry by hand.
+(original text)". Their text stays as it is, except through a reviewed batch (task #369, steps 2 to 6).
+
+A batch is a JSON array in `docs/changelog-rewrites/batch-<NN>.json`. Each item has `file`, `pr` (the pull request
+address), `area` (from the Area list), `title` and `lines` (1 to 5 short lines). The script
+`scripts/changelog-rewrite.mjs` rewrites each entry dated from 2026-11-11 on:
+
+```sh
+node scripts/changelog-rewrite.mjs docs/changelog-rewrites/batch-01.json           # dry run: prints the plan, writes nothing
+node scripts/changelog-rewrite.mjs --write docs/changelog-rewrites/batch-01.json   # writes; a second run changes nothing
+node scripts/changelog-rewrite.mjs --check docs/changelog-rewrites/batch-01.json   # exit 0 when each file is what --write makes
+```
+
+The rewritten file keeps its original text, byte for byte, under `## Technical details`. `--check` takes that original
+from the commit that first added the file. CI (`scripts/changelog-check.mjs`) lets a pull request change an existing
+entry only when a batch in the same pull request passes `--check`. A deleted entry always fails the check.
+Do not change an old entry by hand.
