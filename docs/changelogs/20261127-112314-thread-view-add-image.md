@@ -1,2 +1,7 @@
-- Thread view (#420): an "Add image" button under each post with a free slot, shown only when the host can call tools. It shrinks the file (1600 px, under 700,000 bytes, JPEG) and asks the host to call `add_image_from_url` with `data`; on a refusal, error or timeout it asks for `upload_link` and shows the link as text. English and Hebrew.
-- The page script is compacted a little more (no behavior change) so the thread view stays under 32 KB; the limit is unchanged.
+# Add a picture from the thread view
+
+- Under each post with a free picture slot, the thread view now has an "Add image" button, when your AI app allows it.
+- If your app does not allow it or does not answer, the view shows a link where you can add the picture.
+
+Area: AI apps
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/601
