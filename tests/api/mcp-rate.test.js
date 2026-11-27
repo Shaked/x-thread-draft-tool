@@ -149,10 +149,14 @@ function toolCallWith(token, name, extra = {}) {
   )
 }
 
-/** The count of this minute for one user, or undefined when there is no row. */
-async function callsThisMinute(user) {
+/**
+ * The count in the newest minute row of one user, or undefined when there is no row.
+ * It is the row the call wrote. Matching now() here instead would miss it when the minute changes
+ * between the call and this read (flaky #594).
+ */
+async function latestCalls(user) {
   const { rows } = await db.pg.query(
-    "select calls from mcp_rate_limits where user_id = $1 and minute = date_trunc('minute', now())",
+    'select calls from mcp_rate_limits where user_id = $1 order by minute desc limit 1',
     [user.id]
   )
   return rows[0]?.calls
@@ -169,7 +173,7 @@ describe('tool-call count in the auth statement (P4)', () => {
     expect(body.error).toBeUndefined()
     expect(body.result.isError).toBe(true)
     expect(body.result.content[0].text).toBe(RATE_MESSAGE)
-    expect(await callsThisMinute(alice)).toBe(121)
+    expect(await latestCalls(alice)).toBe(121)
   })
 
   it.each([
@@ -180,7 +184,7 @@ describe('tool-call count in the auth statement (P4)', () => {
     await setCallsThisMinute(alice, 119)
     const body = await (await route(toolCallWith(token, 'whoami', extra))).json()
     expect(body.result.isError).toBe(false)
-    expect(await callsThisMinute(alice)).toBe(120)
+    expect(await latestCalls(alice)).toBe(120)
   })
 
   it('does not count an unknown tool, nor arguments that are not an object', async () => {
@@ -190,7 +194,7 @@ describe('tool-call count in the auth statement (P4)', () => {
     expect(unknown.error.code).toBe(-32602)
     const notObject = await (await route(toolCallWith(token, 'whoami', { arguments: 'text' }))).json()
     expect(notObject.error.code).toBe(-32602)
-    expect(await callsThisMinute(alice)).toBe(120)
+    expect(await latestCalls(alice)).toBe(120)
   })
 
   it('answers 401 without a valid token, even when the body is bad', async () => {
@@ -215,10 +219,10 @@ describe('tool-call count in the auth statement (P4)', () => {
     for (let id = 2; id <= 4; id += 1) {
       expect((await route(post(token, { jsonrpc: '2.0', id, method: 'tools/list' }, legacy))).status).toBe(200)
     }
-    expect(await callsThisMinute(alice)).toBeUndefined()
+    expect(await latestCalls(alice)).toBeUndefined()
     // A tools/call is counted, so the count starts at 1 for the next call.
     await route(toolCallWith(token, 'whoami'))
-    expect(await callsThisMinute(alice)).toBe(1)
+    expect(await latestCalls(alice)).toBe(1)
   })
 
   it('gives 401 for a revoked grant, an expired token and a token for another resource', async () => {
@@ -229,11 +233,11 @@ describe('tool-call count in the auth statement (P4)', () => {
     const expired = await accessToken(bob)
     await db.pg.query("update oauth_tokens set expires_at = now() - interval '1 second'")
     expect((await route(toolCallWith(expired, 'whoami'))).status).toBe(401)
-    expect(await callsThisMinute(bob)).toBeUndefined()
+    expect(await latestCalls(bob)).toBeUndefined()
 
     const otherResource = await accessToken(alice, `${APP_URL}/api`)
     const res = await route(toolCallWith(otherResource, 'whoami'))
     expect(res.status).toBe(401)
-    expect(await callsThisMinute(alice)).toBeUndefined()
+    expect(await latestCalls(alice)).toBeUndefined()
   })
 })
