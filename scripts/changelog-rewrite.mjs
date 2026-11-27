@@ -8,7 +8,7 @@
 //   node scripts/changelog-rewrite.mjs [--dry-run] <batch>   prints the plan and writes nothing (the default)
 //   node scripts/changelog-rewrite.mjs --write <batch>       writes the files; a second run changes nothing
 //   node scripts/changelog-rewrite.mjs --check <batch>       exits 0 only when each file is what --write makes,
-//                                                           with the original text taken from the commit that added it
+//                                                           with the original text taken from the file's history
 // Exit codes: 0 ok, 1 a finding (nothing is written), 2 a usage error.
 
 import { execFileSync } from 'node:child_process'
@@ -132,14 +132,17 @@ export function checkBatch(batch, readFile, readOriginal) {
   return { ok: findings.length === 0, findings }
 }
 
-/** The text of an entry as committed by the commit that first added it (its byte-exact original). */
+/**
+ * The text an entry had before its rewrite: the newest committed version of the file without the rewrite heading.
+ * Read from the path's history, so an entry added under another name (a rename) or edited after it was added works.
+ */
 export function originalFromGit(file, cwd = ROOT) {
-  const shas = execFileSync('git', ['log', '--diff-filter=A', '--format=%H', '--', file], { cwd, encoding: 'utf8' })
-    .split('\n')
-    .filter(Boolean)
-  const first = shas.at(-1)
-  if (!first) throw new Error(`no commit adds ${file}`)
-  return execFileSync('git', ['show', `${first}:${file}`], { cwd, encoding: 'utf8' })
+  const shas = execFileSync('git', ['log', '--format=%H', '--', file], { cwd, encoding: 'utf8' }).split('\n').filter(Boolean)
+  for (const sha of shas) {
+    const text = execFileSync('git', ['show', `${sha}:${file}`], { cwd, encoding: 'utf8' })
+    if (!text.includes(`\n${MARK}\n`)) return text
+  }
+  throw new Error(`no committed version of ${file} lacks the rewrite heading`)
 }
 
 const readFromRepo = (file) => {

@@ -1,6 +1,10 @@
 // @vitest-environment node
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { checkBatch, inWindow, originalOf, planBatch, rewriteText } from '../../scripts/changelog-rewrite.mjs'
+import { checkBatch, inWindow, originalFromGit, originalOf, planBatch, rewriteText } from '../../scripts/changelog-rewrite.mjs'
 
 const file = 'docs/changelogs/20261112-120000-old-thing.md'
 const original = '# Faster saves\n- A draft opens sooner.\n- Fixed in #359.\n'
@@ -103,5 +107,55 @@ describe('checkBatch', () => {
       throw new Error('no commit adds it')
     })
     expect(noOriginal.findings).toEqual([`${file}: no original text (no commit adds it)`])
+  })
+})
+
+describe('originalFromGit', () => {
+  // Two real shapes from the changelog history (issue #369, steps 3 and 4): an entry that a merge resolved, so the merge
+  // holds its newest text before the rewrite, and an entry edited after it was added. Each must give the text the
+  // rewrite starts from, and a rewritten entry must give its text before the rewrite.
+  const heading = { title: 'Five entries', lines: ['Five entries can be read.'], area: 'Docs', pr: 'https://github.com/Shaked/x-thread-draft-tool/pull/1' }
+
+  it('reads the text an entry had before its rewrite, from its own history', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'changelog-origin-'))
+    try {
+      const git = (...args) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t.test', '-c', 'commit.gpgsign=false', ...args], { cwd: dir, encoding: 'utf8' })
+      const write = (name, text) => writeFileSync(join(dir, name), text)
+      const commit = (message) => {
+        git('add', '-A')
+        git('commit', '-q', '-m', message)
+      }
+      git('init', '-q')
+      write('base.md', 'base\n')
+      commit('base')
+
+      // both sides add the file, and the merge resolves them: the merge commit holds the text the rewrite starts from
+      git('checkout', '-q', '-b', 'side')
+      write('merged.md', 'side version\n')
+      commit('side adds')
+      git('checkout', '-q', '-')
+      write('merged.md', 'main version\n')
+      commit('main adds')
+      expect(() => git('merge', '-q', 'side')).toThrow()
+      write('merged.md', 'resolved version\n')
+      commit('merge')
+
+      write('edited.md', 'first version\n')
+      commit('add')
+      write('edited.md', 'edited version\n')
+      commit('edit after add')
+
+      write('rewritten.md', 'before the rewrite\n')
+      commit('add rewritten')
+      write('rewritten.md', rewriteText('before the rewrite\n', heading))
+      commit('rewrite')
+
+      expect(originalFromGit('merged.md', dir)).toBe('resolved version\n')
+      expect(originalFromGit('edited.md', dir)).toBe('edited version\n')
+      expect(originalFromGit('rewritten.md', dir)).toBe('before the rewrite\n')
+      expect(() => originalFromGit('missing.md', dir)).toThrow('no committed version of missing.md')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
