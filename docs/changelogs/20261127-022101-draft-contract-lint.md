@@ -1,3 +1,11 @@
-- Contract lint (`tests/api/draft-contract.test.js`, plan 5.1) on the real server text and results; `npm run eval:contract` (score table plus the format table, `tests/eval/contract/format.mjs`), run by the pre-commit hook only when a contract file is staged.
-- `clients.json` gets `observed` (ChatGPT and Grok owner reports, each with its issue link); values unchanged; shape test added. Client matrix: rows for R1 to R9 and image counts; "Options and suggestions display" renamed to "Options and post text as quotes (R4 to R6)".
-- `docs/agents/mcp.md`: "Working on a draft" with R1 to R9 in one line each.
+# AI apps get a checked contract for editing drafts
+
+- A test now checks the wording AI apps are given for drafts: edit first, short answers, options as quotes, Hebrew kept as written.
+- Every draft result is checked for its one-line status and for stray code blocks; a new eval prints the same check as a table.
+
+Area: AI apps
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/583
+
+## Technical details
+
+`tests/api/draft-contract.test.js` (new) runs the contract lint on the server text and on one seeded draft. `npm run eval:contract` runs the score table and `tests/eval/contract/format.mjs`; the pre-commit hook runs it only when a contract file is staged. Owner reports for ChatGPT and Grok are recorded in `tests/eval/discovery/clients.json` with their issue links, values unchanged. `docs/architecture/client-matrix.md` and `docs/agents/mcp.md` are updated. Discovery score and `baseline.json` unchanged.
