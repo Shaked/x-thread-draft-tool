@@ -62,10 +62,13 @@ and fails a pull request that changes or deletes an existing entry.
 A pull request that changes `src/` or `server/mcp/ui/` (a page a person sees) adds one screenshot to each entry it adds
 (#603). Backend, test, doc and config changes need none.
 
-- Put the line under `## Technical details`: `Screenshot: docs/changelogs/img/<same name>.png` (a markdown link to that
-  path also passes). The PNG is 200 KB or less, taken at device scale 2 from the pull request's own build with the
-  `ui-debug` skill's `scripts/ui-shot.mjs` (`--routes <page> --widths 390 --scale 2`), then copied to that path.
-- A visible change that needs no picture says `Screenshot: not needed, <reason>` on that line instead.
+- Put the line under `## Technical details`, as `Screenshot: img/<same name>.png` or `Screenshot: ![<text>](img/<same name>.png)`.
+  The path is relative to the entry's folder. Any other link (`docs/changelogs/img/...`, a URL, a `../` path) fails the check.
+- The PNG is at most 200 KB (exactly 200 KB passes), at device scale 2, from the pull request's own build. Take it with the
+  `ui-debug` skill's script: `node scripts/ui-shot.mjs --user admin --routes <page> --widths 390 --scale 2 --out test-results/ui-shot`.
+  It writes `test-results/ui-shot/<route>-390-light-en.png`: `/` becomes `home`, `/admin/users` becomes `admin-users`.
+  Copy that file to `docs/changelogs/img/<same name>.png`. It needs the built app and the local API (see the skill).
+- A visible change that needs no picture says `Screenshot: not needed, <reason>` on that line instead. A bare `not needed` fails.
 - `scripts/changelog-check.mjs` checks this and prints the missing or broken line, file or size.
 
 ## Old entries

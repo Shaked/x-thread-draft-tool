@@ -87,37 +87,67 @@ describe('checkBatches', () => {
 
 describe('checkScreenshots (#603)', () => {
   const entry = 'docs/changelogs/20261127-100000-good.md'
+  const link = 'img/20261127-100000-good.png'
   const png = 'docs/changelogs/img/20261127-100000-good.png'
-  const withShot = (line) => `# Faster saves\n- A draft opens sooner.\n\n## Technical details\n\n${line}\n`
-  const texts = { [entry]: withShot('Screenshot: ' + png) }
-  const readShot = (path) => texts[path] ?? null
+  const withShot = (line) => `# Faster saves\n- A draft opens sooner.\n\n## Technical details\n\nScreenshot: ${line}\n`
+  const shotText = (line) => ({ [entry]: withShot(line) })
+  const readFor = (line) => (path) => shotText(line)[path] ?? null
   const added = `A\t${entry}\n`
+  const visible = `A\tsrc/App.tsx\n${added}`
 
   it('asks for a screenshot when a visible change adds an entry without one', () => {
-    const findings = checkScreenshots(`A\tsrc/App.tsx\n${added}`, () => '# Faster saves\n- A draft opens sooner.\n', () => 1000)
-    expect(findings).toEqual([`${entry}: a visible change needs a "Screenshot:" line: link ${png}, or write "Screenshot: not needed, <reason>"`])
+    const findings = checkScreenshots(visible, () => '# Faster saves\n- A draft opens sooner.\n', () => 1000)
+    expect(findings).toEqual([`${entry}: a visible change needs a "Screenshot:" line: ${link}, or "Screenshot: not needed, <reason>"`])
   })
 
-  it('passes a visible change whose entry links its PNG under 200 KB', () => {
-    expect(checkScreenshots(`M\tserver/mcp/ui/thread.js\n${added}`, readShot, (p) => (p === png ? 150 * 1024 : null))).toEqual([])
+  it('passes a visible change whose entry links img/<name>.png, plain or as a markdown image', () => {
+    expect(checkScreenshots(`M\tserver/mcp/ui/thread.js\n${added}`, readFor(link), (p) => (p === png ? 150 * 1024 : null))).toEqual([])
+    expect(checkScreenshots(visible, readFor(`![shot](${link})`), () => 1000)).toEqual([])
   })
 
-  it('fails a linked PNG that is missing or over 200 KB', () => {
-    expect(checkScreenshots(`A\tsrc/a.ts\n${added}`, readShot, () => null)).toEqual([`${png}: the screenshot is missing`])
-    expect(checkScreenshots(`A\tsrc/a.ts\n${added}`, readShot, () => 200 * 1024 + 1)).toEqual([`${png}: the screenshot is ${200 * 1024 + 1} bytes, over 200 KB`])
+  it('rejects any other link: the full repo path, a URL, a ../ path, a wrong name, or a stray parenthesis', () => {
+    for (const bad of [png, `https://x.test/${link}`, `../../x/${png}`, 'img/20261127-100000-goo.png', `${link})`]) {
+      expect(checkScreenshots(visible, readFor(bad), () => 1000)).toEqual([`${entry}: the Screenshot line must link ${link}`])
+    }
   })
 
-  it('fails a Screenshot line that links another file', () => {
-    const other = { [entry]: withShot('Screenshot: docs/changelogs/img/other.png') }
-    expect(checkScreenshots(`A\tsrc/a.ts\n${added}`, (p) => other[p], () => 1)).toEqual([`${entry}: the Screenshot line must link ${png}`])
+  it('fails a linked PNG that is missing; passes exactly 200 KB and fails one byte more', () => {
+    expect(checkScreenshots(visible, readFor(link), () => null)).toEqual([`${png}: the screenshot is missing`])
+    expect(checkScreenshots(visible, readFor(link), () => 200 * 1024)).toEqual([])
+    expect(checkScreenshots(visible, readFor(link), () => 200 * 1024 + 1)).toEqual([`${png}: the screenshot is ${200 * 1024 + 1} bytes, over 200 KB`])
   })
 
   it('passes a visible change whose entry says the screenshot is not needed, with a reason', () => {
-    const none = { [entry]: withShot('Screenshot: not needed, no visible change') }
-    expect(checkScreenshots(`A\tsrc/a.ts\n${added}`, (p) => none[p], () => null)).toEqual([])
+    expect(checkScreenshots(visible, readFor('not needed, no visible change'), () => null)).toEqual([])
+  })
+
+  it('fails "not needed" with no reason, with a pinned message', () => {
+    expect(checkScreenshots(visible, readFor('not needed'), () => null)).toEqual([`${entry}: "Screenshot: not needed" needs a reason after the comma`])
   })
 
   it('passes a backend-only change without a screenshot', () => {
     expect(checkScreenshots(`M\tserver/api/x.js\n${added}`, () => '# Faster saves\n', () => null)).toEqual([])
+  })
+
+  it('gives no screenshot check to an existing entry that changes (M)', () => {
+    expect(checkScreenshots(`${visible.replace(added, '')}M\t${entry}\n`, () => '# Faster saves\n', () => null)).toEqual([])
+  })
+
+  it('skips the README', () => {
+    expect(checkScreenshots(`${visible}A\tdocs/changelogs/README.md\n`, readFor(link), () => 1000)).toEqual([])
+    expect(checkScreenshots('A\tsrc/App.tsx\nA\tdocs/changelogs/README.md\n', () => '', () => null)).toEqual([])
+  })
+
+  it('counts a rename into src/ as a visible change', () => {
+    expect(checkScreenshots(`R100\told/app.js\tsrc/app.js\n${added}`, () => '# Faster saves\n', () => null)).toEqual([
+      `${entry}: a visible change needs a "Screenshot:" line: ${link}, or "Screenshot: not needed, <reason>"`
+    ])
+  })
+})
+
+describe('changedBatches and checkChanges with a moved entry', () => {
+  it('reports an entry moved out of docs/changelogs as a deletion, because the diff has no renames', () => {
+    const findings = checkChanges('D\tdocs/changelogs/20260504-074500-moved.md\nA\tother/20260504-074500-moved.md\n', () => '')
+    expect(findings).toEqual(['docs/changelogs/20260504-074500-moved.md: an existing entry may not change or be deleted (git status D)'])
   })
 })

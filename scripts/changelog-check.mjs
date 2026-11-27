@@ -49,22 +49,30 @@ export function checkChanges(nameStatus, readText, { covered = new Set() } = {})
 }
 
 const SHOT_DIRS = ['src/', 'server/mcp/ui/']
-const SHOT_MAX = 200 * 1024
+const SHOT_DIR = 'docs/changelogs/img/'
+const SHOT_MAX = 200 * 1024 // at most 200 KB
 
-/** Pure: screenshot findings (#603). A pull request that changes src/ or server/mcp/ui/ must give each added entry a `Screenshot:`
- * line that links docs/changelogs/img/<same name>.png (under 200 KB), or `Screenshot: not needed, <reason>`. */
+/**
+ * Pure: screenshot findings (#603). A pull request that changes src/ or server/mcp/ui/ must give each added entry a
+ * `Screenshot:` line that is `img/<same name>.png` (plain, or as a markdown image) and a PNG of at most 200 KB, or
+ * `Screenshot: not needed, <reason>`. `sizeOf(path)` gives the bytes of a file, or null when it is missing.
+ */
 export function checkScreenshots(nameStatus, readText, sizeOf) {
   const rows = nameStatus.split('\n').filter(Boolean).map((line) => line.split('\t'))
   if (!rows.some((parts) => SHOT_DIRS.some((dir) => parts.at(-1).startsWith(dir)))) return []
   return rows.flatMap(([status, ...paths]) => {
     const path = paths.at(-1)
     if (!status.startsWith('A') || !path.startsWith(DIR) || !path.endsWith('.md') || path === `${DIR}README.md`) return []
-    const png = `docs/changelogs/img/${path.slice(DIR.length, -3)}.png`
+    const name = path.slice(DIR.length, -3)
     const shot = (/^Screenshot: (.*)$/m.exec(readText(path) || '')?.[1] || '').trim()
-    const size = sizeOf(png)
     if (/^not needed, \S/.test(shot)) return []
-    if (!shot) return [`${path}: a visible change needs a "Screenshot:" line: link ${png}, or write "Screenshot: not needed, <reason>"`]
-    if (!shot.includes(png)) return [`${path}: the Screenshot line must link ${png}`]
+    if (/^not needed\b/.test(shot)) return [`${path}: "Screenshot: not needed" needs a reason after the comma`]
+    if (!shot) return [`${path}: a visible change needs a "Screenshot:" line: img/${name}.png, or "Screenshot: not needed, <reason>"`]
+    const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const link = new RegExp(`^(!\\[[^\\]]*\\]\\(img/${esc}\\.png\\)|img/${esc}\\.png)$`)
+    if (!link.test(shot)) return [`${path}: the Screenshot line must link img/${name}.png`]
+    const png = `${SHOT_DIR}${name}.png`
+    const size = sizeOf(png)
     if (size === null) return [`${png}: the screenshot is missing`]
     return size > SHOT_MAX ? [`${png}: the screenshot is ${size} bytes, over 200 KB`] : []
   })
@@ -98,7 +106,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log('changelog-check: BASE_SHA must be a commit id')
     process.exit(1)
   }
-  const nameStatus = execFileSync('git', ['diff', '--name-status', `${base}...HEAD`], { encoding: 'utf8' })
+  const nameStatus = execFileSync('git', ['diff', '--no-renames', '--name-status', `${base}...HEAD`], { encoding: 'utf8' })
   const readText = (path) => {
     try {
       return readFileSync(path, 'utf8')
