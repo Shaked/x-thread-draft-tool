@@ -15,7 +15,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { join } from 'node:path'
-import { CONFIG_ERROR, escapeRegExp, OWNER, PROJECT_ROOT, REPLY_LINT, REPO } from './config.mjs'
+import { CONFIG_ERROR, escapeRegExp, OWNER, PROJECT_ROOT, REPLY_LINT, REPO, REPORT_ISSUE } from './config.mjs'
 
 export { REPO }
 export const STALE_DAYS = 14
@@ -74,17 +74,35 @@ export function titleText(title) {
   return rest.split(' (')[0].trim()
 }
 
+/**
+ * Issue titles are written by anyone on a public repository, and the report is posted as a comment, so a title is turned
+ * into plain words by an ALLOWLIST: NFKC first, control and format characters (bidi, zero width) removed, then only letters,
+ * digits, spaces and hyphens stay (everything else becomes a space), so no mention, link, email, image, HTML, code span,
+ * bracket or reference can be built from a title. A word that reads as a `GH-12` reference, or is only digits, is
+ * dropped; a word is cut at 24 characters (code points, so an astral letter is never split). A hex string of 7 or more characters passes: it links a commit of this
+ * repository only, with no notification.
+ */
+export function plainWords(text) {
+  const folded = String(text ?? '').normalize('NFKC').replace(/\s/g, ' ').replace(/\p{C}/gu, '')
+  return folded
+    .replace(/[^\p{L}\p{N} -]/gu, ' ')
+    .split(/ +/)
+    .filter((w) => w && !/^\d+$/.test(w) && !/(^|[^a-z0-9])GH-?\d/i.test(w))
+    .map((w) => [...w].slice(0, 24).join(''))
+}
+
 /** 3 to 6 words that say what an issue is, for "#n (words)". */
 export function shortName(issue) {
-  let words = titleText(issue.title).replace(/[`"()[\]]/g, '').split(/\s+/).filter(Boolean)
-  if (words.length < 3) words = issue.title.replace(/[`"()[\]:]/g, '').split(/\s+/).filter(Boolean)
+  const raw = String(issue.title ?? '').normalize('NFKC').replace(/\p{C}/gu, '')
+  let words = plainWords(titleText(raw))
+  if (words.length < 3) words = plainWords(raw)
   // Task ids like M1 or H20 inside the words would need their own description, so they are code spans.
   // Words the reply-style lint reserves ("unchanged", "blocked") are left out of a description.
-  words = words.filter((w) => !/^(unchanged|blocked|blocking)[,.:;]?$/i.test(w))
-  // An issue number inside a description would need its own description: it is left out.
-  words = words.filter((w) => !/^#\d+[,.:;]?$/.test(w))
+  words = words.filter((w) => !/^(unchanged|blocked|blocking)$/i.test(w))
   while (words.length < 3) words.push(words.length === 2 ? 'issue' : 'the')
-  return words.slice(0, 5).map((w) => (/^[A-Z]\d+(\.\d+)?[,.]?$/.test(w) ? `\`${w.replace(/[,.]$/, '')}\`` : w)).join(' ').replace(/[,.:;]$/, '')
+  const text = words.slice(0, 5).map((w) => (/^[A-Z]\d+$/.test(w) ? `\`${w}\`` : w)).join(' ')
+  // The final text is checked last: a reference-like word that is left falls back to a fixed description.
+  return /(^|[^a-z0-9`])GH-?\d/i.test(text) ? 'title held back' : text
 }
 
 /** The plan task id of a title ("O2", "Task 5", "L1 (b)" gives "L1") and its scope (epic). */
@@ -491,8 +509,14 @@ const SECTIONS = [
 /** 3 to 6 words for every issue and merged pull request in the snapshot, keyed by number. */
 export function describeAll(snapshot) {
   const names = new Map()
-  for (const p of snapshot.pulls || []) names.set(p.number, shortName({ title: p.title || '' }))
-  for (const i of snapshot.issues || []) names.set(i.number, shortName({ title: i.title || '' }))
+  // A description the reply-style lint rejects (an emoji, a filler word, a title it cannot count) would stop a posted report:
+  // it is replaced by a fixed one.
+  const fit = (n, title) => {
+    const name = shortName({ title })
+    return LINT && LINT(`#${n} (${name}) is open.`).length ? 'title held back by lint' : name
+  }
+  for (const p of snapshot.pulls || []) names.set(p.number, fit(p.number, p.title || ''))
+  for (const i of snapshot.issues || []) names.set(i.number, fit(i.number, i.title || ''))
   return names
 }
 
@@ -578,12 +602,13 @@ function search(q, run) {
 }
 
 /** Builds a snapshot with gh search only. `run` is injectable for tests. */
-export function fetchSnapshot({ repo = REPO, run = (args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 << 20 }) } = {}) {
+export function fetchSnapshot({ repo = REPO, reportIssue = REPORT_ISSUE, run = (args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 << 20 }) } = {}) {
   const r = `repo:${repo}`
   const issues = [...search(`${r} is:issue is:open`, run), ...search(`${r} is:issue is:closed`, run)]
   const pulls = search(`${r} is:pr is:merged`, run).map((p) => ({ number: p.number, title: p.title, body: p.body || '', merged_at: p.pull_request?.merged_at }))
   const openPulls = search(`${r} is:pr is:open`, run).map((p) => ({ number: p.number, title: p.title, body: p.body || '' }))
-  const mark = (word) => search(`${r} is:issue is:open ${word} in:comments`, run).map((i) => i.number)
+  // The report issue holds the words RELEASE and CLAIM in every posted report: it is never flagged.
+  const mark = (word) => search(`${r} is:issue is:open ${word} in:comments`, run).map((i) => i.number).filter((n) => n !== reportIssue)
   return { fetched_at: new Date().toISOString(), repo, issues, pulls, open_pulls: openPulls, markers: { release: mark('RELEASE'), claim: mark('CLAIM') }, comments: {} }
 }
 

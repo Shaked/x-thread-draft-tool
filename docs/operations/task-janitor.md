@@ -13,16 +13,20 @@ The janitor is the `task-janitor` plugin (`plugins/task-janitor`, version in its
 
 ## When to run it
 
-Phase 2 (design only, not built). Shaked asked for a run after about 10 new tasks (#458, 2026-11-25). Options checked against
-`AGENTS.md` and the dispatcher rules in #154 on 2026-11-25:
+Built (#461, J2, decided by Shaked 2026-11-27: "Janitor - do it"). The workflow `.github/workflows/janitor-weekly.yml` runs
+every Monday at 06:17 UTC and by hand. It runs pass 1 only (`janitor.mjs fetch`, then `report`: GitHub search, no model), lints the
+text with the reply-style lint and posts it as one comment on the reports issue (#497).
 
-| Option | How it starts an agent | Cost | What can go wrong |
-|---|---|---|---|
-| The dispatcher counts new issues on each pass | The dispatcher is already an agent: it runs the skill itself | One search call per pass: `created:>` the time of the last janitor report | Runs only while a dispatcher session lives. #154 says it polls its child about every 10 minutes, with a 2-hour cron watchdog; the 45 minutes in #458 is not in #154 |
-| A workflow on `issues: opened` adds a `janitor-due` label to a tracker issue | It starts none: the dispatcher or the weekly review must notice the label | Actions minutes for every new issue (not checked) | A new workflow with `issues: write`; a label added with `GITHUB_TOKEN` starts no other workflow, so nothing is woken |
-| A run inside the weekly review (#294, #295) | The weekly review agent runs the skill | One run a week | Up to a week late: more than 20 issues were opened on 2026-11-25 alone (checked); #295 waits for #294 |
+- It changes nothing else: no close, label, edit or delete, and no limit. Its permissions are `contents: read` and `issues: write`.
+- The allowed safe fixes need a reader of each HANDOFF, so they stay in `/janitor`. The workflow has no setting for them.
+- Pass 2 (Claude sessions) needs the session tools, so it stays in `/janitor` too. CI does not load comments: the report names
+  the issues whose comments need reading.
+- Turn it off: set the repository variable `JANITOR_AUTO` to `off` (also `false`, any case), or disable the workflow in the Actions tab.
+- It posts the pass 1 report inside the `status-report` template (the report under `Details`), not the `/janitor` summary (the reports issue says so in one line).
+- Issue titles are written by anyone: a title goes through an allowlist (`plainWords` in `janitor.mjs`): NFKC, then only letters, digits, spaces and hyphens stay, so no mention, link, markup or reference can come from a title.
+- CI workflows that post comments may use `gh` and sign as the workflow; agent sessions may not (dispatcher decision, 2026-11-27, reversible).
+- Not proven until it ran: start the first run by hand (Actions tab, `dry_run` on first), then read the Monday run.
+- Test: `tests/unit/janitor-weekly-workflow.test.js`.
 
-Pick: the dispatcher count, with the weekly review as a fallback once #295 ships. It needs no new workflow, token or permission,
-and the count comes from GitHub search, so no counter can drift. The first build step is a `janitor.mjs due` command that prints
-the number of issues opened since the last report comment, for the dispatcher to compare with 10. The held task for phase 2 is
-#461 (janitor runs by itself). Where pass 2 hooks in: the same trigger runs `/janitor`, so both passes run together (#461).
+Earlier design (2026-11-25, #458): a run after about 10 new issues, started by the dispatcher counting new issues. It is not built;
+the weekly run replaces it. A `janitor.mjs due` count can still be added if a faster trigger is wanted.

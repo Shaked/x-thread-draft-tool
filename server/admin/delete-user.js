@@ -22,7 +22,9 @@ const COUNTS_SQL = `select
     (select count(*)::int from oauth_tokens t join oauth_grants g on g.id = t.grant_id where g.user_id = $1) as oauth_tokens,
     (select count(*)::int from mcp_rate_limits where user_id = $1) as mcp_rate_rows,
     (select count(*)::int from image_files where user_id = $1) as image_rows,
-    (select count(*)::int from image_upload_links where user_id = $1) as upload_links`
+    (select count(*)::int from image_upload_links where user_id = $1) as upload_links,
+    (select count(*)::int from draft_revisions r join drafts d on d.id = r.draft_id where d.user_id = $1) as draft_revisions,
+    (select count(*)::int from draft_post_versions v join drafts d on d.id = v.draft_id where d.user_id = $1) as revision_posts`
 
 // The SQL repeats the protection on purpose: a protected or unsuspended user never matches.
 export const DELETE_SQL = `delete from users where id = $1 and suspended_at is not null and github_id <> all($2::bigint[]) returning id`
