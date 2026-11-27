@@ -45,7 +45,9 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Tool results | results | none | 2026-11-21 |
 | Error messages | results | none | 2026-11-21 |
 | Thread as text when no view shows | results | none | 2026-11-21 |
-| Options and suggestions display | prompts, results | none | 2026-11-21 |
+| Edit at once and short answer (R1 to R3) | instructions, skill, results | reads_instructions | 2026-11-27 |
+| Options and post text as quotes (R4 to R6) | instructions, prompts, skill | reads_instructions | 2026-11-27 |
+| Image counts (R9, plan 3.1) | skill, results | reads_resources | 2026-11-27 |
 | Prompts (slash commands) | prompts | shows_prompts | 2026-11-26 |
 | Skill | skill | reads_resources | 2026-11-26 |
 | Thread view | view:thread | renders_ui_views | 2026-11-21 |
@@ -75,7 +77,9 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Tool results | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js |
 | Error messages | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js | built: tests/api/mcp.test.js |
 | Thread as text when no view shows | built: tests/api/mcp-ui.test.js, tests/api/mcp-discovery.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | not checked | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js | built: tests/api/mcp-ui.test.js |
-| Options and suggestions display | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) |
+| Options and post text as quotes (R4 to R6) | built: tests/api/draft-contract.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
+| Edit at once and short answer (R1 to R3) | built: tests/api/draft-contract.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
+| Image counts (R9, plan 3.1) | built: tests/api/draft-contract.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
 | Prompts (slash commands) | built: tests/api/mcp-prompts.test.js | not checked | not checked | not checked | no: owner saw no slash commands (#273) | built: tests/api/mcp-prompts.test.js | not checked | not checked |
 | Skill | built: tests/api/mcp-skills.test.js | not checked | not checked | not checked | not checked | built: tests/api/mcp-skills.test.js | not checked | not checked |
 | Thread view | built: tests/e2e/mcp-thread-view.spec.ts | built: tests/e2e/mcp-thread-view.spec.ts | not checked | built: tests/e2e/mcp-thread-view.spec.ts | not checked | not checked | not checked | not checked |
@@ -105,7 +109,9 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Tool results | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js | built: tests/api/mcp-language.test.js |
 | Error messages | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them | no: English only, the assistant relays them |
 | Thread as text when no view shows | built: tests/e2e/mcp-grok-view.spec.ts, tests/api/mcp-discovery.test.js | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | not checked | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts | built: tests/e2e/mcp-grok-view.spec.ts |
-| Options and suggestions display | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) | no: planned in #358 (W1) |
+| Edit at once and short answer (R1 to R3) | built: tests/api/draft-contract.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
+| Options and post text as quotes (R4 to R6) | built: tests/api/draft-contract.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
+| Image counts (R9, plan 3.1) | built: tests/api/draft-contract.test.js | not checked | not checked | not checked | not checked | not checked | not checked | not checked |
 | Prompts (slash commands) | built: tests/api/mcp-prompts.test.js, tests/api/client-matrix.test.js | not checked | not checked | not checked | no: owner saw no slash commands (#273) | built: tests/api/mcp-prompts.test.js, tests/api/client-matrix.test.js | not checked | not checked |
 | Skill | built: tests/api/mcp-skills.test.js | not checked | not checked | not checked | not checked | built: tests/api/mcp-skills.test.js | not checked | not checked |
 | Thread view | built: tests/e2e/mcp-thread-view.spec.ts | built: tests/e2e/mcp-thread-view.spec.ts | not checked | built: tests/e2e/mcp-thread-view.spec.ts | not checked | not checked | not checked | not checked |
