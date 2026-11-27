@@ -38,7 +38,7 @@ function App() {
     authApi
       .me()
       .then(async (res) => {
-        // The look flags are the admin's (#483, an off switch since #406): everyone else always gets Rare UI. The admin's account choice is copied
+        // The look flags are the admin's (#483): everyone else gets the default look. The admin's account choice is copied
         // to this device before the first render, so the Rare components do not flash in.
         allowFlags(isAdmin(res.user))
         if (!isAdmin(res.user)) forgetFlags()
