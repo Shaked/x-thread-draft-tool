@@ -200,7 +200,7 @@ const TOOLS = [
   },
   {
     name: 'add_image_from_url',
-    description: 'Fetch a public image URL and upload it for one of your drafts. Returns the image url; to show it, add { url } to a post\'s images with update_draft (at most 4 per post). Private addresses are refused.',
+    description: 'Fetch a public image URL and upload it for one of your drafts. Returns the image url; to show it, set postId (or add { url } to a post\'s images with update_draft; at most 4 per post). Private addresses are refused.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -295,7 +295,7 @@ const TOOLS = [
   },
   {
     name: 'remove_image',
-    description: 'Remove one image from a draft. Its file is deleted only when no draft of yours still uses it.' + RESULT_NOTE + CONTENT_NOTE,
+    description: 'Remove one image, or all of a post, from a draft. Its file is deleted when no draft uses it.' + RESULT_NOTE + CONTENT_NOTE,
     inputSchema: {
       type: 'object',
       properties: {
@@ -355,7 +355,7 @@ const TOOLS = [
   },
   {
     name: 'move_post',
-    description: 'Move one post to a new position (1 is the first post).' + RESULT_NOTE + CONTENT_NOTE,
+    description: 'Move a post or image to a new position (1 is first).' + RESULT_NOTE + CONTENT_NOTE,
     inputSchema: {
       type: 'object',
       properties: {

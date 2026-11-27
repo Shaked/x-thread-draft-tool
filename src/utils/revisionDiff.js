@@ -16,7 +16,8 @@
  *   (null when the text did not change); images is { added, removed } counts when the images changed (no URLs).
  * - moved: [{ id, n, from, to }]: the longest increasing run of common posts keeps its place; the rest are moves.
  * - rewritten: [{ fromId, fromN, toId, toN, index, words, post }]: a removed and an added post at the same index,
- *   paired. words is the word diff when at least 30 % of the words are shared, else null.
+ *   paired. words is the word diff when at least 30 % of the words are shared and the two texts together are not over
+ *   10,000 characters; otherwise null.
  * `post` carries the new post, so applyDiff can rebuild b. It is data for the caller, never text for a person:
  * summaryLine() reads only positions.
  */
@@ -154,8 +155,6 @@ const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 // The start and the end of the text are always safe.
 const isWordStart = (text, at) => {
   if (at === 0 || at === text.length) return true
-  const code = text.charCodeAt(at)
-  if (code >= 0xdc00 && code <= 0xdfff) return false // inside a surrogate pair
   if (!/\s/u.test(text[at - 1]) || /\s/u.test(text[at])) return false
   return GRAPHEMES.segment(text.slice(at - 1, at + 64)).containing(1)?.index === 1
 }
@@ -257,7 +256,10 @@ function imageChanges(before, after) {
   return { added, removed }
 }
 
-/** Word diff for a rewritten post, or null when fewer than 30 % of the words are shared (it would be noise). */
+/**
+ * Word diff for a rewritten post: null when fewer than 30 % of the words are shared (it would be noise), or when the
+ * two texts together are over REWRITE_MAX_CHARS characters.
+ */
 function rewriteWords(before, after) {
   // Counting the words of a long post takes a full segmentation (seconds for a 125 KB post on Node 20), so a rewrite
   // of more than REWRITE_MAX_CHARS characters is shown as before and after, without a word diff.
