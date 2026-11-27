@@ -3,7 +3,7 @@
 - Hebrew share pages show "@handle · date" in order, not "26/11/2026@", and the Hebrew Rare UI credit link stays on one line.
 
 Area: Design
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/TBD
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/567
 
 ## Technical details
 
