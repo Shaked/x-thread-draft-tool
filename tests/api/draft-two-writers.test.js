@@ -29,7 +29,7 @@ beforeEach(async () => {
   cookie = await db.cookieFor(alice)
 })
 
-const ai = (name, args) => callTool(name, args, { caller: { uid: alice.id }, origin: 'https://app.test' })
+const ai = (name, args) => callTool(name, args, { caller: { uid: alice.id, via: 'oauth', clientName: 'Test client' }, origin: 'https://app.test' })
 const editorLoads = async (id) => (await (await router.route(apiRequest(`/api/drafts/${id}`, { cookie }))).json()).draft
 const editorSaves = (id, copy, ifMatch) =>
   router.route(

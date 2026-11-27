@@ -13,7 +13,7 @@ export const RATE_LIMIT_MESSAGE = 'Rate limit reached: at most 120 tool calls pe
 // The client's kind, client_id and redirect URIs give its app family (O3, client-family.js); client_id is not returned.
 const TOKEN_OWNER = `
   select g.id as grant_id, u.id as uid, u.github_id, u.login, u.suspended_at, g.resource,
-         (g.resource like '%/api/mcp') as admin, c.kind as client_kind, c.client_id, c.redirect_uris
+         (g.resource like '%/api/mcp') as admin, c.kind as client_kind, c.client_id, c.redirect_uris, c.client_name
     from oauth_tokens t join oauth_grants g on g.id = t.grant_id join users u on u.id = g.user_id
     join oauth_clients c on c.client_id = g.client_id
    where t.token_hash = $1 and t.kind = 'access' and t.expires_at > now()
@@ -61,6 +61,7 @@ export async function authorizeAndCount(token, resource, count) {
     via: 'oauth',
     grantId: row.grant_id,
     family: clientFamily({ kind: row.client_kind, client_id: row.client_id, redirect_uris: row.redirect_uris }),
+    clientName: row.client_name,
     resource: row.resource,
     suspended: row.suspended_at !== null,
     admin: row.admin === true,

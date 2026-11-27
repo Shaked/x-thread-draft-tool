@@ -21,7 +21,7 @@ beforeEach(async () => {
   alice = await db.insertUser({ github_id: 1, login: 'alice' })
 })
 
-const run = (name, args) => callTool(name, args, { caller: { uid: alice.id }, origin: 'https://app.test' })
+const run = (name, args) => callTool(name, args, { caller: { uid: alice.id, via: 'oauth', clientName: 'Test client' }, origin: 'https://app.test' })
 
 const postsOf = async (id) => (await db.pg.query('select posts from drafts where id = $1', [id])).rows[0].posts
 

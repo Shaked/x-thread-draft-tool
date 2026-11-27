@@ -133,7 +133,8 @@ async function uploadViaLink({ request }) {
       return { posts: posts.map((post, i) => (i === index ? { ...post, images: [...images, { url }] } : post)) }
     }
     // The #370 retry loop re-reads on a lost round; no If-Match, so a concurrent edit is never overwritten (#354).
-    const res = await editPostsAs({ uid: link.user_id }, link.draft_id, plan)
+    // uploadLink is set here, in server code, so the history names the link (actorOf, #376).
+    const res = await editPostsAs({ uid: link.user_id, uploadLink: true }, link.draft_id, plan)
     if (res.status >= 400) throw new HttpError(res.status, 'The draft changed while uploading. Try again.')
     return json({ url, remaining: link.slots - link.used }, 201)
   } catch (err) {

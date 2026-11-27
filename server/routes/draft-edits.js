@@ -5,6 +5,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { query } from '../db.js'
 import { HttpError, json, readJson } from '../http.js'
 import { requireUser } from '../session.js'
+import { actorOf } from '../revision-actor.js'
 import { deleteBlobUrls } from '../blob.js'
 import { isOwnedBlobUrl } from '../draft-images.js'
 import { takeFresh } from '../fresh-uploads.js'
@@ -67,6 +68,7 @@ async function editPosts(request, id, plan, { expected = ifMatchOf(request) } = 
 /** The same write for a caller that is already known (a one-time upload link names its owner: #418). */
 export async function editPostsAs(session, id, plan, { expected = null } = {}) {
   if (!isUuid(id)) throw new HttpError(404, 'Draft not found')
+  const actor = actorOf(session)
   for (let attempt = 1; ; attempt += 1) {
     const { rows } = await query(`select ${COLUMNS} from drafts where id = $1 and user_id = $2`, [id, session.uid])
     if (!rows[0]) throw new HttpError(404, 'Draft not found')
@@ -102,10 +104,10 @@ export async function editPostsAs(session, id, plan, { expected = null } = {}) {
     }
     if (!preconditionHolds(expected, draft.version)) return staleResponse(draft)
     const { rows: saved } = await query(
-      `update drafts set posts = $3::jsonb, version = version + 1, updated_at = now()
+      `update drafts set posts = $3::jsonb, version = version + 1, updated_at = now(), last_actor_kind = $5, last_actor_name = $6
         where id = $1 and user_id = $2 and version = $4::int and not is_published
         returning ${COLUMNS}`,
-      [id, session.uid, JSON.stringify(planned.posts), draft.version]
+      [id, session.uid, JSON.stringify(planned.posts), draft.version, actor.kind, actor.name]
     )
     if (!saved[0]) {
       // Another write landed between the read and this UPDATE. Read again; the loop ends in a 412 or the new plan.

@@ -152,10 +152,11 @@ export async function resolveAccess(token, expectedResource) {
   if (typeof token !== 'string' || !ACCESS_SHAPE.test(token)) return null
   const { rows } = await query(
     `select g.id as grant_id, u.id as uid, u.github_id, u.login, u.suspended_at, g.resource,
-            (g.resource like '%/api/mcp') as admin
+            (g.resource like '%/api/mcp') as admin, c.client_name
        from oauth_tokens t
        join oauth_grants g on g.id = t.grant_id
        join users u on u.id = g.user_id
+       join oauth_clients c on c.client_id = g.client_id
       where t.token_hash = $1 and t.kind = 'access' and t.expires_at > now()
         and g.revoked_at is null and g.resource = $2`,
     [hashToken(token), expectedResource]
@@ -168,6 +169,7 @@ export async function resolveAccess(token, expectedResource) {
     login: row.login,
     via: 'oauth',
     grantId: row.grant_id,
+    clientName: row.client_name,
     resource: row.resource,
     suspended: row.suspended_at !== null,
     admin: row.admin === true,

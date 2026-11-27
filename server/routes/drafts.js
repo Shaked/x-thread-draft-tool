@@ -1,6 +1,7 @@
 import { query, transaction } from '../db.js'
 import { HttpError, json, readJson, readOptionalJson } from '../http.js'
 import { requireUser } from '../session.js'
+import { LABEL_COPIED, LABEL_PUBLISHED, actorOf } from '../revision-actor.js'
 import { deleteBlobUrls } from '../blob.js'
 import { outline, summarize } from '../draft-stats.js'
 import { imageUrlsFrom, isOwnedBlobUrl } from '../draft-images.js'
@@ -128,9 +129,10 @@ async function duplicateDraft({ request, params }) {
   if (!sourceRows[0]) throw notFound()
   const source = sourceRows[0]
   const posts = Array.isArray(source.posts) ? source.posts.map((post) => ({ ...post, id: crypto.randomUUID() })) : []
+  const actor = actorOf(session)
   const { rows } = await query(
-    `insert into drafts (user_id, title, posts) values ($1, $2, $3::jsonb) returning ${COLUMNS}`,
-    [session.uid, `${source.title || 'Untitled'} (copy)`, JSON.stringify(posts.length ? posts : [EMPTY_POST()])]
+    `insert into drafts (user_id, title, posts, last_actor_kind, last_actor_name, last_label) values ($1, $2, $3::jsonb, $4, $5, $6) returning ${COLUMNS}`,
+    [session.uid, `${source.title || 'Untitled'} (copy)`, JSON.stringify(posts.length ? posts : [EMPTY_POST()]), actor.kind, actor.name, LABEL_COPIED]
   )
   return json({ draft: rows[0] }, 201, etagHeaders(rows[0].version))
 }
@@ -225,9 +227,10 @@ async function createDraft({ request }) {
   const body = requireObject(await readJson(request))
   const title = body.title === undefined ? '' : validTitle(body.title)
   const posts = body.posts === undefined ? [EMPTY_POST()] : validPosts(body.posts)
+  const actor = actorOf(session)
   const { rows } = await query(
-    `insert into drafts (user_id, title, posts) values ($1, $2, $3::jsonb) returning ${COLUMNS}`,
-    [session.uid, title, JSON.stringify(posts)]
+    `insert into drafts (user_id, title, posts, last_actor_kind, last_actor_name) values ($1, $2, $3::jsonb, $4, $5) returning ${COLUMNS}`,
+    [session.uid, title, JSON.stringify(posts), actor.kind, actor.name]
   )
   return json({ draft: rows[0] }, 201, etagHeaders(rows[0].version))
 }
@@ -289,6 +292,7 @@ async function updateDraft({ request, params }) {
   }
   const title = body.title === undefined ? null : validTitle(body.title)
   const posts = body.posts === undefined ? null : JSON.stringify(validPosts(body.posts))
+  const actor = actorOf(session)
   if (!isUuid(params.id)) throw notFound()
   const tag = tagOf(ifMatchOf(request))
 
@@ -303,12 +307,13 @@ async function updateDraft({ request, params }) {
             set title = coalesce($3, title),
                 posts = coalesce($4::jsonb, posts),
                 version = version + 1,
-                updated_at = now()
+                updated_at = now(),
+                last_actor_kind = $6, last_actor_name = $7
           where id = $1 and user_id = $2
             and not (($3::text is null or title = $3::text) and ($4::jsonb is null or posts = $4::jsonb))
             and ($5::int is null or version = $5::int)
           returning ${COLUMNS}`,
-          [params.id, session.uid, title, posts, tag]
+          [params.id, session.uid, title, posts, tag, actor.kind, actor.name]
         )
       ).rows[0],
     async (last) => {
@@ -343,6 +348,7 @@ async function patchPostText({ request, params }) {
   }
   if (!isUuid(params.id)) throw notFound()
   const tag = tagOf(ifMatchOf(request))
+  const actor = actorOf(session)
 
   // The post is found by its id and compared as JSON, the same way the JavaScript checks below
   // compare it (`===` on a string), so the UPDATE and the answer agree. The first post with the id
@@ -358,7 +364,8 @@ async function patchPostText({ request, params }) {
                           where e.p->'id' = to_jsonb($3::text) order by e.ord limit 1), 'text'],
                   to_jsonb($4::text)),
                 version = version + 1,
-                updated_at = now()
+                updated_at = now(),
+                last_actor_kind = $6, last_actor_name = $7
           where id = $1 and user_id = $2 and not is_published
             and exists (select 1 from jsonb_array_elements(posts) e(p) where e.p->'id' = to_jsonb($3::text))
             and (select e.p->'text' from jsonb_array_elements(posts) with ordinality e(p, ord)
@@ -371,7 +378,7 @@ async function patchPostText({ request, params }) {
                       (select e.p->>'text' from jsonb_array_elements(d.posts) with ordinality e(p, ord)
                         where e.p->'id' = to_jsonb($3::text) order by e.ord limit 1))
                from drafts d where d.id = $1 and d.user_id = $2) as previous`,
-          [params.id, session.uid, params.postId, body.text, tag]
+          [params.id, session.uid, params.postId, body.text, tag, actor.kind, actor.name]
         )
       ).rows[0],
     async (last) => {
@@ -398,6 +405,7 @@ async function publishDraft({ request, params }) {
   const session = await requireUser(request)
   if (!isUuid(params.id)) throw notFound()
   const expected = ifMatchOf(request)
+  const actor = actorOf(session)
 
   const { response, doomed } = await transaction(async (q) => {
     const { rows: found } = await q(`select ${COLUMNS} from drafts where id = $1 and user_id = $2 for update`, [params.id, session.uid])
@@ -413,10 +421,11 @@ async function publishDraft({ request, params }) {
               is_published = true,
               published_at = now(),
               version = version + 1,
-              updated_at = now()
+              updated_at = now(),
+              last_actor_kind = $4, last_actor_name = $5, last_label = $6
         where id = $1 and user_id = $2
         returning ${COLUMNS}`,
-      [params.id, session.uid, JSON.stringify(cleaned)]
+      [params.id, session.uid, JSON.stringify(cleaned), actor.kind, actor.name, LABEL_PUBLISHED]
     )
     return { response: json({ draft: rows[0] }, 200, etagHeaders(rows[0].version)), doomed }
   })
