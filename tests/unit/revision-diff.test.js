@@ -303,6 +303,52 @@ describe('revision diff core (#377)', () => {
     expect(summaryLine(diffDrafts(null, null))).toBe('no changes')
   })
 
+  it('ids that look alike stay apart: null vs a missing id, NaN, objects', () => {
+    const text = (id, t) => ({ id, text: t, images: [], embeddedTweet: null })
+    // A post with id null and a post with no id are two posts; a second one must not collapse into the first.
+    const pairs = [
+      [[text(null, 'x')], [null, text(null, 'x')]],
+      [[{ text: 'x' }], [{ text: 'x' }, text(null, 'x')]],
+      [[text(NaN, 'x')], [text(NaN, 'x'), text(NaN, 'y')]],
+      [[text({ k: 1 }, 'x')], [text({ k: 1 }, 'x'), text({ k: 1 }, 'y')]],
+      [[text(Infinity, 'x')], [text(null, 'x'), text(Infinity, 'y')]]
+    ]
+    for (const [posts, bPosts] of pairs) {
+      const a = { title: 'T', posts }
+      const b = { title: 'T', posts: bPosts }
+      const d = diffDrafts(a, b)
+      expect(emptyDiff(d)).toBe(false)
+      expect(applyDiff(a, d)).toEqual(b)
+    }
+  })
+
+  it('fuzz: null posts and null, undefined and NaN ids still rebuild exactly (2,000 seeded pairs)', () => {
+    const rand = rng(4242)
+    const ids = [undefined, null, NaN, 'a', 'b', 1, { k: 1 }]
+    const fuzzPost = () => {
+      const r = rand()
+      if (r < 0.1) return null
+      if (r < 0.15) return undefined
+      return { id: ids[Math.floor(rand() * ids.length)], text: makeText(rand, 2), images: [], embeddedTweet: null }
+    }
+    const fuzzDraft = () => ({ title: 'T', posts: Array.from({ length: Math.floor(rand() * 6) }, fuzzPost) })
+    for (let i = 0; i < 2000; i++) {
+      const a = fuzzDraft()
+      const b = rand() < 0.5 ? fuzzDraft() : { title: 'T', posts: [...a.posts].sort(() => rand() - 0.5) }
+      expect(applyDiff(a, diffDrafts(a, b)), `pair ${i}`).toEqual(b)
+    }
+  })
+
+  it('the edit limit: more edits than WORD_DIFF_MAX_EDITS (within the token cap) gives one deletion and one insertion', () => {
+    // 600 words, 1,199 tokens: under the token cap, but no common word, so about 1,200 edits, above the 1,000 limit.
+    const before = Array.from({ length: 600 }, (_, i) => `w${i}`).join(' ')
+    const after = 'c0'
+    const parts = diffWords(before, after)
+    expect(parts.map((p) => p.op)).toEqual(['del', 'ins'])
+    expect(parts.filter((p) => p.op !== 'ins').map((p) => p.text).join('')).toBe(before)
+    expect(parts.filter((p) => p.op !== 'del').map((p) => p.text).join('')).toBe(after)
+  })
+
   it('a 1 MB draft: a few edits, a move and an add are found, and the rebuild matches', () => {
     const posts = []
     for (let i = 0; i < 3600; i++) posts.push({ id: `m${i}`, text: `${'Word '.repeat(55)}${i} 👍🏽`, images: [], embeddedTweet: null })

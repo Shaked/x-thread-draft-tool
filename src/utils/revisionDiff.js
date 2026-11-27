@@ -44,6 +44,7 @@ const wordTokens = (text) =>
 
 // Stable text form of a value (sorted keys), used to compare posts and images.
 function canonical(value) {
+  if (value === undefined) return 'undefined'
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
   if (value && typeof value === 'object') {
     const keys = Object.keys(value)
@@ -54,14 +55,21 @@ function canonical(value) {
   return JSON.stringify(value) ?? 'null'
 }
 
-// Each post of a draft with its key: its id and occurrence number, so two posts with one id stay two posts.
+// A text key for a post id. null and undefined are the same missing id. NaN, Infinity and other numbers are
+// spelled out, so they never read as null (JSON would turn them into null). Objects and strings use canonical().
+const idKey = (id) => (typeof id === 'number' ? `#${id}` : canonical(id ?? null))
+// The key of one post: its id and occurrence number, so two posts with one id stay two posts.
+const keyOf = (id, n) => JSON.stringify([idKey(id), n])
+
+// Each post of a draft with its key (see keyOf).
 function keyedPosts(posts) {
   const seen = new Map()
   return posts.map((post) => {
-    const id = post?.id
-    const n = seen.get(id) ?? 0
-    seen.set(id, n + 1)
-    return { post, id, n, key: JSON.stringify([id ?? null, n]) }
+    const id = post?.id ?? null
+    const k = idKey(id)
+    const n = seen.get(k) ?? 0
+    seen.set(k, n + 1)
+    return { post, id, n, key: keyOf(id, n) }
   })
 }
 
@@ -301,7 +309,6 @@ export function diffDrafts(a, b) {
 /** Rebuilds draft b from draft a and diffDrafts(a, b). Used by the tests to prove the diff is complete. */
 export function applyDiff(a, d) {
   const from = draftOf(a)
-  const keyOf = (id, n) => JSON.stringify([id ?? null, n])
   const removedKeys = new Set(d.removed.map((r) => keyOf(r.id, r.n)))
   const rewrittenFromKeys = new Set(d.rewritten.map((r) => keyOf(r.fromId, r.fromN)))
   const movedKeys = new Set(d.moved.map((m) => keyOf(m.id, m.n)))
