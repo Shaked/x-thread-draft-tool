@@ -60,7 +60,7 @@ export const statsKey = (pool, mode) => `${pool}/${mode}`
 
 /** N, avgdl and the document frequency of each token for a set of docs. Only `--refresh-stats` stores this. */
 export function computeStats(docs) {
-  const df = {}
+  const df = Object.create(null)
   for (const doc of docs) for (const token of new Set(doc.tokens)) df[token] = (df[token] ?? 0) + 1
   return { N: docs.length, avgdl: docs.reduce((sum, doc) => sum + doc.tokens.length, 0) / docs.length, df: Object.fromEntries(Object.entries(df).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) }
 }

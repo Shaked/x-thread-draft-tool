@@ -157,6 +157,14 @@ describe('frozen corpus statistics', () => {
     for (const other of tools.filter((t) => t.name !== target.name)) expect(scoresOf(changed, word, mode)[other.name]).toBe(0)
   })
 
+  it('counts a word like "constructor" as a plain token, not an inherited property', () => {
+    const list = [{ name: 'one', description: 'constructor' }, { name: 'two', description: 'something else' }]
+    const scores = rank('constructor', list).map((r) => r.score)
+    for (const score of scores) expect(Number.isFinite(score)).toBe(true)
+    expect(scores[0]).toBeGreaterThan(scores[1])
+    expect(rank('constructor', list, { stats: stats.pools['normal/tools_only'] }).every((r) => Number.isFinite(r.score))).toBe(true)
+  })
+
   it('(c) the gates still fail on purpose-made regressions', () => {
     const run = (list, adminList = admin) => evaluate({ tools: list, instructions: INSTRUCTIONS, intents, negatives, admin: adminList })
     expect(checkAgainst(run(tools), baseline)).toEqual([])
