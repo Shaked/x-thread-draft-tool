@@ -79,6 +79,7 @@ MCP skill (extension io.modelcontextprotocol/skills): skill://x-thread-drafts/SK
 - Draft shape: `{ title, posts: [{ id, text, images: [{ url }], embeddedTweet }] }`.
 - Max 280 characters per post, counted as X counts them (a URL 23, an emoji 2, Hebrew and Latin letters 1; use `/api/threads/split`). The write endpoints refuse more than 4000 raw characters. Max 4 images per post, 4 MB per image.
 - Summaries: `GET /api/drafts?published=false&view=summary` lists counts without post text; `GET /api/drafts/{id}/outline` counts posts and characters per post (owner only).
+- History: `GET /api/drafts/{id}/revisions` lists the saved versions of a draft (newest first, `limit` 1 to 100, `before` for the next page, a one-line `summary` each); `GET /api/drafts/{id}/revisions/{seq}` returns the draft as it was then and the diff against the version before (`against` takes a seq or `current`). Owner only.
 - Drafts are private. `GET /api/drafts/{id}` and its export return the draft only to its owner (another user gets 404, no token or session 401). Lists, writes and deletes need a token or session too.
 - Share links work once by default and expire 1 hour after creation (`expires_in` sets 60 seconds to 7 days; `one_time` false makes a reusable link). Owners can stop a link with DELETE (`/api/drafts/{id}/share-tokens/{token}`, or all of a draft's links at `/api/drafts/{id}/share-tokens`). Image URLs from `/api/images` or `/api/images/from-url` are Vercel Blob URLs.
 - Errors are JSON: `{ "error": "message" }` with an HTTP status.

@@ -30,7 +30,9 @@ const CASES = {
   'POST /drafts/:id/posts/:postId/upload-links': {},
   'POST /drafts/:id/posts/:postId/move': { body: { position: 1 } },
   'POST /drafts/:id/images': { body: { url: 'https://example.com/a.png', post_id: POST_ID } },
-  'DELETE /drafts/:id/images': { body: { post_id: POST_ID } }
+  'DELETE /drafts/:id/images': { body: { post_id: POST_ID } },
+  'GET /drafts/:id/revisions': {},
+  'GET /drafts/:id/revisions/:seq': {}
 }
 
 const draftRoutes = ROUTES.filter((entry) => entry.path.startsWith('/drafts/:id'))
@@ -77,6 +79,7 @@ describe('tenant isolation on /drafts/:id routes', () => {
       entry.path
         .replace('/:postId', `/${POST_ID}`)
         .replace('/:token', `/${link[0].token}`)
+        .replace('/:seq', '/1')
         .replace('/:id', `/${draft.id}`) + (spec.search ?? '')
     const send = (cookie) => route(apiRequest(`/api${path}`, { method: entry.method, body: spec.body, cookie }))
 

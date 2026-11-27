@@ -20,6 +20,8 @@ const EXCLUDED = {
   'POST /images': 'D-5: raw image bytes are not sent through MCP (use add_image_from_url)',
   'GET /upload-links': '#418: the upload page reads its link; a tool makes the link, not the page',
   'POST /upload-links/images': '#418: raw bytes with the one-time link token, sent by the upload page; a tool makes the link, not the upload',
+  'GET /drafts/:id/revisions': '#378 (H5): the MCP tools list_revisions, get_revision and restore_revision come in H7, #380',
+  'GET /drafts/:id/revisions/:seq': '#378 (H5): the MCP tools come in H7, #380',
   'GET /share/:token': 'Public one-time read; the link is the product, not a tool',
   'GET /openapi.json': 'Documentation, not a user function',
   'GET /health': 'Health check, not a user function',

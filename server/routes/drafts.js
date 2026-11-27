@@ -45,11 +45,11 @@ function privateDraft(draft) {
   return { ...summarize(draft), title: 'Private draft' }
 }
 
-function refuseWhenViewing(session) {
+export function refuseWhenViewing(session) {
   if (session.viewAs) throw new HttpError(403, 'Viewing as cannot open drafts.')
 }
 
-function notFound() {
+export function notFound() {
   return new HttpError(404, 'Draft not found')
 }
 

@@ -1,6 +1,6 @@
 # Draft revisions (tables and trigger)
 
-Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`). Plan: `docs/plans/revisions-and-encryption.md` section 2. Nothing reads the tables yet (history view and restore are later tasks). Checked on 2026-11-27.
+Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`). Plan: `docs/plans/revisions-and-encryption.md` section 2. Only `server/routes/revisions.js` reads the tables (list and read one revision, #378); the history view and restore are later tasks. Checked on 2026-11-27.
 
 ## Tables
 - `draft_revisions(draft_id, seq, version, created_at, actor_kind, actor_name, label, title, post_order)`, key `(draft_id, seq)`. `title` only when it changed; `post_order` (post ids) only when posts were added, removed or moved.
@@ -24,3 +24,8 @@ Rebuild revision `n`: the newest non-null `post_order` at or before `n`, then th
 Note for lock and encryption tasks: a rewrite that changes bodies without a revision means later revisions diff against the rewritten state; rebuilding an older revision gives the bodies as they were then.
 
 The key function treats posts that are not a JSON array (a bad old row) as empty, so no write on such a row fails.
+
+## Reading (`server/routes/revisions.js`, #378)
+- `GET /drafts/:id/revisions?before=<seq>&limit=1..100`: one statement reads the page, the state just before its oldest revision and the post rows inside the page; the page is then replayed oldest to newest and each step is summarised with `summaryLine(diffDrafts(before, after))`.
+- `GET /drafts/:id/revisions/:seq?against=<seq>|current`: one statement rebuilds the state at `seq` (and at `against`) as described above; `diff = diffDrafts(against, seq)`.
+- Both use the shared, bounded `src/utils/revisionDiff.js`. Owner only (404 for anything else), 403 for view-as, two queries per call (the session check and the statement), no logging.

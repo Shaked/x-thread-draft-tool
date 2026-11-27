@@ -395,6 +395,42 @@ export const OPENAPI = {
         responses: { ...json({ type: 'object', properties: { draft: { type: 'object', description: 'The summary fields plus posts: [{ id, index, chars, remaining, over_limit, image_count, preview }]' } } }), 401: UNAUTHORIZED, 404: NOT_FOUND }
       }
     },
+    '/drafts/{id}/revisions': {
+      get: {
+        summary: 'List the revisions of a draft, newest first (owner only: another user gets 404, a view-as caller 403). Each: seq, version, created_at, actor_kind, actor_name, label and summary (a short English line about the change from the revision before; no post text). next_before is the seq to pass as before for the next page, or null.',
+        security: BEARER,
+        parameters: [
+          ID,
+          { name: 'before', in: 'query', required: false, description: 'Only revisions with a seq below this one.', schema: { type: 'integer', minimum: 0 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100, default: 30 } }
+        ],
+        responses: {
+          ...json({ type: 'object', properties: { revisions: { type: 'array', items: { type: 'object', properties: { seq: { type: 'integer' }, version: { type: 'integer' }, created_at: { type: 'string', format: 'date-time' }, actor_kind: { type: ['string', 'null'] }, actor_name: { type: ['string', 'null'] }, label: { type: ['string', 'null'] }, summary: { type: 'string' } } } }, next_before: { type: ['integer', 'null'] } } }),
+          400: BAD_REQUEST,
+          401: UNAUTHORIZED,
+          403: { description: 'A view-as caller cannot open drafts', content: errorContent() },
+          404: NOT_FOUND
+        }
+      }
+    },
+    '/drafts/{id}/revisions/{seq}': {
+      get: {
+        summary: 'One revision: the draft as it was then ({ title, posts }) and diff, the change from the state at against to this one (added, removed, edited, moved, rewritten, title). Owner only. against is a revision seq (default: the revision before; the first one is compared with an empty draft) or current (the draft now).',
+        security: BEARER,
+        parameters: [
+          ID,
+          { name: 'seq', in: 'path', required: true, schema: { type: 'integer', minimum: 0 } },
+          { name: 'against', in: 'query', required: false, description: 'A revision seq, or current.', schema: { type: 'string' } }
+        ],
+        responses: {
+          ...json({ type: 'object', properties: { revision: { type: 'object', description: 'seq, version, created_at, actor_kind, actor_name, label' }, state: { type: 'object', properties: { title: { type: 'string' }, posts: { type: 'array', items: { $ref: '#/components/schemas/Post' } } } }, against: { description: 'The seq compared with, current, or null when compared with an empty draft', type: ['integer', 'string', 'null'] }, diff: { type: 'object' } } }),
+          400: BAD_REQUEST,
+          401: UNAUTHORIZED,
+          403: { description: 'A view-as caller cannot open drafts', content: errorContent() },
+          404: NOT_FOUND
+        }
+      }
+    },
     '/drafts/{id}/publish': {
       post: {
         summary: 'Publish: deletes the draft images and clears them from posts (owner only). One transaction; publishing a published draft is a 200 with no write; a stale If-Match is 412.',

@@ -136,6 +136,12 @@ curl -s "$BASE/api/drafts?published=false&view=summary" -H "Authorization: Beare
 # Outline (owner only): per post index, chars, remaining, over_limit, image_count and a 40-character preview
 curl -s $BASE/api/drafts/DRAFT_ID/outline -H "Authorization: Bearer $TOKEN"
 
+# Revisions (owner only, 404 for anyone else): newest first, limit 1..100 (default 30), before=<seq> for the next page (next_before in the answer).
+# Each has seq, version, created_at, actor_kind, actor_name, label and summary (a line like "changed post 2, added post 5 after post 4"; no post text).
+curl -s "$BASE/api/drafts/DRAFT_ID/revisions?limit=30" -H "Authorization: Bearer $TOKEN"
+# One revision: the draft as it was then (state) and diff from the revision before. against=<seq> picks another one; against=current compares with the draft now.
+curl -s "$BASE/api/drafts/DRAFT_ID/revisions/7?against=current" -H "Authorization: Bearer $TOKEN"
+
 # Read by id (owner only: another user gets 404, no token or session gets 401)
 curl -s $BASE/api/drafts/DRAFT_ID -H "Authorization: Bearer $TOKEN"
 

@@ -22,3 +22,4 @@ Every signed-in page has a menu button at the start of its header. It opens a le
 - Post edits over REST and MCP (#412): `POST /api/drafts/:id/posts` adds a post, `POST /api/drafts/:id/posts/:postId/move` moves it, `DELETE /api/drafts/:id/posts/:postId` removes it. Each honours `If-Match` (412 on a stale version) and refuses a published draft (409). The editor still saves the whole draft.
 
 - Draft history (#375, no UI yet): every write that changes posts or title stores a revision in the database (`docs/architecture/draft-revisions.md`). Nothing is deleted automatically.
+- Read the history (#378, API only; the History panel and the AI tools come later): `GET /drafts/:id/revisions` lists revisions newest first with a one-line summary, and `GET /drafts/:id/revisions/:seq` returns the draft as it was then and the diff against the revision before, another one or the draft now. Owner only (404 otherwise), refused for view-as (403).

@@ -6,6 +6,7 @@ import { authRoutes } from './routes/auth.js'
 import { deviceRoutes } from './routes/device.js'
 import { draftRoutes } from './routes/drafts.js'
 import { draftEditRoutes } from './routes/draft-edits.js'
+import { revisionRoutes } from './routes/revisions.js'
 import { grantRoutes } from './routes/grants.js'
 import { imageRoutes } from './routes/images.js'
 import { shareRoutes } from './routes/share.js'
@@ -37,6 +38,7 @@ export const ROUTES = [
   ...deviceRoutes,
   ...draftRoutes,
   ...draftEditRoutes,
+  ...revisionRoutes,
   ...grantRoutes,
   ...imageRoutes,
   ...uploadLinkRoutes,

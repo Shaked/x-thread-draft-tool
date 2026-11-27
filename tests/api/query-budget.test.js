@@ -190,6 +190,16 @@ describe('query budget per flow (plan section 3.2)', () => {
     expect(q).toBe(2)
   })
 
+  it('REST GET /api/drafts/:id/revisions with the session cookie: 2 (the session check and one statement) (#378)', async () => {
+    const spy = spyPerf()
+    expect(await roundTrips(spy, apiRequest(`/api/drafts/${draft.id}/revisions`, { cookie }))).toBe(2)
+  })
+
+  it('REST GET /api/drafts/:id/revisions/:seq with against=current: 2 (#378)', async () => {
+    const spy = spyPerf()
+    expect(await roundTrips(spy, apiRequest(`/api/drafts/${draft.id}/revisions/1?against=current`, { cookie }))).toBe(2)
+  })
+
   it('REST GET /api/drafts with the session cookie: 2', async () => {
     const spy = spyPerf()
     expect(await roundTrips(spy, apiRequest('/api/drafts?published=false', { cookie }))).toBe(2)
