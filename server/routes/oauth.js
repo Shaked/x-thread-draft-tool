@@ -5,6 +5,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { query, transaction } from '../db.js'
 import { roleOf } from '../admin/role.js'
 import { HttpError, json, readJson } from '../http.js'
+import { openViewAs, viewAsCookieValue } from '../admin/view-as.js'
 import { clearSessionCookie, readSession, revokeSession } from '../session.js'
 import { hashToken } from '../tokens.js'
 import { SUSPENDED_MESSAGE } from '../suspension.js'
@@ -212,11 +213,22 @@ function authorizeLink(base, clientId, redirectUri, value, params) {
   return `${base}/api/oauth/authorize?${new URLSearchParams(fields)}`
 }
 
+/** While viewing as a user (#289) the consent would be the admin's, so it is refused: 409, naming who is viewed. */
+async function viewingRefusal(request) {
+  const raw = viewAsCookieValue(request)
+  if (raw === undefined) return null
+  const claim = await openViewAs(raw)
+  const who = claim && typeof claim.target_login === 'string' ? ` as ${claim.target_login}` : ''
+  return htmlError(409, 'Viewing as another user', `End viewing${who} before connecting an app.`)
+}
+
 /**
  * GET /oauth/authorize. Unknown client or unregistered redirect URI: an error page, never a
  * redirect. Other problems: redirect with error. No session: a sign-in page, then back here.
  */
 async function authorizeGet({ request, url }) {
+  const viewing = await viewingRefusal(request)
+  if (viewing) return viewing
   const base = origin(request)
   const params = url.searchParams
   const client = await getClient(params.get('client_id') ?? '')
@@ -307,6 +319,8 @@ async function authorizeLogout({ request }) {
 
 /** POST /oauth/authorize (the consent form). CSRF and session binding: the decision must belong to this session's user. */
 async function authorizePost({ request }) {
+  const viewing = await viewingRefusal(request)
+  if (viewing) return viewing
   const base = origin(request)
   const own = await ownDecision(request)
   if (own.refusal) return own.refusal

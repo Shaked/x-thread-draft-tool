@@ -10,6 +10,8 @@ import { currentCaller } from './caller-context.js'
 import { noteCaller } from './perf.js'
 import { SUSPENDED_MESSAGE, admit } from './suspension.js'
 import { roleOf } from './admin/role.js'
+import { isProtectedGithubId } from './admin/identity.js'
+import { openViewAs, viewAsCookieValue } from './admin/view-as.js'
 
 // The CI identity: a dedicated row in users (github_id -1; real GitHub ids are positive).
 const CI_USER = { id: -1, login: 'ci-smoke', name: 'CI', avatar_url: null }
@@ -55,24 +57,57 @@ async function verifiedPayload(request) {
  * revoked or the user is gone. One statement answers all three questions (revoked? suspended? still there?),
  * so suspension adds no round trip.
  */
-async function stateOf(payload) {
+async function stateOf(payload, targetUid = null) {
   // Outside the try: a database error is a server error, never "signed out".
-  const { rows } = await query(
-    `select exists(select 1 from revoked_sessions where jti = $1) as revoked,
-            (select suspended_at from users where id = $2) as suspended_at,
-            exists(select 1 from users where id = $2) as found`,
-    [payload.jti, payload.uid]
-  )
+  // The normal statement is unchanged. With a view-as target (#289) the same statement also loads the target.
+  const { rows } =
+    targetUid === null
+      ? await query(
+          `select exists(select 1 from revoked_sessions where jti = $1) as revoked,
+                  (select suspended_at from users where id = $2) as suspended_at,
+                  exists(select 1 from users where id = $2) as found`,
+          [payload.jti, payload.uid]
+        )
+      : await query(
+          `select exists(select 1 from revoked_sessions where jti = $1) as revoked,
+                  (select suspended_at from users where id = $2) as suspended_at,
+                  exists(select 1 from users where id = $2) as found,
+                  (select to_jsonb(t) from (select id, github_id::text as github_id, login, suspended_at is not null as suspended
+                                            from users where id = $3) t) as target`,
+          [payload.jti, payload.uid, targetUid]
+        )
   const row = rows[0]
   if (row.revoked || !row.found) return null
   // The payload rides along only so that sign-out can revoke it; every other caller treats suspended as no session.
   if (row.suspended_at !== null) return { suspended: true, session: payload }
-  return { session: payload }
+  return targetUid === null ? { session: payload } : { session: payload, target: row.target }
 }
 
 async function sessionState(request) {
   const payload = await verifiedPayload(request)
   return payload === null ? null : stateOf(payload)
+}
+
+/**
+ * The view-as claim that applies to this session (#289), or null. Only authenticate calls it, only on the cookie path.
+ * The claim must be valid, name this session's admin uid and jti, and the session must be the admin's. A claim that does
+ * not hold is ignored, never an error: the caller stays the admin.
+ */
+async function viewAsClaim(request, payload) {
+  const raw = viewAsCookieValue(request)
+  if (raw === undefined) return null
+  if (roleOf(payload.gh) !== 'admin') return null
+  const claim = await openViewAs(raw)
+  if (claim === null || claim.admin_uid !== payload.uid || claim.admin_jti !== payload.jti) return null
+  if (typeof claim.target_uid !== 'string') return null
+  return claim
+}
+
+/** A viewing caller may read, never change anything (#289). Called at the end of authenticate. */
+export function assertWritable(request, caller) {
+  if (!caller.viewAs) return caller
+  if (request.method === 'GET' || request.method === 'HEAD') return caller
+  throw new HttpError(403, `Viewing as ${caller.login}: read-only. End viewing to make changes.`)
 }
 
 /**
@@ -164,11 +199,27 @@ export async function authenticate(request) {
     }
     throw new HttpError(401, 'Invalid or expired API token')
   }
-  const state = await sessionState(request)
+  const payload = await verifiedPayload(request)
+  if (payload === null) return null
+  const claim = await viewAsClaim(request, payload)
+  const state = await stateOf(payload, claim === null ? null : claim.target_uid)
   if (!state) return null
   if (state.suspended) throw new HttpError(403, SUSPENDED_MESSAGE)
   noteCaller('web')
-  return admit({ ...state.session, via: 'session', suspended: false })
+  const target = state.target
+  // A gone, suspended (owner decision O2) or protected (admin, CI) target, or one whose id differs from the claim: the admin stays the caller.
+  if (target && !target.suspended && target.github_id === claim.target_gh && !isProtectedGithubId(target.github_id)) {
+    const viewing = {
+      uid: target.id,
+      gh: target.github_id,
+      login: target.login,
+      via: 'session',
+      suspended: false,
+      viewAs: { adminUid: payload.uid, adminLogin: payload.login, expiresAt: claim.exp }
+    }
+    return assertWritable(request, admit(viewing))
+  }
+  return admit({ ...payload, via: 'session', suspended: false })
 }
 
 /** A hand-made token that has expired (7-day cap or its expiry) gets a message that says so. */
@@ -200,6 +251,7 @@ export async function requireUser(request) {
  */
 export async function requirePersonalUser(request) {
   const user = await requireUser(request)
+  refuseViewAs(user)
   if (user.via !== 'session' && user.via !== 'token') {
     throw new HttpError(403, 'Managing API tokens needs a browser session or a personal API token, not an OAuth grant')
   }
@@ -209,6 +261,12 @@ export async function requirePersonalUser(request) {
 /** Like requireUser, but a bearer token is refused (creating tokens needs a human browser session). */
 export async function requireSessionUser(request) {
   const user = await requireUser(request)
+  refuseViewAs(user)
   if (user.via !== 'session') throw new HttpError(403, 'This action needs a signed-in browser session')
   return user
+}
+
+/** Credential routes (tokens, grants) are closed while viewing as a user (#289). */
+function refuseViewAs(user) {
+  if (user.viewAs) throw new HttpError(403, `Viewing as ${user.login}: credentials are not available. End viewing first.`)
 }

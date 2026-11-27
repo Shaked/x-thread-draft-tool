@@ -4,6 +4,7 @@ import { query } from '../db.js'
 import { fetchGithubUser, upsertGithubUser } from '../github-user.js'
 import { HttpError, cookie, json, parseCookies } from '../http.js'
 import { SUSPENDED_MESSAGE } from '../suspension.js'
+import { clearViewAsCookie } from '../admin/view-as.js'
 import { authenticate, clearSessionCookie, createSession, readSession, revokeSession, sessionCookie } from '../session.js'
 
 const STATE_COOKIE = 'xt_oauth_state'
@@ -149,7 +150,10 @@ async function logout({ request }) {
   // A suspended user can sign out too: the session is revoked, so it stays dead after unsuspending.
   const session = await readSession(request, { includeSuspended: true })
   if (session) await revokeSession(session)
-  return json({ ok: true }, 200, { 'set-cookie': clearSessionCookie() })
+  const headers = new Headers([['content-type', 'application/json'], ['cache-control', 'no-store']])
+  headers.append('set-cookie', clearSessionCookie())
+  headers.append('set-cookie', clearViewAsCookie())
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers })
 }
 
 export const authRoutes = [

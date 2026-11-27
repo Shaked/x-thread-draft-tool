@@ -10,6 +10,8 @@ vi.mock('../../server/blob.js', () => ({
 }))
 
 import { route } from '../../server/router.js'
+import { sealViewAs } from '../../server/admin/view-as.js'
+import { decodeJwt } from 'jose'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { createApiToken } from '../../server/tokens.js'
 import { measured } from '../../server/perf.js'
@@ -194,6 +196,15 @@ describe('query budget per flow (plan section 3.2)', () => {
   })
 
   // Admin plan A6: suspension is read by the statement each path already runs, so a refused request costs the same.
+  it('view as (#289), REST GET /api/drafts with the admin cookie and a claim: 2 (the session check loads the target; normal numbers unchanged)', async () => {
+    const admin = await db.insertUser({ github_id: 960015, login: 'shaked' })
+    const adminCookie = await db.cookieFor(admin)
+    const claim = await sealViewAs({ adminUid: admin.id, adminJti: decodeJwt(adminCookie.split('=')[1]).jti, targetUid: alice.id, targetGh: '1', targetLogin: 'alice', reason: 't', vid: 'v' })
+    const spy = spyPerf()
+    useDbQueries()
+    expect(await roundTrips(spy, apiRequest('/api/drafts?published=false', { cookie: `${adminCookie}; xt_view_as=${claim}` }))).toBe(2)
+  })
+
   it('suspended user, REST GET /api/drafts with the cookie: 1 (the session check; no draft query)', async () => {
     await db.pg.query('update users set suspended_at = now() where id = $1', [alice.id])
     const spy = spyPerf()

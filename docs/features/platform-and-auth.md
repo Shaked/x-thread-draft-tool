@@ -4,6 +4,7 @@
 - Mobile-responsive UI.
 - GitHub OAuth sign-in (`/api/auth/login`, `/api/auth/callback`). Anyone with a GitHub account can sign in.
 - Session: signed HS256 cookie `xt_session` (HttpOnly, Secure, SameSite=Lax, 30 days). The GitHub token is not stored.
+- View as a user, server core (#289): a signed `xt_view_as` cookie (audience `view-as`, 30 minutes, HttpOnly, Secure, SameSite=Strict) makes `authenticate` return the target user with `viewAs` set, only for the admin's own browser session (claim `admin_uid` and `admin_jti` equal the session's, admin role, target present, not suspended, not admin or CI). Bearer tokens, MCP, `readSession`, `realSession` and `/admin/*` never apply it. Every write as the target answers 403, `/tokens` and `/grants` answer 403, `/oauth/authorize` answers 409, logout clears both cookies. The admin cannot read drafts while viewing: the list shows counts under "Private draft" and opening, outline and export answer 403. Nothing starts a view yet (#290).
 - Role (#282): `GET /api/auth/me` returns `user.role` (`admin` or `user`) for a browser session, decided by `roleOf` in `server/admin/role.js`. API token callers get no role. The app shows an "Admin" badge next to the menu button and, in the app menu, one "Admin" link to `/admin` only for `admin` (#551). Nothing else of the admin is in the app menu: the changelog, the flags and the metrics are reached from the admin menu inside `/admin`.
 - Owner-only writes are filtered by the session user id in every query; a non-owner gets 404.
 - Deployment metadata visibility.
