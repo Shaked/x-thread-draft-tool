@@ -1,0 +1,420 @@
+[
+  {
+    "file": "docs/changelogs/20261114-013914-mcp-hebrew-x-twitter.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/106",
+    "area": "AI apps",
+    "title": "AI apps recognize Hebrew and X requests",
+    "lines": [
+      "The tool descriptions and server instructions for AI apps now include Hebrew and X (Twitter) trigger words.",
+      "The publish tool says it posts nothing to X."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-014432-mcp-prompts.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/107",
+    "area": "AI apps",
+    "title": "Four ready-made prompts for AI apps",
+    "lines": [
+      "AI apps get four slash commands: make a thread from notes, tighten a draft, review before publishing, and rewrite a hook.",
+      "Each has an English and a Hebrew description."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-074003-mcp-skills.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/108",
+    "area": "AI apps",
+    "title": "AI apps can load a thread-drafts skill",
+    "lines": [
+      "The server now offers one skill about X thread drafts, with English and Hebrew trigger text."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-074339-mcp-plan-finish.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/109",
+    "area": "Docs",
+    "title": "MCP plan closed out in the docs",
+    "lines": [
+      "The plan tracker marks the AI app tasks done.",
+      "The feature docs describe the four slash commands, the skill and the Hebrew and X wording."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-115309-private-drafts.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/113",
+    "area": "Security",
+    "title": "Drafts are readable only by their owner",
+    "lines": [
+      "Opening a draft that belongs to someone else now shows Draft not found.",
+      "Opening or exporting a draft without signing in is refused.",
+      "The editor shows a sign-in prompt when you are signed out, and never shows a cached copy.",
+      "The Share button is hidden until share links get an expiry."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-131210-share-link-expiry.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/115",
+    "area": "Security",
+    "title": "Share links expire and can be revoked",
+    "lines": [
+      "Share links stop working after a set time. The default is 1 hour, and you can choose 60 seconds up to 7 days.",
+      "You can revoke one share link, or all links of a draft.",
+      "The new Share menu copies a reusable link that lasts 15 minutes, 1 hour, 1 day or 7 days.",
+      "Links from the X Thread and Agent link buttons are still single-use, and now expire after 1 hour.",
+      "Existing unused links now expire 1 hour after they were made."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-132500-plan-performance.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/116",
+    "area": "Docs",
+    "title": "Plan for faster MCP and API requests",
+    "lines": [
+      "A new plan lists the speed tasks, based on measurements.",
+      "The agent rules now say product code must not grow unless the pull request names its task."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-133720-perf-timing.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/118",
+    "area": "Speed",
+    "title": "Every API request reports its timing",
+    "lines": [
+      "Each API response now carries a timing header with total time, database time, number of queries and whether the start was cold.",
+      "Each request also writes one log line with the route, status, timings and region.",
+      "The smoke test prints timing and compression lines but never fails on them."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-135216-export-menu.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/119",
+    "area": "Editor",
+    "title": "Export is a menu button next to Share",
+    "lines": [
+      "Export is now a button with a menu, next to Share, on phones and desktop.",
+      "The Share menu on phones opens above the bottom bar. It used to be off screen."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-135300-plans-admin-bottom-bar.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/119",
+    "area": "Docs",
+    "title": "Plans for admin tools and the bottom bar",
+    "lines": [
+      "Two new plans cover the admin tools and the phone bottom bar.",
+      "The share-links plan has a new task order and an adjusted sign-out task."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-141234-app-bar.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/120",
+    "area": "Design",
+    "title": "One slim bar on every signed-in page",
+    "lines": [
+      "The draft list, the editor and the API tokens page share one slim bar. On phones it sits at the bottom, one row, 44 pixels high.",
+      "Sign out is a small icon button in the bar. You can hide the bar, and your choice is kept in this browser.",
+      "Icons replace the emoji on Share, Agent link, X Thread and Export.",
+      "The bar no longer covers the last post on phones."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-182712-consent-copy-link.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/121",
+    "area": "Security",
+    "title": "A copy link on the app approval page",
+    "lines": [
+      "The approval page for connecting an app greets you by your GitHub username and shows a link with a Copy link button, to open the request in another browser.",
+      "When you are signed out, the same link opens a Sign in to continue page, with the same Copy link field, instead of sending you to GitHub.",
+      "These pages run one script, and no other."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-184117-real-sign-out.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/122",
+    "area": "Security",
+    "title": "Sign out now ends the server session",
+    "lines": [
+      "Sign out now ends your browser session on the server, not only the cookie. Everyone signs in once more after this change.",
+      "Sign out also removes the drafts cached in this browser.",
+      "The app approval page has a Not you? Sign out link that returns to sign-in for the same request."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-190822-test-budget-total-55s.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/123",
+    "area": "Docs",
+    "title": "Test time budget raised to 55 seconds",
+    "lines": [
+      "The total time allowed for the test suite goes from 50 to 55 seconds, after a run with all tests green took slightly over 50 seconds."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-191600-draft-summaries-outline.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/124",
+    "area": "AI apps",
+    "title": "AI apps and the API get draft summaries",
+    "lines": [
+      "The draft list can return post counts instead of full post text. The AI app draft list does this by default.",
+      "A new outline shows each post's character count against the 280 limit and the first 40 characters."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-213022-editor-full-width-phones.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/126",
+    "area": "Editor",
+    "title": "The editor uses the full width on phones",
+    "lines": [
+      "On phones the editor fills the screen width, with smaller padding around the header, composer and embedded cards.",
+      "Embedded tweets are limited to the screen width, so they no longer widen the page."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-213918-mcp-apps-plan.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/128",
+    "area": "Docs",
+    "title": "Plan for thread views inside AI apps",
+    "lines": [
+      "A new plan covers thread and drafts views inside Claude and ChatGPT.",
+      "No code changed."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-214550-short-edit-results.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/129",
+    "area": "AI apps",
+    "title": "Edit tools in AI apps return short results",
+    "lines": [
+      "After an edit, the post and draft tools in AI apps return the draft outline and version instead of the whole draft.",
+      "Only the get draft tool returns post text.",
+      "API responses stay as they were."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-220429-x-character-counts.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/130",
+    "area": "Editor",
+    "title": "Character counts follow the X rules",
+    "lines": [
+      "Counts and the save limit now follow X rules: a link counts as 23, an emoji as 2, and direction marks as 2.",
+      "This applies in the editor, the splitter, draft summaries and post edits from the API and AI apps."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-221300-t6-limits-safari-fallback.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/130",
+    "area": "Docs",
+    "title": "Post limits are explained in the docs",
+    "lines": [
+      "The docs now give the post limit as 4000 characters, or 280 as X counts them.",
+      "The emoji counting works on Safari 16 and older."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261114-235110-finish-private-drafts-docs-smoke.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/131",
+    "area": "Docs",
+    "title": "Final docs for private drafts and share links",
+    "lines": [
+      "The docs now cover private drafts, share link expiry and revoking, draft summaries and outline, and sign out.",
+      "The production smoke test checks the signed-out approval page.",
+      "The private drafts plan is marked done."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261117-224549-mcp-default-use.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/133",
+    "area": "AI apps",
+    "title": "AI apps save threads as drafts by default",
+    "lines": [
+      "The server text now tells AI apps when to save a written thread as a draft.",
+      "No tool or input changed."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261117-230930-audit-gate-prod-only.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/134",
+    "area": "Security",
+    "title": "Dependency audit checks only production packages for now",
+    "lines": [
+      "The dependency audit that must pass before a merge covers production packages only, because a development-only package has a known issue with no fix yet.",
+      "The full audit still runs on every change and only reports. It must pass again by 2026-12-17, once that package is patched."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261117-231628-settings-menu-plan.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/136",
+    "area": "Docs",
+    "title": "Plan for the settings menu",
+    "lines": [
+      "A new plan covers a left menu, version info, a redesigned API tokens page and a changelog page.",
+      "The plan lists the open questions for the owner, with the agent's default for each."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261117-232605-version-info.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/137",
+    "area": "Admin",
+    "title": "The server reports its version",
+    "lines": [
+      "A public version address and the app version tool for AI apps now return the commit, the deploy time and the database schema version.",
+      "The server version now includes the commit."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261117-234225-settings-menu.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/138",
+    "area": "Design",
+    "title": "A left menu on every signed-in page",
+    "lines": [
+      "A menu button at the start of each page header opens a left menu with Drafts, Theme, API tokens and apps, and Sign out.",
+      "Theme and the API tokens button leave the draft list header.",
+      "The phone bottom bar keeps Sign out."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261118-075234-about-page.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/139",
+    "area": "Admin",
+    "title": "A version line and an About page",
+    "lines": [
+      "The menu ends with a small version line, showing the commit and deploy time, that opens a new About page.",
+      "The About page shows this app's build and the server's version, with a Copy button.",
+      "A Reload button appears when a newer version is available."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261118-080823-tokens-page.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/140",
+    "area": "Design",
+    "title": "The API tokens page has three cards",
+    "lines": [
+      "The page now has three cards: your API tokens, Connect an AI app, and Connected apps.",
+      "A new token shows in a one-time box with one large Copy button.",
+      "The heading is now API tokens and apps. Behavior is the same."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261118-083246-mcp-paste-in-drafts.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/141",
+    "area": "Docs",
+    "title": "Paste-in text so AI apps save drafts",
+    "lines": [
+      "The AI app guide has English and Hebrew text to paste into an AI app, so it saves threads as drafts.",
+      "The public guide for AI tools links to it."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261118-085156-changelog-api.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/142",
+    "area": "Admin",
+    "title": "The changelog is available from the API",
+    "lines": [
+      "Signed-in users can read the changelog from the API, in pages of up to 50 entries (20 by default).",
+      "The app version tool for AI apps also returns the 5 newest changes.",
+      "The app does not show the changelog yet."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261118-090600-changelog-page.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/143",
+    "area": "Admin",
+    "title": "A Changelog page in the menu",
+    "lines": [
+      "The menu has a Changelog item. It shows the running version, then the changes grouped by day, 20 at a time.",
+      "The About page links to it with See what changed."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261118-092609-use-with-ai-apps.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/144",
+    "area": "AI apps",
+    "title": "Paste-in text card on the tokens page",
+    "lines": [
+      "The API tokens page has a card with the English and Hebrew text to paste into an AI app, each with a Copy button.",
+      "The card also says where to paste it."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261118-100500-mcp-default-use-eval.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/145",
+    "area": "AI apps",
+    "title": "A check that AI apps save drafts",
+    "lines": [
+      "A new optional check asks a model to handle written threads and questions, and tests that it saves threads as drafts and does not save when only answering.",
+      "It does not run in the automatic checks, and it skips itself without an API key."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261118-100850-p2-pool-idle-60s.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/146",
+    "area": "Speed",
+    "title": "The database connection stays open longer",
+    "lines": [
+      "An idle database connection now stays open for 60 seconds, up from 10, so repeated requests reuse it.",
+      "The server also waits for the connection to finish before it suspends."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261118-102648-p3-lazy-blob-undici.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/147",
+    "area": "Speed",
+    "title": "Image tools load only on image routes",
+    "lines": [
+      "Routes that do not handle images now start faster, because the image storage code loads on first use.",
+      "Start-up time of the API handler fell from 145 to 288 ms down to 86 to 105 ms on the same machine.",
+      "The address checks for remote images work as before."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261118-231903-test-budget-total-70s.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/148",
+    "area": "Docs",
+    "title": "Test time budget raised to 70 seconds",
+    "lines": [
+      "The total time allowed for the automatic test run goes from 55 to 70 seconds, because the same passing suite took 46 to 62 seconds on the build machines.",
+      "Per-file limits and test checks stay as they were."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261118-233500-patch-draft-one-statement.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/149",
+    "area": "Speed",
+    "title": "Draft updates use one database query",
+    "lines": [
+      "Updating a draft now takes 1 database query instead of 4.",
+      "Adding a post takes 4 queries instead of 7, and moving or removing a post takes 4 instead of 7.",
+      "Answers, statuses and headers stay as they were."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261118-235001-patch-post-one-statement.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/150",
+    "area": "Speed",
+    "title": "Post updates use one database write",
+    "lines": [
+      "Updating a post now writes in one statement instead of a 4-statement transaction.",
+      "The post update tool for AI apps takes 3 queries instead of 6.",
+      "Answers, statuses and headers stay as they were."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261119-000848-mcp-auth-count-one-statement.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/151",
+    "area": "Speed",
+    "title": "AI app tool calls need one query less",
+    "lines": [
+      "The token check and the tool-call count for AI apps now run as one query.",
+      "Each tool call takes one query less.",
+      "A request without a token is still refused before its body is read."
+    ]
+  },
+  {
+    "file": "docs/changelogs/20261119-002408-p8-image-still-used-sql.md",
+    "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/152",
+    "area": "Speed",
+    "title": "Image cleanup checks run as one query",
+    "lines": [
+      "Deciding whether an uploaded image is still in use now takes one database check, instead of reading every draft.",
+      "Removing a post or an image with the AI app tools, deleting a draft and publishing keep any file that another draft of the same user still uses."
+    ]
+  }
+]
