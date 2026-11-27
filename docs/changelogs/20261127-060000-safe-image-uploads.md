@@ -4,5 +4,5 @@
 - Location and text data (EXIF, XMP, PNG text) is removed from uploaded images; a JPEG keeps only its rotation.
 - The admin user page shows each user's stored image bytes. No storage cap yet.
 
-Area: Images
+Area: Security
 Link: https://github.com/Shaked/x-thread-draft-tool/issues/416
