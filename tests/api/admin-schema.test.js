@@ -68,6 +68,8 @@ describe('009_admin.sql', () => {
     expect(await tablesWithPathToUsers()).toEqual([
       'api_token_cap_backup',
       'api_tokens',
+      'draft_post_versions',
+      'draft_revisions',
       'drafts',
       'image_files',
       'image_upload_links',

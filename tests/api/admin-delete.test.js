@@ -144,7 +144,7 @@ describe('admin_delete_user', () => {
     await seedContent(ready)
     const before = (await db.pg.query('select count(*)::int as n from drafts')).rows[0].n
     const out = await dry(token, ready)
-    expect(out.data).toMatchObject({ dry_run: true, user: { id: ready.id, login: 'ready' }, expires_in: 600, will_delete: { drafts: 1, share_links: 1, api_tokens: 1, connected_apps: 1, oauth_tokens: 2, mcp_rate_rows: 1, image_files: 2 } })
+    expect(out.data).toMatchObject({ dry_run: true, user: { id: ready.id, login: 'ready' }, expires_in: 600, will_delete: { drafts: 1, share_links: 1, api_tokens: 1, connected_apps: 1, oauth_tokens: 2, mcp_rate_rows: 1, image_files: 2, draft_revisions: 1, revision_posts: 1 } })
     expect(typeof out.data.confirm_token).toBe('string')
     expect(blob.delCalls).toEqual([])
     expect((await db.pg.query('select count(*)::int as n from drafts')).rows[0].n).toBe(before)
