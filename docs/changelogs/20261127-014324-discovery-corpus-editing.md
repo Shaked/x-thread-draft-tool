@@ -1,8 +1,8 @@
 # Discovery check now covers editing a draft
 
-- The offline tool-discovery check has 6 new intents (hook, reorder, add, remove, split, options) and 4 new questions, in English and Hebrew, so it can measure the "no tool call on update" problem. No tool text changed.
+- The offline tool-discovery check now also covers editing an existing draft, in English and Hebrew. No tool text changed.
 
-Area: MCP
+Area: AI apps
 Link: https://github.com/Shaked/x-thread-draft-tool/pull/572
 
 ## Technical details
