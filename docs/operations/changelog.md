@@ -57,6 +57,17 @@ npm run reply-lint -- --kind=changelog docs/changelogs/<file>.md
 CI (`.github/workflows/changelog-check.yml`, `scripts/changelog-check.mjs`) runs the same check on every added file,
 and fails a pull request that changes or deletes an existing entry.
 
+## Screenshots
+
+A pull request that changes `src/` or `server/mcp/ui/` (a page a person sees) adds one screenshot to each entry it adds
+(#603). Backend, test, doc and config changes need none.
+
+- Put the line under `## Technical details`: `Screenshot: docs/changelogs/img/<same name>.png` (a markdown link to that
+  path also passes). The PNG is 200 KB or less, taken at device scale 2 from the pull request's own build with the
+  `ui-debug` skill's `scripts/ui-shot.mjs` (`--routes <page> --widths 390 --scale 2`), then copied to that path.
+- A visible change that needs no picture says `Screenshot: not needed, <reason>` on that line instead.
+- `scripts/changelog-check.mjs` checks this and prints the missing or broken line, file or size.
+
 ## Old entries
 
 Entries from before the template change have no `Area:` and `Link:` lines. The page shows them under "Earlier changes

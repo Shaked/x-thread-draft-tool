@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { changedBatches, checkBatches, checkChanges } from '../../scripts/changelog-check.mjs'
+import { changedBatches, checkBatches, checkChanges, checkScreenshots } from '../../scripts/changelog-check.mjs'
 import { rewriteText } from '../../scripts/changelog-rewrite.mjs'
 
 const good = '# Faster saves\n- A draft opens sooner.\n\nArea: Speed\nLink: https://x.test/pull/9\n'
@@ -82,5 +82,42 @@ describe('checkBatches', () => {
   it('still fails a change to an entry that no passing batch covers', () => {
     const findings = checkChanges(`M\t${old}\n`, () => '', { covered: new Set([fresh]) })
     expect(findings).toEqual([`${old}: an existing entry may not change or be deleted (git status M)`])
+  })
+})
+
+describe('checkScreenshots (#603)', () => {
+  const entry = 'docs/changelogs/20261127-100000-good.md'
+  const png = 'docs/changelogs/img/20261127-100000-good.png'
+  const withShot = (line) => `# Faster saves\n- A draft opens sooner.\n\n## Technical details\n\n${line}\n`
+  const texts = { [entry]: withShot('Screenshot: ' + png) }
+  const readShot = (path) => texts[path] ?? null
+  const added = `A\t${entry}\n`
+
+  it('asks for a screenshot when a visible change adds an entry without one', () => {
+    const findings = checkScreenshots(`A\tsrc/App.tsx\n${added}`, () => '# Faster saves\n- A draft opens sooner.\n', () => 1000)
+    expect(findings).toEqual([`${entry}: a visible change needs a "Screenshot:" line: link ${png}, or write "Screenshot: not needed, <reason>"`])
+  })
+
+  it('passes a visible change whose entry links its PNG under 200 KB', () => {
+    expect(checkScreenshots(`M\tserver/mcp/ui/thread.js\n${added}`, readShot, (p) => (p === png ? 150 * 1024 : null))).toEqual([])
+  })
+
+  it('fails a linked PNG that is missing or over 200 KB', () => {
+    expect(checkScreenshots(`A\tsrc/a.ts\n${added}`, readShot, () => null)).toEqual([`${png}: the screenshot is missing`])
+    expect(checkScreenshots(`A\tsrc/a.ts\n${added}`, readShot, () => 200 * 1024 + 1)).toEqual([`${png}: the screenshot is ${200 * 1024 + 1} bytes, over 200 KB`])
+  })
+
+  it('fails a Screenshot line that links another file', () => {
+    const other = { [entry]: withShot('Screenshot: docs/changelogs/img/other.png') }
+    expect(checkScreenshots(`A\tsrc/a.ts\n${added}`, (p) => other[p], () => 1)).toEqual([`${entry}: the Screenshot line must link ${png}`])
+  })
+
+  it('passes a visible change whose entry says the screenshot is not needed, with a reason', () => {
+    const none = { [entry]: withShot('Screenshot: not needed, no visible change') }
+    expect(checkScreenshots(`A\tsrc/a.ts\n${added}`, (p) => none[p], () => null)).toEqual([])
+  })
+
+  it('passes a backend-only change without a screenshot', () => {
+    expect(checkScreenshots(`M\tserver/api/x.js\n${added}`, () => '# Faster saves\n', () => null)).toEqual([])
   })
 })
