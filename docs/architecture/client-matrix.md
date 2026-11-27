@@ -59,6 +59,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Agent plugin: reply-style | docs/plans/plugin-marketplace.md | none | 2026-11-26 |
 | Agent skill: ui-debug | tests/unit/ui-debug-skill.test.js | none | 2026-11-26 |
 | Agent plugin: metrics | docs/plans/central-metrics.md | none | 2026-11-26 |
+| Agent plugin: task-janitor | docs/plans/plugin-marketplace.md | none | 2026-11-27 |
 | Agent plugin: pr-workflow | docs/plans/plugin-marketplace.md | none | 2026-11-27 |
 | Agent plugin: contract-tests | docs/plans/plugin-marketplace.md | none | 2026-11-27 |
 | Connect guide | docs/agents/mcp.md | none | 2026-11-26 |
@@ -88,6 +89,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Agent plugin: reply-style | built: tests/unit/plugin-reply-style.test.js | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | not checked | no: a Claude Code plugin only | no: a Claude Code plugin only |
 | Agent skill: ui-debug | built: tests/unit/ui-debug-skill.test.js | no: a repo developer skill only | no: a repo developer skill only | no: a repo developer skill only | no: a repo developer skill only | not checked | no: a repo developer skill only | no: a repo developer skill only |
 | Agent plugin: metrics | built: tests/unit/plugin-metrics.test.js | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | not checked | no: a Claude Code plugin only | no: a Claude Code plugin only |
+| Agent plugin: task-janitor | built: tests/unit/task-janitor-plugin.test.js | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | not checked | no: a Claude Code plugin only | no: a Claude Code plugin only |
 | Agent plugin: pr-workflow | built: tests/unit/plugin-pr-workflow.test.js | no: developer tooling for repo agents, not an app client | no: developer tooling for repo agents, not an app client | no: developer tooling for repo agents, not an app client | no: developer tooling for repo agents, not an app client | not checked | no: developer tooling for repo agents, not an app client | no: developer tooling for repo agents, not an app client |
 | Agent plugin: contract-tests | built: tests/unit/plugin-contract-tests.test.js | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | no: a Claude Code plugin only | not checked | no: a Claude Code plugin only | no: a Claude Code plugin only |
 | Connect guide | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | built: docs/agents/mcp.md | not checked | built: docs/agents/mcp.md | built: docs/agents/mcp.md | no: no steps for other MCP clients (#372) |
@@ -118,6 +120,7 @@ Clients are the keys of `clients.json`: Claude web (`claude_ai`), Claude Desktop
 | Agent plugin: pr-workflow | no: developer tooling, English only | no: developer tooling, English only | no: developer tooling, English only | no: developer tooling, English only | no: developer tooling, English only | no: developer tooling, English only | no: developer tooling, English only | no: developer tooling, English only |
 | Agent skill: ui-debug | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only |
 | Agent plugin: metrics | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only |
+| Agent plugin: task-janitor | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only | no: the skills are English only |
 | Agent plugin: contract-tests | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only | no: the skill is English only |
 | Connect guide | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | not checked | built: docs/agents/mcp.he.md | built: docs/agents/mcp.he.md | no: no steps for other MCP clients (#372) |
 

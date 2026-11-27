@@ -28,7 +28,7 @@ Nothing.
 ### Needs you
 | Ticket | PR | Session | Owner needed? | Next step | Who |
 |---|---|---|---|---|---|
-| [<#n>](<link>) | [<#pr>](<link>) <open, checks `green` or `red`, N open Codex threads, or merged> | [session](<link>) `<running, review ready, blocked, failed or completed>` | <`no`, or yes: `<what>`, reply `<exact words>`> | <next step> | <Shaked, the session, dispatcher, CI, Opus or nobody> |
+| [<#n>](<link>) | [<#pr>](<link>) <open, checks `green` or `red`, N open Codex threads, or merged> | [session](<link>) `<running, review ready, blocked, failed or completed>` | <`no`, or yes: `<what>`, reply `<exact words>`> | <next step> | <the owner, the session, dispatcher, CI, Opus or nobody> |
 
 <Or "None."> Then the same table, or "None.", under each group in this order:
 ### Stuck: failed, waits for an answer, or a dispatcher step
