@@ -1,6 +1,7 @@
 // #371 (Task C2 of #273): the three MCP views in Hebrew, in jsdom. How the view picks the language (setLang), the Hebrew
 // labels in the thread view, the drafts list and the share card, and that every label the code uses is in the table with
 // both languages. The Playwright check in the fixture host is tests/e2e/mcp-ui-hebrew.spec.ts.
+import './helpers/page-globals.js'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

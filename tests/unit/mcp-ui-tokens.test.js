@@ -1,5 +1,6 @@
 // #357: the MCP views copy the purple accent from src/styles/tokens.css (the views cannot import the React styles).
 // This test reads both and fails when the copy drifts from the source.
+import './helpers/page-globals.js'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'

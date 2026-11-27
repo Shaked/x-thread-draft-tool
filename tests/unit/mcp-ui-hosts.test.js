@@ -1,6 +1,7 @@
 // T18 (#292): the host table and the thread view on three fixture hosts, run with jsdom: an MCP Apps host with
 // hostContext, a ChatGPT-like stub with window.openai, and a bare host with neither. For each: the theme, the link
 // method, the full-screen button and the insets.
+import './helpers/page-globals.js'
 import { JSDOM } from 'jsdom'
 import { describe, expect, it, vi } from 'vitest'
 import { hostInsets, hostMethod, hostRow, hostTable, hostTheme } from '../../server/mcp/ui/hosts.js'

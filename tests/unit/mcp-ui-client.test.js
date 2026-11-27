@@ -1,6 +1,7 @@
 // Plan Task 1 step 7 (#170): the view code in jsdom. The source of every view must avoid the write paths that rule 9
 // of docs/plans/mcp-apps.md bans; safeUrl refuses everything but https; draft text renders as plain text; the
 // bridge starts the handshake and reports the tool result.
+import './helpers/page-globals.js'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
