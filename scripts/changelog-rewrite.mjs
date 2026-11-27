@@ -8,7 +8,7 @@
 //   node scripts/changelog-rewrite.mjs [--dry-run] <batch>   prints the plan and writes nothing (the default)
 //   node scripts/changelog-rewrite.mjs --write <batch>       writes the files; a second run changes nothing
 //   node scripts/changelog-rewrite.mjs --check <batch>       exits 0 only when each file is what --write makes,
-//                                                           with the original text taken from the commit that added it
+//                                                           with the original text taken from the base branch (merge-base with origin/main)
 // Exit codes: 0 ok, 1 a finding (nothing is written), 2 a usage error.
 
 import { execFileSync } from 'node:child_process'
@@ -132,14 +132,20 @@ export function checkBatch(batch, readFile, readOriginal) {
   return { ok: findings.length === 0, findings }
 }
 
-/** The text of an entry as committed by the commit that first added it (its byte-exact original). */
-export function originalFromGit(file, cwd = ROOT) {
-  const shas = execFileSync('git', ['log', '--diff-filter=A', '--format=%H', '--', file], { cwd, encoding: 'utf8' })
-    .split('\n')
-    .filter(Boolean)
-  const first = shas.at(-1)
-  if (!first) throw new Error(`no commit adds ${file}`)
-  return execFileSync('git', ['show', `${first}:${file}`], { cwd, encoding: 'utf8' })
+/**
+ * The text an entry had before its rewrite: the newest version of the file at `rev` (a commit id, for example the base
+ * of a pull request) that has no rewrite heading. Only commits reachable from `rev` count, so a commit made on the
+ * branch after `rev` cannot be taken as the original. `git log` lists each commit that changed the path, including
+ * the merge that adds it.
+ */
+export function originalFromGit(file, rev, cwd = ROOT) {
+  if (!rev) throw new Error('originalFromGit needs a revision: the base of the pull request')
+  const shas = execFileSync('git', ['log', '--format=%H', rev, '--', file], { cwd, encoding: 'utf8' }).split('\n').filter(Boolean)
+  for (const sha of shas) {
+    const text = execFileSync('git', ['show', `${sha}:${file}`], { cwd, encoding: 'utf8' })
+    if (!text.includes(`\n${MARK}\n`)) return text
+  }
+  throw new Error(`no committed version of ${file} at ${rev} lacks the rewrite heading`)
 }
 
 const readFromRepo = (file) => {
@@ -158,7 +164,8 @@ function usage(message) {
 
 /** The check mode: each entry is what --write makes. Returns the exit code. */
 function runCheck(batch, batchPath) {
-  const result = checkBatch(batch, readFromRepo, (file) => originalFromGit(file))
+  const base = execFileSync('git', ['merge-base', 'HEAD', 'origin/main'], { cwd: ROOT, encoding: 'utf8' }).trim()
+  const result = checkBatch(batch, readFromRepo, (file) => originalFromGit(file, base))
   for (const finding of result.findings) console.log(finding)
   console.log(result.ok ? `changelog-rewrite: ${batchPath} matches its entries` : `changelog-rewrite: ${result.findings.length} finding(s)`)
   return result.ok ? 0 : 1

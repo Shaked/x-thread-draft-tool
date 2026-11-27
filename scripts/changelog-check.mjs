@@ -115,7 +115,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
   }
   const sizeOf = (path) => (existsSync(path) ? statSync(path).size : null)
-  const batches = checkBatches(changedBatches(nameStatus), (path) => readFileSync(path, 'utf8'), readText, (file) => originalFromGit(file))
+  const batches = checkBatches(changedBatches(nameStatus), (path) => readFileSync(path, 'utf8'), readText, (file) => originalFromGit(file, base))
   const findings = [
     ...batches.findings,
     ...checkChanges(nameStatus, readText, { covered: batches.covered }),
