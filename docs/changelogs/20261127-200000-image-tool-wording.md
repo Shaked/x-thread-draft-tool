@@ -3,4 +3,3 @@
 - No change for people using the app beyond clearer tool descriptions.
 Area: AI apps
 Link: https://github.com/Shaked/x-thread-draft-tool/pull/621
-Screenshot: not needed, tool text only
