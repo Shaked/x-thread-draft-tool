@@ -36,14 +36,35 @@ function isPrivateV4(ip) {
   })
 }
 
+function parseV6(ip) {
+  let text = ip.toLowerCase().split('%')[0]
+  const dotted = text.match(/(\d+\.\d+\.\d+\.\d+)$/)
+  if (dotted) {
+    const v = ipv4ToInt(dotted[1])
+    text = text.slice(0, -dotted[1].length) + `${(v >>> 16).toString(16)}:${(v & 0xffff).toString(16)}`
+  }
+  const [head, tail] = text.split('::')
+  const left = head ? head.split(':') : []
+  const right = tail ? tail.split(':') : []
+  const zeros = text.includes('::') ? new Array(8 - left.length - right.length).fill('0') : []
+  return [...left, ...zeros, ...right].map((h) => parseInt(h, 16))
+}
+
+const v4FromHextets = (hi, lo) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`
+
 function isPrivateV6(ip) {
-  const lower = ip.toLowerCase()
-  if (lower === '::' || lower === '::1') return true
-  const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
-  if (mapped) return isPrivateV4(mapped[1])
-  const firstHextet = parseInt(lower.split(':')[0] || '0', 16)
+  const h = parseV6(ip)
+  if (h.length !== 8 || h.some(Number.isNaN)) return true
+  const zeroTo = (n) => h.slice(0, n).every((x) => x === 0)
+  // IPv4 inside IPv6: mapped ::ffff:a.b.c.d, compatible ::a.b.c.d (also :: and ::1), NAT64 64:ff9b::/96, 6to4 2002::/16
+  if (zeroTo(5) && h[5] === 0xffff) return isPrivateV4(v4FromHextets(h[6], h[7]))
+  if (zeroTo(6)) return isPrivateV4(v4FromHextets(h[6], h[7]))
+  if (h[0] === 0x64 && h[1] === 0xff9b && h.slice(2, 6).every((x) => x === 0)) return isPrivateV4(v4FromHextets(h[6], h[7]))
+  if (h[0] === 0x64 && h[1] === 0xff9b) return true // local-use NAT64 64:ff9b:1::/48
+  if (h[0] === 0x2002) return isPrivateV4(v4FromHextets(h[1], h[2]))
+  if (h[0] === 0x2001 && h[1] === 0) return true // Teredo
   // fc00::/7 unique-local, fe80::/10 link-local, ff00::/8 multicast
-  return (firstHextet & 0xfe00) === 0xfc00 || (firstHextet & 0xffc0) === 0xfe80 || (firstHextet & 0xff00) === 0xff00
+  return (h[0] & 0xfe00) === 0xfc00 || (h[0] & 0xffc0) === 0xfe80 || (h[0] & 0xff00) === 0xff00
 }
 
 /** True for loopback, private, link-local, CGNAT, multicast and other special-use addresses. */
@@ -71,14 +92,23 @@ function parseRemoteUrl(input) {
 
 class AddressRefusedError extends Error {}
 
+/** Rejects when the signal aborts, so a slow DNS answer counts against the time limit. */
+function raceAbort(promise, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(signal.reason)
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+    promise.then(resolve, reject)
+  })
+}
+
 /**
  * Resolves the host once, refuses if any address is private, and connects only to the first checked
  * address. TLS (SNI and the certificate) still uses url.hostname. Redirects are returned, not followed.
  * `resolve` is the caller's own DNS lookup (each caller keeps its test hook).
  */
-export async function pinnedFetch(url, { resolve, timeoutMs, headers }) {
+export async function pinnedFetch(url, { resolve, timeoutMs, headers, signal = AbortSignal.timeout(timeoutMs) }) {
   const host = url.hostname.replace(/^\[(.*)\]$/, '$1')
-  const addresses = isIP(host) ? [{ address: host }] : await resolve(host, { all: true })
+  const addresses = isIP(host) ? [{ address: host }] : await raceAbort(resolve(host, { all: true }), signal)
   if (addresses.length === 0 || addresses.some((entry) => isPrivateAddress(entry.address))) {
     throw new AddressRefusedError('That address is not allowed')
   }
@@ -92,7 +122,7 @@ export async function pinnedFetch(url, { resolve, timeoutMs, headers }) {
     }
   })
   try {
-    return await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(timeoutMs), headers, dispatcher })
+    return await fetch(url, { redirect: 'manual', signal, headers, dispatcher })
   } finally {
     dispatcher.close().catch(() => {})
   }
@@ -125,14 +155,12 @@ async function readImageBody(response) {
 
 export async function fetchRemoteImage(input) {
   let url = parseRemoteUrl(input)
-  const deadline = Date.now() + TIMEOUT_MS
+  const signal = AbortSignal.timeout(TIMEOUT_MS) // one limit for DNS, every hop and the body read
 
   let response
   for (let hop = 0; ; hop++) {
-    const remaining = deadline - Date.now()
-    if (remaining <= 0) throw new HttpError(502, 'Could not fetch the image')
     try {
-      response = await pinnedFetch(url, { resolve: lookup, timeoutMs: remaining, headers: { accept: 'image/*' } })
+      response = await pinnedFetch(url, { resolve: lookup, signal, headers: { accept: 'image/*' } })
     } catch (err) {
       if (err instanceof AddressRefusedError) throw new HttpError(400, err.message)
       throw new HttpError(502, 'Could not fetch the image')
@@ -152,10 +180,16 @@ export async function fetchRemoteImage(input) {
     }
     url = parseRemoteUrl(next)
   }
-  if (!response.ok) throw new HttpError(502, `Image host returned HTTP ${response.status}`)
+  if (!response.ok) {
+    response.body?.cancel().catch(() => {})
+    throw new HttpError(502, `Image host returned HTTP ${response.status}`)
+  }
 
   const declared = Number(response.headers.get('content-length') || 0)
-  if (declared > MAX_REMOTE_IMAGE_BYTES) throw new HttpError(413, 'Image must be 4 MB or smaller')
+  if (declared > MAX_REMOTE_IMAGE_BYTES) {
+    response.body?.cancel().catch(() => {})
+    throw new HttpError(413, 'Image must be 4 MB or smaller')
+  }
 
   const bytes = await readImageBody(response)
   return { bytes } // the type is decided from the bytes by prepareImage
