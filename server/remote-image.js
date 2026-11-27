@@ -58,6 +58,7 @@ function isPrivateV6(ip) {
   const zeroTo = (n) => h.slice(0, n).every((x) => x === 0)
   // IPv4 inside IPv6: mapped ::ffff:a.b.c.d, compatible ::a.b.c.d (also :: and ::1), NAT64 64:ff9b::/96, 6to4 2002::/16
   if (zeroTo(5) && h[5] === 0xffff) return isPrivateV4(v4FromHextets(h[6], h[7]))
+  if (zeroTo(4) && h[4] === 0xffff && h[5] === 0) return isPrivateV4(v4FromHextets(h[6], h[7])) // SIIT ::ffff:0:a.b.c.d
   if (zeroTo(6)) return isPrivateV4(v4FromHextets(h[6], h[7]))
   if (h[0] === 0x64 && h[1] === 0xff9b && h.slice(2, 6).every((x) => x === 0)) return isPrivateV4(v4FromHextets(h[6], h[7]))
   if (h[0] === 0x64 && h[1] === 0xff9b) return true // local-use NAT64 64:ff9b:1::/48
@@ -95,12 +96,12 @@ class AddressRefusedError extends Error {}
 /** Rejects when the signal aborts, so a slow DNS answer counts against the time limit. */
 function raceAbort(promise, signal) {
   return new Promise((resolve, reject) => {
-    if (signal.aborted) return reject(signal.reason)
-    signal.addEventListener('abort', () => reject(signal.reason), { once: true })
-    promise.then(resolve, reject)
+    const onAbort = () => reject(signal.reason)
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort))
+    if (signal.aborted) return onAbort()
+    signal.addEventListener('abort', onAbort, { once: true })
   })
 }
-
 /**
  * Resolves the host once, refuses if any address is private, and connects only to the first checked
  * address. TLS (SNI and the certificate) still uses url.hostname. Redirects are returned, not followed.
@@ -191,6 +192,12 @@ export async function fetchRemoteImage(input) {
     throw new HttpError(413, 'Image must be 4 MB or smaller')
   }
 
-  const bytes = await readImageBody(response)
+  let bytes
+  try {
+    bytes = await readImageBody(response)
+  } catch (err) {
+    if (err instanceof HttpError) throw err
+    throw new HttpError(502, 'Could not fetch the image')
+  }
   return { bytes } // the type is decided from the bytes by prepareImage
 }

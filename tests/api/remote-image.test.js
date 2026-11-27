@@ -69,7 +69,9 @@ describe('isPrivateAddress', () => {
     ['::7f00:1'],
     ['64:ff9b::a9fe:a9fe'],
     ['2002:7f00:1::'],
-    ['2001:0:1::1']
+    ['2001:0:1::1'],
+    ['::ffff:0:127.0.0.1'],
+    ['::ffff:0:a9fe:a9fe']
   ])('treats %s as private', (address) => {
     expect(isPrivateAddress(address)).toBe(true)
   })
