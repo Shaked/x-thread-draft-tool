@@ -1,6 +1,6 @@
 {
   "name": "task-janitor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Task janitor for an issue tracker and Claude Code sessions: a read-only report, a session matcher, a status board, and their commands.",
   "author": { "name": "Shaked" },
   "license": "MIT",

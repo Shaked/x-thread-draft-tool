@@ -467,3 +467,15 @@ describe('the whole formatted report passes the reply lint (#461)', () => {
     }
   })
 })
+
+describe('words are cut by code point (#461)', () => {
+  it('does not split an astral letter into a lone surrogate', () => {
+    const lone = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/
+    for (const title of ['abcdefghijklmnopqrstuvw\u{20000} draft saving', 'abcdefghijklmnopqrstuvw\u{20000}\u{20001}\u{20002} draft saving']) {
+      const out = shortName({ title })
+      expect(out).not.toMatch(lone)
+      expect(out).toContain('abcdefghijklmnopqrstuvw\u{20000}')
+    }
+    expect([...shortName({ title: 'abcdefghijklmnopqrstuvw\u{20000}\u{20001} draft saving' }).split(' ')[0]]).toHaveLength(24)
+  })
+})

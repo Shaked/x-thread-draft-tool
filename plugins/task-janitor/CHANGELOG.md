@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- A title word is cut at 24 code points, not 24 UTF-16 units, so an astral letter is never split.
+
 ## 0.1.1
 
 - The words of an issue title in a report go through an allowlist (NFKC, then letters, digits, spaces and hyphens only),

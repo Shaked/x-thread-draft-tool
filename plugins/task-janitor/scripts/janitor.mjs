@@ -79,7 +79,7 @@ export function titleText(title) {
  * into plain words by an ALLOWLIST: NFKC first, control and format characters (bidi, zero width) removed, then only letters,
  * digits, spaces and hyphens stay (everything else becomes a space), so no mention, link, email, image, HTML, code span,
  * bracket or reference can be built from a title. A word that reads as a `GH-12` reference, or is only digits, is
- * dropped; a word is cut at 24 characters. A hex string of 7 or more characters passes: it links a commit of this
+ * dropped; a word is cut at 24 characters (code points, so an astral letter is never split). A hex string of 7 or more characters passes: it links a commit of this
  * repository only, with no notification.
  */
 export function plainWords(text) {
@@ -88,7 +88,7 @@ export function plainWords(text) {
     .replace(/[^\p{L}\p{N} -]/gu, ' ')
     .split(/ +/)
     .filter((w) => w && !/^\d+$/.test(w) && !/(^|[^a-z0-9])GH-?\d/i.test(w))
-    .map((w) => w.slice(0, 24))
+    .map((w) => [...w].slice(0, 24).join(''))
 }
 
 /** 3 to 6 words that say what an issue is, for "#n (words)". */

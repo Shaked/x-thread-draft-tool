@@ -32,9 +32,11 @@ concurrency:
 jobs:
   janitor:
     name: Janitor pass 1 (read-only)
-    # Off switch: JANITOR_AUTO set to off or false (any case: != compares strings case-insensitively). Not `0`, and not
-    # contains(): an unset variable is loosely equal to "0", so that skipped every run. A schedule run always uses the default branch
-    # (and its event has no `repository`), so only a manual run is checked for the branch.
+    # Off switch: JANITOR_AUTO set to off or false (any case: != compares strings ignoring case). An unset variable is
+    # null in an `if:`, and GitHub coerces null to the number 0, which equals "0": so a list with "0" matched an unset
+    # variable and skipped every run (the first version). `0` is therefore not an off value. A schedule event has no
+    # `repository`, so only a manual run is checked for the default branch. Test: tests/unit/janitor-weekly-workflow.test.js
+    # (it evaluates this condition with GitHub's rules).
     if: >-
       vars.JANITOR_AUTO != 'off' && vars.JANITOR_AUTO != 'false' &&
       (github.event_name == 'schedule' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
