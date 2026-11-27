@@ -6,6 +6,7 @@
  * A draft may hold two posts with the same id (the API accepts it), so a post is matched by its id and its
  * occurrence number n (0 for the first post with that id, 1 for the second, ...).
  * A missing text counts as '' and a missing image list as [] (the saved drafts allow both).
+ * A missing posts list counts as [], and a null post counts as a post with no id and no text.
  *
  * Output of diffDrafts(a, b):
  * - title: null, or { before, after }.
@@ -22,7 +23,17 @@
 
 const WORDS = new Intl.Segmenter(undefined, { granularity: 'word' })
 const REWRITE_SHARE = 0.3
+// Work limits for the word diff. Above them the middle of the text is shown as one deletion and one insertion,
+// which still rebuilds both sides exactly. Posts can be up to a long draft, so the limits keep one diff bounded.
+// WORD_DIFF_CAP: tokens left in both texts after the common start and end are removed.
+// WORD_DIFF_MAX_EDITS: inserts plus deletes the exact diff may need.
+export const WORD_DIFF_CAP = 2000
+export const WORD_DIFF_MAX_EDITS = 1000
 
+const draftOf = (draft) => ({
+  title: draft?.title,
+  posts: Array.isArray(draft?.posts) ? draft.posts : []
+})
 const textOf = (post) => (typeof post?.text === 'string' ? post.text : '')
 const imagesOf = (post) => (Array.isArray(post?.images) ? post.images : [])
 const tokenize = (text) => Array.from(WORDS.segment(text), (s) => s.segment)
@@ -47,45 +58,56 @@ function canonical(value) {
 function keyedPosts(posts) {
   const seen = new Map()
   return posts.map((post) => {
-    const n = seen.get(post.id) ?? 0
-    seen.set(post.id, n + 1)
-    return { post, id: post.id, n, key: JSON.stringify([post.id, n]) }
+    const id = post?.id
+    const n = seen.get(id) ?? 0
+    seen.set(id, n + 1)
+    return { post, id, n, key: JSON.stringify([id ?? null, n]) }
   })
 }
 
-/** Myers diff of two arrays. Returns [{ op: 'same' | 'del' | 'ins', value }] in order. */
+/**
+ * Myers diff of two token arrays. Returns [{ op: 'same' | 'del' | 'ins', value }] in order, or null when the
+ * diff needs more than WORD_DIFF_MAX_EDITS edits. The trace keeps, for each step, only the diagonals -d-1..d+1
+ * (a typed array), not a copy of the whole frontier.
+ */
 function myers(a, b) {
   const n = a.length
   const m = b.length
-  const max = n + m
-  let v = new Map([[1, 0]])
+  const max = Math.min(n + m, WORD_DIFF_MAX_EDITS)
+  const offset = max + 1
+  const v = new Int32Array(2 * max + 3) // index k + offset
   const trace = []
   let found = false
   for (let d = 0; d <= max && !found; d++) {
-    trace.push(v)
-    v = new Map(v)
+    trace.push(v.slice(offset - d - 1, offset + d + 2)) // snapshot of diagonals -d-1..d+1, index k + d + 1
     for (let k = -d; k <= d; k += 2) {
-      let x = k === -d || (k !== d && v.get(k - 1) < v.get(k + 1)) ? v.get(k + 1) : v.get(k - 1) + 1
+      let x = k === -d || (k !== d && v[offset + k - 1] < v[offset + k + 1]) ? v[offset + k + 1] : v[offset + k - 1] + 1
       let y = x - k
       while (x < n && y < m && a[x] === b[y]) {
         x++
         y++
       }
-      v.set(k, x)
+      v[offset + k] = x
       if (x >= n && y >= m) {
         found = true
         break
       }
     }
   }
+  return found ? backtrack(trace, a, b) : null
+}
+
+/** Walks the snapshots back from the end point to the start, and returns the ops in order. */
+function backtrack(trace, a, b) {
   const ops = []
-  let x = n
-  let y = m
+  let x = a.length
+  let y = b.length
   for (let d = trace.length - 1; d >= 0; d--) {
-    const vd = trace[d]
+    const snap = trace[d]
+    const at = (k) => snap[k + d + 1]
     const k = x - y
-    const prevK = k === -d || (k !== d && vd.get(k - 1) < vd.get(k + 1)) ? k + 1 : k - 1
-    const prevX = vd.get(prevK)
+    const prevK = k === -d || (k !== d && at(k - 1) < at(k + 1)) ? k + 1 : k - 1
+    const prevX = at(prevK)
     const prevY = prevX - prevK
     while (x > prevX && y > prevY) {
       ops.push({ op: 'same', value: a[x - 1] })
@@ -113,9 +135,33 @@ function runs(ops) {
 /**
  * Word diff of two texts: [{ op: 'same' | 'del' | 'ins', text }]. The cut is Intl.Segmenter's word cut, so
  * grapheme clusters are never split. Joining the 'same' and 'ins' parts gives `after`; 'same' and 'del' give `before`.
+ * The common start and end are taken off first. When the rest is above WORD_DIFF_CAP tokens, or needs more than
+ * WORD_DIFF_MAX_EDITS edits, the rest is one 'del' and one 'ins' (still exact on both sides).
  */
 export function diffWords(before, after) {
-  return runs(myers(tokenize(before), tokenize(after)))
+  const x = tokenize(before)
+  const y = tokenize(after)
+  let start = 0
+  while (start < x.length && start < y.length && x[start] === y[start]) start++
+  let endX = x.length
+  let endY = y.length
+  while (endX > start && endY > start && x[endX - 1] === y[endY - 1]) {
+    endX--
+    endY--
+  }
+  const middleX = x.slice(start, endX)
+  const middleY = y.slice(start, endY)
+  const exact = middleX.length + middleY.length <= WORD_DIFF_CAP ? myers(middleX, middleY) : null
+  const ops = []
+  for (let i = 0; i < start; i++) ops.push({ op: 'same', value: x[i] })
+  if (exact) {
+    ops.push(...exact)
+  } else {
+    if (middleX.length) ops.push({ op: 'del', value: middleX.join('') })
+    if (middleY.length) ops.push({ op: 'ins', value: middleY.join('') })
+  }
+  for (let i = endX; i < x.length; i++) ops.push({ op: 'same', value: x[i] })
+  return runs(ops)
 }
 
 /** Positions of a longest strictly increasing run of `values` (values are distinct). Returns a Set of positions. */
@@ -189,17 +235,19 @@ function editEntry(before, after, index, id, n) {
 
 /** What changed from draft a to draft b. Pure: the same inputs always give the same diff. */
 export function diffDrafts(a, b) {
-  const aPosts = keyedPosts(a.posts)
-  const bPosts = keyedPosts(b.posts)
+  const from = draftOf(a)
+  const to = draftOf(b)
+  const aPosts = keyedPosts(from.posts)
+  const bPosts = keyedPosts(to.posts)
   const bIndex = new Map(bPosts.map((p, i) => [p.key, i]))
   const aKeys = new Set(aPosts.map((p) => p.key))
 
   const removed = []
   const common = []
-  aPosts.forEach((p, from) => {
-    const to = bIndex.get(p.key)
-    if (to === undefined) removed.push({ id: p.id, n: p.n, index: from })
-    else common.push({ id: p.id, n: p.n, from, to, before: p.post, after: bPosts[to].post })
+  aPosts.forEach((p, index) => {
+    const at = bIndex.get(p.key)
+    if (at === undefined) removed.push({ id: p.id, n: p.n, index })
+    else common.push({ id: p.id, n: p.n, from: index, to: at, before: p.post, after: bPosts[at].post })
   })
 
   const added = []
@@ -241,7 +289,7 @@ export function diffDrafts(a, b) {
   rewritten.sort((p, q) => p.index - q.index)
 
   return {
-    title: a.title === b.title ? null : { before: a.title, after: b.title },
+    title: from.title === to.title ? null : { before: from.title, after: to.title },
     added: added.filter((e) => addedByIndex.has(e.index)),
     removed: keptRemoved,
     edited,
@@ -252,30 +300,39 @@ export function diffDrafts(a, b) {
 
 /** Rebuilds draft b from draft a and diffDrafts(a, b). Used by the tests to prove the diff is complete. */
 export function applyDiff(a, d) {
-  const keyOf = (id, n) => JSON.stringify([id, n])
+  const from = draftOf(a)
+  const keyOf = (id, n) => JSON.stringify([id ?? null, n])
   const removedKeys = new Set(d.removed.map((r) => keyOf(r.id, r.n)))
   const rewrittenFromKeys = new Set(d.rewritten.map((r) => keyOf(r.fromId, r.fromN)))
   const movedKeys = new Set(d.moved.map((m) => keyOf(m.id, m.n)))
-  const content = new Map(keyedPosts(a.posts).map((p) => [p.key, p.post]))
+  const content = new Map(keyedPosts(from.posts).map((p) => [p.key, p.post]))
   for (const e of d.edited) content.set(keyOf(e.id, e.n), e.post)
 
   // Unmoved common posts keep their order, so they fill the places the placed posts leave.
-  const rest = keyedPosts(a.posts)
+  const rest = keyedPosts(from.posts)
     .filter((p) => !removedKeys.has(p.key) && !rewrittenFromKeys.has(p.key) && !movedKeys.has(p.key))
     .map((p) => content.get(p.key))
 
-  const length = a.posts.length - removedKeys.size - rewrittenFromKeys.size + d.added.length + d.rewritten.length
+  const length = from.posts.length - removedKeys.size - rewrittenFromKeys.size + d.added.length + d.rewritten.length
   const posts = new Array(length)
-  for (const e of d.added) posts[e.index] = e.post
-  for (const r of d.rewritten) posts[r.index] = r.post
-  for (const m of d.moved) posts[m.to] = content.get(keyOf(m.id, m.n))
+  const placed = new Array(length).fill(false)
+  const place = (i, post) => {
+    posts[i] = post
+    placed[i] = true
+  }
+  for (const e of d.added) place(e.index, e.post)
+  for (const r of d.rewritten) place(r.index, r.post)
+  for (const m of d.moved) place(m.to, content.get(keyOf(m.id, m.n)))
   let next = 0
-  for (let i = 0; i < length; i++) if (posts[i] === undefined) posts[i] = rest[next++]
+  for (let i = 0; i < length; i++) if (!placed[i]) place(i, rest[next++])
 
-  return { title: d.title ? d.title.after : a.title, posts }
+  return { title: d.title ? d.title.after : from.title, posts }
 }
 
-/** Short English text for a diff, e.g. "changed post 2, added post 5 after post 4, moved post 6 to 2". */
+/**
+ * Short English text for a diff, e.g. "changed post 2, added post 5 after post 4, moved post 6 to 2".
+ * Positions: removed[].index is a position in a (the old draft); every other index is a position in b (the new draft).
+ */
 export function summaryLine(d) {
   const parts = []
   if (d.title) parts.push('changed the title')

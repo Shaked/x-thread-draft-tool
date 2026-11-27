@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyDiff, diffDrafts, diffWords, summaryLine } from '../../src/utils/revisionDiff.js'
+import { WORD_DIFF_CAP, applyDiff, diffDrafts, diffWords, summaryLine } from '../../src/utils/revisionDiff.js'
 
 // Seeded generator (mulberry32): the same 500 pairs every run, no network, no new dependency.
 function rng(seed) {
@@ -252,6 +252,55 @@ describe('revision diff core (#377)', () => {
     expect(JSON.stringify(d)).not.toContain('undefined')
     expect(applyDiff(a, d)).toEqual(b)
     expect(emptyDiff(diffDrafts(b, b))).toBe(true)
+  })
+
+  it('a total rewrite of about 20 KB finishes in under 200 ms and still rebuilds exactly', () => {
+    const before = Array.from({ length: 2500 }, (_, i) => `alpha${i}`).join(' ')
+    const after = Array.from({ length: 2500 }, (_, i) => `beta${i}`).join(' ')
+    expect(before.length).toBeGreaterThan(20_000)
+    const started = performance.now()
+    const parts = diffWords(before, after)
+    expect(performance.now() - started).toBeLessThan(200)
+    expect(parts.filter((p) => p.op !== 'ins').map((p) => p.text).join('')).toBe(before)
+    expect(parts.filter((p) => p.op !== 'del').map((p) => p.text).join('')).toBe(after)
+    const a = { title: 'T', posts: [{ id: 'p', text: before, images: [], embeddedTweet: null }] }
+    const b = { title: 'T', posts: [{ id: 'p', text: after, images: [], embeddedTweet: null }] }
+    expect(applyDiff(a, diffDrafts(a, b))).toEqual(b)
+  })
+
+  it('the word diff cap: exact up to WORD_DIFF_CAP tokens, one deletion and one insertion above it', () => {
+    // Every word changes at both ends and every other word in between, so no common start or end is taken off.
+    const pair = (words) => {
+      const before = Array.from({ length: words }, (_, i) => `w${i}`).join(' ')
+      const after = Array.from({ length: words }, (_, i) => (i % 2 === 0 || i === words - 1 ? `c${i}` : `w${i}`)).join(' ')
+      return [before, after]
+    }
+    // 2 * (2 * words - 1) tokens across both texts: 500 words give 1998 tokens (at the cap), 501 give 2002.
+    const [beforeAtCap, afterAtCap] = pair(500)
+    const exact = diffWords(beforeAtCap, afterAtCap)
+    expect(exact.length).toBeGreaterThan(3)
+    expect(exact.filter((p) => p.op !== 'ins').map((p) => p.text).join('')).toBe(beforeAtCap)
+
+    const [beforeOver, afterOver] = pair(501)
+    expect(2 * (2 * 501 - 1)).toBeGreaterThan(WORD_DIFF_CAP)
+    const capped = diffWords(beforeOver, afterOver)
+    expect(capped.map((p) => p.op)).toEqual(['del', 'ins'])
+    expect(capped.filter((p) => p.op !== 'ins').map((p) => p.text).join('')).toBe(beforeOver)
+    expect(capped.filter((p) => p.op !== 'del').map((p) => p.text).join('')).toBe(afterOver)
+  })
+
+  it('a null or missing posts list, a null post and a null draft do not throw and still rebuild', () => {
+    const p = { id: 'a', text: 'Hi', images: [], embeddedTweet: null }
+    const d1 = diffDrafts(null, { title: 'T', posts: [p] })
+    expect(applyDiff(null, d1)).toEqual({ title: 'T', posts: [p] })
+    const noList = { title: 'T' }
+    expect(applyDiff(noList, diffDrafts(noList, { title: 'T', posts: [p] }))).toEqual({ title: 'T', posts: [p] })
+    const a = { title: 'T', posts: [p] }
+    const b = { title: 'T', posts: [null, p, undefined] }
+    const d2 = diffDrafts(a, b)
+    expect(applyDiff(a, d2)).toEqual(b)
+    expect(emptyDiff(diffDrafts(b, b))).toBe(true)
+    expect(summaryLine(diffDrafts(null, null))).toBe('no changes')
   })
 
   it('a 1 MB draft: a few edits, a move and an add are found, and the rebuild matches', () => {
