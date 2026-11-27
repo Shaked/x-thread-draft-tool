@@ -91,6 +91,19 @@ with GitHub's device flow via `npm run agent:login`, which keeps a short-lived a
 
 Connect an AI app over MCP (Claude, Claude Code, Codex, ChatGPT): [docs/agents/mcp.md](./docs/agents/mcp.md), Hebrew: [docs/agents/mcp.he.md](./docs/agents/mcp.he.md).
 
+## Plugin marketplace
+
+This repository is also a Claude Code plugin marketplace, `agent-kit`, with generic skills, hooks and scripts for agents:
+`reply-style`, `metrics`, `task-janitor`, `contract-tests` and `pr-workflow`. Any project can install them:
+
+```
+/plugin marketplace add Shaked/x-thread-draft-tool
+/plugin install reply-style@agent-kit
+```
+
+Install commands for a team, the settings file (`.claude/agent-kit.json`), upgrades and how to contribute:
+[docs/marketplace.md](./docs/marketplace.md). Do not install them in this repository: it uses the plugin folders in place.
+
 ## Project Structure
 
 ```
