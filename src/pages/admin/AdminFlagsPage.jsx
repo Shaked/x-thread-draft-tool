@@ -12,12 +12,12 @@ import { setKit, setSkin } from '../../utils/skin'
 // Rare UI is the default for everyone; this page is the admin's off switch. Other users always get Rare UI (#406).
 const LOOKS = [
   { value: 'rare', label: 'Rare UI (everyone)' },
-  { value: 'default', label: 'Old look, purple (only you)' }
+  { value: 'default', label: 'Purple (only you)' }
 ]
 
 const KITS = [
   { value: 'rare', label: 'Rare UI components (everyone)' },
-  { value: 'default', label: 'Old components (only you)' }
+  { value: 'default', label: 'Plain components (only you)' }
 ]
 
 // The value this account has, else the server's default for the flag (Rare UI).

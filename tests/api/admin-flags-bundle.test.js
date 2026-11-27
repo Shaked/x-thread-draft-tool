@@ -12,7 +12,7 @@ describe('the browser bundle has no flags page text outside the admin chunk', ()
   it('the page texts appear only in assets/AdminLayout-*', () => {
     expect(existsSync(ASSETS), 'run npm run build first').toBe(true)
     const files = readdirSync(ASSETS).filter((name) => name.endsWith('.js'))
-    for (const text of ['Rare UI (everyone)', 'Old look, purple (only you)', 'Could not save the flag', 'Could not load the feature flags']) {
+    for (const text of ['Rare UI (everyone)', 'Purple (only you)', 'Could not save the flag', 'Could not load the feature flags']) {
       const found = files.filter((name) => readFileSync(join(ASSETS, name), 'utf8').includes(text))
       expect(found.length, text).toBeGreaterThan(0)
       expect(found.filter((name) => !name.startsWith('AdminLayout-')), text).toEqual([])
