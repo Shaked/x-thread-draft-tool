@@ -102,7 +102,7 @@
     "area": "AI apps",
     "title": "Claude Code and Codex can now sign in",
     "lines": [
-      "Sign-in accepts a return address on any local port.",
+      "Sign-in accepts a local return address on a different port when the same local address is already registered.",
       "Sign-in no longer needs the extra resource setting that Codex leaves out."
     ]
   },
@@ -144,8 +144,8 @@
     "area": "AI apps",
     "title": "Image removal through AI apps fixed",
     "lines": [
-      "Removing an image now counts how many other drafts use it.",
-      "Only files owned by your account are deleted.",
+      "Removing an image now also checks older image entries in your other drafts before deleting the file.",
+      "The file is deleted only if it is yours and none of your other drafts uses it.",
       "A successful removal no longer returns a forbidden error."
     ]
   },
@@ -183,7 +183,7 @@
     "file": "docs/changelogs/20261113-081800-mcp-m7-pin-address.md",
     "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/87",
     "area": "Security",
-    "title": "Remote links cannot reach private addresses",
+    "title": "Image and metadata fetches avoid private addresses",
     "lines": [
       "Metadata documents and remote images now connect only to the address that was checked.",
       "If a site switches to a private address after the check, the app still does not connect to it.",
@@ -199,7 +199,7 @@
     "lines": [
       "Each user can make 120 tool calls a minute through AI apps.",
       "A call over the limit gets a tool error, not a protocol error.",
-      "Records older than one day are cleared during the regular token cleanup."
+      "Rate-limit counts older than one day are cleared during the regular token cleanup."
     ]
   },
   {
@@ -340,8 +340,8 @@
     "lines": [
       "Changing one post's text now saves only that post.",
       "A repeat of the same change writes nothing new.",
-      "If the draft changed since it was read, the change is refused.",
-      "If a save fails partway, its changes are undone.",
+      "If the caller sends the version it read and the draft has changed, the change is refused.",
+      "If this single-post change fails partway, its changes are undone.",
       "Each draft keeps a version number that goes up with every change."
     ]
   },
@@ -390,10 +390,10 @@
     "file": "docs/changelogs/20261113-225112-o1-part2.md",
     "pr": "https://github.com/Shaked/x-thread-draft-tool/pull/102",
     "area": "Editor",
-    "title": "Draft saves now check for conflicts",
+    "title": "Draft saves can check for conflicts",
     "lines": [
       "Saving or publishing a whole draft now happens as one step.",
-      "If the draft changed since it was read, the save is refused.",
+      "When a save sends the version it read and the draft has changed, the save is refused.",
       "Repeating a save that already happened changes nothing.",
       "AI apps can give a new post an ID of their own.",
       "Repeating an add with the same ID writes nothing, and different text under that ID is refused."

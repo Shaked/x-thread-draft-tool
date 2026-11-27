@@ -1,6 +1,6 @@
 # Claude Code and Codex can now sign in
 
-- Sign-in accepts a return address on any local port.
+- Sign-in accepts a local return address on a different port when the same local address is already registered.
 - Sign-in no longer needs the extra resource setting that Codex leaves out.
 
 Area: AI apps

@@ -1,7 +1,7 @@
 # Image removal through AI apps fixed
 
-- Removing an image now counts how many other drafts use it.
-- Only files owned by your account are deleted.
+- Removing an image now also checks older image entries in your other drafts before deleting the file.
+- The file is deleted only if it is yours and none of your other drafts uses it.
 - A successful removal no longer returns a forbidden error.
 
 Area: AI apps
