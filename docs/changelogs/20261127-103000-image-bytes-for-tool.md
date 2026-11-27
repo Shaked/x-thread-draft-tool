@@ -1,4 +1,7 @@
-# add_image_from_url takes image bytes (#419)
-- `add_image_from_url` accepts `data` (base64, at most 700,000 bytes) and `mime` instead of `url`, for our view and scripts; it calls `POST /images` in-process with raw bytes.
-- Refused before any upload: over 933,336 characters, bad base64, a mime that differs from the bytes, `url` with `data`.
-- `POST /drafts/:id/images` attaches a file the caller already owns without fetching it again.
+# Add a picture from its bytes
+
+- An assistant view or a script can now send a picture itself, as base64 with its type, instead of a web address.
+- It is refused before anything is stored when it is too big, is not valid base64, or its type does not match the bytes.
+
+Area: AI apps
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/598
