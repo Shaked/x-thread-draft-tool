@@ -254,6 +254,45 @@
         { "lang": "he", "text": "מה עוד אפשר לכתוב בפוסט הראשון?", "expect": ["get_draft", "get_draft_outline"] },
         { "lang": "he", "text": "תראה לי כמה גרסאות לציוץ האחרון", "expect": ["get_draft", "get_draft_outline"] }
       ]
+    },
+    {
+      "id": "replace_image",
+      "phrases": [
+        { "lang": "en", "text": "Replace the photo in post 2 with this link", "expect": ["add_image_from_url"] },
+        { "lang": "en", "text": "Swap the picture for this new image from the URL", "expect": ["add_image_from_url"] },
+        { "lang": "en", "text": "Use a different photo instead of the old one", "expect": ["add_image_from_url"] },
+        { "lang": "en", "text": "Replace the image in my thread everywhere it is used", "expect": ["add_image_from_url"] },
+        { "lang": "he", "text": "החלף את התמונה בשרשור בתמונה מהקישור הזה", "expect": ["add_image_from_url"] },
+        { "lang": "he", "text": "תחליף את התמונה הזאת בתמונה חדשה", "expect": ["add_image_from_url"] },
+        { "lang": "he", "text": "שנה את התמונה לזאת שבקישור הזה", "expect": ["add_image_from_url"] },
+        { "lang": "he", "text": "החלף את התמונה בכל הציוצים שמשתמשים בה", "expect": ["add_image_from_url"] }
+      ]
+    },
+    {
+      "id": "move_image",
+      "phrases": [
+        { "lang": "en", "text": "Move the picture to the first post", "expect": ["move_post"] },
+        { "lang": "en", "text": "Reorder the images in post 2", "expect": ["move_post"] },
+        { "lang": "en", "text": "Move this image to another tweet", "expect": ["move_post"] },
+        { "lang": "en", "text": "Put the photo of the last post before the text", "expect": ["move_post"] },
+        { "lang": "he", "text": "הזז את התמונה לציוץ הראשון", "expect": ["move_post"] },
+        { "lang": "he", "text": "סדר מחדש את התמונות בציוץ השני", "expect": ["move_post"] },
+        { "lang": "he", "text": "העבר את התמונה לפוסט השלישי", "expect": ["move_post"] },
+        { "lang": "he", "text": "שנה את סדר התמונות בפוסט הזה", "expect": ["move_post"] }
+      ]
+    },
+    {
+      "id": "remove_images",
+      "phrases": [
+        { "lang": "en", "text": "Remove all the pictures from post 2", "expect": ["remove_image"] },
+        { "lang": "en", "text": "Delete every image of the second tweet", "expect": ["remove_image"] },
+        { "lang": "en", "text": "Take all photos off my thread", "expect": ["remove_image"] },
+        { "lang": "en", "text": "Strip the images from the last post", "expect": ["remove_image"] },
+        { "lang": "he", "text": "הסר את כל התמונות מהציוץ השני", "expect": ["remove_image"] },
+        { "lang": "he", "text": "מחק את כל התמונות מהפוסט הראשון", "expect": ["remove_image"] },
+        { "lang": "he", "text": "תוריד את כל התמונות מהשרשור", "expect": ["remove_image"] },
+        { "lang": "he", "text": "הסר את התמונות מכל הציוצים", "expect": ["remove_image"] }
+      ]
     }
   ],
   "negatives": [

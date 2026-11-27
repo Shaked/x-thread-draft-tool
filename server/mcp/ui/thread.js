@@ -3,6 +3,8 @@
 // string so the module transform never rewrites its names. The colors are the X variables from server/share/x-css.js.
 import * as client from './client.js'
 import { el, tr } from './client.js'
+import { HOST_FUNCTIONS } from './hosts.js'
+import { RENDERERS } from './render/index.js'
 import { X_VARS_DARK, X_VARS_LIGHT } from '../../share/x-css.js'
 import { embedOrigin } from './origin.js'
 import { minifyCss, pageScript } from './script.js'
@@ -61,14 +63,12 @@ const STARTER = `
   function open(url) {
     var safe = safeUrl(url, null);
     if (!safe) return Promise.resolve(null);
-    if (window.openai && typeof window.openai.openExternal === 'function') {
-      try { return Promise.resolve(window.openai.openExternal({ href: safe })).catch(function () { return null; }); } catch (e) { return Promise.resolve(null); }
-    }
-    return link.openLink(safe).catch(function () { return null; });
+    var method = hostMethod(window, 'openLink');
+    try { return Promise.resolve(method ? window.openai[method]({ href: safe }) : link.openLink(safe)).catch(function () { return null; }); } catch (e) { return Promise.resolve(null); }
   }
-  function canExpand() { return Boolean(window.openai && typeof window.openai.requestDisplayMode === 'function'); }
+  function canExpand() { return hostMethod(window, 'displayModes') !== null; }
   function expand() {
-    try { return Promise.resolve(window.openai.requestDisplayMode({ mode: 'fullscreen' })).catch(function () { return null; }); } catch (e) { return Promise.resolve(null); }
+    try { return Promise.resolve(window.openai[hostMethod(window, 'displayModes')]({ mode: 'fullscreen' })).catch(function () { return null; }); } catch (e) { return Promise.resolve(null); }
   }
   function createShare(id) { return link.callTool('create_share_link', { id: id }, 120000); }
   function revokeShare(id, token) { return link.callTool('revoke_share_link', { id: id, token: token }, 120000); }
@@ -108,17 +108,12 @@ const STARTER = `
     }
   }
   function applyContext(ctx) {
-    if (!ctx) return;
-    if (ctx.theme === 'dark' || ctx.theme === 'light') document.documentElement.dataset.theme = ctx.theme;
-    var insets = ctx.safeAreaInsets;
-    if (insets) {
-      ['top', 'right', 'bottom', 'left'].forEach(function (side) {
-        var px = clampInset(insets[side]);
-        if (px !== null) document.documentElement.style.setProperty('--safe-' + side, px + 'px');
-      });
-    }
+    var theme = hostTheme(window, ctx);
+    if (theme) document.documentElement.dataset.theme = theme;
+    var insets = hostInsets(window, ctx);
+    for (var side in insets) document.documentElement.style.setProperty('--safe-' + side, insets[side] + 'px');
   }
-  if (window.openai && (window.openai.theme === 'dark' || window.openai.theme === 'light')) applyContext({ theme: window.openai.theme });
+  applyContext(null);
   link = bridge({
     result: showResult,
     context: applyContext,
@@ -206,7 +201,7 @@ export const RENDER_FUNCTIONS = [
 
 // The page script for one image origin: the render functions, then the starter with the origin baked in.
 const scriptFor = (imageOrigin) =>
-  pageScript(['common', 'thread', 'share'], [...RENDER_FUNCTIONS, ...CARD_FUNCTIONS, createShareNode], STARTER.replace('__IMAGE_ORIGIN__', embedOrigin(imageOrigin)))
+  pageScript(['common', 'thread', 'share'], [...RENDER_FUNCTIONS, ...RENDERERS, ...HOST_FUNCTIONS, ...CARD_FUNCTIONS, createShareNode], STARTER.replace('__IMAGE_ORIGIN__', embedOrigin(imageOrigin)))
 
 /** The whole view document, for one image origin (null when the environment has none). */
 function threadHtml(imageOrigin) {

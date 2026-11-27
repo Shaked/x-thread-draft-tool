@@ -1,6 +1,7 @@
 // Plan Task 6 (#187): the share link card in jsdom. The two links and their Open and Copy buttons, the countdown and
 // the "Expired" state (fake timers), the copy fallback when the clipboard write fails, and that the token appears
 // only inside the two URLs. The Playwright check is in tests/e2e/mcp-share-view.spec.ts.
+import './helpers/page-globals.js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { countdownText, localTime, renderShare, shareFrom } from '../../server/mcp/ui/share.js'
 import { listUiResources, readUiResource, uiResourceUri } from '../../server/mcp/ui/index.js'

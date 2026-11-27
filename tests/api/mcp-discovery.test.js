@@ -26,8 +26,8 @@ const toolNames = new Set(tools.map((t) => t.name))
 const URL_RE = /^https:\/\/\S+$/
 
 describe('discovery corpus', () => {
-  it('has 19 intents, each with at least 4 English and 4 Hebrew phrases', () => {
-    expect(intents).toHaveLength(19)
+  it('has 22 intents, each with at least 4 English and 4 Hebrew phrases', () => {
+    expect(intents).toHaveLength(22)
     for (const intent of intents) {
       for (const lang of ['en', 'he']) {
         expect(intent.phrases.filter((p) => p.lang === lang).length, `${intent.id} ${lang}`).toBeGreaterThanOrEqual(4)

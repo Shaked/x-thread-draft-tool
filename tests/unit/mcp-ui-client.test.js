@@ -1,7 +1,8 @@
 // Plan Task 1 step 7 (#170): the view code in jsdom. The source of every view must avoid the write paths that rule 9
 // of docs/plans/mcp-apps.md bans; safeUrl refuses everything but https; draft text renders as plain text; the
 // bridge starts the handshake and reports the tool result.
-import { readFileSync } from 'node:fs'
+import './helpers/page-globals.js'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bridge, el, renderThread, safeUrl } from '../../server/mcp/ui/client.js'
@@ -14,7 +15,10 @@ const NETWORK = [/<script[^>]*\ssrc=/i, /<link/i, /\bfetch\s*\(/, /XMLHttpReques
 
 // Every view (the thread view and the drafts list), each with the shared client source.
 function viewSources() {
-  const client = readFileSync(join(process.cwd(), 'server/mcp/ui/client.js'), 'utf8')
+  // client.js, hosts.js and every renderer in render/ (#292): they are copied into the views, so the same rules apply.
+  const dir = join(process.cwd(), 'server/mcp/ui')
+  const files = ['client.js', 'hosts.js', ...readdirSync(join(dir, 'render')).map((name) => 'render/' + name)]
+  const client = files.map((name) => readFileSync(join(dir, name), 'utf8')).join('\n')
   return listUiResources().map((entry) => ({ name: entry.name, html: readUiResource(entry.uri)[0].text, client }))
 }
 

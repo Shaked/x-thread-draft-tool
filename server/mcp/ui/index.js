@@ -7,6 +7,7 @@ import { THREAD_VIEW } from './thread.js'
 import { DRAFTS_VIEW } from './drafts.js'
 import { SHARE_VIEW } from './share.js'
 import { blobOrigin, isBlobOrigin } from './origin.js'
+import { hostTable } from './hosts.js'
 
 const MIME_TYPE = 'text/html;profile=mcp-app'
 const VIEWS = [THREAD_VIEW, DRAFTS_VIEW, SHARE_VIEW]
@@ -40,7 +41,7 @@ function entriesFor(imageOrigin) {
 const ENTRIES = entriesFor(BLOB_ORIGIN)
 const metaOf = (entry) => ({
   ui: structuredClone(entry.ui),
-  'openai/widgetCSP': structuredClone(entry.widgetCsp),
+  [hostTable().openai.csp]: structuredClone(entry.widgetCsp),
   'openai/widgetPrefersBorder': true
 })
 

@@ -1,6 +1,7 @@
 // Plan Task 5 (#182): the drafts list view in jsdom. Rows, the Hebrew and Untitled titles, the counts and the
 // over-limit chip, the date text in the host locale, the editor link only under the editor base, the empty list,
 // and "View thread" through the host. The Playwright check is in tests/e2e/mcp-drafts-view.spec.ts.
+import './helpers/page-globals.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { draftRow, listFrom, relativeTime, renderList, errorText } from '../../server/mcp/ui/drafts.js'
 import { listUiResources, readUiResource, uiResourceUri } from '../../server/mcp/ui/index.js'
