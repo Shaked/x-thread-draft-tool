@@ -120,6 +120,18 @@ beforeAll(async () => {
   await write(rw.id, { posts: [post('r', 'plain again')], actor: ['user', 'erin'] })
   R.afterRewrite = await revisions(rw.id)
 
+  // Duplicate ids and legacy posts with no id (both accepted by the routes): history keeps every post apart.
+  const dupes = [post('d', 'first'), post('d', 'second'), { text: 'legacy', images: [], embeddedTweet: null }]
+  const dup = await newDraft(user.id, dupes, 'Dup')
+  const dupEdited = [post('d', 'first'), post('d', 'second 2'), dupes[2]]
+  await write(dup.id, { posts: dupEdited, actor: ['user', 'frank'] })
+  R.dup = { created: await rebuild(dup.id, 1), edited: await rebuild(dup.id, 2), rows: await versions(dup.id, 2) }
+  const idless = { text: 'x', images: [], embeddedTweet: null }
+  const legacy = await newDraft(user.id, [idless, post('l2', 'y')], 'Legacy')
+  await db.pg.query('delete from draft_revisions where draft_id = $1', [legacy.id])
+  await write(legacy.id, { title: 'Legacy 2', actor: ['user', 'gina'] })
+  R.legacy = await rebuild(legacy.id, 0)
+
   // Cascade: deleting the draft removes its revision rows.
   const gone = await newDraft(user.id, [post('g', 'gone')])
   await write(gone.id, { posts: [post('g', 'gone 2')], actor: ['user', 'z'] })
@@ -216,6 +228,13 @@ describe('draft revisions trigger (#375)', () => {
   it('rewrite mode makes no revision, and the next normal write still gets one', () => {
     expect(R.rewrite.revs).toHaveLength(1)
     expect(R.afterRewrite.map((row) => row.seq)).toEqual([1, 2])
+  })
+
+  it('duplicate ids and id-less posts are kept apart in history', () => {
+    expect(R.dup.created.posts).toEqual([post('d', 'first'), post('d', 'second'), { text: 'legacy', images: [], embeddedTweet: null }])
+    expect(R.dup.edited.posts[1]).toEqual(post('d', 'second 2'))
+    expect(R.dup.rows).toHaveLength(1)
+    expect(R.legacy.posts).toEqual([{ text: 'x', images: [], embeddedTweet: null }, post('l2', 'y')])
   })
 
   it('deleting a draft removes its revision rows', () => {

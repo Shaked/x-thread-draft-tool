@@ -25,6 +25,17 @@ alter table drafts add column if not exists last_actor_kind text;
 alter table drafts add column if not exists last_actor_name text;
 alter table drafts add column if not exists last_label text;
 
+-- The history key of each post: its id; a repeated id gets its occurrence number; a post with no id (saved before ids
+-- were required) gets its position. Every post has a key, so history keeps duplicates and legacy posts apart.
+create or replace function draft_post_keys(posts jsonb) returns table (key text, ord bigint, body jsonb)
+language sql immutable as $$
+  select case when e.value->>'id' is null then chr(31) || 'pos' || e.ord
+              when row_number() over (partition by e.value->>'id' order by e.ord) = 1 then e.value->>'id'
+              else (e.value->>'id') || chr(31) || row_number() over (partition by e.value->>'id' order by e.ord) end,
+         e.ord, e.value
+    from jsonb_array_elements(coalesce(posts, '[]'::jsonb)) with ordinality as e(value, ord)
+$$;
+
 create or replace function draft_revisions_write() returns trigger language plpgsql as $$
 declare
   old_posts jsonb := case when TG_OP = 'INSERT' then '[]'::jsonb else OLD.posts end;
@@ -41,8 +52,8 @@ begin
   end if;
 
   -- Post ids in order, old and new. A change of ids, or of their order, is what post_order records.
-  old_ids := coalesce(array(select e->>'id' from jsonb_array_elements(old_posts) e where e->>'id' is not null), '{}');
-  new_ids := coalesce(array(select e->>'id' from jsonb_array_elements(NEW.posts) e where e->>'id' is not null), '{}');
+  old_ids := coalesce(array(select key from draft_post_keys(old_posts) order by ord), '{}');
+  new_ids := coalesce(array(select key from draft_post_keys(NEW.posts) order by ord), '{}');
   changed := title_changed or old_posts is distinct from NEW.posts;
   if not changed then
     return null; -- only version, flags or timestamps changed: no revision
@@ -53,7 +64,7 @@ begin
     insert into draft_revisions (draft_id, seq, version, actor_kind, actor_name, label, title, post_order)
     values (NEW.id, 0, OLD.version, 'system', null, 'Before history started', OLD.title, old_ids);
     insert into draft_post_versions (draft_id, post_id, seq, body)
-    select distinct on (e->>'id') NEW.id, e->>'id', 0, e from jsonb_array_elements(OLD.posts) e where e->>'id' is not null;
+    select NEW.id, key, 0, k.body from draft_post_keys(OLD.posts) k;
   end if;
 
   -- Merge into the last revision: same actor, no label, a user edit (not a restore), under 2 minutes old.
@@ -79,13 +90,12 @@ begin
   -- One row per changed post (the whole post object), and a null body for each removed post.
   insert into draft_post_versions (draft_id, post_id, seq, body)
   select NEW.id, n.id, target, n.body
-    from (select distinct on (e->>'id') e->>'id' as id, e as body from jsonb_array_elements(NEW.posts) e where e->>'id' is not null) n
-    left join (select distinct on (e->>'id') e->>'id' as id, e as body from jsonb_array_elements(old_posts) e where e->>'id' is not null) o
-      on o.id = n.id
+    from draft_post_keys(NEW.posts) n(id, ord, body)
+    left join draft_post_keys(old_posts) o(id, ord, body) on o.id = n.id
    where o.body is distinct from n.body
   union all
   select NEW.id, o.id, target, null
-    from (select distinct on (e->>'id') e->>'id' as id from jsonb_array_elements(old_posts) e where e->>'id' is not null) o
+    from draft_post_keys(old_posts) o(id, ord, body)
    where o.id <> all(new_ids)
   on conflict (draft_id, post_id, seq) do update set body = excluded.body;
   return null;

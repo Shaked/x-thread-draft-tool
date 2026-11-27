@@ -4,6 +4,7 @@ Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`).
 
 ## Tables
 - `draft_revisions(draft_id, seq, version, created_at, actor_kind, actor_name, label, title, post_order)`, key `(draft_id, seq)`. `title` only when it changed; `post_order` (post ids) only when posts were added, removed or moved.
+- `post_id` is a history key from `draft_post_keys()`: the post id; a repeated id gets `<id>\x1f<occurrence>`; a post with no id gets `\x1fpos<position>`. So duplicate ids and legacy posts are all kept.
 - `draft_post_versions(draft_id, post_id, seq, body)`, key `(draft_id, post_id, seq)`. One row per changed post (the whole post object); `body` null means removed.
 - `drafts.last_actor_kind`, `last_actor_name`, `last_label`: set by a write, read by the trigger. Nullable; no existing row is rewritten.
 - Both new tables reference `drafts` with `on delete cascade`, so they go with the draft and with the user. The admin delete-user preview counts them (`draft_revisions`, `revision_posts`).
