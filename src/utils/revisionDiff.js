@@ -28,7 +28,7 @@ const REWRITE_SHARE = 0.3
 // WORD_DIFF_CAP: tokens left in both texts after the common start and end are removed.
 // WORD_DIFF_MAX_EDITS: inserts plus deletes the exact diff may need.
 export const WORD_DIFF_CAP = 2000
-export const WORD_DIFF_MAX_EDITS = 1000
+const WORD_DIFF_MAX_EDITS = 1000
 
 const draftOf = (draft) => ({
   title: draft?.title,
