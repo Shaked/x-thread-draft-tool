@@ -1,0 +1,1 @@
+- Plugin `contract-tests` 0.1.0: the end-to-end contract-test method moves out of the repo skill into a generic plugin skill (no repo paths); the repo's skill keeps the owner rules and its helpers, and links to the plugin. Tests check the manifests and that the plugin names no repo path.

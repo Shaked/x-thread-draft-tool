@@ -1,0 +1,8 @@
+{
+  "name": "contract-tests",
+  "version": "0.1.0",
+  "description": "A method for end-to-end contract tests that run without a person, a client binary, a browser sign-in or a model call.",
+  "author": { "name": "Shaked" },
+  "license": "MIT",
+  "network": { "hosts": [] }
+}
