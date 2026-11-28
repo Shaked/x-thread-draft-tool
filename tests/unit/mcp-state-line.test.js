@@ -27,7 +27,7 @@ describe('stateLine', () => {
       expect(line, tool).toContain(`Editor: ${ORIGIN}/draft/${ID}.`)
       expect(matches(hintOf(line)), `${tool}: ${hintOf(line)}`).toBe(true)
     }
-    expect(STATE_LINE_TOOLS).toEqual(['get_draft', 'create_draft', 'create_thread_from_text', 'duplicate_draft', 'get_draft_outline', 'update_draft', 'add_post', 'update_post', 'remove_post', 'move_post', 'add_image_from_url', 'remove_image'])
+    expect(STATE_LINE_TOOLS).toEqual(['get_draft', 'create_draft', 'create_thread_from_text', 'duplicate_draft', 'get_draft_outline', 'update_draft', 'add_post', 'update_post', 'remove_post', 'move_post', 'add_image_from_url', 'remove_image', 'restore_revision'])
   })
 
   it('has no line for a tool that is not in the list, or without a draft', () => {

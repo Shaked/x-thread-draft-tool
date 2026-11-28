@@ -1,6 +1,6 @@
 # Draft revisions (tables and trigger)
 
-Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`). Plan: `docs/plans/revisions-and-encryption.md` section 2. Only `server/routes/revisions.js` reads the tables (list and read one revision, #378) and writes a restore (#379); the history view and the MCP tools are later tasks. Checked on 2026-11-27.
+Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`). Plan: `docs/plans/revisions-and-encryption.md` section 2. Only `server/routes/revisions.js` reads the tables (list and read one revision, #378) and writes a restore (#379); the MCP tools are in `server/mcp/tools.js` (#380); the history view is a later task. Checked on 2026-11-27.
 
 ## Tables
 - `draft_revisions(draft_id, seq, version, created_at, actor_kind, actor_name, label, title, post_order)`, key `(draft_id, seq)`. `title` only when it changed; `post_order` (post ids) only when posts were added, removed or moved.
@@ -36,3 +36,9 @@ The key function treats posts that are not a JSON array (a bad old row) as empty
 - Images: a post's image whose file is gone is dropped and counted in `images_not_restored`. Only this user's own Blob files are checked (one listing of `drafts/<user id>/`). A cut-off listing (truncated) drops nothing. A failed listing is a 503 with nothing written.
 - The tests are in `tests/api/draft-revisions-restore.test.js`; the leak scan covers the route.
 
+
+## MCP tools (#380)
+- `list_revisions`, `get_revision` and `restore_revision` call the three routes above in-process. The text is built in `server/mcp/revision-result.js`: one line per revision, then `Post N before:` and `Post N after:` block quotes (never a code block), ending with the next call. `structuredContent` keeps the route's JSON.
+- `get_revision` reads the state it compares with (the other revision, or the draft now) and the draft version with two more reads, because the route answer has neither the removed posts' text nor the version the restore call needs.
+- `restore_revision` requires `version` and always sends `If-Match`; a stale version is the existing `staleOr` answer. Its result is the outline and the link, no post text. A view-as caller is refused by the tool itself.
+- The tools do not set the actor columns: only the restore route does (`restore`). A revision made by an assistant has an actor only when its write sets one; a list line then reads `Revision 14, 3 minutes ago` with no `by`.
