@@ -1,6 +1,6 @@
 # Draft revisions (tables and trigger)
 
-Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`). Plan: `docs/plans/revisions-and-encryption.md` section 2. Only `server/routes/revisions.js` reads the tables (list and read one revision, #378) and writes a restore (#379); the history view and the MCP tools are later tasks. who is named by H3 (#376, below). Checked on 2026-11-27.
+Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`). Plan: `docs/plans/revisions-and-encryption.md` section 2. Only `server/routes/revisions.js` reads the tables (list and read one revision, #378) and writes a restore (#379); the history view and the MCP tools are later tasks. Who is named by H3 (#376) is in its own section below. Checked on 2026-11-27.
 
 ## Tables
 - `draft_revisions(draft_id, seq, version, created_at, actor_kind, actor_name, label, title, post_order)`, key `(draft_id, seq)`. `title` only when it changed; `post_order` (post ids) only when posts were added, removed or moved.
@@ -24,7 +24,7 @@ Every write of `drafts` except a restore (below) sets the one-shot columns in th
 | Supabase import (`scripts/migrate-from-supabase.mjs`, `IMPORT_DRAFT_SQL`) | `system` | `Import` |
 
 - Labels are fixed: publish sets `Published`; duplicate sets `Copied from another draft` on the copy. No label carries user text.
-- A client whose name equals a fixed name (any case) is shown as `App`, so no client can pose as the browser, a token, CI, an upload link or the import.
+- A client whose name equals a fixed name after folding is shown as `App`, so no client can pose as the browser, a token, CI, an upload link or the import. Folding: NFKD, hidden characters and combining marks removed, spaces collapsed, look-alike letters of other scripts (Cyrillic, Greek, Cherokee, Armenian, small capitals, dotless i) read as Latin, lowercase. A name that mixes Latin letters with Cyrillic or Greek letters, or whose key is empty, is `App`. The stored name keeps the characters the client sent, cleaned.
 - A publish that changes no post text or title writes no revision (rule 2 of the trigger), so `Published` is not shown then.
 - A delete writes no revision: the cascade removes the history with the draft.
 - A restore (#379) does not use `actorOf`: its one write sets `last_actor_kind = 'restore'` and its own label, and no name.

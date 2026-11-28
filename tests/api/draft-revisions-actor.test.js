@@ -85,7 +85,19 @@ describe('actorOf', () => {
       'Import\u0301': 'App', // combining accent
       'E\u0301ditor': 'App', // E with a combining accent: NFKC would compose it into a precomposed letter
       '\u00c9ditor': 'App', // the precomposed accented letter
-      'Ed\u0131tor': 'Ed\u0131tor', // dotless i is a different letter: kept as it is
+      'Ed\u0131tor': 'App', // dotless i reads as i
+      '\u0421\u0406': 'App', // Cyrillic С and І, all Cyrillic, read as CI
+      '\u0441\u0456': 'App', // the same in lowercase
+      '\u0410\u0440\u0440': 'App', // Cyrillic Арр reads as App
+      '\u13df\u13c6': 'App', // Cherokee letters that read as CI
+      '\u1d04\u026a': 'App', // small capitals c and i
+      'Upl\u0585ad link': 'App', // Armenian small oh
+      '\u0301': 'App', // only a combining mark: nothing to compare
+      'Claude\u00adDesktop': 'ClaudeDesktop', // a hidden character inside a name is removed
+      'Claude\u3164': 'Claude', // Hangul filler at the end
+      '\u0420\u0435\u0434\u0430\u043a\u0442\u043e\u0440': '\u0420\u0435\u0434\u0430\u043a\u0442\u043e\u0440', // Russian word: kept
+      '\u0395\u03c1\u03b3\u03b1\u03bb\u03b5\u03af\u03bf': '\u0395\u03c1\u03b3\u03b1\u03bb\u03b5\u03af\u03bf', // Greek word: kept
+      '\u05e2\u05d5\u05d6\u05e8': '\u05e2\u05d5\u05d6\u05e8', // Hebrew word: kept
       'Editor\u200b': 'App', // zero-width space
       'Claude\u3000': 'Claude', // trailing ideographic space
       'Claude\u2028Desktop': 'Claude Desktop', // line separator
