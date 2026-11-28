@@ -85,7 +85,7 @@ function main() {
   const previous = currentTimings()
   const next = medianTimings(jobs, previous, Math.min(3, Math.floor(jobs.length / shards)))
   const changed = Object.keys(next).filter((key) => previous[key] !== next[key]).length
-  if (args['dry-run'] !== undefined) {
+  if ('dry-run' in args) {
     console.log(`ci-shard-timings: dry run, ${changed} of ${Object.keys(next).length} times would change`)
     return
   }
