@@ -28,6 +28,8 @@ const MIGRATED: { name: string; path: string; drafts?: Seed[]; menu?: boolean; s
   { name: 'about', path: '/about' },
   // The "Viewing as" bar (#291): the admin views as another user, read-only.
   { name: 'view-as-bar', path: '/', viewAs: true },
+  // The editor route while viewing: the lock text and a way back, no draft asked for (#385).
+  { name: 'view-as-editor', path: '/draft/:first', viewAs: true, drafts: [{ title: 'Audit draft', posts: [{ id: 'v1', text: 'Audit post', images: [], embeddedTweet: null }] }] },
   // Signed-out screens (Task 11): the sign-in page, a draft that needs sign-in (401), and a shared preview that did not load.
   { name: 'login', path: '/', signedOut: true },
   { name: 'login-suspended', path: '/?suspended=1', signedOut: true },

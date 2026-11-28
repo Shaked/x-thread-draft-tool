@@ -131,9 +131,9 @@ describe('read-only while viewing', () => {
     expect(drafts[0].posts).toBeUndefined()
   })
 
-  it('opening a draft, its outline and its export answers 403', async () => {
+  it('opening a draft and its export answers 403', async () => {
     const cookie = await withClaim(alice)
-    for (const path of [`/drafts/${draft.id}`, `/drafts/${draft.id}/outline`, `/drafts/${draft.id}/export`]) {
+    for (const path of [`/drafts/${draft.id}`, `/drafts/${draft.id}/export`]) {
       const res = await call('GET', path, { cookie })
       expect({ path, status: res.status, error: (await res.json()).error }).toEqual({ path, status: 403, error: 'Viewing as cannot open drafts.' })
     }

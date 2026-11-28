@@ -53,7 +53,7 @@ describe('DraftEditor while viewing as a user', () => {
 
   it('does not write to the browser cache on load, and sends nothing', async () => {
     renderEditor(VIEW_AS)
-    await screen.findByLabelText('Draft title')
+    await screen.findByText('Drafts are private. Viewing as shows counts only.')
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000)
     })
@@ -61,16 +61,13 @@ describe('DraftEditor while viewing as a user', () => {
     expect(draftsApi.update).not.toHaveBeenCalled()
   })
 
-  it('disables the title, the post text, Publish and every editing control with the reason', async () => {
+  // #385: the server refuses a draft while viewing, so the editor is not mounted and no draft is asked for.
+  it('shows the lock text instead of the editor, and asks for no draft', async () => {
     renderEditor(VIEW_AS)
-    expect(await screen.findByLabelText('Draft title')).toBeDisabled()
-    expect(screen.getByLabelText('Post 1 text')).toHaveAttribute('readonly')
-    const publish = screen.getByRole('button', { name: 'Publish' })
-    expect(publish).toHaveAttribute('aria-disabled', 'true')
-    expect(publish).toHaveAccessibleDescription('Not available while viewing as alice')
-    for (const name of ['Add emoji', 'Add image', 'Embed tweet', 'Add post', 'Insert post here']) {
-      expect(screen.getAllByRole('button', { name: new RegExp(name) })[0]).toHaveAttribute('aria-disabled', 'true')
-    }
+    expect(await screen.findByText('Drafts are private. Viewing as shows counts only.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Draft title')).toBeNull()
+    expect(screen.queryByLabelText('Post 1 text')).toBeNull()
+    expect(draftsApi.get).not.toHaveBeenCalled()
   })
 
   it('writes the cache as before when not viewing', async () => {
