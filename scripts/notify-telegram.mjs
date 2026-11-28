@@ -27,7 +27,7 @@
 // URL are never printed.
 
 import { execFileSync } from 'node:child_process'
-import { lstatSync, readFileSync, realpathSync } from 'node:fs'
+import { closeSync, constants, fstatSync, openSync, readSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -293,12 +293,20 @@ export function readPhoto(rel, root = process.cwd()) {
   try {
     if (typeof rel !== 'string' || !PHOTO_PATH.test(rel) || rel.includes('..')) return null
     const abs = join(root, rel)
-    const st = lstatSync(abs)
-    if (!st.isFile() || st.isSymbolicLink() || st.size === 0 || st.size > PHOTO_MAX) return null
     // A symlinked folder on the way would resolve elsewhere.
     if (realpathSync(abs) !== join(realpathSync(root), rel)) return null
-    const bytes = readFileSync(abs)
-    if (bytes.length > PHOTO_MAX || !PNG_MAGIC.every((b, i) => bytes[i] === b)) return null
+    // Open once without following a link, then check and read the same open file: no gap for a swap between them.
+    const fd = openSync(abs, constants.O_RDONLY | constants.O_NOFOLLOW)
+    let bytes
+    try {
+      const st = fstatSync(fd)
+      if (!st.isFile() || st.size === 0 || st.size > PHOTO_MAX) return null
+      bytes = Buffer.alloc(st.size)
+      if (readSync(fd, bytes, 0, st.size, 0) !== st.size) return null
+    } finally {
+      closeSync(fd)
+    }
+    if (!PNG_MAGIC.every((b, i) => bytes[i] === b)) return null
     return { bytes }
   } catch {
     return null

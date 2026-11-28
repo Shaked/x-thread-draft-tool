@@ -18,7 +18,22 @@ beforeEach(() => {
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
 
-const visible = (html) => Array.from(html.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/g, '_')).length
+// Visible length of Telegram HTML: tags count 0, an entity counts 1. Walks the text, no regex tag stripping.
+function visible(html) {
+  let n = 0
+  let inTag = false
+  for (let i = 0; i < html.length; ) {
+    const ch = String.fromCodePoint(html.codePointAt(i))
+    i += ch.length
+    if (ch === '<') inTag = true
+    else if (ch === '>') inTag = false
+    else if (!inTag) {
+      n += 1
+      if (ch === '&' && html.indexOf(';', i) > i) i = html.indexOf(';', i) + 1
+    }
+  }
+  return n
+}
 
 function recorder(...answers) {
   const calls = []
