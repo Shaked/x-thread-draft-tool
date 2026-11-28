@@ -1,6 +1,6 @@
 # Fake app names can no longer pose as the editor in draft history
 - An app whose name imitates a fixed writer name (Editor, Import, API token) now shows as App in the history.
-Area: Draft history
+Area: Drafts
 Link: https://github.com/Shaked/x-thread-draft-tool/pull/627
 Screenshot: not needed, history text only
 
