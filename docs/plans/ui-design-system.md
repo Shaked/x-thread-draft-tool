@@ -298,7 +298,7 @@ The "Rules for every migration PR":
   expected calls. E2E selectors that used a removed class move to roles and labels with the same expectations.
 - Delete each old rule from `App.css` when its last user moves; remove the file from the token-lint allow list in the
   same PR (the test fails if a clean file is still listed).
-- Add the page to the `MIGRATED` list of the UI audit spec (section 6).
+- Add the page to the `MIGRATED` list in `tests/e2e/ui-audit-cases.ts` (the UI audit, section 6).
 
 ## 6. Checks that run without a person
 All free, deterministic, no network, no model. Unit tests stay under the 70 s budget (`npm run test:budget`). The

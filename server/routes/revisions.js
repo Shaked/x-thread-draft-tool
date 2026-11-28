@@ -7,11 +7,12 @@
 import { query } from '../db.js'
 import { HttpError, json } from '../http.js'
 import { requireUser } from '../session.js'
+import { redactForViewAs } from '../view-as-redact.js'
 import { listBlobPrefix } from '../blob.js'
 import { imageUrlsFrom, isOwnedBlobUrl } from '../draft-images.js'
 import { logError } from '../log-error.js'
 import { diffDrafts, summaryLine } from '../../src/utils/revisionDiff.js'
-import { COLUMNS, etagHeaders, ifMatchOf, isUuid, notFound, refuseWhenViewing, staleResponse, tagOf } from './drafts.js'
+import { COLUMNS, etagHeaders, ifMatchOf, isUuid, notFound, staleResponse, tagOf } from './drafts.js'
 
 const DEFAULT_LIMIT = 30
 const MAX_LIMIT = 100
@@ -59,7 +60,7 @@ const stateOf = (title, order, bodies) => ({
  */
 async function listRevisions({ request, params, url }) {
   const session = await requireUser(request)
-  refuseWhenViewing(session)
+  redactForViewAs(session, 'open')
   if (!isUuid(params.id)) throw notFound()
   const before = intParam(url, 'before', { min: 0, max: MAX_SEQ })
   const limit = intParam(url, 'limit', { min: 1, max: MAX_LIMIT }) ?? DEFAULT_LIMIT
@@ -130,7 +131,7 @@ async function listRevisions({ request, params, url }) {
  */
 async function getRevision({ request, params, url }) {
   const session = await requireUser(request)
-  refuseWhenViewing(session)
+  redactForViewAs(session, 'open')
   if (!isUuid(params.id)) throw notFound()
   if (!/^\d+$/.test(params.seq) || Number(params.seq) > MAX_SEQ) throw notFound()
   const seq = Number(params.seq)

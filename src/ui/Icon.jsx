@@ -22,6 +22,8 @@ const PATHS = {
   next: 'M9 6l6 6-6 6',
   // Sign-in and loading screens (plan Task 11): the feature list.
   compose: 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4',
+  // A private area: the view-as lock (#385).
+  lock: 'M7 11V8a5 5 0 0 1 10 0v3M6 11h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z',
   sync: 'M20 12a8 8 0 0 1-14.9 4M4 12a8 8 0 0 1 14.9-4M20 4v4h-4M4 20v-4h4'
 }
 

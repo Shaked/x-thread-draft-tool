@@ -282,6 +282,11 @@ beforeAll(async () => {
     await rest(`admin REST GET /drafts (view as, published=${published})`, { path: `/drafts?published=${published}`, cookie: viewAsCookie, headers: ADMIN_WEB })
   }
   await rest('admin view-as: one draft', { path: `/drafts/${draftEn.id}`, cookie: viewAsCookie, headers: ADMIN_WEB })
+  // #385: the outline answers counts with no preview (200); the export is refused (403).
+  for (const draft of [draftEn, draftHe]) {
+    await rest('admin view-as: outline', { path: `/drafts/${draft.id}/outline`, cookie: viewAsCookie, headers: ADMIN_WEB })
+    await rest('admin view-as: export', { path: `/drafts/${draft.id}/export?format=text`, cookie: viewAsCookie, headers: ADMIN_WEB })
+  }
   await rest('admin view-as: stale patch', { method: 'PATCH', path: `/drafts/${draftEn.id}`, cookie: viewAsCookie, headers: { ...ADMIN_WEB, 'if-match': '"99999"' }, body: { title: `${EN} viewed` } })
 
   // The revision routes (#378): alice reads her own history (owner answers, not scanned for the marker). Every other caller
@@ -404,6 +409,12 @@ describe('plaintext leak scan (issue #384)', () => {
     expect(status('admin view-as: revision')).toEqual([403, 403, 403, 403])
     expect(status('admin bearer token: revision')).toEqual([401, 401, 401, 401])
     expect(status('error: revision')).toEqual([404, 400, 400, 400])
+  })
+
+  it('view-as answers the outline with counts (200) and refuses the export (403) (#385)', () => {
+    const status = (prefix) => seen.filter(([where]) => where.startsWith(prefix)).map(([, text]) => statusOf(text))
+    expect(status('admin view-as: outline')).toEqual([200, 200])
+    expect(status('admin view-as: export')).toEqual([403, 403])
   })
 
   it('the restore route answers the owner with 200 (412 for a stale tag) and everyone else with no text (#379)', () => {
