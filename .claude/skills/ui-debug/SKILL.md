@@ -40,7 +40,7 @@ The script records, per route, console errors, uncaught page errors and requests
 - Fix the cause of an error. Do not hide the message.
 
 ## 6. Audits that already run in CI
-- Accessibility, 44 px targets, overflow, type, space and colour scales: `tests/e2e/ui-audit.spec.ts` (axe with WCAG 2.2 AA, no serious or critical issue). Add every new page or state to its list.
+- Accessibility, 44 px targets, overflow, type, space and colour scales: `tests/e2e/ui-audit-cases.ts` (the MIGRATED list and the cases; run both spec files with `npx playwright test -g "UI audit"`; axe with WCAG 2.2 AA, no serious or critical issue). Add every new page or state to its list.
 - Token lint (colours, sizes, radii only from the token file): `tests/unit/design-tokens.test.js`, run by `npm run test:unit`. Do not add a file to its legacy list.
 - Screens: `npm run screens` runs `tests/e2e/screens.spec.ts` for the main flows.
 - A page that talks to the API gets one test against the real local API with a real session and no fixed answers: fixed answers hide real defects.

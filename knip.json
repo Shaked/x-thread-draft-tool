@@ -5,6 +5,7 @@
     "scripts/*.{mjs,js}",
     "plugins/*/scripts/*.mjs",
     "tests/**/*.{test,spec}.{js,jsx,ts}",
+    "tests/e2e/ui-audit-cases.ts",
     "tests/eval/*.eval.mjs"
   ],
   "project": [

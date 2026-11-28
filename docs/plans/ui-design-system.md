@@ -298,7 +298,7 @@ The "Rules for every migration PR":
   expected calls. E2E selectors that used a removed class move to roles and labels with the same expectations.
 - Delete each old rule from `App.css` when its last user moves; remove the file from the token-lint allow list in the
   same PR (the test fails if a clean file is still listed).
-- Add the page to the `MIGRATED` list of the UI audit spec (section 6).
+- Add the page to the `MIGRATED` list in `tests/e2e/ui-audit-cases.ts` (the UI audit, section 6).
 
 ## 6. Checks that run without a person
 All free, deterministic, no network, no model. Unit tests stay under the 70 s budget (`npm run test:budget`). The
@@ -336,7 +336,7 @@ unit test files must each stay under 300 ms and read files once.
    soft backgrounds (5); text and soft text on each of the four soft backgrounds (8, Banner bodies); `bg` on `text`
    (1, the toast); all at 4.5:1; `border` and `focus` on the four surfaces at 3:1 (8). It also fails on a `--color-*` token that is not
    written as `light-dark()` (except the three overlay colours, which are the same in both themes).
-3. **UI audit spec**, `tests/e2e/ui-audit.spec.ts` (Task 2; runs in the required e2e job). For each page in
+3. **UI audit spec**, `tests/e2e/ui-audit-cases.ts` run from `audit-early.spec.ts` and `ui-audit.spec.ts` (Task 2; runs in the required e2e job). For each page in
    `MIGRATED`, at 390 px (touch emulation: `isMobile`, `hasTouch`; checked in Chromium that this makes
    `(pointer: coarse)` and `(hover: none)` match) and 1280 px, light and dark, plus one RTL pass (`<html dir="rtl">`)
    at 390 px. Every context uses `reducedMotion: 'reduce'`, so no transition is caught halfway.
@@ -394,7 +394,7 @@ and for new pages (admin, view-as bar).
 
 ## Checklist before the PR (copy into the PR body)
 - [ ] npm run test:unit passes (token lint, contrast, component list).
-- [ ] npx playwright test tests/e2e/ui-audit.spec.ts passes; the page is in MIGRATED.
+- [ ] npx playwright test -g "UI audit" passes (it runs both audit-early.spec.ts and ui-audit.spec.ts); the page is in MIGRATED in tests/e2e/ui-audit-cases.ts.
 - [ ] New scenes added to tests/e2e/screens.spec.ts; before (from a main worktree) and after shots at 390 light and
       1280 dark in docs/screenshots/ui-<task>/; the rest in the ui-audit CI artifact.
 - [ ] No text or behaviour change beyond what the task says.
@@ -403,7 +403,7 @@ and for new pages (admin, view-as bar).
 ## How to run the checks
 - npm run test:unit
 - npm run build && npx vite preview --host 127.0.0.1 --port 4173 & npm run dev:api &
-  then XT_BASE_URL=http://127.0.0.1:4173 npx playwright test tests/e2e/ui-audit.spec.ts
+  then XT_BASE_URL=http://127.0.0.1:4173 npx playwright test -g "UI audit"
 - npm run screens (all screenshots, see tests/e2e/screens.spec.ts)
 - In a cloud session the pre-installed Chromium needs launchOptions.executablePath '/opt/pw-browsers/chromium'
   when the repo's Playwright version differs.

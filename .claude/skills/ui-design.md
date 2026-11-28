@@ -33,7 +33,7 @@ and for new pages (admin, view-as bar).
 
 ## Checklist before the PR (copy into the PR body)
 - [ ] npm run test:unit passes (token lint, contrast, component list).
-- [ ] npx playwright test tests/e2e/ui-audit.spec.ts passes; the page is in MIGRATED.
+- [ ] npx playwright test -g "UI audit" passes (it runs both audit-early.spec.ts and ui-audit.spec.ts); the page is in MIGRATED in tests/e2e/ui-audit-cases.ts.
 - [ ] New scenes added to tests/e2e/screens.spec.ts; before (from a main worktree) and after shots at 390 light and
       1280 dark in docs/screenshots/ui-<task>/; the rest in the ui-audit CI artifact.
 - [ ] No text or behaviour change beyond what the task says.
@@ -42,7 +42,7 @@ and for new pages (admin, view-as bar).
 ## How to run the checks
 - npm run test:unit
 - npm run build && npx vite preview --host 127.0.0.1 --port 4173 & npm run dev:api &
-  then XT_BASE_URL=http://127.0.0.1:4173 npx playwright test tests/e2e/ui-audit.spec.ts
+  then XT_BASE_URL=http://127.0.0.1:4173 npx playwright test -g "UI audit"
 - npm run screens (all screenshots, see tests/e2e/screens.spec.ts)
 - In a cloud session the pre-installed Chromium needs launchOptions.executablePath '/opt/pw-browsers/chromium'
   when the repo's Playwright version differs.

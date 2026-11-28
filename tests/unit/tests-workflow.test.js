@@ -42,14 +42,14 @@ describe('tests workflow: unit tests run in four shards behind one required chec
     expect(block).toContain('Lint database migrations')
   })
 
-  it('runs E2E in three shards behind the required check, never skipped', () => {
+  it('runs E2E in four shards behind the required check, never skipped', () => {
     const agg = jobBlock('e2e')
     expect(agg).toMatch(/^ {4}name: E2E tests \(playwright\)$/m)
     expect(agg).toMatch(/^ {4}needs: \[e2e-shard\]$/m)
     expect(agg).toMatch(/^ {4}if: always\(\)$/m)
     expect(agg).toMatch(/exit 1/)
     const shard = jobBlock('e2e-shard')
-    expect(shard).toMatch(/^ {6}matrix:\n\s{8}shard: \[1, 2, 3\]$/m)
-    expect(shard).toMatch(/npm run test:e2e -- --shard=\$\{\{ matrix\.shard \}\}\/3/)
+    expect(shard).toMatch(/^ {6}matrix:\n\s{8}shard: \[1, 2, 3, 4\]$/m)
+    expect(shard).toMatch(/npm run test:e2e -- --shard=\$\{\{ matrix\.shard \}\}\/4/)
   })
 })
