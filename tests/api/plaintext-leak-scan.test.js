@@ -31,7 +31,7 @@ const DRAFT_TABLES = new Set([
 // Error answers that may hold draft text, each with its reason. The stale-save answer (412, #359) returns
 // the current draft to the owner whose request was stale, so the client can merge. It is checked for that one
 // caller only (see the 412 tests). Every other error answer is checked.
-const OWNER_ONLY_ANSWERS = ['error: stale If-Match (alice REST, owner 412)']
+const OWNER_ONLY_ANSWERS = ['error: stale If-Match (alice REST, owner 412)', 'error: stale restore (alice REST, owner 412)']
 
 const MCP = `${APP_URL}/api/mcp`
 const MODERN = '2026-07-28'
@@ -52,6 +52,27 @@ function leaksIn(entries) {
 
 /** Every byte field as text, so a marker stored as bytes is found too. */
 const asText = (_key, value) => (value instanceof Uint8Array ? Buffer.from(value).toString('utf8') : value)
+
+/** The restore route calls (#379), after the revision routes. Uses the module's drafts and cookies. */
+async function restoreCalls(viewAsCookie) {
+  // The restore route (#379). Alice restores revision 1 of each draft (her answer is not scanned for the marker); her stale
+  // tag is a 412 with her draft (owner-only, listed in OWNER_ONLY_ANSWERS). Every other caller gets no text: bob 404, the
+  // admin's own cookie 404, view-as 403 (a write), an MCP bearer on REST 401. The error answers are scanned.
+  for (const draft of [draftEn, draftHe]) {
+    await rest('alice REST restore', { method: 'POST', path: `/drafts/${draft.id}/revisions/1/restore`, cookie: aliceCookie })
+    await rest('bob REST restore', { method: 'POST', path: `/drafts/${draft.id}/revisions/1/restore`, cookie: bobCookie })
+    await rest('admin own cookie: restore', { method: 'POST', path: `/drafts/${draft.id}/revisions/1/restore`, cookie: adminCookie, headers: ADMIN_WEB })
+    await rest('admin view-as: restore', { method: 'POST', path: `/drafts/${draft.id}/revisions/1/restore`, cookie: viewAsCookie, headers: ADMIN_WEB })
+    await rest('admin bearer token: restore', { method: 'POST', path: `/drafts/${draft.id}/revisions/1/restore`, headers: { authorization: `Bearer ${adminMcp}` } })
+  }
+  // A label makes a revision of its own (no merge into revision 1), so the current draft differs from revision 1 and the stale tag is a 412.
+  await db.pg.query("update drafts set title = title || ' (edited)', last_label = 'leak scan' where id = $1", [draftEn.id])
+  await rest('error: stale restore (alice REST, owner 412)', { method: 'POST', path: `/drafts/${draftEn.id}/revisions/1/restore`, cookie: aliceCookie, headers: { 'if-match': '"99999"' } })
+  await rest('error: restore not found (alice REST)', { method: 'POST', path: `/drafts/${draftEn.id}/revisions/99999/restore`, cookie: aliceCookie })
+  for (const [draft, marker, name] of [[draftEn, EN, 'English'], [draftHe, HE, 'Hebrew']]) {
+    await rest(`error: restore bad seq (alice REST, ${name} marker in the path)`, { method: 'POST', path: `/drafts/${draft.id}/revisions/${encodeURIComponent(marker)}/restore`, cookie: aliceCookie })
+  }
+}
 
 let db
 let failNextDraftInsert = false
@@ -260,6 +281,8 @@ beforeAll(async () => {
   }
   await rest('error: revision bad limit (alice REST, marker in the query)', { path: `/drafts/${draftEn.id}/revisions?limit=${encodeURIComponent(HE)}`, cookie: aliceCookie })
 
+  await restoreCalls(viewAsCookie)
+
   // Every admin REST route the router has, called once through the website surface as the admin. GET of one user
   // uses alice's id; a route that changes a user or a flag gets the nil id (no user, no change); metrics series names a metric (requests).
   const bodyFor = { 'POST /admin/flags': {}, 'POST /admin/users/:id/suspend': {}, 'POST /admin/users/:id/unsuspend': {}, 'POST /admin/users/:id/delete': {} }
@@ -332,7 +355,7 @@ describe('plaintext leak scan (issue #384)', () => {
 
   it('no error answer holds a piece of a marker, except the owner-only stale-save answer', () => {
     const errors = seen.filter(([where]) => where.startsWith('error:') && !OWNER_ONLY_ANSWERS.includes(where))
-    expect(errors).toHaveLength(6)
+    expect(errors).toHaveLength(9)
     expect(leaksIn(errors)).toEqual([])
   })
 
@@ -354,6 +377,18 @@ describe('plaintext leak scan (issue #384)', () => {
     expect(status('admin view-as: revision')).toEqual([403, 403, 403, 403])
     expect(status('admin bearer token: revision')).toEqual([401, 401, 401, 401])
     expect(status('error: revision')).toEqual([404, 400, 400, 400])
+  })
+
+  it('the restore route answers the owner with 200 (412 for a stale tag) and everyone else with no text (#379)', () => {
+    const status = (prefix) => seen.filter(([where]) => where.startsWith(prefix)).map(([, text]) => statusOf(text))
+    expect(status('alice REST restore')).toEqual([200, 200])
+    expect(status('error: stale restore')).toEqual([412])
+    expect(status('bob REST restore')).toEqual([404, 404])
+    expect(status('admin own cookie: restore')).toEqual([404, 404])
+    expect(status('admin view-as: restore')).toEqual([403, 403])
+    expect(status('admin bearer token: restore')).toEqual([401, 401])
+    expect(status('error: restore not found')).toEqual([404])
+    expect(status('error: restore bad seq')).toEqual([404, 404])
   })
 
   it('no admin answer holds a piece of a marker: REST, MCP and "view as"', () => {

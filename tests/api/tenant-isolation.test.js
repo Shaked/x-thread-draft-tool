@@ -32,7 +32,8 @@ const CASES = {
   'POST /drafts/:id/images': { body: { url: 'https://example.com/a.png', post_id: POST_ID } },
   'DELETE /drafts/:id/images': { body: { post_id: POST_ID } },
   'GET /drafts/:id/revisions': {},
-  'GET /drafts/:id/revisions/:seq': {}
+  'GET /drafts/:id/revisions/:seq': {},
+  'POST /drafts/:id/revisions/:seq/restore': {}
 }
 
 const draftRoutes = ROUTES.filter((entry) => entry.path.startsWith('/drafts/:id'))

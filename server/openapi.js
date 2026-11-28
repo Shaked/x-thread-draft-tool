@@ -431,6 +431,27 @@ export const OPENAPI = {
         }
       }
     },
+    '/drafts/{id}/revisions/{seq}/restore': {
+      post: {
+        summary: 'Restore a revision (owner only): the draft as it was at seq becomes the current state, with a new version and a revision "Restored revision <seq>". Later revisions stay. Images whose file is gone are dropped from their posts and counted in images_not_restored. Restoring the current state is a 200 with no write. A stale If-Match is 412 with the current draft and nothing written; a published draft is 409.',
+        security: BEARER,
+        parameters: [
+          ID,
+          { name: 'seq', in: 'path', required: true, schema: { type: 'integer', minimum: 0 } },
+          IF_MATCH
+        ],
+        responses: {
+          ...json({ type: 'object', properties: { draft: draftRef, restored_from: { type: 'integer', description: 'The seq that was restored' }, images_not_restored: { type: 'integer', minimum: 0, description: 'Image entries dropped because their file is gone' } } }),
+          400: BAD_REQUEST,
+          401: UNAUTHORIZED,
+          403: { description: 'A view-as caller cannot change drafts', content: errorContent() },
+          404: NOT_FOUND,
+          409: { description: 'The draft is published. Duplicate it to edit.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          412: PRECONDITION_FAILED,
+          503: { description: 'The image files could not be checked (the Blob listing failed). Nothing was written; try again.', content: errorContent() }
+        }
+      }
+    },
     '/drafts/{id}/publish': {
       post: {
         summary: 'Publish: deletes the draft images and clears them from posts (owner only). One transaction; publishing a published draft is a 200 with no write; a stale If-Match is 412.',
