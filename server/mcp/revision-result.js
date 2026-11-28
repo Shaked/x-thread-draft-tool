@@ -47,6 +47,7 @@ export function listText(body, id, now) {
 /** A quote block of a text: every line starts with "> " (an empty line with ">"). */
 const quote = (text) => String(text ?? '').split('\n').map((line) => (line ? `> ${line}` : '>')).join('\n')
 const textOf = (post) => (typeof post?.text === 'string' ? post.text : '')
+// A title shows on one line: runs of whitespace (a newline too) become one space, so a title is not shown byte for byte.
 const oneLine = (title) => String(title || 'Untitled draft').replace(/\s+/g, ' ').trim()
 
 /** The nth post of a state with this id (n counts the posts that share an id), or undefined. */
@@ -80,7 +81,7 @@ function changeBlocks(diff, from, to, names) {
     const place = a.afterId === null ? 'first' : `after post ${a.index}`
     blocks.push(`Post ${a.index + 1} ${second}, added ${place}:\n${quote(textOf(a.post))}`)
   }
-  for (const r of diff.removed) blocks.push(`Post ${r.index + 1} ${first}, then removed:\n${quote(textOf(from.posts[r.index]))}`)
+  for (const r of diff.removed) blocks.push(`Post ${r.index + 1} ${first}${first === 'now' ? `, not ${second}` : ', then removed'}:\n${quote(textOf(from.posts[r.index]))}`)
   for (const m of diff.moved) blocks.push(`Post ${m.from + 1} moved to position ${m.to + 1}.`)
   return blocks
 }
@@ -109,11 +110,14 @@ export function revisionText(body, id, from, current, now) {
   return parts.join('\n\n')
 }
 
-/** The text of restore_revision (T5: counts and numbers, no post text). `written` is false when the state was already current. */
-export function restoreText(body, written) {
+/** The text of restore_revision (T5: counts and numbers, no post text). `sent` is the version the caller sent. */
+export function restoreText(body, sent) {
   const { draft, restored_from: from, images_not_restored: dropped } = body
   const count = draft.post_count ?? draft.posts?.length ?? 0
-  if (!written) return `Revision ${from} is already the current state. Nothing was written.`
+  if (body.written === false) {
+    const stale = sent === draft.version ? '' : ` The version you sent (${sent}) was stale: the draft is at version ${draft.version}.`
+    return `Nothing changed: revision ${from} is already the current state, so nothing was written.${stale}`
+  }
   const images = dropped > 0 ? ` ${plural(dropped, 'image')} could not be restored because the file is gone.` : ''
   return `Restored revision ${from}: the draft is now version ${draft.version} with ${plural(count, 'post')}.${images} The revision before the restore is kept: call list_revisions to go back.`
 }

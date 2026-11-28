@@ -144,7 +144,7 @@ curl -s "$BASE/api/drafts/DRAFT_ID/revisions/7?against=current" -H "Authorizatio
 
 # Restore a revision (owner only): the state at seq becomes the current state, as a new version and the revision "Restored revision 7".
 # Send the version you read as If-Match (for example "21"); a stale one is 412 with the current draft and nothing is written.
-# Answer: { draft, restored_from, images_not_restored }. Images whose file is gone are dropped from their posts and counted.
+# Answer: { draft, restored_from, images_not_restored, written }; written is false when the revision already equals the draft (a 200 with nothing written, even with a stale If-Match). Images whose file is gone are dropped from their posts and counted.
 curl -s -X POST $BASE/api/drafts/DRAFT_ID/revisions/7/restore -H "Authorization: Bearer $TOKEN" -H 'If-Match: "21"'
 
 # Read by id (owner only: another user gets 404, no token or session gets 401)

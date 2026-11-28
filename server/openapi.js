@@ -441,7 +441,7 @@ export const OPENAPI = {
           IF_MATCH
         ],
         responses: {
-          ...json({ type: 'object', properties: { draft: draftRef, restored_from: { type: 'integer', description: 'The seq that was restored' }, images_not_restored: { type: 'integer', minimum: 0, description: 'Image entries dropped because their file is gone' } } }),
+          ...json({ type: 'object', properties: { draft: draftRef, restored_from: { type: 'integer', description: 'The seq that was restored' }, images_not_restored: { type: 'integer', minimum: 0, description: 'Image entries dropped because their file is gone' }, written: { type: 'boolean', description: 'False when the state was already current: nothing was written (also when the If-Match version was stale)' } } }),
           400: BAD_REQUEST,
           401: UNAUTHORIZED,
           403: { description: 'A view-as caller cannot change drafts', content: errorContent() },
