@@ -427,28 +427,36 @@ const TOOLS = [
     annotations: { readOnlyHint: true },
     run: async (args, ctx) => {
       const against = args.against === undefined ? '' : `?against=${args.against}`
-      const res = await ctx.rest('GET', `/drafts/${enc(args.id)}/revisions/${args.revision}${against}`)
-      if (res.status >= 400) return res
-      const body = await res.clone().json()
-      // The state the diff starts from, and the draft version the restore call needs: the route answer has neither.
-      let from = { title: '', posts: [] }
-      let version
-      if (body.against === 'current') {
-        const owned = await fetchOwnedDraft(ctx, args.id)
-        if (owned.failure) return owned.failure
-        from = owned.draft
-        version = owned.draft.version
-      } else {
-        const [before, current] = await Promise.all([
-          typeof body.against === 'number' ? ctx.rest('GET', `/drafts/${enc(args.id)}/revisions/${body.against}`) : null,
-          ctx.rest('GET', `/drafts/${enc(args.id)}/outline`)
-        ])
-        if (before && before.status >= 400) return before
-        if (current.status >= 400) return current
-        if (before) from = (await before.json()).state
-        version = (await current.json()).draft.version
+      // Against the draft as it is: the draft is read before and after the route, and a change in between is read again, so the
+      // diff, the text shown and the version of the restore call come from one state of the draft.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const first = args.against === 'current' ? await fetchOwnedDraft(ctx, args.id) : null
+        if (first?.failure) return first.failure
+        const res = await ctx.rest('GET', `/drafts/${enc(args.id)}/revisions/${args.revision}${against}`)
+        if (res.status >= 400) return res
+        const body = await res.clone().json()
+        // The state the diff starts from, and the draft version the restore call needs: the route answer has neither.
+        let from = { title: '', posts: [] }
+        let version
+        if (first) {
+          const second = await fetchOwnedDraft(ctx, args.id)
+          if (second.failure) return second.failure
+          if (second.draft.version !== first.draft.version) continue
+          from = second.draft
+          version = second.draft.version
+        } else {
+          const [before, current] = await Promise.all([
+            typeof body.against === 'number' ? ctx.rest('GET', `/drafts/${enc(args.id)}/revisions/${body.against}`) : null,
+            ctx.rest('GET', `/drafts/${enc(args.id)}/outline`)
+          ])
+          if (before && before.status >= 400) return before
+          if (current.status >= 400) return current
+          if (before) from = (await before.json()).state
+          version = (await current.json()).draft.version
+        }
+        return withText(res, revisionText(body, args.id, from, version, Date.now()))
       }
-      return withText(res, revisionText(body, args.id, from, version, Date.now()))
+      return json({ error: 'The draft kept changing while it was read. Call get_revision again.' }, 409)
     }
   },
   {
