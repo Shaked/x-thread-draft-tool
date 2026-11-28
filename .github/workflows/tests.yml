@@ -155,14 +155,14 @@ jobs:
           echo "::add-mask::$token"
           XT_BASE_URL=http://127.0.0.1:8787 XT_TOKEN="$token" npm run smoke
 
-  # E2E runs in three shards (#470: the single job was the slowest CI job, 2 min 6 s of a 2 min 9 s run).
+  # E2E runs in four shards (#470 split one job into three; #576: shard 3/3 took 69 s of tests and set the pace of the whole run).
   e2e-shard:
-    name: E2E tests shard ${{ matrix.shard }}/3
+    name: E2E tests shard ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
@@ -193,7 +193,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Run E2E tests
-        run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/4
 
       - name: Upload Playwright report
         if: always()
