@@ -1,1 +1,8 @@
-Draft history: client names that imitate a fixed actor name with small capitals, Cherokee, Lisu, IPA, Greek N, palochka, `l` for `i` or `0` for `o` now show as `App` (#376).
+# Fake app names can no longer pose as the editor in draft history
+- An app whose name imitates a fixed writer name (Editor, Import, API token) now shows as App in the history.
+Area: Draft history
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/627
+Screenshot: not needed, history text only
+
+## Technical details
+Folding in `server/revision-actor.js`: small capitals, IPA, Cherokee, Lisu, Greek N, palochka, and l for i, 0 for o. Implements #376 Task H3.
