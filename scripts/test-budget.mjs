@@ -21,7 +21,7 @@ const ROOT = (() => {
 export const FILE_LIMIT_MS = Number(process.env.TEST_BUDGET_FILE_MS ?? 5000)
 export const TOTAL_LIMIT_MS = Number(process.env.TEST_BUDGET_TOTAL_MS ?? 70000) // CI runner speed varies 46-62 s for the same green suite (#144 57.5 s, #145 62.3 s, #147 61.0 s, re-runs ~46 s); 70 s = worst + ~12%. Per-file limits are the real guard. Opus 2026-11-18, revises O11.
 // With --shard=n/m (speed plan task S2, #312) the run covers part of the suite, so its total limit is lower.
-// The suite runs in 3 shards since #490 (2 shards measured 55.1 s and 49 s on main, run 45764863768); the limit is unchanged.
+// The suite runs in 4 shards since #634 (3 shards: 32-54 s on the same suite, 5 of 90 shard jobs over 52 s, because runner speed varies 1.8x); the limit is unchanged.
 // Shard 1 ran 29.6-44.3 s on main and up to 46.8 s on a PR branch (the same files got slower on some runners).
 // 52 s = worst seen (46.8 s) + ~12%, the same rule as TOTAL_LIMIT_MS. Revises the 45 s limit (Opus ruling, PR #433).
 export const SHARD_TOTAL_LIMIT_MS = Number(process.env.TEST_BUDGET_SHARD_TOTAL_MS ?? 52000)
@@ -36,7 +36,7 @@ const SLOWEST_SHOWN = 5
 /** Per-file durations in whole milliseconds, slowest first, from the rows of test-budget-reporter.mjs. */
 export function fileDurations(rows, root = ROOT) {
   return rows
-    .map(({ file, ms }) => ({ file: relative(root, file), ms: Math.round(ms) }))
+    .map(({ file, ms, workerMs }) => ({ file: relative(root, file), ms: Math.round(ms), workerMs: workerMs === undefined ? undefined : Math.round(workerMs) }))
     .sort((a, b) => b.ms - a.ms)
 }
 
@@ -98,6 +98,10 @@ function main() {
   const durations = fileDurations(rows)
   console.log(`\ntest-budget: total ${Math.round(totalMs)} ms over ${durations.length} files`)
   console.log(`test-budget: workers ${WORKERS} (cpus ${availableParallelism()})${shard === null ? '' : `, shard ${shard}`}`)
+  // One line per file with its worker time, so scripts/ci-shard-timings.mjs can rebuild the shard table from CI logs (#634).
+  for (const { file, ms, workerMs } of [...durations].sort((a, b) => (a.file < b.file ? -1 : 1))) {
+    console.log(`test-budget-file: ${workerMs ?? ms} ${file}`)
+  }
   console.log(`test-budget: ${SLOWEST_SHOWN} slowest files:`)
   for (const { file, ms } of durations.slice(0, SLOWEST_SHOWN)) {
     console.log(`  ${String(ms).padStart(6)} ms  ${file}`)

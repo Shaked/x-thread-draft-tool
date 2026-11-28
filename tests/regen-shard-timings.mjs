@@ -2,15 +2,16 @@
 // Rebuilds tests/shard-timings.json, the per-file worker times that tests/shard-sequencer.mjs uses to split
 // --shard=n/m (#605). Runs the whole suite N times (default 3) on this machine and keeps each file's median.
 // Usage: npm run shard-timings [-- --runs=3]. Refresh it when the warning from shard-sequencer names new files,
-// or after a large change to the test files (docs/operations/shard-timings.md).
+// or after a large change to the test files (docs/operations/shard-timings.md). A local machine is not CI: prefer
+// npm run shard-timings:ci (scripts/ci-shard-timings.mjs), which reads the times CI measured (#634).
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { currentShardCount, saveTables } from '../scripts/shard-tables.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
-const TABLE = join(ROOT, 'tests/shard-timings.json')
 const runsArg = process.argv.find((arg) => arg.startsWith('--runs='))
 const RUNS = runsArg ? Number(runsArg.slice('--runs='.length)) : 3
 if (!Number.isInteger(RUNS) || RUNS < 1) throw new Error(`shard-timings: bad ${runsArg} (use --runs=1 or more)`)
@@ -42,5 +43,5 @@ const median = (values) => {
 }
 const table = {}
 for (const key of [...byKey.keys()].sort()) table[key] = Math.round(median(byKey.get(key)))
-writeFileSync(TABLE, `${JSON.stringify(table, null, 2)}\n`)
-console.log(`shard-timings: ${Object.keys(table).length} files, median of ${RUNS} run(s), written to tests/shard-timings.json`)
+const saved = saveTables(table, currentShardCount())
+console.log(`shard-timings: ${saved.files} files, median of ${RUNS} run(s), ${saved.moved} moved between shards; shard totals ${saved.totals.join(' / ')} ms`)
