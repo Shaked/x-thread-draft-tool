@@ -180,7 +180,7 @@ describe('readPhoto: path validation', () => {
   it('rejects a FIFO without hanging', () => {
     const fifo = join(root, 'docs/changelogs/img/fifo.png')
     try {
-      execFileSync('mkfifo', [fifo])
+      execFileSync('sh', ['-c', 'mkfifo "$0"', fifo])
     } catch {
       return // mkfifo is not available on this platform (Windows): nothing to check here
     }
