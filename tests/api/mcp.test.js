@@ -16,7 +16,7 @@ const TOOL_NAMES = [
   'list_drafts', 'get_draft', 'create_draft', 'update_draft', 'duplicate_draft', 'export_draft',
   'split_text', 'create_share_link', 'add_image_from_url', 'publish_draft', 'delete_draft',
   'whoami', 'create_thread_from_text', 'remove_image', 'add_post', 'update_post', 'remove_post', 'move_post',
-  'revoke_share_link', 'get_draft_outline', 'app_version'
+  'revoke_share_link', 'get_draft_outline', 'app_version', 'list_revisions', 'get_revision', 'restore_revision'
 ]
 
 let db
@@ -297,7 +297,8 @@ describe('initialize, discovery and tools/list', () => {
     // Behaviour changed (M4, M5): 18 tools; whoami, create_thread_from_text, remove_image and the four post tools are new.
     // T2 adds revoke_share_link: 19 tools. T4 adds get_draft_outline: 20 tools.
     // V1 (settings-menu.md Task 1) adds app_version: 21 tools.
-    expect(body.result.tools).toHaveLength(21)
+    // H7 (#380) adds list_revisions, get_revision and restore_revision: 24 tools.
+    expect(body.result.tools).toHaveLength(24)
     expect(body.result.resultType).toBeUndefined()
   })
 })

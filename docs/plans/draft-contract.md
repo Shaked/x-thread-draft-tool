@@ -264,7 +264,7 @@ the edit tools, R1 and R3 in a few words (English and Hebrew triggers).
 **Shape (decided once).** Every successful result of a tool that reads or changes one draft ends with
 one more text part, the **state line**. The tools: `get_draft`, `get_draft_outline`, `create_draft`,
 `create_thread_from_text`, `update_draft`, `duplicate_draft`, `add_post`, `update_post`,
-`remove_post`, `move_post`, `add_image_from_url`, `remove_image`. Not `export_draft`, whose text is
+`remove_post`, `move_post`, `add_image_from_url`, `remove_image`, `restore_revision` (the outline hint). Not `export_draft`, whose text is
 the export, and not errors.
 
 ```

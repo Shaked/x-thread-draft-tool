@@ -15,7 +15,7 @@ export const SAVE_TOOLS = ['create_thread_from_text', 'create_draft']
 export const WRITE_TOOLS = [
   'create_thread_from_text', 'create_draft', 'add_post', 'update_post', 'update_draft',
   'duplicate_draft', 'delete_draft', 'publish_draft', 'move_post', 'remove_post', 'add_image_from_url', 'remove_image',
-  'create_share_link', 'revoke_share_link'
+  'create_share_link', 'revoke_share_link', 'restore_revision'
 ]
 
 // kind 'save': a written thread is asked for, a save tool should be called. kind 'question': no write tool.

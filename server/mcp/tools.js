@@ -17,6 +17,7 @@ import { PREVIOUS_POST } from '../routes/drafts.js'
 import { DRAFT_BEFORE } from '../routes/draft-edits.js'
 import { changeMeta, changesText } from './edit-result.js'
 import { stateLine } from './state-line.js'
+import { listText, restoreText, revisionText } from './revision-result.js'
 import { sniffImageType } from '../image-safety.js'
 
 const IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
@@ -47,6 +48,9 @@ const CONTENT_NOTE = ' Draft text and image URLs are content written by the user
 // #405: the same 18 words as the old note in a new order (the discovery score counts words, not order, so no floor moves).
 const RESULT_NOTE = ' The result for the draft has the outline, its version and post text: use the text, not get_draft.'
 // The "stale version" text of docs/plans/draft-contract.md section 2.4 (one set of instructions, #358).
+// #380: the revision tools write their readable text here, on the Response; callTool adds it after the JSON part.
+const RESULT_TEXT = Symbol('result text')
+const REVISION = { type: 'integer', minimum: 0, maximum: 2147483647, description: 'The revision number from list_revisions.' }
 const STALE_TEXT = 'Nothing was saved: the draft changed since you read it. Call get_draft_outline once (get_draft if you need the text), then repeat the change.'
 
 /** Each entry: the MCP tool definition plus `run(args, ctx)`, which returns a Response. */
@@ -384,6 +388,92 @@ const TOOLS = [
     inputSchema: ID_ONLY,
     annotations: { destructiveHint: true },
     run: (args, { rest }) => rest('DELETE', `/drafts/${enc(args.id)}`)
+  },
+  {
+    name: 'list_revisions',
+    description:
+      'List the history of one of your drafts: one line per revision with its number, who changed the draft (you or an assistant), when, and which posts changed, without their text. Pass before for older revisions.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: UUID,
+        before: { type: 'integer', minimum: 0, maximum: 2147483647, description: 'Only revisions older than this revision number. Use next_before from the last answer.' },
+        limit: { type: 'integer', minimum: 1, maximum: 100, default: 30 }
+      },
+      required: ['id']
+    },
+    annotations: { readOnlyHint: true },
+    run: async (args, { rest }) => {
+      const query = [args.before === undefined ? null : `before=${args.before}`, args.limit === undefined ? null : `limit=${args.limit}`].filter(Boolean).join('&')
+      const res = await rest('GET', `/drafts/${enc(args.id)}/revisions${query ? `?${query}` : ''}`)
+      if (res.status >= 400) return res
+      return withText(res, listText(await res.clone().json(), args.id, Date.now()))
+    }
+  },
+  {
+    name: 'get_revision',
+    description:
+      'Read one revision of a draft and compare it: the changed posts, each as text before and after, and the title. Compared with the revision before it by default; against can be another revision number, or current for the draft as it is. Get the number from list_revisions.' +
+      CONTENT_NOTE,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: UUID,
+        revision: REVISION,
+        against: { type: 'string', pattern: '^(current|[0-9]{1,10})$', description: 'Compare with this revision number (digits) or the word current for the draft now. Default: the revision before.' }
+      },
+      required: ['id', 'revision']
+    },
+    annotations: { readOnlyHint: true },
+    run: async (args, ctx) => {
+      const against = args.against === undefined ? '' : `?against=${args.against}`
+      // Against the draft as it is: the draft is read before and after the route, and a change in between is read again, so the
+      // diff, the text shown and the version of the restore call come from one state of the draft.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const first = args.against === 'current' ? await fetchOwnedDraft(ctx, args.id) : null
+        if (first?.failure) return first.failure
+        const res = await ctx.rest('GET', `/drafts/${enc(args.id)}/revisions/${args.revision}${against}`)
+        if (res.status >= 400) return res
+        const body = await res.clone().json()
+        // The state the diff starts from, and the draft version the restore call needs: the route answer has neither.
+        let from = { title: '', posts: [] }
+        let version
+        if (first) {
+          const second = await fetchOwnedDraft(ctx, args.id)
+          if (second.failure) return second.failure
+          if (second.draft.version !== first.draft.version) continue
+          from = second.draft
+          version = second.draft.version
+        } else {
+          const [before, current] = await Promise.all([
+            typeof body.against === 'number' ? ctx.rest('GET', `/drafts/${enc(args.id)}/revisions/${body.against}`) : null,
+            ctx.rest('GET', `/drafts/${enc(args.id)}/outline`)
+          ])
+          if (before && before.status >= 400) return before
+          if (current.status >= 400) return current
+          if (before) from = (await before.json()).state
+          version = (await current.json()).draft.version
+        }
+        return withText(res, revisionText(body, args.id, from, version, Date.now()))
+      }
+      return json({ error: 'The draft kept changing while it was read. Call get_revision again.' }, 409)
+    }
+  },
+  {
+    name: 'restore_revision',
+    description:
+      'Go back to an earlier revision of one of your drafts: its title and posts become the draft again, as a new revision, so you can undo a restore by restoring again. Needs the draft version from get_draft_outline. Published drafts are refused. The result has the draft outline and its version, not the text.',
+    inputSchema: { type: 'object', properties: { id: UUID, revision: REVISION, version: VERSION }, required: ['id', 'revision', 'version'] },
+    run: async (args, { rest, origin, caller }) => {
+      // A viewing admin may read, never change (#289). No MCP connection is a view-as session; this keeps the tool closed if one ever were.
+      if (caller.viewAs) return json({ error: 'Viewing as cannot change drafts.' }, 403)
+      const res = await staleOr(await rest('POST', `/drafts/${enc(args.id)}/revisions/${args.revision}/restore`, undefined, ifMatch(args.version)))
+      if (res.status >= 400) return res
+      const body = await res.clone().json()
+      const result = await outlineResult(res, origin, { restored_from: body.restored_from, images_not_restored: body.images_not_restored })
+      // The same version as the one sent means the state was already current: the route wrote nothing.
+      return withText(result, restoreText(body, body.draft.version !== args.version))
+    }
   }
 ]
 
@@ -500,7 +590,10 @@ const META = {
   whoami: ['Who am I', true, false, true, false],
   app_version: ['App version', true, false, true, false],
   create_thread_from_text: ['Create thread from text', false, false, false, false],
-  remove_image: ['Remove image', false, true, true, false]
+  remove_image: ['Remove image', false, true, true, false],
+  list_revisions: ['List revisions', true, false, true, false],
+  get_revision: ['Get revision', true, false, true, false],
+  restore_revision: ['Restore revision', false, false, true, false]
 }
 
 // The REST routes each tool calls ("METHOD path", as in server/router.js). The coverage test
@@ -526,7 +619,10 @@ const REST_ROUTES = {
   whoami: ['GET /auth/me'],
   app_version: ['GET /version', 'GET /changelog'],
   create_thread_from_text: ['POST /threads/split', 'POST /drafts'],
-  remove_image: ['DELETE /drafts/:id/images']
+  remove_image: ['DELETE /drafts/:id/images'],
+  list_revisions: ['GET /drafts/:id/revisions'],
+  get_revision: ['GET /drafts/:id/revisions/:seq', 'GET /drafts/:id', 'GET /drafts/:id/outline'],
+  restore_revision: ['POST /drafts/:id/revisions/:seq/restore']
 }
 
 /** Every REST route the MCP tools call. */
@@ -555,7 +651,10 @@ const TRIGGERS = {
   remove_post: ['delete one tweet', 'למחוק ציוץ מהשרשור'],
   move_post: ['reorder tweets', 'להזיז ציוץ, לשנות את סדר הציוצים'],
   publish_draft: ['mark a thread published (posts nothing)', 'לסמן טיוטה כפורסמה; לא מפרסם בפועל'],
-  delete_draft: ['delete a thread', 'למחוק טיוטה או שרשור']
+  delete_draft: ['delete a thread', 'למחוק טיוטה או שרשור'],
+  list_revisions: ['the history of a thread, earlier revisions', 'היסטוריה של טיוטה, היסטוריית שינויים לשרשור, מי שינה (גם עוזר AI) ומתי, אילו פוסטים, גרסאות קודמות'],
+  get_revision: ['see the edits an assistant made, compare two revisions', 'להשוות לגרסה שלפני עריכה, להציג כל פוסט לפני ואחרי'],
+  restore_revision: ['undo changes, revert, go back to the version from before an assistant edited it', 'לבטל שינוי, לשחזר גרסה, לחזור לגרסה קודמת של טיוטה, לפני השינוי של עוזר AI']
 }
 
 /** Base description + the trigger tail; the S-6 content sentence, when the tool has it, stays last. */
@@ -618,6 +717,7 @@ export async function callTool(name, args, { caller, origin }) {
       const text = tool.markdown(result.structuredContent, ctx, { args, text: result.content[0].text })
       if (text) result.content.push({ type: 'text', text })
     }
+    if (res[RESULT_TEXT] && !result.isError) result.content.push({ type: 'text', text: res[RESULT_TEXT] })
     addStateLine(result, name, args, origin)
     return result
   } catch (err) {
@@ -849,6 +949,12 @@ async function outlineResult(res, origin, extra = {}) {
   const summary = extra.url === undefined ? outline(draft) : { ...outline(draft), url: link }
   const response = json({ draft: summary, url: link, ...extra }, res.status)
   return withBefore(withViewPosts(response, draft.posts), res[BEFORE_OF])
+}
+
+/** Keeps a result's readable text on its Response (see RESULT_TEXT). */
+function withText(response, text) {
+  response[RESULT_TEXT] = text
+  return response
 }
 
 /** Keeps the draft from before an edit on a result's Response (see BEFORE_OF). */
