@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { draftsApi } from '../utils/api'
 import { useToast } from '../ui/Toast'
-import { useViewAsReason } from '../utils/viewAs'
+import { useViewAs, useViewAsReason } from '../utils/viewAs'
+import ViewAsLock from './ViewAsLock'
 import Banner from '../ui/Banner'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
@@ -28,6 +29,7 @@ export default function DraftList({ user }) {
   const navigate = useNavigate()
   const toast = useToast()
   const reason = useViewAsReason()
+  const viewing = Boolean(useViewAs())
 
   const loadDrafts = async () => {
     if (!user) return
@@ -124,6 +126,7 @@ export default function DraftList({ user }) {
         actions={showNewDraft ? <Button variant="primary" onClick={createNewDraft} disabledReason={reason}>New draft</Button> : null}
       />
       <Stack gap={4}>
+        {viewing && <ViewAsLock />}
         <Tabs
           label="Threads"
           tabs={[

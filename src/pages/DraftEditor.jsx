@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { draftsApi, authApi } from '../utils/api'
 import { useDraftLive, updatedLabel } from '../utils/useDraftLive'
 import { useViewAs, viewAsReason } from '../utils/viewAs'
+import ViewAsLock from '../components/ViewAsLock'
 import { uploadsPending } from '../utils/pendingUploads'
 import { normalizeImages } from '../utils/images'
 import { set as storeSet, del as idbDel, get as idbGet } from 'idb-keyval'
@@ -56,7 +57,23 @@ const readKeptText = async id => {
 // The text the user wrote, one post per paragraph, for copying after a conflict.
 const plainText = draft => [draft.title, ...draft.posts.map(post => post.text)].filter(Boolean).join('\n\n')
 
+// Viewing as shows counts only (#385): the server refuses the draft, so the editor is not mounted and none is asked for.
 export default function DraftEditor({ user }) {
+  if (useViewAs()) {
+    return (
+      <Page width="narrow">
+        <PageHeader title="Private draft" />
+        <Stack gap={4}>
+          <ViewAsLock />
+          <div><Button variant="secondary" to="/">← Back</Button></div>
+        </Stack>
+      </Page>
+    )
+  }
+  return <DraftEditorBody user={user} />
+}
+
+function DraftEditorBody({ user }) {
   const viewAs = useViewAs()
   const reason = viewAsReason(viewAs)
   // While viewing as a user nothing of theirs is written to this browser (#291): no cache, no kept text, no autosave.

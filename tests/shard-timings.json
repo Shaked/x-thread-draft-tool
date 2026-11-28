@@ -84,6 +84,7 @@
   "tests/api/tokens.test.js": 1469,
   "tests/api/upload-links.test.js": 1798,
   "tests/api/version.test.js": 373,
+  "tests/api/view-as-private.test.js": 1540,
   "tests/api/view-as-routes.test.js": 1671,
   "tests/api/view-as.test.js": 1542,
   "tests/unit/AboutPage.test.jsx": 1263,
