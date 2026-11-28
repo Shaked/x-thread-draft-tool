@@ -11,12 +11,21 @@ vi.mock('../../server/blob.js', () => ({
   removeBlobPrefix: vi.fn(async () => ({ deleted: 0, remaining: 0, bytes: 0 }))
 }))
 
+// The real helper, wrapped so the test sees that each draft route actually calls it at runtime (not just names it in its source).
+vi.mock('../../server/view-as-redact.js', async (original) => {
+  const actual = await original()
+  return { ...actual, redactForViewAs: vi.fn(actual.redactForViewAs) }
+})
+
+import { redactForViewAs } from '../../server/view-as-redact.js'
 import { ROUTES, route } from '../../server/router.js'
 import { sealViewAs } from '../../server/admin/view-as.js'
 import { apiRequest, setupTestDb } from './helpers/db.js'
 
+// Every user-settable field of a draft carries the marker: the title, a post id (validPosts accepts any string), the text, an image
+// url and its alt text, an embedded tweet, and a field the app does not know. Anything that shows the marker leaks draft text.
 const MARK = 'VIEWASMARK-9f3a'
-const MARKS = [MARK, `${MARK} title`, 'https://blob.example/img-VIEWASMARK.png']
+const LEAK = /viewasmark/i
 const NIL = '00000000-0000-4000-8000-000000000000'
 
 let db
@@ -34,8 +43,18 @@ beforeAll(async () => {
   alice = await db.insertUser({ github_id: 1, login: 'alice' })
   draft = await db.insertDraft(alice.id, {
     title: `${MARK} title`,
-    posts: [{ id: 'p1', text: `${MARK} first post`, images: [{ url: 'https://blob.example/img-VIEWASMARK.png' }], embeddedTweet: null }]
+    posts: [
+      {
+        id: `${MARK}-postid`,
+        text: `${MARK} first post`,
+        images: [{ url: 'https://blob.example/img-VIEWASMARK.png', alt: `${MARK} alt` }],
+        embeddedTweet: { url: `https://x.com/a/status/1?${MARK}`, html: `${MARK} embed` },
+        note: `${MARK} unknown field`
+      },
+      { id: 'p2', text: `${MARK} second post`, images: [], embeddedTweet: null }
+    ]
   })
+  await db.insertDraft(alice.id, { title: `${MARK} published`, is_published: true, published_at: new Date().toISOString(), posts: [{ id: `${MARK}-pub`, text: `${MARK} published post`, images: [] }] })
   const adminCookie = await db.cookieFor(admin)
   const claim = await sealViewAs({
     adminUid: admin.id,
@@ -50,30 +69,43 @@ beforeAll(async () => {
   aliceCookie = await db.cookieFor(alice)
 })
 
-// Every GET route under /drafts, with a path that fills the parameters.
+// Every GET route under /drafts, and every GET route that is not an admin route, with a path that fills the parameters.
 const getRoutes = () => ROUTES.filter((r) => r.method === 'GET' && r.path.startsWith('/drafts'))
-const fill = (path) => path.replace(':id', draft.id).replace(':seq', '1')
+const allGetRoutes = () => ROUTES.filter((r) => r.method === 'GET' && !r.path.startsWith('/admin'))
+const fill = (path) => path.replace(':id', draft.id).replace(':seq', '1').replace(/:\w+/g, NIL)
+const listPath = (path) => (path === '/drafts' ? '/drafts?published=false' : fill(path))
 
 describe('view as shows counts only (#385)', () => {
-  it('every GET route under /drafts answers without the target\'s text', async () => {
-    expect(getRoutes().length).toBeGreaterThanOrEqual(5)
-    for (const r of getRoutes()) {
-      const path = r.path === '/drafts' ? '/drafts?published=false' : fill(r.path)
-      const text = await (await call('GET', path, viewing)).text()
-      for (const mark of MARKS) expect({ path, leak: text.includes(mark) }).toEqual({ path, leak: false })
+  it('no GET route except /admin answers with the target\'s text, in any field', async () => {
+    expect(allGetRoutes().length).toBeGreaterThanOrEqual(15)
+    for (const r of allGetRoutes()) {
+      for (const path of r.path === '/drafts' ? ['/drafts?published=false', '/drafts?published=true', '/drafts?published=false&view=summary'] : [fill(r.path)]) {
+        const res = await call('GET', path, viewing)
+        expect({ path, leak: LEAK.test(await res.text()) }).toEqual({ path, leak: false })
+      }
     }
   })
 
-  it('the list shows counts under "Private draft"; the outline has counts, no preview, no images', async () => {
+  it('every GET route under /drafts calls redactForViewAs at runtime', async () => {
+    expect(getRoutes().length).toBeGreaterThanOrEqual(5)
+    for (const r of getRoutes()) {
+      redactForViewAs.mockClear()
+      await call('GET', listPath(r.path), viewing)
+      expect({ path: r.path, calls: redactForViewAs.mock.calls.length > 0 }).toEqual({ path: r.path, calls: true })
+    }
+  })
+
+  it('the list and the outline show only counts and flags, under "Private draft"', async () => {
     const list = (await (await call('GET', '/drafts?published=false', viewing)).json()).drafts
-    expect(list[0]).toMatchObject({ id: draft.id, title: 'Private draft', post_count: 1, image_count: 1 })
+    expect(list[0]).toMatchObject({ id: draft.id, title: 'Private draft', post_count: 2, image_count: 1 })
     const res = await call('GET', `/drafts/${draft.id}/outline`, viewing)
     expect(res.status).toBe(200)
     const { draft: outline } = await res.json()
-    expect(outline).toMatchObject({ title: 'Private draft', post_count: 1 })
-    expect(outline.posts[0]).toMatchObject({ index: 1, image_count: 1 })
-    expect(outline.posts[0]).not.toHaveProperty('preview')
-    expect(outline.posts[0]).not.toHaveProperty('images')
+    expect(outline).toMatchObject({ title: 'Private draft', post_count: 2 })
+    // Only the allowed fields: counts and flags, never the post id, the preview or the image urls.
+    expect(outline.posts[0]).toEqual({ index: 1, chars: expect.any(Number), remaining: expect.any(Number), over_limit: false, image_count: 1 })
+    expect(Object.keys(outline).sort()).toEqual(['id', 'image_count', 'is_published', 'over_limit_count', 'post_count', 'posts', 'published_at', 'title', 'total_chars', 'updated_at', 'version'])
+    expect(Object.keys(list[0]).sort()).toEqual(Object.keys(outline).filter((key) => key !== 'posts').sort())
   })
 
   it('a draft, its export and its history answer 403 "Viewing as cannot open drafts."', async () => {
@@ -91,14 +123,10 @@ describe('view as shows counts only (#385)', () => {
     expect(own.draft.posts[0].text).toContain(MARK)
     const outline = (await (await call('GET', `/drafts/${draft.id}/outline`, aliceCookie, {})).json()).draft
     expect(outline.posts[0].preview).toContain('VIEWASMARK')
+    expect(own.draft.posts[0].id).toBe(`${MARK}-postid`)
     expect((await call('GET', `/drafts/${draft.id}/export?format=text`, aliceCookie, {})).status).toBe(200)
     expect((await call('GET', `/drafts/${draft.id}/revisions`, aliceCookie, {})).status).toBe(200)
     const list = (await (await call('GET', '/drafts?published=false', aliceCookie, {})).json()).drafts
     expect(list[0].title).toBe(`${MARK} title`)
-  })
-
-  it('every GET route under /drafts calls redactForViewAs (arch test, style of admin-role-arch)', () => {
-    const missing = getRoutes().filter((r) => !String(r.handler).includes('redactForViewAs')).map((r) => r.path)
-    expect(missing).toEqual([])
   })
 })
