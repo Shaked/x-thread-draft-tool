@@ -3,7 +3,7 @@
 - When a merge to production comes with a changelog screenshot, the Telegram notice shows it as a photo.
 - Without a screenshot the notice stays a text message, and a photo problem never loses the notice.
 Area: Docs
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/629
 Screenshot: not needed, CI only
 
 ## Technical details
