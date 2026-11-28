@@ -2,7 +2,7 @@
 // #380 (E273 task H7): list_revisions, get_revision and restore_revision, each as an OAuth caller. The text is readable
 // (one line per revision, before and after as block quotes), never a code block; a stale version writes nothing;
 // another user's draft is "Draft not found"; a view-as caller is refused.
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { route } from '../../server/router.js'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { callTool } from '../../server/mcp/tools.js'
@@ -18,11 +18,9 @@ let aliceToken
 let bobToken
 let draft
 
+// One seed for the file (a seed per test costs about 0.2 s on CI, and the shard budget is tight). Only the last test writes.
 beforeAll(async () => {
   db = await setupTestDb()
-})
-
-beforeEach(async () => {
   await db.reset()
   await db.pg.query("insert into oauth_clients (client_id, kind, client_name) values ('xtc_rev_test', 'registered', 'Test') on conflict do nothing")
   alice = await db.insertUser({ github_id: 1, login: 'alice' })
@@ -91,23 +89,6 @@ describe('get_revision', () => {
 })
 
 describe('restore_revision', () => {
-  it('restores a revision with the version, answers with the outline and no post text, and keeps the history', async () => {
-    const result = await call(aliceToken, 'restore_revision', { id: draft.id, revision: 1, version: 2 })
-    expect(result.isError).toBe(false)
-    const text = textOf(result)
-    expect(text).toContain('Restored revision 1: the draft is now version 3 with 2 posts.')
-    expect(text).toMatch(/Draft \S+, version 3, 2 posts/)
-    expect(text).toContain(`${APP_URL}/draft/${draft.id}`)
-    expect(text).not.toContain(LONG) // outline and link only (T5)
-    expect(text).not.toContain('```')
-    expect(result.structuredContent.restored_from).toBe(1)
-    const now = await current()
-    expect(now.version).toBe(3)
-    expect(now.posts.map((post) => post.text)).toEqual(['first post', LONG])
-    const after = await call(aliceToken, 'list_revisions', { id: draft.id })
-    expect(after.structuredContent.revisions[0].label).toBe('Restored revision 1')
-  })
-
   it('refuses a stale version with the usual answer and writes nothing', async () => {
     const result = await call(aliceToken, 'restore_revision', { id: draft.id, revision: 1, version: 1 })
     expect(result.isError).toBe(true)
@@ -159,5 +140,24 @@ describe('another user and view-as', () => {
       expect(textOf(result), name).not.toContain(HE)
     }
     expect((await current()).version).toBe(2)
+  })
+})
+
+describe('restore_revision writes', () => {
+  it('restores a revision with the version, answers with the outline and no post text, and keeps the history', async () => {
+    const result = await call(aliceToken, 'restore_revision', { id: draft.id, revision: 1, version: 2 })
+    expect(result.isError).toBe(false)
+    const text = textOf(result)
+    expect(text).toContain('Restored revision 1: the draft is now version 3 with 2 posts.')
+    expect(text).toMatch(/Draft \S+, version 3, 2 posts/)
+    expect(text).toContain(`${APP_URL}/draft/${draft.id}`)
+    expect(text).not.toContain(LONG) // outline and link only (T5)
+    expect(text).not.toContain('```')
+    expect(result.structuredContent.restored_from).toBe(1)
+    const now = await current()
+    expect(now.version).toBe(3)
+    expect(now.posts.map((post) => post.text)).toEqual(['first post', LONG])
+    const after = await call(aliceToken, 'list_revisions', { id: draft.id })
+    expect(after.structuredContent.revisions[0].label).toBe('Restored revision 1')
   })
 })

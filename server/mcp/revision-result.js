@@ -9,7 +9,7 @@ const TEXT_LIMIT = 10
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 /** "3 minutes ago", "2 hours ago", "5 days ago"; older than 30 days: the date. `now` is a parameter for the tests. */
-export function ago(iso, now = Date.now()) {
+function ago(iso, now = Date.now()) {
   const seconds = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000))
   if (seconds < 60) return 'just now'
   const minutes = Math.floor(seconds / 60)
@@ -28,7 +28,7 @@ const actorOf = (rev) => (rev.actor_name ? ` by ${rev.actor_name}` : rev.actor_k
 const revisionHead = (rev, now) => `Revision ${rev.seq}${actorOf(rev)}, ${ago(rev.created_at, now)}`
 
 /** "Revision 14 by ChatGPT, 3 minutes ago: changed post 2, added post 5 after post 4." */
-export function revisionLine(rev, now) {
+function revisionLine(rev, now) {
   const label = rev.label ? ` ${rev.label}.` : ''
   return `${revisionHead(rev, now)}: ${rev.summary ?? 'no changes'}.${label}`
 }
