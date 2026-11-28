@@ -1,7 +1,7 @@
 # The restore tool now says when nothing was written
 - Restoring a revision that already equals the draft says "Nothing changed", and that the version was stale if it was, instead of "Restored".
 Area: Drafts
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/632
 Screenshot: not needed, tool text and tests only
 
 ## Technical details
