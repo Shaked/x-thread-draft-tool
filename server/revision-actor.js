@@ -24,9 +24,9 @@ function storedName(clientName) {
   return Array.from(plain).slice(0, CLIENT_NAME_MAX).join('').trim()
 }
 
-// Letters of other scripts that read as a Latin letter the reserved names use (a, c, d, e, i, k, m, n, o, p, t, u).
+// Letters of other scripts that read as a Latin letter the reserved names use (a, c, d, e, i, k, l, m, n, o, p, r, t, u).
 // They are folded only in the comparison key; the stored name keeps the characters the client sent. Escapes, so that a
-// reviewer can see which code point each entry is: Cyrillic, Greek, Cherokee, Armenian, small capitals, dotless i.
+// reviewer can see which code point each entry is: Cyrillic, Greek, Cherokee, Armenian, Lisu, small capitals, IPA, dotless i.
 const LOOK_ALIKE = new Map([
   ['\u0410', 'a'], ['\u0430', 'a'], ['\u0421', 'c'], ['\u0441', 'c'], ['\u0415', 'e'], ['\u0435', 'e'],
   ['\u0406', 'i'], ['\u0456', 'i'], ['\u041a', 'k'], ['\u043a', 'k'], ['\u041c', 'm'], ['\u043c', 'm'],
@@ -36,24 +36,35 @@ const LOOK_ALIKE = new Map([
   ['\u039a', 'k'], ['\u03ba', 'k'], ['\u039c', 'm'], ['\u03bc', 'm'], ['\u039f', 'o'], ['\u03bf', 'o'],
   ['\u03a1', 'p'], ['\u03c1', 'p'], ['\u03a4', 't'], ['\u03c4', 't'],
   ['\u13c6', 'i'], ['\u13df', 'c'],
+  ['\u039d', 'n'], ['\u03bd', 'n'], ['\u04c0', 'l'], ['\u04cf', 'l'],
+  ['\u0280', 'r'], ['\u029f', 'l'], ['\u0274', 'n'], ['\u1d0b', 'k'], ['\u0251', 'a'], ['\u01c0', 'l'], ['\u0269', 'i'],
+  ['\u13aa', 'a'], ['\u13e2', 'p'], ['\u13ac', 'e'], ['\u13a0', 'd'], ['\u13a2', 't'], ['\u13be', 'o'], ['\u13d2', 'r'],
+  ['\u13b7', 'm'], ['\u13e6', 'k'], ['\u13de', 'l'],
+  ['\ua4ee', 'a'], ['\ua4d1', 'p'], ['\ua4da', 'c'], ['\ua4f2', 'i'], ['\ua4f0', 'e'], ['\ua4f3', 'o'], ['\ua4d4', 't'],
+  ['\ua4df', 'm'], ['\ua4d7', 'k'], ['\ua4d3', 'd'], ['\ua4e0', 'n'], ['\ua4e1', 'l'],
   ['\u0131', 'i'], ['\u026a', 'i'], ['\u1d00', 'a'], ['\u1d04', 'c'], ['\u1d05', 'd'], ['\u1d07', 'e'],
   ['\u1d0d', 'm'], ['\u1d0f', 'o'], ['\u1d18', 'p'], ['\u1d1b', 't'], ['\u1d1c', 'u'],
 ])
 
 /**
  * The key two names are compared on: decomposed (NFKD, so an accent is a separate mark and a fullwidth letter is ASCII),
- * then without hidden characters and marks, one space per run of spaces, look-alike letters read as Latin, lowercase.
+ * then without hidden characters and marks, one space per run of spaces, look-alike letters read as Latin, lowercase,
+ * and l read as i and 0 as o (so 'Cl', 'lmport' and 'Edit0r' match 'CI', 'Import' and 'Editor').
  * A name whose key is empty (only marks, or only hidden characters) has nothing to compare, so it is 'App' (see appName).
  */
 function foldKey(name) {
+  // Best-effort defence against name impersonation in a display field: the kind stays `app` and a client can only change
+  // its own name. Look-alikes this fold misses are acceptable; it is not a security boundary.
   const plain = name.normalize('NFKD').replace(HIDDEN, '').replace(MARKS, '').replace(SPACES, ' ').trim()
-  return Array.from(plain, (ch) => LOOK_ALIKE.get(ch) ?? ch).join('').toLowerCase()
+  return Array.from(plain, (ch) => LOOK_ALIKE.get(ch) ?? ch).join('').toLowerCase().replace(/l/g, 'i').replace(/0/g, 'o')
 }
 
-// A name that mixes Latin letters with Cyrillic or Greek letters can look like a reserved name (a Cyrillic е for a Latin e),
-// so it is not shown as itself.
+// A name that mixes ASCII Latin letters with letters of a look-alike script (Cyrillic, Greek, Armenian, Cherokee, Lisu, IPA
+// and phonetic extensions) can look like a reserved name (a Cyrillic е for a Latin e), so it is not shown as itself.
+const LOOK_ALIKE_SCRIPTS = /[\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Armenian}\p{Script=Cherokee}\p{Script=Lisu}\u0250-\u02af\u1d00-\u1dbf]/u
 function mixesLookAlikeScripts(name) {
-  return /\p{Script=Latin}/u.test(name) && /[\p{Script=Cyrillic}\p{Script=Greek}]/u.test(name)
+  const plain = name.normalize('NFKD').replace(MARKS, '')
+  return /[A-Za-z]/.test(plain) && LOOK_ALIKE_SCRIPTS.test(plain)
 }
 
 /** The name an OAuth client shows as, or 'App' when it is empty, mixes scripts, or is a reserved name after folding. */

@@ -98,6 +98,32 @@ describe('actorOf', () => {
       '\u0420\u0435\u0434\u0430\u043a\u0442\u043e\u0440': '\u0420\u0435\u0434\u0430\u043a\u0442\u043e\u0440', // Russian word: kept
       '\u0395\u03c1\u03b3\u03b1\u03bb\u03b5\u03af\u03bf': '\u0395\u03c1\u03b3\u03b1\u03bb\u03b5\u03af\u03bf', // Greek word: kept
       '\u05e2\u05d5\u05d6\u05e8': '\u05e2\u05d5\u05d6\u05e8', // Hebrew word: kept
+      'Edito\u0280': 'App', // small capital R
+      'Upload lin\u1d0b': 'App', // small capital K
+      'API toke\u0274': 'App', // small capital N
+      'Upload \u029fink': 'App', // small capital L
+      '\u1d07\u1d05\u026a\u1d1b\u1d0f\u0280': 'App', // all small capitals: editor
+      '\u026a\u1d0d\u1d18\u1d0f\u0280\u1d1b': 'App', // import
+      '\u1d00\u1d18\u026a \u1d1b\u1d0f\u1d0b\u1d07\u0274': 'App', // api token
+      '\u1d1c\u1d18\u029f\u1d0f\u1d00\u1d05 \u029f\u026a\u0274\u1d0b': 'App', // upload link
+      '\u13aa\u13e2\u13e2': 'App', // Cherokee App
+      '\u13c6\u13b7\u13e2\u13be\u13d2\u13a2': 'App', // Cherokee Import
+      '\u13ac\u13a0\u13c6\u13a2\u13be\u13d2': 'App', // Cherokee Editor
+      '\u0391\u03a1\u0399 \u03a4\u039f\u039a\u0395\u039d': 'App', // all-Greek API TOKEN
+      '\u0421\u04c0': 'App', // Cyrillic C and palochka
+      '\ua4ee\ua4d1\ua4d1': 'App', // Lisu App
+      '\ua4da\ua4f2': 'App', // Lisu CI
+      'C\ua4f2': 'App', // Latin C with Lisu I
+      'C\u01c0': 'App', // C and dental click
+      'C\u0269': 'App', // C and iota
+      '\u0251pp': 'App', // alpha for a
+      'Editor\u0433': 'App', // only the mixed-script rule catches this: Cyrillic ge is no look-alike letter
+      'Cl': 'App', 'lmport': 'App', 'APl token': 'App', 'Edit0r': 'App', 'Imp0rt': 'App', // l for i, 0 for o
+      'Claude': 'Claude', 'ChatGPT': 'ChatGPT', 'Cursor': 'Cursor', 'Grok': 'Grok', 'VS Code': 'VS Code', 'Caf\u00e9': 'Caf\u00e9',
+      'Zed': 'Zed', 'Windsurf': 'Windsurf', 'Claude Code': 'Claude Code', 'Raycast': 'Raycast', 'n8n': 'n8n',
+      '\u8349\u7a3f\u52a9\u624b': '\u8349\u7a3f\u52a9\u624b', // Chinese
+      '\u0645\u0633\u0627\u0639\u062f': '\u0645\u0633\u0627\u0639\u062f', // Arabic
+      '\u041a\u043e\u0442': '\u041a\u043e\u0442', '\u0422\u0410\u041a\u0421\u0418': '\u0422\u0410\u041a\u0421\u0418', '\u03a0\u03b1\u03bd\u03bf\u03c2': '\u03a0\u03b1\u03bd\u03bf\u03c2', // Кот, ТАКСИ, Πανος: kept
       'Editor\u200b': 'App', // zero-width space
       'Claude\u3000': 'Claude', // trailing ideographic space
       'Claude\u2028Desktop': 'Claude Desktop', // line separator
