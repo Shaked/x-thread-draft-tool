@@ -246,6 +246,14 @@ Looked at and decided, no task (Opus, 2026-11-20):
 Never weaken, skip or disable a test for speed. Every fix above runs the same tests, only in parallel,
 cached or with cheaper setup.
 
+### Update 2026-11-28 (#576): E2E in four shards, UI audit in two files
+
+The speed gate opened on 2026-11-27 16:16 UTC: the stage "CI checks" (stage (a), the first run of each required workflow on the PR head) was 1 min 48 s against 1 min 30 s. The `Checks (build, lint, knip, ...)` job is not the cause: it takes 25 to 32 s. The longest job was E2E shard 3/3 ("Run E2E tests" 57 s before, 69 s after), because `--shard` cuts the tests by count in file order, and the slow `ui-audit.spec.ts` tests fell into shards 2 to 4 (shard 1 held none).
+
+Change (PR 631): `e2e-shard` runs 4 shards (`--shard=n/4`), and the UI audit is registered from two spec files (`audit-early.spec.ts` sorts early, `ui-audit.spec.ts` late; shared code in `ui-audit-cases.ts`; same 165 tests, same assertions and screenshots) so each shard gets a share of the slow tests. Measured locally (4 CPUs, 3 workers, each shard with its own build and servers): 34, 35, 32 and 41 s. A split at 16 pages instead of 13 measured 35, 44, 30 and 45 s, so 13 is kept.
+
+What this does not fix: the stage is the latest end of `Tests`, `Security`, `CodeQL` and `Net lines`. The unit shards (up to about 75 s wall) and CodeQL (58 to 95 s on first attempts) are now as long as the E2E shards, so the margin under 90 s is thin. CI runs `retries: 2` for Playwright, so one flaky test can stretch a shard by a retry. A follow-up, if the gate stays open: balance the unit shards further (`npm run shard-timings`), and measure what in CodeQL is slow. CodeQL is not weakened and no limit changes.
+
 ## 4. Metrics solution
 
 `scripts/speed-metrics.mjs` (task S5). No model, no new paid service, no new secret.
