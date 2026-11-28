@@ -131,3 +131,22 @@ describe('#405: get_draft, then update_post', () => {
     expect(rows[0].version).toBe(1)
   })
 })
+
+// #405: the note says the result has the post text, so the assistant need not fetch it. Only duplicate_draft, whose
+// result is the outline alone, keeps the old note that sends it to get_draft.
+describe('#405: the result note on each draft tool', () => {
+  const NEW_NOTE = 'use the text, not get_draft.'
+  const OLD_NOTE = 'use get_draft for the text.'
+  const NOTE_TOOLS = ['update_draft', 'add_post', 'update_post', 'remove_post', 'move_post', 'remove_image', 'create_draft', 'create_thread_from_text']
+
+  it('the eight tools that return post text have the new note; duplicate_draft keeps the old one', async () => {
+    const { tools } = await rpc('tools/list', {})
+    const description = (name) => tools.find((tool) => tool.name === name)?.description ?? ''
+    for (const name of NOTE_TOOLS) {
+      expect(description(name), name).toContain(NEW_NOTE)
+      expect(description(name), name).not.toContain(OLD_NOTE)
+    }
+    expect(description('duplicate_draft')).toContain(OLD_NOTE)
+    expect(description('duplicate_draft')).not.toContain(NEW_NOTE)
+  })
+})

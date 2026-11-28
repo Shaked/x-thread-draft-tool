@@ -12,11 +12,35 @@ export const LABEL_COPIED = 'Copied from another draft'
 export const FIXED_ACTOR_NAMES = ['Editor', 'API token', 'CI', 'Upload link', 'Import', 'App']
 const CLIENT_NAME_MAX = 60
 
-/** The name an OAuth client shows as: cleaned, at most 60 characters, or 'App' when empty or reserved. */
+// Characters a name can hide behind: format and default-ignorable characters (soft hyphen, zero-width space,
+// tag characters, Hangul filler) and, only in the comparison key, combining marks.
+const HIDDEN = /[\p{Default_Ignorable_Code_Point}\p{Cf}]/gu
+const MARKS = /\p{M}/gu
+const SPACES = /\p{White_Space}+/gu
+
+/** The name as it is stored: NFKC, no hidden characters, one space per run of spaces, at most 60 characters. */
+function storedName(clientName) {
+  const plain = (cleanName(clientName ?? '') ?? '').normalize('NFKC').replace(HIDDEN, '').replace(SPACES, ' ').trim()
+  return Array.from(plain).slice(0, CLIENT_NAME_MAX).join('').trim()
+}
+
+/** The key two names are compared on: the stored form without marks, lowercase. */
+function foldKey(name) {
+  return name.normalize('NFKC').replace(HIDDEN, '').replace(MARKS, '').replace(SPACES, ' ').trim().toLowerCase()
+}
+
+// A name that mixes Latin letters with Cyrillic or Greek letters can look like a reserved name (a Cyrillic е for a Latin e),
+// so it is not shown as itself.
+function mixesLookAlikeScripts(name) {
+  return /\p{Script=Latin}/u.test(name) && /[\p{Script=Cyrillic}\p{Script=Greek}]/u.test(name)
+}
+
+/** The name an OAuth client shows as, or 'App' when it is empty, mixes scripts, or is a reserved name after folding. */
 function appName(clientName) {
-  const cleaned = Array.from(cleanName(clientName ?? '') ?? '').slice(0, CLIENT_NAME_MAX).join('').trim()
-  if (cleaned === '' || FIXED_ACTOR_NAMES.some((name) => name.toLowerCase() === cleaned.toLowerCase())) return 'App'
-  return cleaned
+  const name = storedName(clientName)
+  const key = foldKey(name)
+  if (name === '' || mixesLookAlikeScripts(name) || FIXED_ACTOR_NAMES.some((fixed) => foldKey(fixed) === key)) return 'App'
+  return name
 }
 
 /**

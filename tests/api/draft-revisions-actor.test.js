@@ -74,6 +74,23 @@ describe('actorOf', () => {
     expect(actorOf({ via: 'oauth', clientName: 'A\u0007b' }).name).toBe('Ab')
   })
 
+  it('folds look-alike names onto the reserved names, and keeps the rest as cleaned', () => {
+    const cases = {
+      'Upload\u00a0link': 'App', // no-break space
+      'Upl\u00adoad link': 'App', // soft hyphen
+      'Editor\u{e0041}': 'App', // tag character
+      'Edi\u3164tor': 'App', // Hangul filler
+      '\uff25\uff44\uff49\uff54\uff4f\uff52': 'App', // fullwidth Editor
+      '\u0415ditor': 'App', // Cyrillic capital IE, mixed with Latin
+      'Import\u0301': 'App', // combining accent
+      'Editor\u200b': 'App', // zero-width space
+      'Claude\u3000': 'Claude', // trailing ideographic space
+      'Claude\u2028Desktop': 'Claude Desktop', // line separator
+      '\u00a0Claude Desktop': 'Claude Desktop' // leading no-break space
+    }
+    for (const [clientName, name] of Object.entries(cases)) expect(actorOf({ via: 'oauth', clientName }).name).toBe(name)
+  })
+
   it('throws for a caller it does not know, so no write goes out unnamed', () => {
     expect(() => actorOf({ via: 'web' })).toThrow('draft write without a known caller')
     expect(() => actorOf(null)).toThrow()
@@ -191,5 +208,40 @@ describe('the Supabase import names itself as Import', () => {
     await db.pg.query(IMPORT_DRAFT_SQL, row(keep, plain))
     const { affectedRows: none } = await db.pg.query(IMPORT_DRAFT_SQL, row(keep, stored))
     expect(none).toBe(0)
+  })
+})
+
+describe('three writers in a row', () => {
+  it('an edit, an upload through the link and an edit again are three revisions, and the row keeps no actor', async () => {
+    const draft = await db.insertDraft(alice.id)
+    const edit = (text) => route(apiRequest(`/api/drafts/${draft.id}/posts/p1`, { method: 'PATCH', cookie, body: { text } }))
+    expect((await edit('first')).status).toBe(200)
+    const made = await route(apiRequest(`/api/drafts/${draft.id}/posts/p1/upload-links`, { method: 'POST', cookie, body: {} }))
+    const token = (await made.json()).url.split('#')[1]
+    expect((await route(apiRequest('/api/upload-links/images', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: makePng() }))).status).toBe(201)
+    expect((await edit('second')).status).toBe(200)
+    const { rows } = await db.pg.query('select actor_name from draft_revisions where draft_id = $1 order by seq desc limit 3', [draft.id])
+    expect(rows.map((row) => row.actor_name)).toEqual(['Editor', 'Upload link', 'Editor'])
+    const { rows: now } = await db.pg.query('select last_actor_kind, last_actor_name, last_label from drafts where id = $1', [draft.id])
+    expect(now[0]).toEqual({ last_actor_kind: null, last_actor_name: null, last_label: null })
+  })
+})
+
+describe('the import keeps updated_at and a re-run writes nothing', () => {
+  it('leaves the imported updated_at on the conflict update, and a second run adds no revision', async () => {
+    const id = randomUUID()
+    const posts = [{ id: 'p1', text: 'x', images: [{ url: 'https://x.supabase.co/storage/v1/object/public/draft-images/a.png' }], embeddedTweet: null }]
+    const plain = [{ id: 'p1', text: 'y', images: [], embeddedTweet: null }]
+    const count = async () => (await db.pg.query('select count(*)::int as n from draft_revisions where draft_id = $1', [id])).rows[0].n
+    const day = async () => (await db.pg.query("select to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD') as d from drafts where id = $1", [id])).rows[0].d
+    await db.pg.query(IMPORT_DRAFT_SQL, [id, alice.id, 'Old', JSON.stringify(posts), false, null, '2026-01-01', '2026-01-02'])
+    expect(await day()).toBe('2026-01-02')
+    const first = await db.pg.query(IMPORT_DRAFT_SQL, [id, alice.id, 'Old', JSON.stringify(plain), false, null, '2026-01-01', '2026-03-03'])
+    expect(first.affectedRows).toBe(1)
+    expect(await day()).toBe('2026-01-02')
+    const afterFirst = await count()
+    const again = await db.pg.query(IMPORT_DRAFT_SQL, [id, alice.id, 'Old', JSON.stringify(plain), false, null, '2026-01-01', '2026-03-03'])
+    expect(again.affectedRows).toBe(0)
+    expect(await count()).toBe(afterFirst)
   })
 })

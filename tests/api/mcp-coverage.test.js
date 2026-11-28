@@ -22,6 +22,7 @@ const EXCLUDED = {
   'POST /upload-links/images': '#418: raw bytes with the one-time link token, sent by the upload page; a tool makes the link, not the upload',
   'GET /drafts/:id/revisions': '#378 (H5): the MCP tools list_revisions, get_revision and restore_revision come in H7, #380',
   'GET /drafts/:id/revisions/:seq': '#378 (H5): the MCP tools come in H7, #380',
+  'POST /drafts/:id/revisions/:seq/restore': '#379 (H6): the MCP tool restore_revision comes in H7, #380',
   'GET /share/:token': 'Public one-time read; the link is the product, not a tool',
   'GET /openapi.json': 'Documentation, not a user function',
   'GET /health': 'Health check, not a user function',
