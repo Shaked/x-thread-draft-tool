@@ -293,8 +293,6 @@ export function readPhoto(rel, root = process.cwd()) {
   try {
     if (typeof rel !== 'string' || !PHOTO_PATH.test(rel) || rel.includes('..')) return null
     const abs = join(root, rel)
-    // A symlinked folder on the way would resolve elsewhere.
-    if (realpathSync(abs) !== join(realpathSync(root), rel)) return null
     // Open once without following a link, then check and read the same open file: no gap for a swap between them.
     const fd = openSync(abs, constants.O_RDONLY | constants.O_NOFOLLOW)
     let bytes
@@ -307,6 +305,8 @@ export function readPhoto(rel, root = process.cwd()) {
       closeSync(fd)
     }
     if (!PNG_MAGIC.every((b, i) => bytes[i] === b)) return null
+    // A symlinked folder on the way would resolve elsewhere: the path must still resolve inside the checkout.
+    if (realpathSync(abs) !== join(realpathSync(root), rel)) return null
     return { bytes }
   } catch {
     return null
