@@ -43,6 +43,8 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          # Full history: the live notice reads the deployed commit's parent to find a changelog screenshot (#628).
+          fetch-depth: 0
 
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -72,6 +74,8 @@ jobs:
       # Telegram notices for production only (epic #241). Both steps run even when the smoke step
       # failed, never fail the job (continue-on-error), and send nothing without the two secrets.
       # The commit title and sha come in through env, never through ${{ }} inside run.
+      # The live notice sends the changelog screenshot as a photo when the deployed commit added an entry with one;
+      # the script finds and validates it (docs/changelogs/img/<name>.png, regular file, no symlink, under 200 KB).
       - name: "Telegram: production is live and tested"
         if: always() && github.event_name == 'deployment_status' && github.event.deployment.environment == 'Production' && steps.smoke.outcome == 'success'
         continue-on-error: true

@@ -37,6 +37,8 @@ What a message looks like (the forms in the template):
 
 Titles are cut to 120 characters.
 
+Photo (issue #628): the "Production is live and tested" message is sent with `sendPhoto` and the same text as the caption when the deployed commit added a changelog entry with `Screenshot: img/<same name>.png`. The script finds the entry from the commit's diff against its first parent and checks the file: `docs/changelogs/img/<name>.png`, a regular file (no symlink), inside the checkout, a PNG, at most 200 KB. The caption is cut to 1024 visible characters without breaking tags or links. Any photo problem (no file, too big, API error) falls back to the normal text message. `Screenshot: not needed, ...` sends no photo, and no other kind ever does. No new secret.
+
 Nothing else sends a message. There is no message for a push, a new PR, a CI run, a merge, a preview build, or a docs-only merge. A failed Vercel deployment sends nothing either: the smoke job runs only when the deployment state is `success`. A docs-only merge creates no deployment (`scripts/vercel-ignore.mjs` skips the build).
 
 ## The messages
