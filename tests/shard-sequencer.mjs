@@ -1,22 +1,25 @@
 // Splits the test files of --shard=n/m by measured time (#605). Vitest's default sequencer hashes each
 // file path and cuts the list into equal counts, so one shard can hold much more time than another
-// (local runs: one shard 21 to 23 s heavier than another). This gives the files out slowest first, each to
-// the shard with the least time so far. The time of a file is its worker time: environment, setup, import and
-// tests (tests/shard-timings.json, median of three full local runs). A file missing from it counts as the median.
+// (local runs: one shard 21 to 23 s heavier than another). The time of a file is its worker time: environment,
+// setup, import and tests (tests/shard-timings.json, median of CI runs, #634). The split is pinned in
+// tests/shard-assignment.json, so editing a time moves no file; a file missing from the assignment goes slowest first
+// to the shard with the least time so far, and a file missing from the times counts as the median.
 // Every shard computes the same split, so the CI jobs never overlap and never miss a file.
 import { readFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { BaseSequencer } from 'vitest/node'
+import { placeItems } from './shard-balance.mjs'
 
 // The unit project runs under jsdom, where this module has no file URL, so fall back to the repo root.
-const readTimings = () => {
+const readTable = (name) => {
   try {
-    return readFileSync(new URL('./shard-timings.json', import.meta.url), 'utf8')
+    return JSON.parse(readFileSync(new URL(`./${name}`, import.meta.url), 'utf8'))
   } catch {
-    return readFileSync(join(process.cwd(), 'tests/shard-timings.json'), 'utf8')
+    return JSON.parse(readFileSync(join(process.cwd(), 'tests', name), 'utf8'))
   }
 }
-export const TIMINGS = JSON.parse(readTimings())
+export const TIMINGS = readTable('shard-timings.json')
+export const ASSIGNMENT = readTable('shard-assignment.json')
 
 const median = (values) => {
   const sorted = [...values].sort((a, b) => a - b)
@@ -24,17 +27,14 @@ const median = (values) => {
 }
 export const FALLBACK_MS = median(Object.values(TIMINGS))
 
-/** Splits {key, ...} entries into `count` lists with about equal total ms, slowest entries first. */
-export function splitByTime(entries, count, timings = TIMINGS, fallbackMs = FALLBACK_MS) {
+/** The pinned shard of each file for a run of `count` shards; empty when the table was made for another count. */
+const pinnedFor = (count, assignment) => (assignment.shards === count ? assignment.files : {})
+
+/** Splits {key, ...} entries into `count` lists with about equal total ms. Files named in the assignment stay in
+ * their shard; the others go slowest first (ties by name) to the shard with the least time so far. */
+export function splitByTime(entries, count, timings = TIMINGS, fallbackMs = FALLBACK_MS, assignment = ASSIGNMENT) {
   const timed = entries.map((entry) => ({ ...entry, ms: timings[entry.key] ?? fallbackMs }))
-  timed.sort((a, b) => b.ms - a.ms || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
-  const bins = Array.from({ length: count }, () => ({ ms: 0, items: [] }))
-  for (const item of timed) {
-    const bin = bins.reduce((least, candidate) => (candidate.ms < least.ms ? candidate : least))
-    bin.ms += item.ms
-    bin.items.push(item)
-  }
-  return bins.map((bin) => bin.items)
+  return placeItems(timed, count, pinnedFor(count, assignment))
 }
 
 /** Orders specs inside a shard: group order and project name as vitest does, then the slowest file first, so the

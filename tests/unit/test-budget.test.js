@@ -104,9 +104,9 @@ describe('test budget', () => {
     process.env.TEST_BUDGET_OUT = out
     try {
       const reporter = new TestBudgetReporter()
-      reporter.onTestModuleEnd({ moduleId: '/repo/tests/api/x.test.js', diagnostic: () => ({ duration: 1234.4 }) })
+      reporter.onTestModuleEnd({ moduleId: '/repo/tests/api/x.test.js', diagnostic: () => ({ duration: 1234.4, collectDuration: 300, setupDuration: 100 }) })
       reporter.onTestRunEnd()
-      expect(JSON.parse(readFileSync(out, 'utf8'))).toEqual([{ file: '/repo/tests/api/x.test.js', ms: 1234.4 }])
+      expect(JSON.parse(readFileSync(out, 'utf8'))).toEqual([{ file: '/repo/tests/api/x.test.js', ms: 1234.4, workerMs: 1634.4 }])
     } finally {
       if (previous === undefined) delete process.env.TEST_BUDGET_OUT
       else process.env.TEST_BUDGET_OUT = previous

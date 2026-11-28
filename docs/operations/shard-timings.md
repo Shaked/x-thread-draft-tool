@@ -1,26 +1,50 @@
 # Shard timings table
 
-`tests/shard-timings.json` holds each test file's worker time in milliseconds (environment setup, setup,
-import, collect and tests). `tests/shard-sequencer.mjs` uses it to split the unit and API tests into the three
-`--shard=n/3` jobs of the Tests workflow (#605). A file missing from the table counts as the table's median,
-and the sequencer prints a warning in the CI log that names it.
+The unit and API tests run in four `--shard=n/4` jobs of the Tests workflow (three until #634). Two tables in
+`tests/` decide which file runs where:
 
-Inside a shard the files run slowest first (`sort()` in the same sequencer), so the longest file never starts last.
+- `tests/shard-timings.json`: each test file's worker time in milliseconds (environment setup, setup, import,
+  collect and tests), the median of what CI measured. A file missing from it counts as the table's median, and the
+  sequencer prints a warning in the CI log that names it.
+- `tests/shard-assignment.json`: `{ "shards": 4, "files": { "<file>": <shard 1-4> } }`. The sequencer
+  (`tests/shard-sequencer.mjs`) keeps every file in its pinned shard. A file with no pin (a new test file) goes
+  slowest first to the shard with the least time so far. An assignment made for another shard count is ignored.
+
+Because the assignment is pinned, editing a time, adding a file or removing a file moves no other file. Only the
+refresh script rebalances, and it moves a file only when that lowers the heaviest shard, until the heaviest and the
+lightest shard are within 1 % (`tests/shard-balance.mjs`). A 50 % change to one entry moves up to 6 files, not dozens.
+Inside a shard the files run slowest first (`slowestFirst` in the same sequencer).
+
+## Why four shards (#634)
+
+From the `test-budget:` lines of the last 30 Tests runs (90 shard jobs, 2026-11-27 and 2026-11-28, three shards):
+
+- Shard wall time was 32.0 to 54.1 s (median 39.8 s, 90th percentile 51.2 s); 5 of 90 jobs were over the 52 s limit and
+  21 were over 49 s.
+- Almost all of that is runner speed, not the split. The same files took 0.64x to 1.16x of their table time in
+  different jobs (median 0.84x). The same file ran up to 2x slower in one job than in another (median max/min 2.0 for
+  files above 800 ms). Within one run the three shards differed by 12.8 s at the median and 19.5 s at the most.
+- Wall time follows the work in the shard (summed file time / wall time stayed 1.44 to 1.75), so only less work per
+  shard helps. Three shards at about 40 s cannot stay 3 s under 52 s when a runner is 1.35x slower; four shards at
+  about 30 s can (1.35 x 30 = 41 s). The limits (52 s a shard, 5000 ms a file) are unchanged.
+- The table was a developer machine's time (known limit in #605); in CI, files such as `mcp-prompts` and `mcp-images-parallel`
+  cost 25 to 45 % more than their entries, which is why shards 1 to 3 landed 0.2 to 4 s from the limit.
 
 ## Who refreshes it, and when
 
-- The author of a PR that adds or removes a test file runs `npm run shard-timings` (about 5 minutes; three
-  full runs on the local machine) and commits the table with that PR. If the author does not, the next
-  person to see the warning in the CI log does it.
-- Once a month, or after a PR that changes many test files, the same command runs again.
-- The script keeps the median of the runs, so a single slow run does not move the table much.
+- Calibrate from CI, not from a laptop: `npm run shard-timings:ci` (`scripts/ci-shard-timings.mjs`) reads the
+  `test-budget-file: <ms> <file>` lines that every unit shard prints (`scripts/test-budget.mjs`) from the job logs of
+  the last 20 Tests runs through `gh api`, keeps each file's median, and writes both tables. Options:
+  `--runs=20 --shards=4 --branch=main --event=push --dry-run`, or `--logs=<dir>` for logs you downloaded.
+- Do it once a month, or when the CI log shows a `shard-sequencer:` warning, or when the guard test
+  `keeps the committed shard totals within 3 percent of each other` fails.
+- A PR that adds or removes a test file does not have to touch the tables: the new file is placed on the lightest
+  shard. Refresh later with the command above.
+- `npm run shard-timings` still exists for a local machine (three full local runs); local times are not CI times.
 
 ## What to check after a refresh
 
-- `npm run test:budget -- --shard=1/3`, `2/3` and `3/3` each stay within budget locally.
+- `git diff --stat tests/shard-assignment.json` shows a handful of lines, not dozens.
+- The four CI shards stay at least 3 s under 52 s on five runs in a row; the check is the `test-budget:` line of each
+  shard job. Do not raise a limit or change the budget to hide a slow shard.
 - The Tests workflow log shows no `shard-sequencer:` warning.
-
-## Limits
-
-- The table is measured on a developer machine. CI runners can be slower on some files and not others, so the
-  split is not exact on CI (see #605). Do not raise a limit or change the budget to hide that.
