@@ -31,6 +31,8 @@ Passed:
 [Open production](<production url>) · [Commit <sha7>](<commit url>) · [See the run](<run url>)   [run link only when the workflow passes it]
 ```
 
+A photo (issue #628): when the deployed commit added a changelog entry with a screenshot, the same text is the caption of the changelog image (cut to 1024 characters). Otherwise the message is text only.
+
 Example:
 ```text
 ✅ **Thread Draft** · [Production is live and tested](https://x-thread-draft-tool.vercel.app)

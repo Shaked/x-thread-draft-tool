@@ -16,6 +16,7 @@
 //
 // CLI (the workflows pass every value through environment variables, never inside the shell text):
 //   NOTIFY_KIND, NOTIFY_SHA, NOTIFY_TITLE, NOTIFY_URL, NOTIFY_RUN_URL, NOTIFY_PREVIEW_URL,
+//   (kind live only: the screenshot of the changelog entry the commit added is sent as a photo, issue #628)
 //   NOTIFY_FAIL_ON_ERROR=1 (exit 1 when the send failed; default exit 0)
 //   NOTIFY_HEADLINE, NOTIFY_NUMBER_LINE, NOTIFY_CAUSE_LINE, NOTIFY_ACTION_LINE (kind metrics),
 //   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
@@ -25,6 +26,9 @@
 // status only and also exits 0, so a notice can never fail a workflow. The token and the request
 // URL are never printed.
 
+import { execFileSync } from 'node:child_process'
+import { closeSync, constants, fstatSync, openSync, readSync, realpathSync } from 'node:fs'
+import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 // The one place that names the app (issue #504). The channel is shared with other apps, so every
@@ -242,6 +246,100 @@ export function messageFromEnv(env = {}) {
   }, appFromEnv(env))
 }
 
+
+// ---- Photo for "Production is live and tested" (issue #628) ----
+// Telegram's limit for a photo caption, counted in visible characters (after the HTML is parsed).
+export const CAPTION_MAX = 1024
+export const PHOTO_TIMEOUT_MS = 15000
+export const PHOTO_MAX = 200 * 1024 // the changelog screenshot rule (#603)
+const PHOTO_PATH = /^docs\/changelogs\/img\/[A-Za-z0-9][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)*\.png$/
+const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47]
+
+// Cuts Telegram HTML to `max` visible characters (code points, as Array.from counts them; Telegram counts UTF-16
+// units, so an astral emoji can count twice there, which the sendMessage fallback covers; real captions are ~200 characters) without breaking a tag or an entity, and closes the tags that
+// are still open. Only the tags the messages use appear (b, a, code). Adds an ellipsis when it cut.
+export function cutCaption(html, max = CAPTION_MAX) {
+  const parts = String(html).match(/<[^>]*>|&[a-z]+;|[^<&]+|&/g) || []
+  if (visibleLength(parts) <= max) return String(html)
+  let out = ''
+  let used = 0
+  const open = []
+  for (const part of parts) {
+    if (part.startsWith('<')) {
+      const name = /^<\/?([a-z]+)/i.exec(part)?.[1]
+      if (part.startsWith('</')) open.pop()
+      else if (name) open.push(name)
+      out += part
+      continue
+    }
+    const chars = part.startsWith('&') && part.length > 1 ? [part] : Array.from(part)
+    for (const ch of chars) {
+      if (used >= max - 1) {
+        return `${out}…${open.reverse().map((n) => `</${n}>`).join('')}`
+      }
+      out += ch
+      used += 1
+    }
+  }
+  return out
+}
+
+function visibleLength(parts) {
+  return parts.reduce((n, part) => (part.startsWith('<') ? n : n + (part.startsWith('&') && part.length > 1 ? 1 : Array.from(part).length)), 0)
+}
+
+// Checks a screenshot path and returns { bytes } or null. The path must be docs/changelogs/img/<name>.png (no
+// "..", no other folder or extension), a regular file that is not a symlink, resolved inside `root`, at most
+// 200 KB, and a PNG. Never throws.
+export function readPhoto(rel, root = process.cwd()) {
+  try {
+    // Defence in depth, each layer on purpose: the path pattern, the no-".." check, no symlink (O_NOFOLLOW and the
+    // realpath check), a regular file, a size limit and the PNG signature. Any one of them alone rejects the attacks.
+    if (typeof rel !== 'string' || !PHOTO_PATH.test(rel) || rel.includes('..')) return null
+    const abs = join(root, rel)
+    // Open once without following a link, then check and read the same open file: no gap for a swap between them.
+    const fd = openSync(abs, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK) // O_NONBLOCK: a FIFO must not block the open
+    let bytes
+    try {
+      const st = fstatSync(fd)
+      if (!st.isFile() || st.size === 0 || st.size > PHOTO_MAX) return null
+      bytes = Buffer.alloc(st.size)
+      if (readSync(fd, bytes, 0, st.size, 0) !== st.size) return null
+    } finally {
+      closeSync(fd)
+    }
+    if (!PNG_MAGIC.every((b, i) => bytes[i] === b)) return null
+    // A symlinked folder on the way would resolve elsewhere: the path must still resolve inside the checkout.
+    if (realpathSync(abs) !== join(realpathSync(root), rel)) return null
+    return { bytes }
+  } catch {
+    return null
+  }
+}
+
+// The screenshot path of the changelog entries a commit adds, or ''. Reads the first parent's diff, so it works for
+// a merge commit and a squash commit. Only an entry whose line is `Screenshot: img/<its own name>.png` counts.
+// The text read from git is only matched, never run or printed.
+export function findScreenshot(sha, { git = (args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1 << 20 }) } = {}) {
+  const id = String(sha || '').trim()
+  if (!/^[0-9a-f]{7,40}$/i.test(id)) return ''
+  try {
+    const rows = git(['diff', '--no-renames', '--name-status', '--end-of-options', `${id}^1`, id, '--', 'docs/changelogs'])
+    for (const row of rows.split('\n').filter(Boolean)) {
+      const [status, path = ''] = row.split('\t')
+      const name = /^docs\/changelogs\/([A-Za-z0-9][A-Za-z0-9_-]*)\.md$/.exec(path)?.[1]
+      if (!status.startsWith('A') || !name || name === 'README') continue
+      const shot = (/^Screenshot: (.*)$/m.exec(git(['show', `${id}:${path}`]))?.[1] || '').trim()
+      if (shot === `img/${name}.png` || (shot.startsWith('![') && shot.endsWith(`](img/${name}.png)`) && !/[\n]/.test(shot))) {
+        return `docs/changelogs/img/${name}.png`
+      }
+    }
+  } catch {
+    // No parent, a shallow checkout or a missing commit: no photo, the text message still goes.
+  }
+  return ''
+}
+
 // True when a 400 answer says Telegram could not parse the HTML. Reads the body once; never throws.
 async function isParseError(res) {
   try {
@@ -252,10 +350,38 @@ async function isParseError(res) {
   }
 }
 
+// Sends the screenshot with the message text as its caption. Returns true when Telegram accepted it. Any problem
+// (file rejected, API error, network error) logs a short line without the token and returns false, so the caller
+// sends the text message instead.
+async function sendPhoto({ token, chatId, html, plain, photo, root, fetchImpl, log }) {
+  const file = readPhoto(photo, root)
+  if (!file) {
+    log('notify: photo rejected, sending text')
+    return false
+  }
+  try {
+    const form = new FormData()
+    form.set('chat_id', String(chatId))
+    form.set('caption', html ? cutCaption(html) : clip(plain, CAPTION_MAX))
+    if (html) form.set('parse_mode', 'HTML')
+    form.set('photo', new Blob([file.bytes], { type: 'image/png' }), 'screenshot.png')
+    // A timeout is an error like any other: the text message goes next.
+    const res = await fetchImpl(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form, signal: AbortSignal.timeout(PHOTO_TIMEOUT_MS) })
+    if (res.ok) {
+      log('notify sent (photo)')
+      return true
+    }
+    log(`notify: photo failed: HTTP ${res.status}, sending text`)
+  } catch (err) {
+    log(`notify: photo failed: ${err?.name || 'error'}, sending text`)
+  }
+  return false
+}
+
 // Sends one message: HTML first. If Telegram rejects the HTML (a parse error), sends the plain text
 // once more, and never a third time. Returns 'skipped', 'sent' or 'failed'; never throws.
 // `fetchImpl` and `log` are parameters so the tests can use fakes.
-export async function notify({ token = '', chatId = '', html = '', plain = '', fetchImpl = fetch, log = console.log }) {
+export async function notify({ token = '', chatId = '', html = '', plain = '', photo = '', root = process.cwd(), fetchImpl = fetch, log = console.log }) {
   if (!token || !chatId) {
     log('notify skipped: no Telegram secrets')
     return 'skipped'
@@ -264,6 +390,11 @@ export async function notify({ token = '', chatId = '', html = '', plain = '', f
     log('notify skipped: no text')
     return 'skipped'
   }
+  if (photo && (await sendPhoto({ token, chatId, html, plain, photo, root, fetchImpl, log }))) return 'sent'
+  return sendText({ token, chatId, html, plain, fetchImpl, log })
+}
+
+async function sendText({ token, chatId, html, plain, fetchImpl, log }) {
   const send = (fields) =>
     fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
@@ -295,6 +426,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     ? notify({
         token: process.env.TELEGRAM_BOT_TOKEN || '',
         chatId: process.env.TELEGRAM_CHAT_ID || '',
+        // Only the "Production is live and tested" kind gets a photo, and only when the commit added an entry with one.
+        photo: process.env.NOTIFY_KIND === 'live' ? findScreenshot(process.env.NOTIFY_SHA) : '',
         ...message,
       })
     : Promise.resolve(console.log('notify skipped: unknown kind'))
