@@ -250,11 +250,13 @@ export function messageFromEnv(env = {}) {
 // ---- Photo for "Production is live and tested" (issue #628) ----
 // Telegram's limit for a photo caption, counted in visible characters (after the HTML is parsed).
 export const CAPTION_MAX = 1024
+export const PHOTO_TIMEOUT_MS = 15000
 export const PHOTO_MAX = 200 * 1024 // the changelog screenshot rule (#603)
 const PHOTO_PATH = /^docs\/changelogs\/img\/[A-Za-z0-9][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)*\.png$/
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47]
 
-// Cuts Telegram HTML to `max` visible characters without breaking a tag or an entity, and closes the tags that
+// Cuts Telegram HTML to `max` visible characters (code points, as Array.from counts them; Telegram counts UTF-16
+// units, so an astral emoji can count twice there, which the sendMessage fallback covers; real captions are ~200 characters) without breaking a tag or an entity, and closes the tags that
 // are still open. Only the tags the messages use appear (b, a, code). Adds an ellipsis when it cut.
 export function cutCaption(html, max = CAPTION_MAX) {
   const parts = String(html).match(/<[^>]*>|&[a-z]+;|[^<&]+|&/g) || []
@@ -291,10 +293,12 @@ function visibleLength(parts) {
 // 200 KB, and a PNG. Never throws.
 export function readPhoto(rel, root = process.cwd()) {
   try {
+    // Defence in depth, each layer on purpose: the path pattern, the no-".." check, no symlink (O_NOFOLLOW and the
+    // realpath check), a regular file, a size limit and the PNG signature. Any one of them alone rejects the attacks.
     if (typeof rel !== 'string' || !PHOTO_PATH.test(rel) || rel.includes('..')) return null
     const abs = join(root, rel)
     // Open once without following a link, then check and read the same open file: no gap for a swap between them.
-    const fd = openSync(abs, constants.O_RDONLY | constants.O_NOFOLLOW)
+    const fd = openSync(abs, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK) // O_NONBLOCK: a FIFO must not block the open
     let bytes
     try {
       const st = fstatSync(fd)
@@ -320,7 +324,7 @@ export function findScreenshot(sha, { git = (args) => execFileSync('git', args, 
   const id = String(sha || '').trim()
   if (!/^[0-9a-f]{7,40}$/i.test(id)) return ''
   try {
-    const rows = git(['diff', '--no-renames', '--name-status', `${id}^1`, id, '--', 'docs/changelogs'])
+    const rows = git(['diff', '--no-renames', '--name-status', '--end-of-options', `${id}^1`, id, '--', 'docs/changelogs'])
     for (const row of rows.split('\n').filter(Boolean)) {
       const [status, path = ''] = row.split('\t')
       const name = /^docs\/changelogs\/([A-Za-z0-9][A-Za-z0-9_-]*)\.md$/.exec(path)?.[1]
@@ -361,7 +365,8 @@ async function sendPhoto({ token, chatId, html, plain, photo, root, fetchImpl, l
     form.set('caption', html ? cutCaption(html) : clip(plain, CAPTION_MAX))
     if (html) form.set('parse_mode', 'HTML')
     form.set('photo', new Blob([file.bytes], { type: 'image/png' }), 'screenshot.png')
-    const res = await fetchImpl(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form })
+    // A timeout is an error like any other: the text message goes next.
+    const res = await fetchImpl(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form, signal: AbortSignal.timeout(PHOTO_TIMEOUT_MS) })
     if (res.ok) {
       log('notify sent (photo)')
       return true

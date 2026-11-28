@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { buildMessage, notify, readPhoto, cutCaption, findScreenshot, CAPTION_MAX, PHOTO_MAX } from '../../scripts/notify-telegram.mjs'
 
@@ -89,6 +90,22 @@ describe('sendPhoto for the live kind', () => {
     }
   })
 
+  it('passes a timeout signal to sendPhoto and falls back to text when it fires', async () => {
+    const msg = buildMessage('live', { sha: SHA, title: 'Fix' })
+    const calls = []
+    const fetchImpl = vi.fn(async (url, init) => {
+      calls.push({ url, init })
+      if (url.endsWith('/sendPhoto')) throw Object.assign(new Error(`timed out ${url}`), { name: 'TimeoutError' })
+      return { ok: true, status: 200, json: async () => ({}) }
+    })
+    const logs = []
+    expect(await notify({ token: TOKEN, chatId: '42', ...msg, photo: REL, root, fetchImpl, log: (l) => logs.push(l) })).toBe('sent')
+    expect(calls[0].init.signal).toBeInstanceOf(AbortSignal)
+    expect(calls.map((c) => c.url.split('/').pop())).toEqual(['sendPhoto', 'sendMessage'])
+    expect(logs.join('\n')).toContain('TimeoutError')
+    expect(logs.join('\n')).not.toContain(TOKEN)
+  })
+
   it('sends text only when no photo is given', async () => {
     const { calls, fetchImpl } = recorder()
     await notify({ token: TOKEN, chatId: '42', ...buildMessage('live', { sha: SHA, title: 'x' }), fetchImpl, log: () => {} })
@@ -147,7 +164,27 @@ describe('readPhoto: path validation', () => {
     [''],
     [null],
   ])('rejects %s', (rel) => {
+    // A real PNG sits at each path, so the path rules are what reject it, not a missing file.
+    if (typeof rel === 'string' && /^(docs|src)\//.test(rel) && !rel.includes('..')) {
+      mkdirSync(join(root, rel, '..'), { recursive: true })
+      writeFileSync(join(root, rel), PNG)
+    }
     expect(readPhoto(rel, root)).toBeNull()
+  })
+  it('rejects a name starting with a dot and a name with a space even when a real PNG is there', () => {
+    for (const name of ['..png', 'a b.png']) {
+      writeFileSync(join(root, 'docs/changelogs/img', name), PNG)
+      expect(readPhoto(`docs/changelogs/img/${name}`, root)).toBeNull()
+    }
+  })
+  it('rejects a FIFO without hanging', () => {
+    const fifo = join(root, 'docs/changelogs/img/fifo.png')
+    try {
+      execFileSync('mkfifo', [fifo])
+    } catch {
+      return // mkfifo is not available on this platform (Windows): nothing to check here
+    }
+    expect(readPhoto('docs/changelogs/img/fifo.png', root)).toBeNull()
   })
   it('rejects a symlink to a file, a symlinked folder, a directory, a non-PNG and a big file', () => {
     const outside = mkdtempSync(join(tmpdir(), 'tgout-'))
@@ -189,7 +226,15 @@ describe('findScreenshot', () => {
     expect(findScreenshot(SHA, { git: fakeGit([['A', E, 'Screenshot: img/../../x.png']]) })).toBe('')
     expect(findScreenshot(SHA, { git: fakeGit([['A', E, 'Screenshot: img/other.png']]) })).toBe('')
     expect(findScreenshot(SHA, { git: fakeGit([['M', E, 'Screenshot: img/20261128-010101-demo.png']]) })).toBe('')
-    expect(findScreenshot('--upload-pack=x', { git: () => { throw new Error('no') } })).toBe('')
+    const never = vi.fn(() => 'A\tdocs/changelogs/x.md')
+    for (const bad of ['--output=/tmp/x', '--upload-pack=x', 'HEAD', '', null, 'abc', 'a'.repeat(41), `${SHA}\n--output=x`]) {
+      expect(findScreenshot(bad, { git: never })).toBe('')
+    }
+    expect(never).not.toHaveBeenCalled()
+    const seen = []
+    findScreenshot(SHA, { git: (args) => (seen.push(args), '') })
+    expect(seen[0]).toContain('--end-of-options')
+    expect(seen[0].indexOf('--end-of-options')).toBeLessThan(seen[0].indexOf(`${SHA}^1`))
     expect(findScreenshot(SHA, { git: () => { throw new Error('no') } })).toBe('')
   })
 })
