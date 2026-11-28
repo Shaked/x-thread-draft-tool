@@ -22,7 +22,8 @@ const GROUP = {
   remove_post: 'edit',
   move_post: 'edit',
   add_image_from_url: 'image',
-  remove_image: 'image'
+  remove_image: 'image',
+  restore_revision: 'outline'
 }
 
 /** The tools whose successful results end with a state line. */

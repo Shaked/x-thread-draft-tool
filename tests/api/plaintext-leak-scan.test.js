@@ -17,6 +17,7 @@ import { ROUTES, route } from '../../server/router.js'
 import { setQueryImpl } from '../../server/db.js'
 import { flushMetrics } from '../../server/metrics/record.js'
 import { runAs } from '../../server/caller-context.js'
+import { callTool } from '../../server/mcp/tools.js'
 import { issuePair, resolveAccess } from '../../server/oauth/tokens.js'
 import { ADMIN_REST_ROUTES, ADMIN_TOOLS } from '../../server/mcp/admin-tools.js'
 import { APP_URL, apiRequest, setupTestDb } from './helpers/db.js'
@@ -72,6 +73,31 @@ async function restoreCalls(viewAsCookie) {
   for (const [draft, marker, name] of [[draftEn, EN, 'English'], [draftHe, HE, 'Hebrew']]) {
     await rest(`error: restore bad seq (alice REST, ${name} marker in the path)`, { method: 'POST', path: `/drafts/${draft.id}/revisions/${encodeURIComponent(marker)}/restore`, cookie: aliceCookie })
   }
+}
+
+/** The three revision tools (#380). Alice reads and restores (her answers are not scanned for the marker); her stale version is an
+ * error answer with no text. Every other caller gets no text: bob an error result, the admin's MCP bearer an error result for a
+ * draft that is not the admin's, and a view-as caller a refusal. The error answers are scanned with the other errors. */
+async function revisionToolCalls() {
+  const args = (draft) => [
+    ['list_revisions', { id: draft.id }],
+    ['get_revision', { id: draft.id, revision: 1 }],
+    ['restore_revision', { id: draft.id, revision: 1, version: 1 }]
+  ]
+  const viewing = { uid: alice.id, gh: '1', login: 'alice', via: 'session', suspended: false, viewAs: { adminUid: admin.id, adminLogin: 'shaked', expiresAt: Date.now() + 60000 } }
+  for (const draft of [draftEn, draftHe]) {
+    await mcpCall('alice MCP list_revisions', aliceMcp, 'tools/call', { name: 'list_revisions', arguments: { id: draft.id } })
+    await mcpCall('alice MCP get_revision', aliceMcp, 'tools/call', { name: 'get_revision', arguments: { id: draft.id, revision: 1, against: 'current' } })
+    for (const [name, toolArgs] of args(draft)) {
+      await mcpCall(`bob MCP ${name}`, bobMcp, 'tools/call', { name, arguments: toolArgs })
+      await mcpCall(`admin bearer MCP ${name}`, adminMcp, 'tools/call', { name, arguments: toolArgs })
+      const refused = await callTool(name, toolArgs, { caller: viewing, origin: APP_URL })
+      seen.push([`admin view-as MCP ${name}`, `${refused.isError ? 403 : 200}\n${JSON.stringify(refused)}`])
+    }
+  }
+  // A stale version: a 412 as a tool answer, with the version and no draft text.
+  await mcpCall('error: stale revision tool (alice MCP)', aliceMcp, 'tools/call', { name: 'restore_revision', arguments: { id: draftEn.id, revision: 1, version: 1 } })
+  await mcpCall('alice MCP restore_revision', aliceMcp, 'tools/call', { name: 'restore_revision', arguments: { id: draftHe.id, revision: 1, version: (await db.pg.query('select version from drafts where id = $1', [draftHe.id])).rows[0].version } })
 }
 
 let db
@@ -282,6 +308,7 @@ beforeAll(async () => {
   await rest('error: revision bad limit (alice REST, marker in the query)', { path: `/drafts/${draftEn.id}/revisions?limit=${encodeURIComponent(HE)}`, cookie: aliceCookie })
 
   await restoreCalls(viewAsCookie)
+  await revisionToolCalls()
 
   // Every admin REST route the router has, called once through the website surface as the admin. GET of one user
   // uses alice's id; a route that changes a user or a flag gets the nil id (no user, no change); metrics series names a metric (requests).
@@ -355,7 +382,7 @@ describe('plaintext leak scan (issue #384)', () => {
 
   it('no error answer holds a piece of a marker, except the owner-only stale-save answer', () => {
     const errors = seen.filter(([where]) => where.startsWith('error:') && !OWNER_ONLY_ANSWERS.includes(where))
-    expect(errors).toHaveLength(9)
+    expect(errors).toHaveLength(10)
     expect(leaksIn(errors)).toEqual([])
   })
 
@@ -389,6 +416,18 @@ describe('plaintext leak scan (issue #384)', () => {
     expect(status('admin bearer token: restore')).toEqual([401, 401])
     expect(status('error: restore not found')).toEqual([404])
     expect(status('error: restore bad seq')).toEqual([404, 404])
+  })
+
+  it('the revision tools answer the owner and give everyone else an error with no text (#380)', () => {
+    const mcps = (prefix) => seen.filter(([where]) => where.startsWith(prefix))
+    expect(mcps('alice MCP list_revisions')).toHaveLength(2)
+    for (const [where, text] of mcps('alice MCP ')) if (!where.includes('restore')) expect(text, where).not.toContain('"isError":true')
+    for (const prefix of ['bob MCP list_revisions', 'bob MCP get_revision', 'bob MCP restore_revision', 'admin bearer MCP ', 'admin view-as MCP ']) {
+      const answers = mcps(prefix)
+      expect(answers.length, prefix).toBeGreaterThan(0)
+      for (const [where, text] of answers) expect(text, where).toContain('"isError":true')
+    }
+    expect(mcps('error: stale revision tool (alice MCP)')[0][1]).toContain('"isError":true')
   })
 
   it('no admin answer holds a piece of a marker: REST, MCP and "view as"', () => {

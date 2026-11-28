@@ -293,6 +293,45 @@
         { "lang": "he", "text": "תוריד את כל התמונות מהשרשור", "expect": ["remove_image"] },
         { "lang": "he", "text": "הסר את התמונות מכל הציוצים", "expect": ["remove_image"] }
       ]
+    },
+    {
+      "id": "show_history",
+      "phrases": [
+        { "lang": "en", "text": "Show me the history of this thread", "expect": ["list_revisions"] },
+        { "lang": "en", "text": "What changed in my draft and who changed it?", "expect": ["list_revisions"] },
+        { "lang": "en", "text": "List the earlier versions of my thread", "expect": ["list_revisions"] },
+        { "lang": "en", "text": "Show the revision history of my draft", "expect": ["list_revisions"] },
+        { "lang": "he", "text": "תראה לי את ההיסטוריה של השרשור", "expect": ["list_revisions"] },
+        { "lang": "he", "text": "מה השתנה בטיוטה שלי ומי שינה?", "expect": ["list_revisions"] },
+        { "lang": "he", "text": "הצג את הגרסאות הקודמות של השרשור", "expect": ["list_revisions"] },
+        { "lang": "he", "text": "הצג את היסטוריית השינויים של הטיוטה", "expect": ["list_revisions"] }
+      ]
+    },
+    {
+      "id": "undo_change",
+      "phrases": [
+        { "lang": "en", "text": "Undo the last change to my thread", "expect": ["restore_revision"] },
+        { "lang": "en", "text": "Go back to the previous version of my draft", "expect": ["restore_revision"] },
+        { "lang": "en", "text": "Revert my thread to how it was before", "expect": ["restore_revision"] },
+        { "lang": "en", "text": "Restore the earlier version of this draft", "expect": ["restore_revision"] },
+        { "lang": "he", "text": "בטל את השינוי האחרון בשרשור", "expect": ["restore_revision"] },
+        { "lang": "he", "text": "תחזיר את הטיוטה לגרסה הקודמת", "expect": ["restore_revision"] },
+        { "lang": "he", "text": "אני רוצה לחזור לגרסה הקודמת של השרשור", "expect": ["restore_revision"] },
+        { "lang": "he", "text": "שחזר את הגרסה הישנה של הטיוטה", "expect": ["restore_revision"] }
+      ]
+    },
+    {
+      "id": "before_chatgpt",
+      "phrases": [
+        { "lang": "en", "text": "Go back to the version before ChatGPT changed it", "expect": ["restore_revision", "get_revision", "list_revisions"] },
+        { "lang": "en", "text": "Show what ChatGPT changed in my thread", "expect": ["get_revision", "list_revisions"] },
+        { "lang": "en", "text": "Compare my thread now with the version before the last edit", "expect": ["get_revision"] },
+        { "lang": "en", "text": "Which posts did the assistant rewrite?", "expect": ["get_revision", "list_revisions"] },
+        { "lang": "he", "text": "תחזיר לגרסה שלפני ש-ChatGPT שינה אותה", "expect": ["restore_revision", "get_revision", "list_revisions"] },
+        { "lang": "he", "text": "הראה לי מה ChatGPT שינה בשרשור", "expect": ["get_revision", "list_revisions"] },
+        { "lang": "he", "text": "השווה את השרשור עכשיו לגרסה שלפני העריכה האחרונה", "expect": ["get_revision"] },
+        { "lang": "he", "text": "אילו פוסטים העוזר ניסח מחדש?", "expect": ["get_revision", "list_revisions"] }
+      ]
     }
   ],
   "negatives": [
