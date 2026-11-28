@@ -1,6 +1,6 @@
 # Draft revisions (tables and trigger)
 
-Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`). Plan: `docs/plans/revisions-and-encryption.md` section 2. Only `server/routes/revisions.js` reads the tables (list and read one revision, #378) and writes a restore (#379); the MCP tools are in `server/mcp/tools.js` (#380); the history view is a later task. Checked on 2026-11-27.
+Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`). Plan: `docs/plans/revisions-and-encryption.md` section 2. Only `server/routes/revisions.js` reads the tables (list and read one revision, #378) and writes a restore (#379); the MCP tools are in `server/mcp/tools.js` (#380); the history view is a later task. Who is named by H3 (#376) is in its own section below. Checked on 2026-11-27.
 
 ## Tables
 - `draft_revisions(draft_id, seq, version, created_at, actor_kind, actor_name, label, title, post_order)`, key `(draft_id, seq)`. `title` only when it changed; `post_order` (post ids) only when posts were added, removed or moved.
@@ -10,6 +10,24 @@ Built by E273 task H2 (#375, migration `db/migrations/015_draft_revisions.sql`).
 - Both new tables reference `drafts` with `on delete cascade`, so they go with the draft and with the user. The admin delete-user preview counts them (`draft_revisions`, `revision_posts`).
 - **They hold draft text** (titles, post bodies). The leak scan (`tests/api/plaintext-leak-scan.test.js`) lists them as draft tables; no log, error or admin answer may carry their text.
 - No retention: every revision is kept (owner default for H1-Q1, 2026-11-27).
+
+## Who is named (H3, #376)
+Every write of `drafts` except a restore (below) sets the one-shot columns in the same statement, from `actorOf(caller)` in `server/revision-actor.js` (no extra query):
+
+| Caller | `actor_kind` | `actor_name` |
+|---|---|---|
+| Browser session | `user` | `Editor` |
+| OAuth grant (MCP, or REST with an OAuth token) | `app` | the client's `client_name`, cleaned like `server/admin/clean.js`, at most 60 characters; `App` when empty or reserved |
+| Personal API token | `app` | `API token` (never the token's own name) |
+| CI identity (GitHub OIDC) | `system` | `CI` |
+| One-time upload link (#418; `uploadLink` is set in server code only) | `app` | `Upload link` |
+| Supabase import (`scripts/migrate-from-supabase.mjs`, `IMPORT_DRAFT_SQL`) | `system` | `Import` |
+
+- Labels are fixed: publish sets `Published`; duplicate sets `Copied from another draft` on the copy. No label carries user text.
+- A client whose name equals a fixed name after folding is shown as `App`, so no client can pose as the browser, a token, CI, an upload link or the import. Folding: NFKD, hidden characters and combining marks removed, spaces collapsed, look-alike letters of other scripts (Cyrillic, Greek, Cherokee, Armenian, Lisu, small capitals, IPA, dotless i) read as Latin, lowercase, and `l` reads as `i` and `0` as `o`. A name that mixes ASCII Latin letters with letters of Cyrillic, Greek, Armenian, Cherokee, Lisu, IPA or phonetic extensions, or whose key is empty, is `App`. This is a best-effort defence against name impersonation in a display field (the kind stays `app`), not a security boundary. The stored name keeps the characters the client sent, cleaned.
+- A publish that changes no post text or title writes no revision (rule 2 of the trigger), so `Published` is not shown then.
+- A delete writes no revision: the cascade removes the history with the draft.
+- A restore (#379) does not use `actorOf`: its one write sets `last_actor_kind = 'restore'` and its own label, and no name.
 
 ## Trigger `draft_revisions_trg` (after insert or update on drafts, per row)
 0. The actor values are read and cleared first (also in rewrite mode).

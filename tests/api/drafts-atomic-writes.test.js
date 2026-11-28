@@ -257,7 +257,7 @@ describe('per-post PATCH If-Match', () => {
 })
 
 describe('MCP post tools', () => {
-  const run = (name, args) => callTool(name, args, { caller: { uid: alice.id }, origin: 'https://app.test' })
+  const run = (name, args) => callTool(name, args, { caller: { uid: alice.id, via: 'oauth', clientName: 'Test client' }, origin: 'https://app.test' })
   // Spy on the router the tools call (the real one still runs).
   let spy
   beforeEach(() => {

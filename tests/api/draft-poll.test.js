@@ -57,7 +57,7 @@ function recordStatements() {
 const get = (id, { as = cookie, ifNoneMatch } = {}) =>
   router.route(apiRequest(`/api/drafts/${id}`, { cookie: as, headers: ifNoneMatch === undefined ? {} : { 'if-none-match': ifNoneMatch } }))
 
-const ai = (name, args) => callTool(name, args, { caller: { uid: alice.id }, origin: 'https://app.test' })
+const ai = (name, args) => callTool(name, args, { caller: { uid: alice.id, via: 'oauth', clientName: 'Test client' }, origin: 'https://app.test' })
 
 describe('GET /api/drafts/:id with If-None-Match (#360)', () => {
   it('answers 304 with no body and the ETag when the version is unchanged', async () => {

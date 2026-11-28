@@ -22,6 +22,12 @@ import { put } from '@vercel/blob'
 const APPLY = process.argv.includes('--apply')
 const URL_MAP_PATH = 'url-map.json'
 const SUPABASE_IMAGE_MARKER = '/storage/v1/object/public/draft-images/'
+// The draft write of the import (#376): the history names it 'Import' (system). The actor columns are set on insert and on
+// the update branch; the where clause means only a row that still holds Supabase image links is updated and named.
+export const IMPORT_DRAFT_SQL = `insert into drafts (id, user_id, title, posts, is_published, published_at, created_at, updated_at, last_actor_kind, last_actor_name)
+         values ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, 'system', 'Import')
+         on conflict (id) do update set posts = excluded.posts, last_actor_kind = 'system', last_actor_name = 'Import'
+           where drafts.posts::text like '%/storage/v1/object/public/draft-images/%'`
 
 function requireEnv(name) {
   const value = process.env[name]
@@ -190,10 +196,7 @@ async function main() {
         continue
       }
       const inserted = await target.query(
-        `insert into drafts (id, user_id, title, posts, is_published, published_at, created_at, updated_at)
-         values ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)
-         on conflict (id) do update set posts = excluded.posts
-           where drafts.posts::text like '%/storage/v1/object/public/draft-images/%'`,
+        IMPORT_DRAFT_SQL,
         [
           draft.id,
           targetUserId,
