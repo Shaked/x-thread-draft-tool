@@ -4,7 +4,7 @@
 - A draft, its export and its history cannot be opened, and the editor page says drafts are private.
 
 Area: Security
-Link: https://github.com/Shaked/x-thread-draft-tool/pull/0
+Link: https://github.com/Shaked/x-thread-draft-tool/pull/633
 
 ## Technical details
 
