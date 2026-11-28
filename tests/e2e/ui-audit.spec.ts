@@ -2,5 +2,6 @@
 // Header and rules: ui-audit-cases.ts. Both files exist so the E2E shards get an even share of the slow audit tests (#576).
 import { MIGRATED, registerComponentAudit, registerPageAudit } from './ui-audit-cases'
 
+// The split index 13 is shared with audit-early.spec.ts (MIGRATED.slice(0, 13)); move it in both files.
 registerPageAudit(MIGRATED.slice(13))
 registerComponentAudit()
