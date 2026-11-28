@@ -256,7 +256,7 @@ async function postsWithImagesThatExist(uid, posts) {
  * POST /api/drafts/:id/revisions/:seq/restore: writes the state at `seq` as the new current state (owner only). A new
  * version and a revision "Restored revision <seq>"; later revisions stay. A stale If-Match is 412 with the current draft
  * and nothing written; a published draft is 409. Restoring the current state is a 200 with no write. Answer:
- * { draft, restored_from, images_not_restored }. A view-as caller is refused by the router's write check (403).
+ * { draft, restored_from, images_not_restored, written }; `written` is false for that no-write 200 (a stale If-Match too). A view-as caller is refused by the router's write check (403).
  */
 async function restoreRevision({ request, params }) {
   const session = await requireUser(request)
@@ -277,7 +277,7 @@ async function restoreRevision({ request, params }) {
   // Like writeOrAnswer in drafts.js: the UPDATE first; when it writes nothing, the draft is read again to say why.
   for (let attempt = 1; ; attempt++) {
     const { rows: written } = await query(RESTORE_WRITE, [params.id, session.uid, state.title, JSON.stringify(posts), label, tag])
-    if (written[0]) return json({ draft: written[0], ...restored }, 200, etagHeaders(written[0].version))
+    if (written[0]) return json({ draft: written[0], ...restored, written: true }, 200, etagHeaders(written[0].version))
     const { rows: found } = await query(
       `select ${COLUMNS}, ($3::text = title and $4::jsonb = posts) as same
          from drafts where id = $1 and user_id = $2`,
@@ -286,7 +286,7 @@ async function restoreRevision({ request, params }) {
     if (!found[0]) throw notFound()
     const { same, ...draft } = found[0]
     if (draft.is_published) throw new HttpError(409, 'This draft is published. Duplicate it to edit.')
-    if (same) return json({ draft, ...restored }, 200, etagHeaders(draft.version))
+    if (same) return json({ draft, ...restored, written: false }, 200, etagHeaders(draft.version))
     // A tag was sent, or this was the third try: a stale answer. Without a tag, the UPDATE is retried.
     if (tag !== null || attempt >= 3) return staleResponse(draft)
   }

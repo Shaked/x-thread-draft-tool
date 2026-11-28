@@ -2,7 +2,7 @@
 // #380 (E273 task H7): list_revisions, get_revision and restore_revision, each as an OAuth caller. The text is readable
 // (one line per revision, before and after as block quotes), never a code block; a stale version writes nothing;
 // another user's draft is "Draft not found"; a view-as caller is refused.
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { route } from '../../server/router.js'
 import { issuePair } from '../../server/oauth/tokens.js'
 import { callTool } from '../../server/mcp/tools.js'
@@ -109,8 +109,19 @@ describe('restore_revision', () => {
 
   it('says so when the revision is already the current state', async () => {
     const result = await call(aliceToken, 'restore_revision', { id: draft.id, revision: 2, version: 2 })
-    expect(result.content[1].text).toBe('Revision 2 is already the current state. Nothing was written.')
+    expect(result.content[1].text).toBe('Nothing changed: revision 2 is already the current state, so nothing was written.')
     expect((await current()).version).toBe(2)
+  })
+
+  it('says the version was stale when the revision is already current and an old version was sent, and writes nothing', async () => {
+    const result = await call(aliceToken, 'restore_revision', { id: draft.id, revision: 2, version: 1 })
+    expect(result.isError).toBe(false)
+    const text = result.content[1].text
+    expect(text).toBe('Nothing changed: revision 2 is already the current state, so nothing was written. The version you sent (1) was stale: the draft is at version 2.')
+    expect(text).not.toContain('Restored')
+    const now = await current()
+    expect(now.version).toBe(2)
+    expect(now.posts.map((post) => post.text)).toEqual(['first post', HE, 'third post'])
   })
 })
 
@@ -140,6 +151,44 @@ describe('another user and view-as', () => {
       expect(textOf(result), name).not.toContain(HE)
     }
     expect((await current()).version).toBe(2)
+  })
+})
+
+describe('get_revision against the draft now', () => {
+  // A fresh draft, so the shared draft stays at version 2. `afterRead` runs after each read of the draft row (GET /drafts/:id),
+  // the way a write from another client lands between the two reads of one get_revision call.
+  let own
+  const bump = () => db.pg.query("update drafts set version = version + 1 where id = $1", [own])
+  const onRead = (hook) => {
+    const real = db.pg.query.bind(db.pg)
+    vi.spyOn(db.pg, 'query').mockImplementation(async (text, params) => {
+      const res = await real(text, params)
+      if (String(text).startsWith('select version, (version =')) await hook()
+      return res
+    })
+  }
+  afterEach(() => vi.restoreAllMocks())
+
+  beforeAll(async () => {
+    own = (await db.insertDraft(alice.id, { title: 'Moving', posts: [{ id: 'q1', text: 'one', images: [], embeddedTweet: null }] })).id
+  })
+
+  it('reads again when the draft changed between its two reads, and gives the version of the second state', async () => {
+    let reads = 0
+    onRead(async () => { if (++reads === 1) await bump() }) // the first read of attempt 1 is followed by a write
+    const result = await call(aliceToken, 'get_revision', { id: own, revision: 1, against: 'current' })
+    expect(result.isError).toBe(false)
+    expect(reads).toBe(4) // attempt 1: two reads (changed); attempt 2: two reads (same)
+    expect(result.content[1].text).toContain('revision 1 and version 2.')
+  })
+
+  it('answers 409 "kept changing" when every attempt sees a change', async () => {
+    let reads = 0
+    onRead(async () => { if (++reads % 2 === 1) await bump() })
+    const result = await call(aliceToken, 'get_revision', { id: own, revision: 1, against: 'current' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toBe('{"error":"The draft kept changing while it was read. Call get_revision again."}')
+    expect(reads).toBe(6)
   })
 })
 

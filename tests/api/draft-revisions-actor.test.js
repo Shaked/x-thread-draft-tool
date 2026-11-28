@@ -99,6 +99,9 @@ describe('actorOf', () => {
       '\u0395\u03c1\u03b3\u03b1\u03bb\u03b5\u03af\u03bf': '\u0395\u03c1\u03b3\u03b1\u03bb\u03b5\u03af\u03bf', // Greek word: kept
       '\u05e2\u05d5\u05d6\u05e8': '\u05e2\u05d5\u05d6\u05e8', // Hebrew word: kept
       'Edito\u0280': 'App', // small capital R
+      'Edito\u0279': 'App', // IPA turned r, not in the fold table: Latin mixed with the IPA block
+      'Edito\u13a1': 'App', // Cherokee letter not in the fold table
+      'Edito\ua4e3': 'App', // Lisu letter not in the fold table
       'Upload lin\u1d0b': 'App', // small capital K
       'API toke\u0274': 'App', // small capital N
       'Upload \u029fink': 'App', // small capital L
