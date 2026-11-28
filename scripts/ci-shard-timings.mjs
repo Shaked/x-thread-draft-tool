@@ -6,11 +6,12 @@
 // Usage: npm run shard-timings:ci -- [--runs=20] [--shards=4] [--branch=main] [--event=push] [--dry-run]
 //        npm run shard-timings:ci -- --logs=<dir>   (job logs already downloaded, one .log file per job)
 import { spawnSync } from 'node:child_process'
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { currentShardCount, currentTimings, saveTables } from './shard-tables.mjs'
 
+const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const REPO = process.env.GITHUB_REPOSITORY ?? 'Shaked/x-thread-draft-tool'
 const ANSI = new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g')
 const LINE = /test-budget-file: (\d+) (\S+)/
@@ -34,13 +35,14 @@ export function parseJobLog(text) {
   return { files, totalMs: total ? Number(total[1]) : null }
 }
 
-/** Median per file over the jobs. A file seen in fewer than `minSeen` jobs keeps its old time. */
-export function medianTimings(jobs, previous = {}, minSeen = 1) {
+/** Median per file over the jobs. A file seen in fewer than `minSeen` jobs keeps its old time. A file that is not on
+ * disk any more (`onDisk(key)` is false), deleted or renamed, is dropped, so it keeps neither a time nor a pin. */
+export function medianTimings(jobs, previous = {}, minSeen = 1, onDisk = () => true) {
   const seen = {}
   for (const job of jobs) for (const [key, ms] of Object.entries(job.files)) (seen[key] ??= []).push(ms)
   const next = { ...previous }
   for (const [key, values] of Object.entries(seen)) if (values.length >= minSeen) next[key] = Math.round(median(values))
-  return next
+  return Object.fromEntries(Object.entries(next).filter(([key]) => onDisk(key)))
 }
 
 const gh = (path) => {
@@ -83,7 +85,9 @@ function main() {
   const totals = jobs.map((job) => job.totalMs).filter((ms) => ms !== null)
   console.log(`ci-shard-timings: ${jobs.length} shard job logs; shard wall time min ${Math.min(...totals)} median ${median(totals)} max ${Math.max(...totals)} ms`)
   const previous = currentTimings()
-  const next = medianTimings(jobs, previous, Math.min(3, Math.floor(jobs.length / shards)))
+  const next = medianTimings(jobs, previous, Math.min(3, Math.floor(jobs.length / shards)), (key) => existsSync(join(ROOT, key)))
+  const dropped = Object.keys(previous).filter((key) => !(key in next))
+  if (dropped.length > 0) console.log(`ci-shard-timings: dropped ${dropped.length} file(s) that are not on disk: ${dropped.join(', ')}`)
   const changed = Object.keys(next).filter((key) => previous[key] !== next[key]).length
   if ('dry-run' in args) {
     console.log(`ci-shard-timings: dry run, ${changed} of ${Object.keys(next).length} times would change`)

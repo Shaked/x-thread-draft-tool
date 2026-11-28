@@ -63,7 +63,15 @@ export class TimedShardSequencer extends BaseSequencer {
     if (missing.length > 0) {
       console.warn(
         `shard-sequencer: ${missing.length} test file(s) have no time in tests/shard-timings.json and count as ${FALLBACK_MS} ms: ` +
-          `${missing.join(', ')}. Refresh the table with npm run shard-timings (docs/operations/shard-timings.md).`
+          `${missing.join(', ')}. Refresh the table with npm run shard-timings:ci (docs/operations/shard-timings.md).`
+      )
+    }
+    const present = new Set(entries.map((entry) => entry.key))
+    const stale = Object.keys(ASSIGNMENT.files).filter((key) => !present.has(key))
+    if (stale.length > 0 && ASSIGNMENT.shards === count) {
+      console.warn(
+        `shard-sequencer: ${stale.length} pinned file(s) in tests/shard-assignment.json are not test files any more: ` +
+          `${stale.join(', ')}. Refresh with npm run shard-timings:ci (docs/operations/shard-timings.md).`
       )
     }
     return splitByTime(entries, count)[index - 1].map((entry) => entry.spec)

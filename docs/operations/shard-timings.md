@@ -4,7 +4,9 @@ The unit and API tests run in four `--shard=n/4` jobs of the Tests workflow (thr
 `tests/` decide which file runs where:
 
 - `tests/shard-timings.json`: each test file's worker time in milliseconds (environment setup, setup, import,
-  collect and tests), the median of what CI measured. A file missing from it counts as the table's median, and the
+  collect and tests), measured in CI. The committed table is the median of the CI runs of PR #635 that carried
+  `test-budget-file:` lines (3 runs, 12 shard jobs; the first commit of the table was a single run). Only logs from
+  that PR onward carry those lines. Refresh it after about 5 to 20 runs on `main`, which the command below does. A file missing from it counts as the table's median, and the
   sequencer prints a warning in the CI log that names it.
 - `tests/shard-assignment.json`: `{ "shards": 4, "files": { "<file>": <shard 1-4> } }`. The sequencer
   (`tests/shard-sequencer.mjs`) keeps every file in its pinned shard. A file with no pin (a new test file) goes
@@ -36,6 +38,8 @@ From the `test-budget:` lines of the last 30 Tests runs (90 shard jobs, 2026-11-
   `test-budget-file: <ms> <file>` lines that every unit shard prints (`scripts/test-budget.mjs`) from the job logs of
   the last 20 Tests runs through `gh api`, keeps each file's median, and writes both tables. Options:
   `--runs=20 --shards=4 --branch=main --event=push --dry-run`, or `--logs=<dir>` for logs you downloaded.
+- The refresh drops a test file that is not on disk any more (deleted or renamed) from both tables and says so. The
+  sequencer warns in the CI log about a pinned file that is gone.
 - Do it once a month, or when the CI log shows a `shard-sequencer:` warning, or when the guard test
   `keeps the committed shard totals within 3 percent of each other` fails.
 - A PR that adds or removes a test file does not have to touch the tables: the new file is placed on the lightest

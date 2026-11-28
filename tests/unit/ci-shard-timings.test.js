@@ -35,4 +35,10 @@ describe('medianTimings', () => {
     const jobs = [job(1000), job(1100), { files: { 'c.js': 7 }, totalMs: 1 }]
     expect(medianTimings(jobs, { 'c.js': 500, 'old.js': 9 }, 2)).toEqual({ 'a.js': 1100, 'b.js': 100, 'c.js': 500, 'old.js': 9 })
   })
+
+  it('drops a file that is not on disk any more, whether the table or a log names it', () => {
+    const jobs = [job(1000), { files: { 'gone.js': 7 }, totalMs: 1 }]
+    const onDisk = (key) => key !== 'old.js' && key !== 'gone.js'
+    expect(medianTimings(jobs, { 'old.js': 9, 'a.js': 1 }, 1, onDisk)).toEqual({ 'a.js': 1000, 'b.js': 100 })
+  })
 })

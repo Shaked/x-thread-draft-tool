@@ -1,7 +1,8 @@
 // Guard for #605 and #634: --shard=n/m splits the test files by time, the shards cover every file once, they stay
 // balanced, and a small edit to the tables moves only a few files.
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { buildAssignment, placeItems, rebalance } from '../shard-balance.mjs'
 import { ASSIGNMENT, FALLBACK_MS, TIMINGS, TimedShardSequencer, slowestFirst, splitByTime } from '../shard-sequencer.mjs'
 
@@ -25,6 +26,11 @@ describe('splitByTime', () => {
 
   it('has an assignment for every file in the table, and none for a file that is not in it', () => {
     expect(Object.keys(ASSIGNMENT.files).sort()).toEqual([...keys].sort())
+  })
+
+  it('names only files that exist on disk, so a deleted or renamed test file leaves the tables', () => {
+    const missing = keys.filter((key) => !existsSync(join(ROOT, key)))
+    expect(missing, 'run npm run shard-timings:ci (it drops files that are gone)').toEqual([])
   })
 
   it('keeps the committed shard totals within 3 percent of each other', () => {
@@ -122,6 +128,23 @@ describe('TimedShardSequencer', () => {
       picked.push((await sequencer.shard(files)).map((spec) => spec.moduleId))
     }
     expect(picked.flat().sort()).toEqual(files.map((spec) => spec.moduleId).sort())
+  })
+
+  it('warns about a pinned file that is not a test file any more, and about a file with no time', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const files = keys.slice(1).map((key) => ({ moduleId: join(ROOT, key) }))
+      files.push({ moduleId: join(ROOT, 'tests/api/zz-new.test.js') })
+      const sequencer = new TimedShardSequencer({ config: { root: ROOT, shard: { index: 1, count: COUNT } } })
+      await sequencer.shard(files)
+      const text = warn.mock.calls.map((call) => call[0]).join('\n')
+      expect(text).toContain(`pinned file(s)`)
+      expect(text).toContain(keys[0])
+      expect(text).toContain('tests/api/zz-new.test.js')
+      expect(text).toContain('shard-timings:ci')
+    } finally {
+      warn.mockRestore()
+    }
   })
 })
 
