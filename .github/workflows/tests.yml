@@ -79,15 +79,15 @@ jobs:
             exit 1
           fi
 
-  # The unit and API tests run in three shards (#490: two shards were over their budget again) (vitest --shard), each under its own time budget.
+  # The unit and API tests run in four shards (#490: two shards were over their budget again; #634: with three, runner speed varied 1.8x and 5 of 90 shard jobs ran over 52 s) (vitest --shard), each under its own time budget.
   # Each shard builds too: some tests read dist/ and build-info.
   unit-shard:
-    name: Unit tests shard ${{ matrix.shard }}/3
+    name: Unit tests shard ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
@@ -102,8 +102,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Run unit and API tests (time budget, shard ${{ matrix.shard }}/3)
-        run: npm run test:budget -- --shard=${{ matrix.shard }}/3
+      - name: Run unit and API tests (time budget, shard ${{ matrix.shard }}/4)
+        run: npm run test:budget -- --shard=${{ matrix.shard }}/4
 
   # The check that branch protection reads. It never skips: a skipped need counts as passing,
   # so it runs on every outcome and fails unless every needed job succeeded.

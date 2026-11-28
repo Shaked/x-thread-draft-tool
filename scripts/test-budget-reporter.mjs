@@ -8,7 +8,11 @@ export default class TestBudgetReporter {
   rows = []
 
   onTestModuleEnd(testModule) {
-    this.rows.push({ file: testModule.moduleId, ms: testModule.diagnostic().duration })
+    const d = testModule.diagnostic()
+    // workerMs is what the shard really spends on the file (environment setup, setup, import, collect and tests);
+    // it is what tests/shard-timings.json holds, and the CI log prints it so the table can be calibrated from CI (#634).
+    const workerMs = (d.environmentSetupDuration ?? 0) + (d.setupDuration ?? 0) + (d.prepareDuration ?? 0) + (d.collectDuration ?? 0) + d.duration
+    this.rows.push({ file: testModule.moduleId, ms: d.duration, workerMs })
   }
 
   onTestRunEnd() {

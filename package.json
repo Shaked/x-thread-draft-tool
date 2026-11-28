@@ -18,6 +18,7 @@
     "knip": "knip",
     "test:budget": "node scripts/test-budget.mjs",
     "shard-timings": "node tests/regen-shard-timings.mjs",
+    "shard-timings:ci": "node scripts/ci-shard-timings.mjs",
     "eval:contract": "node tests/eval/discovery/score.mjs && node tests/eval/contract/format.mjs",
     "screens": "playwright test --project=screens",
     "slop": "node scripts/slop-scan.mjs",

@@ -338,3 +338,7 @@ does not change. Rules: the Rules section of #275.
 
 Expected result after S1 to S4: (a) about 70 s median and 85 s p90 (CodeQL becomes the longest run),
 (c) unchanged at about 22 s and 27 s, (d) about 15 s and 22 s. Total about 107 s median and 134 s p90.
+
+Update 2026-11-28 (#634): the unit tests run in 4 shards behind the same `Unit tests (vitest)` check. With 3 shards, runner
+speed (1.8x between jobs) put 5 of 90 shard jobs over the 52 s limit. The split is pinned in `tests/shard-assignment.json`
+and calibrated from CI logs (`npm run shard-timings:ci`). Limits unchanged.
