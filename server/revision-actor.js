@@ -24,9 +24,12 @@ function storedName(clientName) {
   return Array.from(plain).slice(0, CLIENT_NAME_MAX).join('').trim()
 }
 
-/** The key two names are compared on: the stored form without marks, lowercase. */
+/**
+ * The key two names are compared on: decomposed (NFKD, so an accent is a separate mark and a fullwidth letter is ASCII),
+ * then without hidden characters and marks, one space per run of spaces, lowercase.
+ */
 function foldKey(name) {
-  return name.normalize('NFKC').replace(HIDDEN, '').replace(MARKS, '').replace(SPACES, ' ').trim().toLowerCase()
+  return name.normalize('NFKD').replace(HIDDEN, '').replace(MARKS, '').replace(SPACES, ' ').trim().toLowerCase()
 }
 
 // A name that mixes Latin letters with Cyrillic or Greek letters can look like a reserved name (a Cyrillic е for a Latin e),

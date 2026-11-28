@@ -83,6 +83,9 @@ describe('actorOf', () => {
       '\uff25\uff44\uff49\uff54\uff4f\uff52': 'App', // fullwidth Editor
       '\u0415ditor': 'App', // Cyrillic capital IE, mixed with Latin
       'Import\u0301': 'App', // combining accent
+      'E\u0301ditor': 'App', // E with a combining accent: NFKC would compose it into a precomposed letter
+      '\u00c9ditor': 'App', // the precomposed accented letter
+      'Ed\u0131tor': 'Ed\u0131tor', // dotless i is a different letter: kept as it is
       'Editor\u200b': 'App', // zero-width space
       'Claude\u3000': 'Claude', // trailing ideographic space
       'Claude\u2028Desktop': 'Claude Desktop', // line separator
